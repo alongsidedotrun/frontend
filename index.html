@@ -1,0 +1,23 @@
+<!doctype html>
+<html>
+<body>
+  <p>Session ID: <input id="sessionId" size="40" /> <button onclick="connect()">Connect</button></p>
+  <pre id="events"></pre>
+
+  <script>
+    function connect() {
+      const id = document.getElementById("sessionId").value;
+      const events = document.getElementById("events");
+      const ws = new WebSocket(`ws://127.0.0.1:3000/sessions/${id}/ws`);
+
+      ws.onmessage = (event) => {
+        events.textContent += event.data + "\n\n";
+      };
+
+      ws.onerror = (event) => {
+        events.textContent += "WebSocket error, is the session ID correct?\n\n";
+      };
+    }
+  </script>
+</body>
+</html>
