@@ -1,0 +1,148 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "Geist";
+  src: url("/fonts/Geist-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: "Geist";
+  src: url("/fonts/Geist-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: "Geist";
+  src: url("/fonts/Geist-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: block;
+}
+
+@layer base {
+  html {
+    /* Scales all rem-based sizing (sidebar, icons, spacing, most text) with
+       viewport width, so the UI doesn't look tiny on large/high-res monitors
+       without the user having to manually zoom the page. */
+    font-size: clamp(15px, 0.9vw + 8px, 19px);
+  }
+
+  body {
+    @apply bg-porch-bg text-porch-text font-sans;
+  }
+}
+
+@layer components {
+  .sidebar-logo {
+    @apply w-6 h-6 rounded-[5px];
+  }
+
+  .sidebar-icon-btn {
+    @apply w-6 h-6 flex items-center justify-center text-porch-muted bg-transparent border-0 p-0 cursor-pointer transition-colors duration-150 hover:text-porch-text hover:bg-transparent;
+  }
+
+  .sidebar-icon-btn svg {
+    @apply w-4 h-4;
+  }
+
+  .sidebar-logo-btn {
+    @apply relative w-6 h-6 bg-transparent border-0 p-0 cursor-pointer text-porch-muted hover:text-porch-text;
+  }
+
+  .sidebar-logo-mask {
+    @apply block relative w-full h-full rounded-[5px] overflow-hidden;
+  }
+
+  .sidebar-logo-btn img {
+    @apply absolute inset-0 w-full h-full object-cover transition-opacity duration-100 ease-linear;
+  }
+
+  .sidebar-logo-btn .sidebar-logo-toggle {
+    @apply absolute inset-0 w-full h-full flex items-center justify-center opacity-0 transition-opacity duration-100 ease-linear delay-100;
+  }
+
+  .sidebar-logo-btn:hover img {
+    @apply opacity-0;
+  }
+
+  .sidebar-logo-btn:hover .sidebar-logo-toggle {
+    @apply opacity-100 delay-100;
+  }
+
+  .hovercard {
+    @apply absolute left-full top-1/2 -translate-y-1/2 ml-2 whitespace-nowrap bg-porch-bg border border-porch-border rounded-md px-2 py-1 text-xs text-porch-text shadow-lg opacity-0 invisible transition-opacity duration-150 delay-300 pointer-events-none z-30;
+  }
+
+  .group:hover .hovercard {
+    @apply opacity-100 visible;
+  }
+
+  .sidebar-avatar {
+    @apply w-7 h-7 rounded-full bg-porch-text text-porch-card flex items-center justify-center text-xs font-semibold cursor-pointer border-0;
+  }
+
+  .compose-box {
+    @apply bg-porch-card border border-porch-border rounded-2xl p-3.5;
+  }
+
+  .compose-box textarea {
+    @apply block w-full bg-transparent border-0 resize-none outline-none placeholder-porch-muted px-0.5 pb-2.5 pt-0.5;
+  }
+
+  .icon-btn {
+    @apply bg-transparent border border-porch-border rounded-lg w-[32px] h-[32px] flex items-center justify-center text-porch-muted cursor-pointer transition-colors duration-150 hover:text-porch-text hover:bg-[#1c1c1a];
+  }
+
+  .model-label {
+    @apply text-sm text-porch-muted bg-transparent border-0 px-1;
+  }
+
+  .send-btn {
+    @apply w-[32px] h-[32px] rounded-lg bg-porch-btn hover:bg-porch-btn-hover text-white flex items-center justify-center leading-none cursor-pointer transition-colors duration-150;
+  }
+
+  .dropdown-panel {
+    @apply absolute z-20 min-w-[180px] bg-porch-bg border border-porch-border rounded-md shadow-lg py-1 px-1 opacity-0 invisible scale-95 origin-top pointer-events-none transition-all duration-150 ease-out;
+  }
+
+  .dropdown-panel.open {
+    @apply opacity-100 visible scale-100 pointer-events-auto;
+  }
+
+  .dropdown-item {
+    @apply block w-full text-left px-2 py-1.5 text-sm text-porch-text rounded-md hover:bg-porch-border cursor-pointer bg-transparent border-0;
+  }
+
+  .dropdown-label {
+    @apply px-2 pt-2 pb-1 text-xs uppercase tracking-wide text-porch-muted;
+  }
+
+  .model-trigger {
+    @apply flex items-center gap-1 text-sm text-porch-muted bg-transparent border-0 px-1 cursor-pointer transition-colors duration-150 hover:text-porch-text;
+  }
+
+  /* shadcn Button, replicated: this project has no React/shadcn build, so these
+     match shadcn's default Button classes (shape, spacing, transitions) by hand. */
+  .btn-shadcn-outline {
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-geist text-sm font-medium transition-colors h-9 px-4 py-2 w-full cursor-pointer bg-porch-card border border-porch-border text-porch-text hover:bg-[#1c1c1a];
+  }
+
+  .btn-shadcn-light {
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-geist text-sm font-medium transition-colors h-9 px-4 py-2 w-full cursor-pointer bg-[#FAFAFA] text-black hover:bg-[#D4D4D4];
+  }
+
+  .field-input {
+    @apply bg-porch-card text-porch-text border border-porch-border rounded-md px-2.5 py-1.5;
+  }
+
+  .plain-btn {
+    @apply bg-porch-card text-porch-text border border-porch-border rounded-md px-2.5 py-1.5 cursor-pointer hover:bg-[#1c1c1a];
+  }
+}
