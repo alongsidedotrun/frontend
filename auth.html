@@ -2,6 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Porch</title>
 <link rel="icon" type="image/svg+xml" href="/logo.svg" />
 <link rel="preload" href="/fonts/Geist-Medium.woff2" as="font" type="font/woff2" crossorigin />
@@ -9,8 +10,10 @@
 <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-  <div class="flex h-screen w-screen">
-    <div class="w-[55%] h-screen bg-porch-card flex flex-col justify-between p-10">
+  <div class="page-transition-overlay opacity-100" id="pageTransition"></div>
+
+  <div class="flex flex-col md:flex-row h-screen w-screen">
+    <div class="hidden md:flex md:w-[55%] h-screen bg-porch-card flex-col justify-between p-6 lg:p-10">
       <img src="/logo.svg" alt="Porch" class="w-8 h-8 rounded-[5px]" />
       <blockquote>
         <p class="text-porch-text text-m leading-relaxed">&ldquo;Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.&rdquo;</p>
@@ -18,8 +21,9 @@
       </blockquote>
     </div>
 
-    <div class="w-[45%] h-screen bg-porch-bg flex items-center justify-center p-10">
+    <div class="w-full md:w-[45%] h-screen bg-porch-bg flex items-center justify-center p-6 sm:p-10">
       <div class="w-full max-w-sm flex flex-col gap-4">
+        <img src="/logo.svg" alt="Porch" class="w-8 h-8 rounded-[5px] mb-2 md:hidden" />
         <h1 class="font-geist font-semibold text-2xl text-center text-porch-text">Sign In</h1>
 
         <button class="btn-shadcn-outline" onclick="signInWithGoogle()">
@@ -49,11 +53,26 @@
   </div>
 
   <script>
+    // Double rAF: let the initial opaque frame paint before starting the
+    // fade-out, otherwise the browser collapses both states into one frame.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const overlay = document.getElementById("pageTransition");
+        overlay.classList.remove("opacity-100");
+        overlay.classList.add("opacity-0");
+      });
+    });
+
     // Placeholder sign-in: no real auth exists yet (Sprint 5), so both paths just
     // mark the browser as signed in and move on without validating anything.
     function enterApp() {
-      localStorage.setItem("porch_signed_in", "1");
-      location.href = "/";
+      const overlay = document.getElementById("pageTransition");
+      overlay.classList.remove("opacity-0");
+      overlay.classList.add("opacity-100");
+      setTimeout(() => {
+        localStorage.setItem("porch_signed_in", "1");
+        location.href = "/";
+      }, 300);
     }
 
     function signInWithGoogle() {

@@ -145,4 +145,15 @@
   .plain-btn {
     @apply bg-porch-card text-porch-text border border-porch-border rounded-md px-2.5 py-1.5 cursor-pointer hover:bg-[#1c1c1a];
   }
+
+  .chat-name-input {
+    @apply bg-transparent border-0 text-porch-text text-sm font-medium px-1.5 py-1 rounded-md min-w-0 flex-1 max-w-xs outline-none transition-colors duration-150 hover:bg-porch-card focus:bg-porch-card;
+  }
+
+  /* Cross-page fade: auth.html fades this to opaque before navigating away,
+     the destination page starts opaque and fades it out once loaded, so the
+     actual page swap happens while the screen is a solid color. */
+  .page-transition-overlay {
+    @apply fixed inset-0 z-50 bg-porch-card transition-opacity duration-300 ease-in-out pointer-events-none;
+  }
 }
