@@ -14,16 +14,22 @@
 
   <div class="flex flex-col md:flex-row h-screen w-screen">
     <div class="hidden md:flex md:w-[55%] h-screen bg-porch-card flex-col justify-between p-6 lg:p-10">
-      <img src="/logo.svg" alt="Porch" class="w-8 h-8" />
+      <div class="flex items-center gap-[10px]">
+        <img src="/logo.svg" alt="Porch" class="w-8 h-8" />
+        <span class="font-geist font-normal text-[32px] text-[#F1EFE8]">Porch</span>
+      </div>
       <blockquote>
-        <p class="text-porch-text text-m leading-relaxed">&ldquo;Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.&rdquo;</p>
-        <footer class="mt-4 text-sm text-porch-muted">Lorem Ipsum</footer>
+        <p class="text-[#F1EFE8] text-m leading-relaxed">&ldquo;Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.&rdquo;</p>
+        <footer class="mt-4 text-sm text-[#A1A1AA]">Lorem Ipsum</footer>
       </blockquote>
     </div>
 
     <div class="w-full md:w-[45%] h-screen bg-porch-bg flex items-center justify-center p-6 sm:p-10">
       <div class="w-full max-w-sm flex flex-col gap-4">
-        <img src="/logo.svg" alt="Porch" class="w-8 h-8 mb-2 md:hidden" />
+        <div class="flex items-center gap-[10px] mb-2 md:hidden">
+          <img src="/logo.svg" alt="Porch" class="w-8 h-8" />
+          <span class="font-geist font-normal text-[32px] text-porch-text">Porch</span>
+        </div>
         <h1 class="font-geist font-semibold text-2xl text-center text-porch-text">Sign In</h1>
 
         <button class="btn-shadcn-outline" onclick="signInWithGoogle()">
@@ -40,13 +46,13 @@
           <div class="absolute inset-0 flex items-center">
             <div class="w-full border-t border-porch-border"></div>
           </div>
-          <span class="relative bg-porch-bg px-2 text-xs uppercase tracking-wide text-porch-muted">Or continue with</span>
+          <span class="relative bg-porch-bg px-2 text-xs uppercase tracking-wide text-[#A1A1AA]">Or continue with</span>
         </div>
 
         <button class="btn-shadcn-light" onclick="signInWithEmail()">Continue with email</button>
 
-        <p class="text-xs text-porch-muted text-center">
-          By clicking continue, you agree to our <a href="#" class="text-porch-muted underline hover:text-porch-text">Terms of Service</a> and <a href="#" class="text-porch-muted underline hover:text-porch-text">Privacy Policy</a>.
+        <p class="text-xs text-[#A1A1AA] text-center">
+          By clicking continue, you agree to our <a href="#" class="text-[#A1A1AA] underline hover:text-porch-text">Terms of Service</a> and <a href="#" class="text-[#A1A1AA] underline hover:text-porch-text">Privacy Policy</a>.
         </p>
       </div>
     </div>
