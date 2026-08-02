@@ -457,20 +457,18 @@
 
     // Shown while the agent is rate-limited (see the rate_limited event the
     // backend sends when the CLI reports a rate_limit_event) so the wait
-    // isn't silent. Cycles "Waiting" -> "Waiting." -> "Waiting.." -> "Waiting..."
-    // the way Claude's own CLI does, plus a theme-aware loading gif.
+    // isn't silent. Left-aligned in the same column agent replies appear in,
+    // since it's standing in for one.
     function waitingGifSrcForTheme(theme) {
       return theme === "light" ? "/waiting-light.gif" : "/waiting-dark.gif";
     }
-
-    let waitingInterval = null;
 
     function showWaiting() {
       if (document.getElementById("waitingMarker")) return;
       const chatLog = document.getElementById("chatLog");
       const el = document.createElement("div");
       el.id = "waitingMarker";
-      el.className = "flex items-center justify-center gap-2 opacity-50 text-sm py-1";
+      el.className = "flex items-center gap-2 text-porch-muted text-sm px-1";
 
       const gif = document.createElement("img");
       gif.className = "w-4 h-4 theme-waiting-gif";
@@ -478,29 +476,17 @@
       gif.src = waitingGifSrcForTheme(getTheme());
 
       const label = document.createElement("span");
-      label.id = "waitingText";
       label.textContent = "Waiting";
 
       el.appendChild(gif);
       el.appendChild(label);
       chatLog.appendChild(el);
       chatLog.scrollTop = chatLog.scrollHeight;
-
-      const dotStates = ["", ".", "..", "..."];
-      let i = 0;
-      waitingInterval = setInterval(() => {
-        i = (i + 1) % dotStates.length;
-        label.textContent = `Waiting${dotStates[i]}`;
-      }, 500);
     }
 
     function hideWaiting() {
       const el = document.getElementById("waitingMarker");
       if (el) el.remove();
-      if (waitingInterval) {
-        clearInterval(waitingInterval);
-        waitingInterval = null;
-      }
     }
 
     // Human messages (ours or another participant's) always render the same
@@ -715,7 +701,6 @@
       }
 
       if (event.type === "system") {
-        addMarker("Session started");
         return;
       }
 
