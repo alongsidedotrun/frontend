@@ -331,6 +331,9 @@
       document.querySelectorAll(".theme-logo").forEach((img) => {
         img.src = logoSrcForTheme(theme);
       });
+      document.querySelectorAll(".theme-waiting-gif").forEach((img) => {
+        img.src = waitingGifSrcForTheme(theme);
+      });
     }
 
     function toggleTheme() {
@@ -450,6 +453,54 @@
       el.textContent = text;
       chatLog.appendChild(el);
       chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
+    // Shown while the agent is rate-limited (see the rate_limited event the
+    // backend sends when the CLI reports a rate_limit_event) so the wait
+    // isn't silent. Cycles "Waiting" -> "Waiting." -> "Waiting.." -> "Waiting..."
+    // the way Claude's own CLI does, plus a theme-aware loading gif.
+    function waitingGifSrcForTheme(theme) {
+      return theme === "light" ? "/waiting-light.gif" : "/waiting-dark.gif";
+    }
+
+    let waitingInterval = null;
+
+    function showWaiting() {
+      if (document.getElementById("waitingMarker")) return;
+      const chatLog = document.getElementById("chatLog");
+      const el = document.createElement("div");
+      el.id = "waitingMarker";
+      el.className = "flex items-center justify-center gap-2 opacity-50 text-sm py-1";
+
+      const gif = document.createElement("img");
+      gif.className = "w-4 h-4 theme-waiting-gif";
+      gif.alt = "";
+      gif.src = waitingGifSrcForTheme(getTheme());
+
+      const label = document.createElement("span");
+      label.id = "waitingText";
+      label.textContent = "Waiting";
+
+      el.appendChild(gif);
+      el.appendChild(label);
+      chatLog.appendChild(el);
+      chatLog.scrollTop = chatLog.scrollHeight;
+
+      const dotStates = ["", ".", "..", "..."];
+      let i = 0;
+      waitingInterval = setInterval(() => {
+        i = (i + 1) % dotStates.length;
+        label.textContent = `Waiting${dotStates[i]}`;
+      }, 500);
+    }
+
+    function hideWaiting() {
+      const el = document.getElementById("waitingMarker");
+      if (el) el.remove();
+      if (waitingInterval) {
+        clearInterval(waitingInterval);
+        waitingInterval = null;
+      }
     }
 
     // Human messages (ours or another participant's) always render the same
@@ -668,12 +719,19 @@
         return;
       }
 
+      if (event.type === "rate_limited") {
+        showWaiting();
+        return;
+      }
+
       if (event.type === "result") {
+        hideWaiting();
         addMarker("Session ended");
         return;
       }
 
       if (event.type === "assistant" && event.message && event.message.content) {
+        hideWaiting();
         for (const block of event.message.content) {
           if (block.type === "text") {
             addAgentMessage(block.text);
