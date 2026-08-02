@@ -187,7 +187,11 @@
   }
 
   .btn-shadcn-light {
-    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-geist text-sm font-medium transition-colors h-9 px-4 py-2 w-full cursor-pointer bg-[#FFFFFF] border border-[#E4E4E7] text-black hover:bg-[#FFFFFF]/90;
+    /* /80 rather than /90: this button's bg (#FFFFFF) is nearly identical to
+       porch-bg in light mode, so a 90% fade against that backdrop was too
+       subtle to notice; /80 keeps the same relative-opacity technique but
+       with enough contrast to actually read as a hover. */
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-geist text-sm font-medium transition-colors h-9 px-4 py-2 w-full cursor-pointer bg-[#FFFFFF] border border-[#E4E4E7] text-black hover:bg-[#FFFFFF]/80;
   }
 
   .field-input {
