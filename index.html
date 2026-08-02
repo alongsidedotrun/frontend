@@ -24,7 +24,7 @@
 
     <div class="relative group mt-9">
       <button class="sidebar-icon-btn" onclick="location.href='/'">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><line x1="12" y1="9" x2="12" y2="15"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
       </button>
       <span class="hovercard">New chat</span>
     </div>
@@ -83,7 +83,7 @@
       <h1 class="text-center font-geist font-normal text-[2rem] mb-6 text-porch-text" id="greeting">Good morning</h1>
 
       <div class="compose-box">
-        <textarea id="initialPrompt" rows="3" placeholder="Start a new chat" onkeydown="if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); createSession(); }"></textarea>
+        <textarea id="initialPrompt" rows="1" placeholder="Start a new chat" onkeydown="if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); createSession(); }" oninput="autoGrowInitialPrompt()" class="min-h-[3.5rem] max-h-40 overflow-y-auto"></textarea>
         <div class="flex items-center justify-between gap-2">
           <div class="flex items-center gap-1.5">
             <div class="relative">
@@ -134,20 +134,20 @@
 
   <div class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50" id="settingsModal">
     <div class="bg-porch-card border border-porch-border rounded-lg p-6 w-[90vw] max-w-80">
-      <h2 class="font-geist font-semibold text-lg mb-4">Settings</h2>
+      <h2 class="font-geist font-semibold text-base mb-4">Settings</h2>
 
-      <label class="block text-sm text-porch-muted mb-1.5">Anthropic API key</label>
+      <label class="block text-xs text-porch-muted mb-1.5">Anthropic API key</label>
       <input class="field-input w-full mb-4" type="password" id="apiKey" />
 
-      <label class="block text-sm text-porch-muted mb-1.5">Join session</label>
+      <label class="block text-xs text-porch-muted mb-1.5">Join session</label>
       <div class="flex items-center gap-2 mb-4">
         <input class="field-input flex-1" id="sessionId" placeholder="Session ID" />
         <button class="plain-btn" onclick="joinFromForm()">Join</button>
       </div>
 
-      <label class="block text-sm text-porch-muted mb-1.5">Hosting</label>
+      <label class="block text-xs text-porch-muted mb-1.5">Hosting</label>
       <div class="flex items-center gap-2 mb-4">
-        <span class="text-sm text-porch-muted" id="hostingStatus">checking...</span>
+        <span class="text-xs text-porch-muted" id="hostingStatus">checking...</span>
         <button class="plain-btn ml-auto" id="hostToggleBtn" onclick="toggleHosting()" disabled>...</button>
       </div>
 
@@ -258,7 +258,7 @@
     }
 
     function saveSettings() {
-      localStorage.setItem("porch_api_key", document.getElementById("apiKey").value);
+      localStorage.setItem("porch_api_key", document.getElementById("apiKey").value.trim());
       closeSettings();
     }
 
@@ -336,6 +336,14 @@
       updateHostingUi();
     }
 
+    // Grows the compose textarea with its content (up to max-h-40) instead of
+    // sitting at a fixed multi-row height regardless of what's typed.
+    function autoGrowInitialPrompt() {
+      const input = document.getElementById("initialPrompt");
+      input.style.height = "auto";
+      input.style.height = `${input.scrollHeight}px`;
+    }
+
     async function createSession() {
       const initialPrompt = document.getElementById("initialPrompt").value.trim();
       if (!initialPrompt) {
@@ -360,7 +368,7 @@
       await fetch(`/sessions/${data.session_id}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: initialPrompt }),
+        body: JSON.stringify({ prompt: initialPrompt, sender_name: localStorage.getItem("porch_user_name") || "Porch" }),
       });
 
       sessionStorage.setItem("porch_model_label", document.getElementById("modelBtnLabel").textContent);

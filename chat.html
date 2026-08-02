@@ -24,7 +24,7 @@
 
     <div class="relative group mt-9">
       <button class="sidebar-icon-btn" onclick="location.href='/'">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><line x1="12" y1="9" x2="12" y2="15"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
       </button>
       <span class="hovercard">New chat</span>
     </div>
@@ -81,38 +81,50 @@
   <div class="h-screen flex flex-col ml-12">
     <div class="h-14 flex items-center justify-between gap-2 px-3 sm:px-5 shrink-0">
       <input class="chat-name-input" id="chatNameInput" value="New chat" onblur="saveChatName()" onkeydown="if (event.key === 'Enter') { event.preventDefault(); document.activeElement.blur(); }" />
-      <div class="relative group shrink-0">
-        <button class="sidebar-icon-btn w-8 h-8" id="shareBtn" onclick="toggleDropdown('shareMenu', event)">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-        </button>
-        <span class="hovercard hovercard-left">Share</span>
+      <div class="flex items-center gap-1 shrink-0">
+        <div class="relative shrink-0">
+          <button class="bg-porch-bg border border-porch-border rounded-md h-7 px-2.5 flex items-center text-xs text-porch-text cursor-pointer transition-colors duration-150 hover:bg-porch-input" id="shareBtn" onclick="toggleDropdown('shareMenu', event)">Share</button>
 
-        <div class="dropdown-panel bottom-full right-0 mb-2 w-[85vw] max-w-72" id="shareMenu">
-          <div class="p-3">
-            <div class="flex items-center justify-between mb-3">
-              <span class="text-sm text-porch-muted">Hosting</span>
-              <span class="text-sm text-porch-text" id="shareHostingStatus">Off</span>
-            </div>
-            <button class="plain-btn w-full text-sm" id="shareToggleBtn" onclick="toggleShareHosting()">Enable session</button>
-            <div class="mt-3 hidden" id="shareLinkRow">
-              <label class="block text-xs text-porch-muted mb-1.5">Share link</label>
-              <div class="flex items-center gap-2">
-                <input class="field-input flex-1 text-xs" id="shareLinkInput" readonly />
-                <button class="icon-btn shrink-0" id="shareCopyBtn" onclick="copyShareLink()">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7.242a2 2 0 0 0-.602-1.43L16.083 2.57A2 2 0 0 0 14.685 2H10a2 2 0 0 0-2 2Z"/><path d="M16 18v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2"/></svg>
-                </button>
+          <div class="dropdown-panel top-full right-0 mt-2 w-[85vw] max-w-72 shadow-none" id="shareMenu">
+            <div class="p-3">
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-xs text-porch-muted">Hosting</span>
+                <span class="text-xs text-porch-text" id="shareHostingStatus">Off</span>
+              </div>
+              <button class="plain-btn w-full text-xs" id="shareToggleBtn" onclick="event.stopPropagation(); toggleShareHosting()">Enable session</button>
+              <div class="mt-3 hidden" id="shareLinkRow">
+                <label class="block text-[0.625rem] text-porch-muted mb-1.5">Share link</label>
+                <div class="flex items-center gap-2">
+                  <input class="field-input flex-1 text-[0.625rem]" id="shareLinkInput" readonly />
+                  <button class="icon-btn shrink-0" id="shareCopyBtn" onclick="event.stopPropagation(); copyShareLink()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7.242a2 2 0 0 0-.602-1.43L16.083 2.57A2 2 0 0 0 14.685 2H10a2 2 0 0 0-2 2Z"/><path d="M16 18v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2"/></svg>
+                  </button>
+                </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div class="relative shrink-0">
+          <button class="sidebar-icon-btn w-8 h-8" id="sessionMenuBtn" onclick="toggleDropdown('sessionMenu', event)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
+          </button>
+
+          <div class="dropdown-panel top-full right-0 mt-2 shadow-none" id="sessionMenu">
+            <button class="dropdown-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
+              Files
+            </button>
           </div>
         </div>
       </div>
     </div>
 
-    <div id="chatLog" class="flex-1 overflow-y-auto flex flex-col justify-end gap-3 px-3 sm:px-5 py-4 max-w-3xl w-full mx-auto"></div>
+    <div id="chatLog" class="flex-1 min-h-0 overflow-y-auto flex flex-col justify-end gap-3 px-3 sm:px-5 py-4 max-w-3xl w-full mx-auto"></div>
 
     <div class="shrink-0 px-3 sm:px-5 pt-4 pb-6">
       <div class="compose-box max-w-3xl mx-auto">
-        <textarea id="messageInput" rows="1" placeholder="Send a message" onkeydown="if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); }"></textarea>
+        <textarea id="messageInput" rows="1" placeholder="Send a message" onkeydown="if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); }" oninput="autoGrowMessageInput()" class="max-h-40 overflow-y-auto"></textarea>
         <div class="flex items-center justify-between gap-2">
           <div class="flex items-center gap-1.5">
             <div class="relative">
@@ -163,20 +175,20 @@
 
   <div class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50" id="settingsModal">
     <div class="bg-porch-card border border-porch-border rounded-lg p-6 w-[90vw] max-w-80">
-      <h2 class="font-geist font-semibold text-lg mb-4">Settings</h2>
+      <h2 class="font-geist font-semibold text-base mb-4">Settings</h2>
 
-      <label class="block text-sm text-porch-muted mb-1.5">Anthropic API key</label>
+      <label class="block text-xs text-porch-muted mb-1.5">Anthropic API key</label>
       <input class="field-input w-full mb-4" type="password" id="apiKey" />
 
-      <label class="block text-sm text-porch-muted mb-1.5">Join session</label>
+      <label class="block text-xs text-porch-muted mb-1.5">Join session</label>
       <div class="flex items-center gap-2 mb-4">
         <input class="field-input flex-1" id="sessionId" placeholder="Session ID" />
         <button class="plain-btn" onclick="joinFromForm()">Join</button>
       </div>
 
-      <label class="block text-sm text-porch-muted mb-1.5">Hosting</label>
+      <label class="block text-xs text-porch-muted mb-1.5">Hosting</label>
       <div class="flex items-center gap-2 mb-4">
-        <span class="text-sm text-porch-muted" id="hostingStatus">checking...</span>
+        <span class="text-xs text-porch-muted" id="hostingStatus">checking...</span>
         <button class="plain-btn ml-auto" id="hostToggleBtn" onclick="toggleHosting()" disabled>...</button>
       </div>
 
@@ -211,6 +223,10 @@
     // fact (the CLI can emit one as a trailing notice, not just a blocker)
     // doesn't leave the waiting indicator stuck with nothing left to clear it.
     let awaitingReply = false;
+    // True once the backend's replay_complete marker has been seen, so history
+    // loaded on connect/refresh renders statically and only genuinely new
+    // messages get the typing animation.
+    let historyReplayed = false;
 
     // No real auth/profile yet (Sprint 5), so this falls back to "Porch" until
     // a signed-in user's name is available.
@@ -394,6 +410,12 @@
       const data = await res.json();
       hostingOn = data.hosting;
       updateHostingUi();
+
+      await fetch(`/sessions/${currentSessionId}/host-notice`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: hostingOn, name: localStorage.getItem("porch_user_name") || "Porch" }),
+      });
     }
 
     function copyShareLink() {
@@ -422,7 +444,7 @@
       const res = await fetch(`/sessions/${currentSessionId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: message }),
+        body: JSON.stringify({ prompt: message, sender_name: localStorage.getItem("porch_user_name") || "Porch" }),
       });
 
       if (!res.ok) {
@@ -431,6 +453,15 @@
       }
 
       input.value = "";
+      autoGrowMessageInput();
+    }
+
+    // Grows the compose textarea with its content (up to max-h-40) instead of
+    // showing the textarea's own internal scrollbar for wrapped/multi-line text.
+    function autoGrowMessageInput() {
+      const input = document.getElementById("messageInput");
+      input.style.height = "auto";
+      input.style.height = `${input.scrollHeight}px`;
     }
 
     let lastSavedChatName = "New chat";
@@ -451,13 +482,25 @@
       });
     }
 
+    // Only follows new content to the bottom if the user was already there —
+    // otherwise someone scrolled up to read history gets yanked back down on
+    // every incoming event.
+    function scrollChatToBottomIfNear() {
+      const chatLog = document.getElementById("chatLog");
+      const threshold = 80;
+      const isNearBottom = chatLog.scrollHeight - chatLog.scrollTop - chatLog.clientHeight < threshold;
+      if (isNearBottom) {
+        chatLog.scrollTop = chatLog.scrollHeight;
+      }
+    }
+
     function addMarker(text) {
       const chatLog = document.getElementById("chatLog");
       const el = document.createElement("div");
-      el.className = "opacity-50 text-sm text-center";
+      el.className = "opacity-50 text-xs text-center";
       el.textContent = text;
       chatLog.appendChild(el);
-      chatLog.scrollTop = chatLog.scrollHeight;
+      scrollChatToBottomIfNear();
     }
 
     // Shown while the agent is rate-limited (see the rate_limited event the
@@ -481,24 +524,37 @@
       header.className = "flex items-center gap-1.5 px-1";
 
       const gif = document.createElement("img");
-      gif.className = "w-4 h-4 rounded-[3px] theme-waiting-gif";
+      gif.className = "w-4 h-4 rounded-[0.1875rem] theme-waiting-gif";
       gif.alt = "";
       gif.src = waitingGifSrcForTheme(getTheme());
 
       const label = document.createElement("span");
-      label.className = "text-xs text-porch-muted";
+      label.id = "waitingMarkerLabel";
+      label.className = "text-[0.625rem] text-porch-muted transition-opacity duration-150";
       label.textContent = "Waiting";
 
       header.appendChild(gif);
       header.appendChild(label);
       row.appendChild(header);
       chatLog.appendChild(row);
-      chatLog.scrollTop = chatLog.scrollHeight;
+      scrollChatToBottomIfNear();
     }
 
     function hideWaiting() {
       const el = document.getElementById("waitingMarker");
       if (el) el.remove();
+    }
+
+    // Swaps the marker from "Waiting" (the API call hasn't started yet) to
+    // "Thinking" (the agent has connected and is now working on a reply).
+    function markThinking() {
+      const label = document.getElementById("waitingMarkerLabel");
+      if (!label) return;
+      label.style.opacity = "0";
+      setTimeout(() => {
+        label.textContent = "Thinking";
+        label.style.opacity = "1";
+      }, 150);
     }
 
     // Human messages (ours or another participant's) always render the same
@@ -507,19 +563,29 @@
       return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     }
 
-    function addHumanMessage(text) {
+    function addHumanMessage(text, sender) {
       const chatLog = document.getElementById("chatLog");
       const row = document.createElement("div");
       row.className = "flex flex-col items-end gap-1";
+
+      const myName = localStorage.getItem("porch_user_name") || "Porch";
+      const senderName = sender || myName;
+      const displayName = senderName === myName ? "Me" : senderName;
+
+      const nameLabel = document.createElement("span");
+      nameLabel.className = "text-xs text-porch-muted px-1";
+      nameLabel.textContent = displayName;
+      row.appendChild(nameLabel);
 
       const wrap = document.createElement("div");
       wrap.className = "flex items-center gap-2.5 max-w-[85%] sm:max-w-[75%]";
 
       const avatar = document.createElement("span");
       avatar.className = "sidebar-avatar w-7 h-7 shrink-0";
+      avatar.textContent = senderName.charAt(0).toUpperCase();
 
       const bubble = document.createElement("div");
-      bubble.className = "bg-porch-input border border-porch-border rounded-2xl px-3.5 py-2.5 whitespace-pre-wrap text-porch-text text-sm";
+      bubble.className = "bg-porch-input rounded-2xl px-3.5 py-2.5 whitespace-pre-wrap text-porch-text text-sm";
       bubble.textContent = text;
 
       wrap.appendChild(avatar);
@@ -527,12 +593,12 @@
       row.appendChild(wrap);
 
       const timestamp = document.createElement("span");
-      timestamp.className = "text-[11px] text-porch-muted px-1";
+      timestamp.className = "text-xs text-porch-muted px-1";
       timestamp.textContent = messageTime();
       row.appendChild(timestamp);
 
       chatLog.appendChild(row);
-      chatLog.scrollTop = chatLog.scrollHeight;
+      scrollChatToBottomIfNear();
     }
 
     // Agent responses are the mirror of human messages: right-aligned, no
@@ -555,10 +621,10 @@
       const logo = document.createElement("img");
       logo.src = logoSrcForTheme(getTheme());
       logo.alt = "Porch";
-      logo.className = "w-4 h-4 rounded-[3px] theme-logo";
+      logo.className = "w-4 h-4 rounded-[0.1875rem] theme-logo";
 
       const modelLabel = document.createElement("span");
-      modelLabel.className = "text-xs text-porch-muted";
+      modelLabel.className = "text-sm font-medium text-porch-muted";
       modelLabel.textContent = document.getElementById("modelBtnLabel").textContent;
 
       header.appendChild(logo);
@@ -566,9 +632,13 @@
       row.appendChild(header);
 
       const bubble = document.createElement("div");
-      bubble.className = "max-w-[85%] sm:max-w-[75%] text-porch-text whitespace-pre-wrap px-1";
+      bubble.className = "max-w-[85%] sm:max-w-[75%] text-porch-text whitespace-pre-wrap px-1 text-sm";
       row.appendChild(bubble);
-      typeText(bubble, text);
+      // Replayed history renders instantly (typeText is started below, once we
+      // know whether this is replacing the "Thinking" indicator or not).
+      if (!historyReplayed) {
+        bubble.textContent = text;
+      }
 
       const actions = document.createElement("div");
       actions.className = "flex items-center gap-0.5";
@@ -618,31 +688,60 @@
       row.appendChild(disclaimer);
 
       const timestamp = document.createElement("span");
-      timestamp.className = "text-[11px] text-porch-muted px-1";
+      timestamp.className = "text-xs text-porch-muted px-1";
       timestamp.textContent = messageTime();
       row.appendChild(timestamp);
 
-      chatLog.appendChild(row);
-      chatLog.scrollTop = chatLog.scrollHeight;
+      // If the "Thinking" indicator is still showing, fade it out and fade this
+      // real message in in its place, instead of an abrupt swap.
+      const waitingEl = document.getElementById("waitingMarker");
+      if (waitingEl) {
+        row.style.opacity = "0";
+        row.style.transition = "opacity 200ms ease";
+        waitingEl.style.transition = "opacity 200ms ease";
+        waitingEl.style.opacity = "0";
+        setTimeout(() => {
+          // The "result" event's hideWaiting() can detach waitingEl before this
+          // timeout fires — replaceWith() on a detached node is a silent no-op,
+          // which was dropping the message entirely. Fall back to a plain append.
+          if (waitingEl.isConnected) {
+            waitingEl.replaceWith(row);
+          } else {
+            chatLog.appendChild(row);
+          }
+          requestAnimationFrame(() => { row.style.opacity = "1"; });
+          if (historyReplayed) typeText(bubble, text);
+          scrollChatToBottomIfNear();
+        }, 200);
+      } else {
+        chatLog.appendChild(row);
+        if (historyReplayed) typeText(bubble, text);
+        scrollChatToBottomIfNear();
+      }
     }
 
     // Claude-style reveal instead of the full response appearing at once. The
     // agent SDK doesn't stream text deltas the way this animates (each event
     // already carries the message's full text), so this is a cosmetic replay,
-    // not real token-by-token streaming from the API.
+    // not real token-by-token streaming from the API. Paced by length (~125
+    // chars/sec, clamped 400ms-6s) instead of a fixed total duration, so long
+    // replies don't fly by in the same ~1.4s as a one-liner.
     function typeText(el, text) {
-      const chatLog = document.getElementById("chatLog");
+      const tickMs = 20;
+      const msPerChar = 8;
+      const duration = Math.min(6000, Math.max(400, text.length * msPerChar));
+      const totalTicks = Math.max(1, Math.round(duration / tickMs));
+      const step = Math.max(1, Math.ceil(text.length / totalTicks));
       let i = 0;
-      const step = Math.max(1, Math.round(text.length / 120));
       const interval = setInterval(() => {
         i += step;
         el.textContent = text.slice(0, i);
-        chatLog.scrollTop = chatLog.scrollHeight;
+        scrollChatToBottomIfNear();
         if (i >= text.length) {
           el.textContent = text;
           clearInterval(interval);
         }
-      }, 12);
+      }, tickMs);
     }
 
     // Browser built-in TTS (Web Speech API) — not any AI voice, just whatever
@@ -668,7 +767,7 @@
       await fetch(`/sessions/${currentSessionId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: lastHumanPrompt }),
+        body: JSON.stringify({ prompt: lastHumanPrompt, sender_name: localStorage.getItem("porch_user_name") || "Porch" }),
       });
     }
 
@@ -678,12 +777,12 @@
       row.className = "flex justify-start";
 
       const note = document.createElement("div");
-      note.className = "max-w-[85%] sm:max-w-[75%] text-porch-muted text-sm italic px-1";
+      note.className = "max-w-[85%] sm:max-w-[75%] text-porch-muted text-xs italic px-1";
       note.textContent = text;
 
       row.appendChild(note);
       chatLog.appendChild(row);
-      chatLog.scrollTop = chatLog.scrollHeight;
+      scrollChatToBottomIfNear();
     }
 
     // Renders a single streamed event (the SDK's raw Message JSON, or our own
@@ -699,8 +798,19 @@
 
       if (event.type === "human_message") {
         lastHumanPrompt = event.text;
-        addHumanMessage(event.text);
+        addHumanMessage(event.text, event.sender);
         awaitingReply = true;
+        showWaiting();
+        return;
+      }
+
+      if (event.type === "user_joined") {
+        addMarker(`${event.name} joined the session`);
+        return;
+      }
+
+      if (event.type === "host_notice") {
+        addMarker(`${event.name} has ${event.enabled ? "enabled" : "disabled"} session to this chat`);
         return;
       }
 
@@ -714,6 +824,12 @@
       }
 
       if (event.type === "system") {
+        if (awaitingReply) markThinking();
+        return;
+      }
+
+      if (event.type === "replay_complete") {
+        historyReplayed = true;
         return;
       }
 
@@ -722,21 +838,34 @@
         return;
       }
 
+      if (event.type === "agent_timeout") {
+        awaitingReply = false;
+        hideWaiting();
+        addMarker("The agent didn't respond in time. Please try again.");
+        return;
+      }
+
       if (event.type === "result") {
         awaitingReply = false;
         hideWaiting();
-        addMarker("Session ended");
         return;
       }
 
       if (event.type === "assistant" && event.message && event.message.content) {
-        awaitingReply = false;
-        hideWaiting();
-        for (const block of event.message.content) {
-          if (block.type === "text") {
-            addAgentMessage(block.text);
-          } else if (block.type === "tool_use") {
-            addToolNote(`Used tool: ${block.name}`);
+        // A message with only a thinking block (no text/tool_use yet) shouldn't
+        // hide the indicator — that's the gap where "Thinking" disappeared but
+        // the real reply hadn't arrived. addAgentMessage handles removing (and
+        // fading out) the indicator itself once real text shows up.
+        const hasRenderableContent = event.message.content.some((block) => block.type === "text" || block.type === "tool_use");
+        if (hasRenderableContent) {
+          awaitingReply = false;
+          for (const block of event.message.content) {
+            if (block.type === "text") {
+              addAgentMessage(block.text);
+            } else if (block.type === "tool_use") {
+              hideWaiting();
+              addToolNote(`Used tool: ${block.name}`);
+            }
           }
         }
         return;
@@ -746,7 +875,8 @@
       addMarker(raw);
     }
 
-    const ws = new WebSocket(`ws://${location.host}/sessions/${currentSessionId}/ws`);
+    const wsUserName = encodeURIComponent(localStorage.getItem("porch_user_name") || "Porch");
+    const ws = new WebSocket(`ws://${location.host}/sessions/${currentSessionId}/ws?name=${wsUserName}`);
 
     ws.onmessage = (event) => {
       renderEvent(event.data);
