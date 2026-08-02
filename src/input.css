@@ -179,19 +179,19 @@
      match shadcn's default Button classes (shape, spacing, transitions) by hand. */
   /* Both auth-page buttons are fixed regardless of theme, by design: they
      use literal hex rather than porch-* tokens throughout. */
-  /* Hover uses shadcn's actual default-variant technique (hover:bg-primary/90,
-     a relative opacity fade on the button's own base colour) instead of a
-     hand-picked hex, so it doesn't need separate tuning per theme. */
+  /* Hover uses a fixed hex rather than shadcn's opacity-fade technique
+     (hover:bg-primary/90): that fade blends toward the page's own backdrop,
+     which changes with theme, so it went invisible whenever the backdrop
+     happened to match the button's colour (dark Google button on the dark
+     backdrop, white email button on the light backdrop). These buttons are
+     fixed-colour regardless of theme by design, so their hover needs to be
+     backdrop-independent too. */
   .btn-shadcn-outline {
-    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-geist text-sm font-medium transition-colors h-9 px-4 py-2 w-full cursor-pointer bg-[#131313] border-0 shadow-[0_0_0_1px_#27272A] text-[#F1EFE8] hover:bg-[#131313]/90;
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-geist text-sm font-medium transition-colors h-9 px-4 py-2 w-full cursor-pointer bg-[#131313] border-0 shadow-[0_0_0_1px_#27272A] text-[#F1EFE8] hover:bg-[#262626];
   }
 
   .btn-shadcn-light {
-    /* /80 rather than /90: this button's bg (#FFFFFF) is nearly identical to
-       porch-bg in light mode, so a 90% fade against that backdrop was too
-       subtle to notice; /80 keeps the same relative-opacity technique but
-       with enough contrast to actually read as a hover. */
-    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-geist text-sm font-medium transition-colors h-9 px-4 py-2 w-full cursor-pointer bg-[#FFFFFF] border border-[#E4E4E7] text-black hover:bg-[#FFFFFF]/80;
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-geist text-sm font-medium transition-colors h-9 px-4 py-2 w-full cursor-pointer bg-[#FFFFFF] border border-[#E4E4E7] text-black hover:bg-[#F0F0F0];
   }
 
   .field-input {
