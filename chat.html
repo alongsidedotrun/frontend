@@ -207,6 +207,11 @@
     let hostingOn = false;
     let lastHumanPrompt = "";
 
+    // No real auth/profile yet (Sprint 5), so this falls back to "Porch" until
+    // a signed-in user's name is available.
+    document.getElementById("avatarBtn").textContent =
+      (localStorage.getItem("porch_user_name") || "Porch").charAt(0).toUpperCase();
+
     document.getElementById("modelBtnLabel").textContent = sessionStorage.getItem("porch_model_label") || "Claude Sonnet 5";
     sessionStorage.removeItem("porch_model_label");
 
@@ -459,10 +464,10 @@
       row.className = "flex flex-col items-end gap-1";
 
       const wrap = document.createElement("div");
-      wrap.className = "flex items-start gap-2.5 max-w-[85%] sm:max-w-[75%]";
+      wrap.className = "flex items-center gap-2.5 max-w-[85%] sm:max-w-[75%]";
 
       const avatar = document.createElement("span");
-      avatar.className = "sidebar-avatar w-7 h-7 shrink-0 mt-0.5";
+      avatar.className = "sidebar-avatar w-7 h-7 shrink-0";
 
       const bubble = document.createElement("div");
       bubble.className = "bg-porch-input border border-porch-border rounded-2xl px-3.5 py-2.5 whitespace-pre-wrap text-porch-text text-sm";

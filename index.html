@@ -183,7 +183,15 @@
       if (hour < 18) return "Good afternoon";
       return "Good evening";
     }
-    document.getElementById("greeting").textContent = greetingText();
+
+    // No real auth/profile yet (Sprint 5), so this falls back to "Porch" until
+    // a signed-in user's name is available.
+    function getUserDisplayName() {
+      return localStorage.getItem("porch_user_name") || "Porch";
+    }
+
+    document.getElementById("greeting").textContent = `${greetingText()}, ${getUserDisplayName()}`;
+    document.getElementById("avatarBtn").textContent = getUserDisplayName().charAt(0).toUpperCase();
 
     // Stand-in for a future call to fetch registered API keys/models per provider from the db.
     const modelProviders = [
