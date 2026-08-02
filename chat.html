@@ -206,6 +206,11 @@
     const currentSessionId = location.pathname.split("/").pop();
     let hostingOn = false;
     let lastHumanPrompt = "";
+    // True from when a human message is sent until the reply (or session
+    // end) for it arrives, so a rate_limited event that shows up after the
+    // fact (the CLI can emit one as a trailing notice, not just a blocker)
+    // doesn't leave the waiting indicator stuck with nothing left to clear it.
+    let awaitingReply = false;
 
     // No real auth/profile yet (Sprint 5), so this falls back to "Porch" until
     // a signed-in user's name is available.
@@ -457,8 +462,10 @@
 
     // Shown while the agent is rate-limited (see the rate_limited event the
     // backend sends when the CLI reports a rate_limit_event) so the wait
-    // isn't silent. Left-aligned in the same column agent replies appear in,
-    // since it's standing in for one.
+    // isn't silent. Mirrors addAgentMessage's header row exactly (same
+    // classes/sizing as the logo+model label) so swapping it out for the
+    // real message once the reply arrives reads as one continuous element
+    // rather than a layout jump between two differently-shaped rows.
     function waitingGifSrcForTheme(theme) {
       return theme === "light" ? "/waiting-light.gif" : "/waiting-dark.gif";
     }
@@ -466,21 +473,26 @@
     function showWaiting() {
       if (document.getElementById("waitingMarker")) return;
       const chatLog = document.getElementById("chatLog");
-      const el = document.createElement("div");
-      el.id = "waitingMarker";
-      el.className = "flex items-center gap-2 text-porch-muted text-sm px-1";
+      const row = document.createElement("div");
+      row.id = "waitingMarker";
+      row.className = "flex flex-col items-start gap-1";
+
+      const header = document.createElement("div");
+      header.className = "flex items-center gap-1.5 px-1";
 
       const gif = document.createElement("img");
-      gif.className = "w-4 h-4 theme-waiting-gif";
+      gif.className = "w-4 h-4 rounded-[3px] theme-waiting-gif";
       gif.alt = "";
       gif.src = waitingGifSrcForTheme(getTheme());
 
       const label = document.createElement("span");
+      label.className = "text-xs text-porch-muted";
       label.textContent = "Waiting";
 
-      el.appendChild(gif);
-      el.appendChild(label);
-      chatLog.appendChild(el);
+      header.appendChild(gif);
+      header.appendChild(label);
+      row.appendChild(header);
+      chatLog.appendChild(row);
       chatLog.scrollTop = chatLog.scrollHeight;
     }
 
@@ -688,6 +700,7 @@
       if (event.type === "human_message") {
         lastHumanPrompt = event.text;
         addHumanMessage(event.text);
+        awaitingReply = true;
         return;
       }
 
@@ -705,17 +718,19 @@
       }
 
       if (event.type === "rate_limited") {
-        showWaiting();
+        if (awaitingReply) showWaiting();
         return;
       }
 
       if (event.type === "result") {
+        awaitingReply = false;
         hideWaiting();
         addMarker("Session ended");
         return;
       }
 
       if (event.type === "assistant" && event.message && event.message.content) {
+        awaitingReply = false;
         hideWaiting();
         for (const block of event.message.content) {
           if (block.type === "text") {
