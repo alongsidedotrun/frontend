@@ -124,7 +124,7 @@
     /* Fixed regardless of theme, not bg-porch-text: porch-text flips dark in
        light mode, which would make the avatar disappear against the
        (also-flipped) light page background. */
-    @apply w-7 h-7 rounded-full bg-[#F3F1ED] text-porch-card flex items-center justify-center text-xs font-semibold cursor-pointer border-0;
+    @apply w-7 h-7 rounded-full bg-[#F3F1ED] text-[#3D3D3A] font-geist font-normal flex items-center justify-center text-sm cursor-pointer border-0;
   }
 
   .compose-box {
