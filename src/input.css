@@ -89,7 +89,7 @@
   }
 
   .sidebar-logo-mask {
-    @apply block relative w-full h-full rounded-[5px] overflow-hidden;
+    @apply block relative w-full h-full overflow-hidden;
   }
 
   .sidebar-logo-btn img {
