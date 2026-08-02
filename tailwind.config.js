@@ -7,7 +7,6 @@ module.exports = {
         "porch-bg": "#20201F",
         "porch-card": "#131313",
         "porch-input": "#262626",
-        "porch-input-border": "#3A3A3A",
         "porch-border": "#27272A",
         "porch-text": "#F1EFE8",
         "porch-muted": "#A1A1AA",
