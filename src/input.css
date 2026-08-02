@@ -139,11 +139,11 @@
   /* shadcn Button, replicated: this project has no React/shadcn build, so these
      match shadcn's default Button classes (shape, spacing, transitions) by hand. */
   .btn-shadcn-outline {
-    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-geist text-sm font-medium transition-colors h-9 px-4 py-2 w-full cursor-pointer bg-porch-card border-0 shadow-[0_0_0_1px_#27272A] text-porch-text hover:bg-[#1c1c1a];
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap font-geist text-sm font-medium transition-colors h-9 px-4 py-2 w-full cursor-pointer bg-porch-card border-0 shadow-[0_0_0_1px_#27272A] text-porch-text hover:bg-[#1c1c1a];
   }
 
   .btn-shadcn-light {
-    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-geist text-sm font-medium transition-colors h-9 px-4 py-2 w-full cursor-pointer bg-[#FAFAFA] text-black hover:bg-[#D4D4D4];
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap font-geist text-sm font-medium transition-colors h-9 px-4 py-2 w-full cursor-pointer bg-[#FAFAFA] text-black hover:bg-[#D4D4D4];
   }
 
   .field-input {
