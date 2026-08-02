@@ -53,6 +53,11 @@
   </div>
 
   <script>
+    // Applies the stored theme's colours here too (so bg/text match the rest
+    // of the app), but the logo itself always stays the Dark mark on this
+    // page regardless of theme, per explicit design decision, not an oversight.
+    document.documentElement.setAttribute("data-theme", localStorage.getItem("porch_theme") || "dark");
+
     // Double rAF: let the initial opaque frame paint before starting the
     // fade-out, otherwise the browser collapses both states into one frame.
     requestAnimationFrame(() => {

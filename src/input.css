@@ -26,12 +26,44 @@
   font-display: block;
 }
 
+/* Theme values, see ADR 0010 (docs/architecture/adr/0010-frontend-colour-palette.md).
+   porch-card, porch-btn, and porch-btn-hover are intentionally theme-invariant:
+   they're left out of the [data-theme="light"] block below on purpose, not by
+   omission, so they keep their dark values in both themes. */
+:root {
+  --porch-bg: #20201F;
+  --porch-card: #131313;
+  --porch-input: #262626;
+  --porch-border: #27272A;
+  --porch-text: #F1EFE8;
+  --porch-muted: #A1A1AA;
+  --porch-btn: #333333;
+  --porch-btn-hover: #444444;
+}
+
+:root[data-theme="light"] {
+  --porch-bg: #FAF9F5;
+  --porch-input: #F3F1ED;
+  --porch-border: #E4E4E7;
+  --porch-text: #20201F;
+  --porch-muted: #73726C;
+}
+
 @layer base {
   html {
     /* Scales all rem-based sizing (sidebar, icons, spacing, most text) with
        viewport width, so the UI doesn't look tiny on large/high-res monitors
        without the user having to manually zoom the page. */
     font-size: clamp(15px, 0.9vw + 8px, 19px);
+  }
+
+  /* Global theme-switch fade: every element's own colour properties animate
+     to their new value when the CSS variables above change, rather than
+     snapping instantly. Elements with their own more specific transition
+     (e.g. .icon-btn's hover fade) keep their own timing, since a component
+     class in a later Tailwind layer always wins over this base-layer rule. */
+  *, *::before, *::after {
+    transition: background-color 300ms ease, color 300ms ease, border-color 300ms ease, fill 300ms ease, stroke 300ms ease, box-shadow 300ms ease;
   }
 
   body {

@@ -4,14 +4,18 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        "porch-bg": "#20201F",
-        "porch-card": "#131313",
-        "porch-input": "#262626",
-        "porch-border": "#27272A",
-        "porch-text": "#F1EFE8",
-        "porch-muted": "#A1A1AA",
-        "porch-btn": "#333333",
-        "porch-btn-hover": "#444444",
+        // Each token resolves through a CSS custom property (defined in
+        // input.css) rather than a fixed hex, so a data-theme attribute swap
+        // on <html> can retarget every one of these at once, with a
+        // transition (also in input.css) animating the change.
+        "porch-bg": "var(--porch-bg)",
+        "porch-card": "var(--porch-card)",
+        "porch-input": "var(--porch-input)",
+        "porch-border": "var(--porch-border)",
+        "porch-text": "var(--porch-text)",
+        "porch-muted": "var(--porch-muted)",
+        "porch-btn": "var(--porch-btn)",
+        "porch-btn-hover": "var(--porch-btn-hover)",
       },
       fontFamily: {
         sans: ["-apple-system", "BlinkMacSystemFont", "sans-serif"],
