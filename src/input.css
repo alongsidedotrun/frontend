@@ -180,11 +180,11 @@
   /* Both auth-page buttons are fixed regardless of theme, by design: they
      use literal hex rather than porch-* tokens throughout. */
   .btn-shadcn-outline {
-    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-geist text-sm font-medium transition-colors h-9 px-4 py-2 w-full cursor-pointer bg-[#131313] border-0 shadow-[0_0_0_1px_#27272A] text-[#F1EFE8] hover:bg-[#1c1c1a];
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-geist text-sm font-medium transition-colors h-9 px-4 py-2 w-full cursor-pointer bg-[#131313] border-0 shadow-[0_0_0_1px_#27272A] text-[#F1EFE8] hover:bg-[#262626];
   }
 
   .btn-shadcn-light {
-    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-geist text-sm font-medium transition-colors h-9 px-4 py-2 w-full cursor-pointer bg-[#FFFFFF] border border-[#E4E4E7] text-black hover:bg-[#D4D4D4];
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-geist text-sm font-medium transition-colors h-9 px-4 py-2 w-full cursor-pointer bg-[#FFFFFF] border border-[#E4E4E7] text-black hover:bg-[#F0F0F0];
   }
 
   .field-input {
