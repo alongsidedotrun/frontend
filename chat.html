@@ -78,9 +78,12 @@
     </div>
   </div>
 
-  <div class="h-screen flex flex-col ml-12">
-    <div class="h-14 flex items-center justify-between gap-2 px-3 sm:px-5 shrink-0">
-      <input class="chat-name-input" id="chatNameInput" value="New chat" onblur="saveChatName()" onkeydown="if (event.key === 'Enter') { event.preventDefault(); document.activeElement.blur(); }" />
+  <div class="h-screen flex flex-col ml-12 relative">
+    <div class="absolute top-0 inset-x-0 h-14 flex items-center justify-between gap-2 px-3 sm:px-5 z-20">
+      <div class="flex items-center gap-2 min-w-0">
+        <input class="chat-name-input" id="chatNameInput" value="New chat" onblur="saveChatName()" onkeydown="if (event.key === 'Enter') { event.preventDefault(); document.activeElement.blur(); }" />
+        <span class="session-badge hidden shrink-0" id="sessionBadge">Session</span>
+      </div>
       <div class="flex items-center gap-1 shrink-0">
         <div class="relative shrink-0">
           <button class="bg-porch-bg border border-porch-border rounded-md h-7 px-2.5 flex items-center text-xs text-porch-text cursor-pointer transition-colors duration-150 hover:bg-porch-input" id="shareBtn" onclick="toggleDropdown('shareMenu', event)">Share</button>
@@ -88,10 +91,9 @@
           <div class="dropdown-panel top-full right-0 mt-2 w-[85vw] max-w-72 shadow-none" id="shareMenu">
             <div class="p-3">
               <div class="flex items-center justify-between mb-3">
-                <span class="text-xs text-porch-muted">Hosting</span>
-                <span class="text-xs text-porch-text" id="shareHostingStatus">Off</span>
+                <span class="text-xs text-porch-text">Enable session</span>
+                <button class="toggle-switch" id="shareToggleBtn" onclick="event.stopPropagation(); toggleShareHosting()"><span class="toggle-thumb"></span></button>
               </div>
-              <button class="plain-btn w-full text-xs" id="shareToggleBtn" onclick="event.stopPropagation(); toggleShareHosting()">Enable session</button>
               <div class="mt-3 hidden" id="shareLinkRow">
                 <label class="block text-[0.625rem] text-porch-muted mb-1.5">Share link</label>
                 <div class="flex items-center gap-2">
@@ -120,9 +122,11 @@
       </div>
     </div>
 
-    <div id="chatLog" class="flex-1 min-h-0 overflow-y-auto flex flex-col justify-end gap-3 px-3 sm:px-5 py-4 max-w-3xl w-full mx-auto"></div>
+    <div id="chatLog" class="flex-1 min-h-0 overflow-y-auto flex flex-col px-3 sm:px-5">
+      <div id="chatContent" class="mt-auto flex flex-col gap-3 max-w-[45rem] w-full mx-auto pt-16 pb-3"></div>
+    </div>
 
-    <div class="shrink-0 px-3 sm:px-5 pt-4 pb-6">
+    <div class="shrink-0 px-3 sm:px-5 pb-6">
       <div class="compose-box max-w-3xl mx-auto">
         <textarea id="messageInput" rows="1" placeholder="Send a message" onkeydown="if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); }" oninput="autoGrowMessageInput()" class="max-h-40 overflow-y-auto"></textarea>
         <div class="flex items-center justify-between gap-2">
@@ -179,18 +183,6 @@
 
       <label class="block text-xs text-porch-muted mb-1.5">Anthropic API key</label>
       <input class="field-input w-full mb-4" type="password" id="apiKey" />
-
-      <label class="block text-xs text-porch-muted mb-1.5">Join session</label>
-      <div class="flex items-center gap-2 mb-4">
-        <input class="field-input flex-1" id="sessionId" placeholder="Session ID" />
-        <button class="plain-btn" onclick="joinFromForm()">Join</button>
-      </div>
-
-      <label class="block text-xs text-porch-muted mb-1.5">Hosting</label>
-      <div class="flex items-center gap-2 mb-4">
-        <span class="text-xs text-porch-muted" id="hostingStatus">checking...</span>
-        <button class="plain-btn ml-auto" id="hostToggleBtn" onclick="toggleHosting()" disabled>...</button>
-      </div>
 
       <div class="flex justify-end gap-2">
         <button class="plain-btn" onclick="closeSettings()">Cancel</button>
@@ -290,7 +282,6 @@
 
     function openSettings() {
       document.getElementById("apiKey").value = localStorage.getItem("porch_api_key") || "";
-      refreshHostingStatus();
       const modal = document.getElementById("settingsModal");
       modal.classList.remove("hidden");
       modal.classList.add("flex");
@@ -352,9 +343,6 @@
       document.querySelectorAll(".theme-logo").forEach((img) => {
         img.src = logoSrcForTheme(theme);
       });
-      document.querySelectorAll(".theme-waiting-gif").forEach((img) => {
-        img.src = waitingGifSrcForTheme(theme);
-      });
     }
 
     function toggleTheme() {
@@ -373,31 +361,17 @@
       const res = await fetch("/host/status");
       const data = await res.json();
       hostingOn = data.hosting;
-      updateHostingUi();
-    }
-
-    function updateHostingUi() {
-      document.getElementById("hostingStatus").textContent = hostingOn ? "on" : "off";
-      document.getElementById("hostToggleBtn").textContent = hostingOn ? "Stop hosting" : "Start hosting";
-      document.getElementById("hostToggleBtn").disabled = false;
       updateShareUi();
     }
 
-    async function toggleHosting() {
-      const endpoint = hostingOn ? "/host/stop" : "/host/start";
-      const res = await fetch(endpoint, { method: "POST" });
-      const data = await res.json();
-      hostingOn = data.hosting;
-      updateHostingUi();
-    }
-
     // Greys the share icon out when hosting is off (still clickable, since
-    // that's how you turn hosting on in the first place) and swaps the menu
-    // between "Enable session" and the actual copyable link.
+    // that's how you turn hosting on in the first place), flips the toggle
+    // switch, shows the "Session" badge beside the chat name, and swaps the
+    // menu between the enable-session row and the actual copyable link.
     function updateShareUi() {
       document.getElementById("shareBtn").classList.toggle("opacity-60", !hostingOn);
-      document.getElementById("shareHostingStatus").textContent = hostingOn ? "On" : "Off";
-      document.getElementById("shareToggleBtn").textContent = hostingOn ? "Disable session" : "Enable session";
+      document.getElementById("shareToggleBtn").classList.toggle("on", hostingOn);
+      document.getElementById("sessionBadge").classList.toggle("hidden", !hostingOn);
       document.getElementById("shareLinkRow").classList.toggle("hidden", !hostingOn);
       if (hostingOn) {
         document.getElementById("shareLinkInput").value = `${location.origin}/chat/${currentSessionId}`;
@@ -409,7 +383,7 @@
       const res = await fetch(endpoint, { method: "POST" });
       const data = await res.json();
       hostingOn = data.hosting;
-      updateHostingUi();
+      updateShareUi();
 
       await fetch(`/sessions/${currentSessionId}/host-notice`, {
         method: "POST",
@@ -425,13 +399,6 @@
       const btn = document.getElementById("shareCopyBtn");
       btn.classList.add("text-porch-text");
       setTimeout(() => btn.classList.remove("text-porch-text"), 800);
-    }
-
-    function joinFromForm() {
-      const id = document.getElementById("sessionId").value;
-      if (id) {
-        location.href = `/chat/${id}`;
-      }
     }
 
     async function sendMessage() {
@@ -495,11 +462,11 @@
     }
 
     function addMarker(text) {
-      const chatLog = document.getElementById("chatLog");
+      const chatContent = document.getElementById("chatContent");
       const el = document.createElement("div");
       el.className = "opacity-50 text-xs text-center";
       el.textContent = text;
-      chatLog.appendChild(el);
+      chatContent.appendChild(el);
       scrollChatToBottomIfNear();
     }
 
@@ -509,13 +476,9 @@
     // classes/sizing as the logo+model label) so swapping it out for the
     // real message once the reply arrives reads as one continuous element
     // rather than a layout jump between two differently-shaped rows.
-    function waitingGifSrcForTheme(theme) {
-      return theme === "light" ? "/waiting-light.gif" : "/waiting-dark.gif";
-    }
-
     function showWaiting() {
       if (document.getElementById("waitingMarker")) return;
-      const chatLog = document.getElementById("chatLog");
+      const chatContent = document.getElementById("chatContent");
       const row = document.createElement("div");
       row.id = "waitingMarker";
       row.className = "flex flex-col items-start gap-1";
@@ -524,9 +487,9 @@
       header.className = "flex items-center gap-1.5 px-1";
 
       const gif = document.createElement("img");
-      gif.className = "w-4 h-4 rounded-[0.1875rem] theme-waiting-gif";
+      gif.className = "w-4 h-4 rounded-[0.1875rem]";
       gif.alt = "";
-      gif.src = waitingGifSrcForTheme(getTheme());
+      gif.src = "/waiting.gif";
 
       const label = document.createElement("span");
       label.id = "waitingMarkerLabel";
@@ -536,7 +499,7 @@
       header.appendChild(gif);
       header.appendChild(label);
       row.appendChild(header);
-      chatLog.appendChild(row);
+      chatContent.appendChild(row);
       scrollChatToBottomIfNear();
     }
 
@@ -564,7 +527,7 @@
     }
 
     function addHumanMessage(text, sender) {
-      const chatLog = document.getElementById("chatLog");
+      const chatContent = document.getElementById("chatContent");
       const row = document.createElement("div");
       row.className = "flex flex-col items-end gap-1";
 
@@ -597,7 +560,7 @@
       timestamp.textContent = messageTime();
       row.appendChild(timestamp);
 
-      chatLog.appendChild(row);
+      chatContent.appendChild(row);
       scrollChatToBottomIfNear();
     }
 
@@ -611,7 +574,7 @@
     }
 
     function addAgentMessage(text) {
-      const chatLog = document.getElementById("chatLog");
+      const chatContent = document.getElementById("chatContent");
       const row = document.createElement("div");
       row.className = "flex flex-col items-start gap-1";
 
@@ -707,14 +670,14 @@
           if (waitingEl.isConnected) {
             waitingEl.replaceWith(row);
           } else {
-            chatLog.appendChild(row);
+            chatContent.appendChild(row);
           }
           requestAnimationFrame(() => { row.style.opacity = "1"; });
           if (historyReplayed) typeText(bubble, text);
           scrollChatToBottomIfNear();
         }, 200);
       } else {
-        chatLog.appendChild(row);
+        chatContent.appendChild(row);
         if (historyReplayed) typeText(bubble, text);
         scrollChatToBottomIfNear();
       }
@@ -772,7 +735,7 @@
     }
 
     function addToolNote(text) {
-      const chatLog = document.getElementById("chatLog");
+      const chatContent = document.getElementById("chatContent");
       const row = document.createElement("div");
       row.className = "flex justify-start";
 
@@ -781,7 +744,7 @@
       note.textContent = text;
 
       row.appendChild(note);
-      chatLog.appendChild(row);
+      chatContent.appendChild(row);
       scrollChatToBottomIfNear();
     }
 
@@ -799,8 +762,17 @@
       if (event.type === "human_message") {
         lastHumanPrompt = event.text;
         addHumanMessage(event.text, event.sender);
-        awaitingReply = true;
-        showWaiting();
+        // Only show the waiting indicator for a live message, not while replaying
+        // history — otherwise every replayed human message spawns its own
+        // waitingMarker, which defers the matching replayed assistant message
+        // through addAgentMessage's 200ms swap-timeout. Since replay fires in a
+        // tight burst with no real delay, every human message lands immediately
+        // while every assistant reply lands ~200ms later as a batch, scrambling
+        // the order into "all humans, then all assistants" instead of turn by turn.
+        if (historyReplayed) {
+          awaitingReply = true;
+          showWaiting();
+        }
         return;
       }
 
@@ -830,6 +802,12 @@
 
       if (event.type === "replay_complete") {
         historyReplayed = true;
+        // The scroll position starts at the top (scrollTop 0) by default; for a
+        // long conversation that overflows the viewport, that leaves the oldest
+        // messages showing until the user manually scrolls all the way down.
+        // Force it to the latest message once history has finished loading,
+        // same as opening any real chat app lands you on the newest message.
+        document.getElementById("chatLog").scrollTop = document.getElementById("chatLog").scrollHeight;
         return;
       }
 

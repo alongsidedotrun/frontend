@@ -72,8 +72,13 @@
 }
 
 @layer components {
+  /* Fixed px, not w-4 (1rem): the page's root font-size is a responsive
+     clamp() (15-19px depending on viewport), so a rem-based size here would
+     never actually be a stable 16px — it'd drift with viewport width and
+     scale the crisp-edged pixel-grid art at a non-integer factor, blurring it. */
   .sidebar-logo {
-    @apply w-6 h-6;
+    width: 16px;
+    height: 16px;
   }
 
   .sidebar-icon-btn {
@@ -84,8 +89,14 @@
     @apply w-4 h-4;
   }
 
+  /* Fixed px (see .sidebar-logo above) — the .sidebar-logo-btn img rule below
+     fills this container via object-cover, so this size (not .sidebar-logo's
+     own width/height, overridden by that rule's higher specificity) is what
+     actually determines the rendered logo size. */
   .sidebar-logo-btn {
-    @apply relative w-[1.375rem] h-[1.375rem] bg-transparent border-0 p-0 cursor-pointer text-porch-muted hover:text-porch-text;
+    width: 16px;
+    height: 16px;
+    @apply relative bg-transparent border-0 p-0 cursor-pointer text-porch-muted hover:text-porch-text;
   }
 
   .sidebar-logo-mask {
@@ -194,16 +205,45 @@
     @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-geist text-sm font-medium transition-colors h-9 px-4 py-2 w-full cursor-pointer bg-[#FFFFFF] border border-[#E4E4E7] text-black hover:bg-[#D4D4D8];
   }
 
+  /* bg-porch-input (not porch-card): these are interactive form controls, not
+     static panel surfaces — see ADR 0010's "field-input/plain-btn reversal"
+     note. porch-card's dark-in-both-themes behaviour is still correct for the
+     Settings modal's own outer panel background, just not for controls inside it. */
   .field-input {
-    @apply bg-porch-card text-porch-text border border-porch-border rounded-md px-2.5 py-1.5;
+    @apply bg-porch-input text-porch-text border border-porch-border rounded-md px-2.5 py-1.5;
   }
 
   .plain-btn {
-    @apply bg-porch-card text-porch-text border border-porch-border rounded-md px-2.5 py-1.5 cursor-pointer hover:bg-[#1c1c1a];
+    @apply bg-porch-input text-porch-text border border-porch-border rounded-md px-2.5 py-1.5 cursor-pointer hover:bg-porch-border;
   }
 
   .chat-name-input {
     @apply bg-transparent border-0 text-porch-text text-sm font-medium px-1.5 py-1 rounded-md min-w-0 flex-1 max-w-xs outline-none transition-colors duration-150 hover:bg-porch-input focus:bg-porch-input;
+  }
+
+  /* Styled like .hovercard (bg-porch-bg + porch-border), just always visible
+     and in a pill/badge shape rather than a hover-triggered tooltip. */
+  .session-badge {
+    @apply inline-flex items-center bg-porch-bg border border-porch-border rounded-md px-2 py-0.5 text-[0.625rem] font-medium tracking-wide text-porch-muted uppercase;
+  }
+
+  /* A real switch instead of a text button, so on/off reads at a glance.
+     Thumb colour is fixed (like .sidebar-avatar) rather than porch-text,
+     which would go dark-on-dark against the "off" track in light mode. */
+  .toggle-switch {
+    @apply relative inline-flex items-center w-9 h-5 rounded-full border border-porch-border bg-porch-input cursor-pointer transition-colors duration-150 shrink-0 p-0;
+  }
+
+  .toggle-switch.on {
+    @apply bg-porch-btn border-porch-btn;
+  }
+
+  .toggle-thumb {
+    @apply absolute top-0.5 left-0.5 w-3.5 h-3.5 rounded-full bg-[#F3F1ED] transition-transform duration-150;
+  }
+
+  .toggle-switch.on .toggle-thumb {
+    @apply translate-x-4;
   }
 
   /* Cross-page fade: auth.html fades this to opaque before navigating away,

@@ -1,39 +1,32 @@
-<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
-<g clip-path="url(#clip0_467_1672)">
-<g clip-path="url(#clip1_467_1672)">
-<path d="M18.2857 0H0V18.2857H18.2857V0Z" fill="#323232"/>
-<path d="M45.7144 0H27.4287V18.2857H45.7144V0Z" fill="#323232"/>
-<path d="M73.1431 0H54.8574V18.2857H73.1431V0Z" fill="#323232"/>
-<path d="M100.572 0H82.2861V18.2857H100.572V0Z" fill="#323232"/>
-<path d="M18.2857 27.4287H0V45.7144H18.2857V27.4287Z" fill="#323232"/>
-<path d="M45.7144 27.4287H27.4287V45.7144H45.7144V27.4287Z" fill="#FAF9F5"/>
-<path d="M73.1431 27.4287H54.8574V45.7144H73.1431V27.4287Z" fill="#FAF9F5"/>
-<path d="M100.572 27.4287H82.2861V45.7144H100.572V27.4287Z" fill="#FAF9F5"/>
-<path d="M18.2857 54.8574H0V73.1431H18.2857V54.8574Z" fill="#323232"/>
-<path d="M45.7144 54.8574H27.4287V73.1431H45.7144V54.8574Z" fill="#FAF9F5"/>
-<path d="M73.1431 54.8574H54.8574V73.1431H73.1431V54.8574Z" fill="#323232"/>
-<path d="M100.572 54.8574H82.2861V73.1431H100.572V54.8574Z" fill="#FAF9F5"/>
-<path d="M18.2857 82.2861H0V100.572H18.2857V82.2861Z" fill="#FAF9F5"/>
-<path d="M45.7144 82.2861H27.4287V100.572H45.7144V82.2861Z" fill="#FAF9F5"/>
-<path d="M73.1431 82.2861H54.8574V100.572H73.1431V82.2861Z" fill="#323232"/>
-<path d="M100.572 82.2861H82.2861V100.572H100.572V82.2861Z" fill="#FAF9F5"/>
-<path d="M128 0H109.714V18.2857H128V0Z" fill="#323232"/>
-<path d="M128 27.4287H109.714V45.7144H128V27.4287Z" fill="#323232"/>
-<path d="M128 54.8574H109.714V73.1431H128V54.8574Z" fill="#323232"/>
-<path d="M128 82.2861H109.714V100.572H128V82.2861Z" fill="#FAF9F5"/>
-<path d="M18.2857 109.714H0V128H18.2857V109.714Z" fill="#323232"/>
-<path d="M45.7144 109.714H27.4287V128H45.7144V109.714Z" fill="#323232"/>
-<path d="M73.1431 109.714H54.8574V128H73.1431V109.714Z" fill="#323232"/>
-<path d="M100.572 109.714H82.2861V128H100.572V109.714Z" fill="#323232"/>
-<path d="M128 109.714H109.714V128H128V109.714Z" fill="#323232"/>
-</g>
-</g>
-<defs>
-<clipPath id="clip0_467_1672">
-<rect width="128" height="128" fill="white"/>
-</clipPath>
-<clipPath id="clip1_467_1672">
-<rect width="128" height="128" fill="white"/>
-</clipPath>
-</defs>
+<svg width="16" height="16" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" role="img" aria-label="Porch">
+  <rect width="32" height="32" fill="#323232"/>
+  <g fill="#41403E">
+    <rect x="2" y="2" width="4" height="4"/>
+    <rect x="8" y="2" width="4" height="4"/>
+    <rect x="14" y="2" width="4" height="4"/>
+    <rect x="20" y="2" width="4" height="4"/>
+    <rect x="26" y="2" width="4" height="4"/>
+    <rect x="2" y="8" width="4" height="4"/>
+    <rect x="26" y="8" width="4" height="4"/>
+    <rect x="2" y="14" width="4" height="4"/>
+    <rect x="14" y="14" width="4" height="4"/>
+    <rect x="26" y="14" width="4" height="4"/>
+    <rect x="14" y="20" width="4" height="4"/>
+    <rect x="2" y="26" width="4" height="4"/>
+    <rect x="8" y="26" width="4" height="4"/>
+    <rect x="14" y="26" width="4" height="4"/>
+    <rect x="20" y="26" width="4" height="4"/>
+    <rect x="26" y="26" width="4" height="4"/>
+  </g>
+  <g fill="#FAF9F5">
+    <rect x="8" y="8" width="4" height="4"/>
+    <rect x="14" y="8" width="4" height="4"/>
+    <rect x="20" y="8" width="4" height="4"/>
+    <rect x="8" y="14" width="4" height="4"/>
+    <rect x="20" y="14" width="4" height="4"/>
+    <rect x="2" y="20" width="4" height="4"/>
+    <rect x="8" y="20" width="4" height="4"/>
+    <rect x="20" y="20" width="4" height="4"/>
+    <rect x="26" y="20" width="4" height="4"/>
+  </g>
 </svg>

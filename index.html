@@ -139,18 +139,6 @@
       <label class="block text-xs text-porch-muted mb-1.5">Anthropic API key</label>
       <input class="field-input w-full mb-4" type="password" id="apiKey" />
 
-      <label class="block text-xs text-porch-muted mb-1.5">Join session</label>
-      <div class="flex items-center gap-2 mb-4">
-        <input class="field-input flex-1" id="sessionId" placeholder="Session ID" />
-        <button class="plain-btn" onclick="joinFromForm()">Join</button>
-      </div>
-
-      <label class="block text-xs text-porch-muted mb-1.5">Hosting</label>
-      <div class="flex items-center gap-2 mb-4">
-        <span class="text-xs text-porch-muted" id="hostingStatus">checking...</span>
-        <button class="plain-btn ml-auto" id="hostToggleBtn" onclick="toggleHosting()" disabled>...</button>
-      </div>
-
       <div class="flex justify-end gap-2">
         <button class="plain-btn" onclick="closeSettings()">Cancel</button>
         <button class="plain-btn bg-porch-btn border-porch-btn text-white hover:bg-porch-btn-hover" onclick="saveSettings()">Save</button>
@@ -174,7 +162,6 @@
       });
     }
 
-    let hostingOn = false;
     let selectedModel = "claude-sonnet-5";
 
     function greetingText() {
@@ -245,7 +232,6 @@
 
     function openSettings() {
       document.getElementById("apiKey").value = localStorage.getItem("porch_api_key") || "";
-      refreshHostingStatus();
       const modal = document.getElementById("settingsModal");
       modal.classList.remove("hidden");
       modal.classList.add("flex");
@@ -315,27 +301,6 @@
     // logo/panel-left hover swap somewhere to point until that's built.
     function toggleSidebar() {}
 
-    async function refreshHostingStatus() {
-      const res = await fetch("/host/status");
-      const data = await res.json();
-      hostingOn = data.hosting;
-      updateHostingUi();
-    }
-
-    function updateHostingUi() {
-      document.getElementById("hostingStatus").textContent = hostingOn ? "on" : "off";
-      document.getElementById("hostToggleBtn").textContent = hostingOn ? "Stop hosting" : "Start hosting";
-      document.getElementById("hostToggleBtn").disabled = false;
-    }
-
-    async function toggleHosting() {
-      const endpoint = hostingOn ? "/host/stop" : "/host/start";
-      const res = await fetch(endpoint, { method: "POST" });
-      const data = await res.json();
-      hostingOn = data.hosting;
-      updateHostingUi();
-    }
-
     // Grows the compose textarea with its content (up to max-h-40) instead of
     // sitting at a fixed multi-row height regardless of what's typed.
     function autoGrowInitialPrompt() {
@@ -375,15 +340,7 @@
       location.href = `/chat/${data.session_id}`;
     }
 
-    function joinFromForm() {
-      const id = document.getElementById("sessionId").value;
-      if (id) {
-        location.href = `/chat/${id}`;
-      }
-    }
-
     renderModelMenu();
-    refreshHostingStatus();
   </script>
 </body>
 </html>
