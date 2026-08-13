@@ -1,0 +1,871 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Porch</title>
+<link rel="icon" type="image/svg+xml" href="/logo.svg" />
+<link rel="preload" href="/fonts/Geist-Regular.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="page-transition-overlay opacity-100" id="pageTransition"></div>
+
+  <div class="fixed left-0 top-0 bottom-0 w-12 flex flex-col items-center py-5 gap-0 border-r border-porch-border bg-porch-bg z-10">
+    <button class="sidebar-logo-btn group" onclick="toggleSidebar()">
+      <span class="sidebar-logo-mask">
+        <img class="sidebar-logo" src="/logo.svg" alt="Porch" id="sidebarLogoImg" />
+        <span class="sidebar-logo-toggle">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg>
+        </span>
+      </span>
+      <span class="hovercard">Collapse sidebar</span>
+    </button>
+
+    <div class="relative group mt-9">
+      <button class="sidebar-icon-btn" onclick="location.href='/'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><line x1="12" y1="9" x2="12" y2="15"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
+      </button>
+      <span class="hovercard">New chat</span>
+    </div>
+    <div class="relative group mt-[0.9375rem]">
+      <button class="sidebar-icon-btn">
+        <svg viewBox="0 0 16 16" fill="none">
+          <g clip-path="url(#sessions-clip)">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M10.0077 3.53868C9.22102 1.93713 7.57342 0.833496 5.66699 0.833496C2.99762 0.833496 0.83366 2.99745 0.83366 5.66683C0.83366 6.38156 0.989118 7.06133 1.26854 7.67305C1.34146 7.8327 1.35566 7.9835 1.32324 8.10467L1.23832 8.42203C0.966508 9.43792 1.89591 10.3673 2.91179 10.0955L3.22915 10.0106C3.31934 9.98645 3.42593 9.98814 3.54037 10.0207C3.88043 12.9185 6.34448 15.1668 9.33366 15.1668C10.2336 15.1668 11.0873 14.9627 11.8497 14.5977C12.0007 14.5254 12.1493 14.5108 12.2715 14.5435L13.0889 14.7622C14.1047 15.034 15.0341 14.1046 14.7623 13.0887L14.5436 12.2713C14.5109 12.1491 14.5256 12.0005 14.5978 11.8496C14.9628 11.0872 15.167 10.2335 15.167 9.3335C15.167 6.33979 12.9118 3.87281 10.0077 3.53868ZM8.84367 3.52045C5.96047 3.76024 3.67272 6.0969 3.50963 9.00123C3.33462 8.98455 3.15272 8.99586 2.97068 9.04456L2.65332 9.12948C2.38077 9.2024 2.13142 8.95305 2.20434 8.6805L2.28926 8.36314C2.39402 7.97158 2.32574 7.5807 2.17814 7.25757C1.95709 6.77364 1.83366 6.23533 1.83366 5.66683C1.83366 3.54974 3.5499 1.8335 5.66699 1.8335C6.98826 1.8335 8.15419 2.50205 8.84367 3.52045ZM9.33366 4.50016C12.003 4.50016 14.167 6.66412 14.167 9.3335C14.167 10.0809 13.9977 10.7873 13.6959 11.4178C13.5389 11.7456 13.4731 12.1393 13.5776 12.5298L13.7963 13.3472C13.8692 13.6197 13.6199 13.8691 13.3473 13.7961L12.53 13.5775C12.1395 13.473 11.7457 13.5388 11.4179 13.6957C10.7874 13.9976 10.081 14.1668 9.33366 14.1668C6.66428 14.1668 4.50033 12.0029 4.50033 9.3335C4.50033 6.66412 6.66428 4.50016 9.33366 4.50016Z" fill="currentColor"/>
+            <path d="M11.0003 9.3335C11.0003 9.70169 11.2988 10.0002 11.667 10.0002C12.0352 10.0002 12.3337 9.70169 12.3337 9.3335C12.3337 8.96531 12.0352 8.66683 11.667 8.66683C11.2988 8.66683 11.0003 8.96531 11.0003 9.3335Z" fill="currentColor"/>
+            <path d="M8.66699 9.3335C8.66699 9.70169 8.96547 10.0002 9.33366 10.0002C9.70185 10.0002 10.0003 9.70169 10.0003 9.3335C10.0003 8.96531 9.70185 8.66683 9.33366 8.66683C8.96547 8.66683 8.66699 8.96531 8.66699 9.3335Z" fill="currentColor"/>
+            <path d="M6.33366 9.3335C6.33366 9.70169 6.63214 10.0002 7.00033 10.0002C7.36852 10.0002 7.66699 9.70169 7.66699 9.3335C7.66699 8.96531 7.36852 8.66683 7.00033 8.66683C6.63214 8.66683 6.33366 8.96531 6.33366 9.3335Z" fill="currentColor"/>
+          </g>
+          <defs>
+            <clipPath id="sessions-clip"><rect width="16" height="16" fill="white" transform="matrix(-1 0 0 1 16 0)"/></clipPath>
+          </defs>
+        </svg>
+      </button>
+      <span class="hovercard">Chats</span>
+    </div>
+    <div class="relative group mt-[0.9375rem]">
+      <button class="sidebar-icon-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8.3 10a.7.7 0 0 1-.626-1.079L11.4 3a.7.7 0 0 1 1.198-.043L16.3 8.9a.7.7 0 0 1-.572 1.1Z"/><rect x="3" y="14" width="7" height="7" rx="1"/><circle cx="17.5" cy="17.5" r="3.5"/></svg>
+      </button>
+      <span class="hovercard">Artifacts</span>
+    </div>
+
+    <div class="relative mt-auto">
+      <button class="sidebar-avatar" id="avatarBtn" onclick="toggleDropdown('avatarMenu', event)"></button>
+      <div class="dropdown-panel bottom-full left-0 mb-2" id="avatarMenu">
+        <button class="dropdown-item" onclick="openSettings()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+          Settings
+        </button>
+        <button class="dropdown-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+          Language
+        </button>
+        <button class="dropdown-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+          Get help
+        </button>
+        <button class="dropdown-item" onclick="toggleTheme()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" id="themeIcon"></svg>
+          <span id="themeLabel">Switch theme</span>
+        </button>
+        <button class="dropdown-item" onclick="logout()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Logout
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="h-screen flex flex-col ml-12 relative">
+    <div class="absolute top-0 inset-x-0 h-14 flex items-center justify-between gap-2 px-3 sm:px-5 z-20">
+      <div class="flex items-center gap-2 min-w-0">
+        <input class="chat-name-input" id="chatNameInput" value="New chat" onblur="saveChatName()" onkeydown="if (event.key === 'Enter') { event.preventDefault(); document.activeElement.blur(); }" />
+        <span class="session-badge hidden shrink-0" id="sessionBadge">Session</span>
+      </div>
+      <div class="flex items-center gap-1 shrink-0">
+        <div class="relative shrink-0">
+          <button class="bg-porch-bg border border-porch-border rounded-md h-7 px-2.5 flex items-center text-xs text-porch-text cursor-pointer transition-colors duration-150 hover:bg-porch-input" id="shareBtn" onclick="toggleDropdown('shareMenu', event)">Share</button>
+
+          <div class="dropdown-panel top-full right-0 mt-2 w-[85vw] max-w-72 shadow-none" id="shareMenu">
+            <div class="p-3">
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-xs text-porch-text">Enable session</span>
+                <button class="toggle-switch" id="shareToggleBtn" onclick="event.stopPropagation(); toggleShareHosting()"><span class="toggle-thumb"></span></button>
+              </div>
+              <div class="mt-3 hidden" id="shareLinkRow">
+                <label class="block text-[0.625rem] text-porch-muted mb-1.5">Share link</label>
+                <div class="flex items-center gap-2">
+                  <input class="field-input flex-1 text-[0.625rem]" id="shareLinkInput" readonly />
+                  <button class="icon-btn shrink-0" id="shareCopyBtn" onclick="event.stopPropagation(); copyShareLink()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7.242a2 2 0 0 0-.602-1.43L16.083 2.57A2 2 0 0 0 14.685 2H10a2 2 0 0 0-2 2Z"/><path d="M16 18v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="relative shrink-0">
+          <button class="sidebar-icon-btn w-8 h-8" id="sessionMenuBtn" onclick="toggleDropdown('sessionMenu', event)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
+          </button>
+
+          <div class="dropdown-panel top-full right-0 mt-2 shadow-none" id="sessionMenu">
+            <button class="dropdown-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
+              Files
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="chatLog" class="flex-1 min-h-0 overflow-y-auto flex flex-col px-3 sm:px-5">
+      <div id="chatContent" class="mt-auto flex flex-col gap-3 max-w-[45rem] w-full mx-auto pt-16 pb-3"></div>
+    </div>
+
+    <div class="shrink-0 px-3 sm:px-5 pb-6">
+      <div class="compose-box max-w-3xl mx-auto">
+        <textarea id="messageInput" rows="1" placeholder="Send a message" onkeydown="if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); }" oninput="autoGrowMessageInput()" class="max-h-40 overflow-y-auto"></textarea>
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-1.5">
+            <div class="relative">
+              <button class="icon-btn" id="addBtn" onclick="toggleDropdown('addMenu', event)">+</button>
+              <div class="dropdown-panel bottom-full left-0 mb-2" id="addMenu">
+                <button class="dropdown-item">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
+                  Add file
+                </button>
+                <button class="dropdown-item">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v3"/><path d="M12 10v6"/><path d="M9 13h6"/></svg>
+                  Add to project
+                </button>
+              </div>
+            </div>
+            <div class="relative">
+              <button class="icon-btn" id="filterBtn" onclick="toggleDropdown('filterMenu', event)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg>
+              </button>
+              <div class="dropdown-panel bottom-full left-0 mb-2" id="filterMenu">
+                <button class="dropdown-item">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42Z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/></svg>
+                  Placeholder 1
+                </button>
+                <button class="dropdown-item">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42Z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/></svg>
+                  Placeholder 2
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="relative">
+              <button class="model-trigger" id="modelBtn" onclick="toggleDropdown('modelMenu', event)">
+                <span id="modelBtnLabel">Claude Sonnet 5</span>
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              <div class="dropdown-panel bottom-full right-0 mb-2" id="modelMenu"></div>
+            </div>
+            <button class="send-btn" onclick="sendMessage()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 10-5 5 5 5"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50" id="settingsModal">
+    <div class="bg-porch-card border border-porch-border rounded-lg p-6 w-[90vw] max-w-80">
+      <h2 class="font-geist font-semibold text-base mb-4">Settings</h2>
+
+      <label class="block text-xs text-porch-muted mb-1.5">Anthropic API key</label>
+      <input class="field-input w-full mb-4" type="password" id="apiKey" />
+
+      <div class="flex justify-end gap-2">
+        <button class="plain-btn" onclick="closeSettings()">Cancel</button>
+        <button class="plain-btn bg-porch-btn border-porch-btn text-white hover:bg-porch-btn-hover" onclick="saveSettings()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Placeholder sign-in gate (Sprint 5 hasn't landed real auth yet).
+    if (!localStorage.getItem("porch_signed_in")) {
+      location.href = "/auth";
+    } else {
+      // Double rAF: let the initial opaque frame paint before starting the
+      // fade-out, otherwise the browser collapses both states into one frame.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const overlay = document.getElementById("pageTransition");
+          overlay.classList.remove("opacity-100");
+          overlay.classList.add("opacity-0");
+        });
+      });
+    }
+
+    const currentSessionId = location.pathname.split("/").pop();
+    let hostingOn = false;
+    let lastHumanPrompt = "";
+    // True from when a human message is sent until the reply (or session
+    // end) for it arrives, so a rate_limited event that shows up after the
+    // fact (the CLI can emit one as a trailing notice, not just a blocker)
+    // doesn't leave the waiting indicator stuck with nothing left to clear it.
+    let awaitingReply = false;
+    // True once the backend's replay_complete marker has been seen, so history
+    // loaded on connect/refresh renders statically and only genuinely new
+    // messages get the typing animation.
+    let historyReplayed = false;
+
+    // No real auth/profile yet (Sprint 5), so this falls back to "Porch" until
+    // a signed-in user's name is available.
+    document.getElementById("avatarBtn").textContent =
+      (localStorage.getItem("porch_user_name") || "Porch").charAt(0).toUpperCase();
+
+    document.getElementById("modelBtnLabel").textContent = sessionStorage.getItem("porch_model_label") || "Claude Sonnet 5";
+    sessionStorage.removeItem("porch_model_label");
+
+    // Stand-in for a future call to fetch registered API keys/models per provider from the db.
+    const modelProviders = [
+      {
+        provider: "Anthropic",
+        models: [
+          { value: "claude-opus-5", label: "Claude Opus 5" },
+          { value: "claude-sonnet-5", label: "Claude Sonnet 5" },
+          { value: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" },
+        ],
+      },
+    ];
+
+    function renderModelMenu() {
+      const menu = document.getElementById("modelMenu");
+      menu.innerHTML = "";
+      for (const group of modelProviders) {
+        const label = document.createElement("div");
+        label.className = "dropdown-label";
+        label.textContent = group.provider;
+        menu.appendChild(label);
+
+        for (const model of group.models) {
+          const item = document.createElement("button");
+          item.className = "dropdown-item";
+          // Placeholder icon: no official Claude/Anthropic mark is bundled here.
+          item.innerHTML = '<svg viewBox="0 0 128 128" fill="#DA7756"><path d="M32.4286 81.1404L52.8708 69.6696L53.2129 68.6699L52.8708 68.1174H51.8711L48.4509 67.9069L36.7696 67.5912L26.6406 67.1702L16.8273 66.6441L14.3543 66.1179L12.0391 63.066L12.2758 61.5401L14.3543 60.1457L17.3272 60.4088L23.9045 60.8561L33.7704 61.5401L40.9265 61.961L51.5291 63.066H53.2129L53.4496 62.382L52.8708 61.961L52.4236 61.5401L42.2156 54.6208L31.1658 47.3069L25.3778 43.0974L22.247 40.9664L20.6685 38.9669L19.9844 34.5995L22.8258 31.4688L26.6406 31.7318L27.6141 31.9949L31.4815 34.9679L39.7426 41.361L50.5293 49.3064L52.1079 50.6218L52.7393 50.1746L52.8182 49.8588L52.1079 48.6749L46.2409 38.0723L39.9794 27.2856L37.1906 22.8131L36.4539 20.1295C36.1908 19.0245 36.0067 18.1037 36.0067 16.9724L39.2427 12.5788L41.0317 12L45.3464 12.5788L47.1618 14.1573L49.8453 20.2874L54.1863 29.9428L60.9214 43.0711L62.8946 46.9648L63.947 50.5692L64.3416 51.6742H65.0257V51.0428L65.5781 43.6499L66.6042 34.5732L67.604 22.892L67.946 19.6033L69.5771 15.657L72.8132 13.5259L75.3388 14.7361L77.4173 17.7091L77.1279 19.6296L75.8913 27.6539L73.4709 40.2297L71.8923 48.6486H72.8132L73.8655 47.5963L78.1276 41.9398L85.2837 32.9947L88.4408 29.443L92.1241 25.5229L94.4919 23.6549H98.9644L102.253 28.5484L100.78 33.5998L96.1757 39.4404L92.3608 44.3865L86.8885 51.7531L83.4684 57.6463L83.7841 58.1199L84.5996 58.041L96.9649 55.4101L103.647 54.1999L111.619 52.8318L115.223 54.5156L115.618 56.2257L114.197 59.7248L105.673 61.8295L95.6758 63.829L80.7848 67.3544L80.6007 67.486L80.8111 67.7491L87.52 68.3805L90.3877 68.5383H97.4122L110.488 69.5118L113.908 71.7743L115.96 74.5368L115.618 76.6415L110.356 79.3251L103.253 77.6413L86.6781 73.6949L80.9953 72.2742H80.206V72.7478L84.9417 77.3782L93.6237 85.2183L104.489 95.321L105.042 97.8204L103.647 99.7936L102.174 99.5831L92.6239 92.4007L88.9407 89.1647L80.6007 82.1401H80.0482V82.8768L81.9687 85.6919L92.1241 100.951L92.6502 105.634L91.9136 107.16L89.2827 108.081L86.3887 107.555L80.4428 99.2148L74.3128 89.8224L69.3667 81.4035L68.7616 81.7455L65.8412 113.185L64.4732 114.79L61.3161 116L58.6852 114L57.2908 110.764L58.6852 104.371L60.3689 96.0314L61.737 89.4015L62.9735 81.1667L63.7102 78.4306L63.6576 78.2464L63.0525 78.3253L56.8435 86.8495L47.3985 99.6094L39.9267 107.607L38.1377 108.318L35.0332 106.713L35.3226 103.845L37.059 101.293L47.3985 88.1386L53.6338 79.9828L57.6591 75.2735L57.6328 74.5894H57.396L29.9293 92.427L25.0358 93.0584L22.931 91.0853L23.1941 87.8492L24.1939 86.7969L32.455 81.1141L32.4286 81.1404Z"/></svg>' + model.label;
+          item.onclick = () => selectModel(model);
+          menu.appendChild(item);
+        }
+      }
+    }
+
+    // Cosmetic only for now: switching the agent mid-chat isn't implemented yet
+    // (see LLD's Future Evolution notes on agent switching within a chat), so
+    // this just updates the label rather than actually changing the active model.
+    function selectModel(model) {
+      document.getElementById("modelBtnLabel").textContent = model.label;
+      toggleDropdown("modelMenu");
+    }
+
+    function toggleDropdown(id, event) {
+      if (event) event.stopPropagation();
+      const panel = document.getElementById(id);
+      const isOpen = panel.classList.contains("open");
+      document.querySelectorAll(".dropdown-panel").forEach((p) => p.classList.remove("open"));
+      if (!isOpen) panel.classList.add("open");
+    }
+
+    document.addEventListener("click", () => {
+      document.querySelectorAll(".dropdown-panel").forEach((p) => p.classList.remove("open"));
+    });
+
+    function openSettings() {
+      document.getElementById("apiKey").value = localStorage.getItem("porch_api_key") || "";
+      const modal = document.getElementById("settingsModal");
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+    }
+
+    function closeSettings() {
+      const modal = document.getElementById("settingsModal");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    }
+
+    function saveSettings() {
+      localStorage.setItem("porch_api_key", document.getElementById("apiKey").value);
+      closeSettings();
+    }
+
+    function logout() {
+      const overlay = document.getElementById("pageTransition");
+      overlay.classList.remove("opacity-0");
+      overlay.classList.add("opacity-100");
+      setTimeout(() => {
+        localStorage.removeItem("porch_signed_in");
+        location.href = "/auth";
+      }, 300);
+    }
+
+    // The sun/moon icon shows the theme a click switches TO, not the current
+    // one. Values/colors themselves come from CSS variables (see input.css);
+    // this only ever flips the data-theme attribute that selects between them.
+    const SUN_ICON = '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>';
+    const MOON_ICON = '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>';
+
+    function getTheme() {
+      return localStorage.getItem("porch_theme") || "dark";
+    }
+
+    // The mark's Dark/Light SVG variants (see ADR 0010 / the logo refresh PR)
+    // are separate files, not a currentColor-driven icon, so switching them
+    // is a src swap rather than a CSS variable like everything else here.
+    function logoSrcForTheme(theme) {
+      return theme === "light" ? "/logo-light.svg" : "/logo.svg";
+    }
+
+    function applyTheme(theme) {
+      document.documentElement.setAttribute("data-theme", theme);
+      const icon = document.getElementById("themeIcon");
+      const label = document.getElementById("themeLabel");
+      if (icon && label) {
+        icon.innerHTML = theme === "dark" ? SUN_ICON : MOON_ICON;
+        label.textContent = theme === "dark" ? "Switch to light theme" : "Switch to dark theme";
+      }
+      const sidebarLogo = document.getElementById("sidebarLogoImg");
+      if (sidebarLogo) {
+        sidebarLogo.src = logoSrcForTheme(theme);
+      }
+      // Also updates the logo on every already-rendered agent message, not
+      // just new ones, so switching theme mid-conversation doesn't leave old
+      // messages showing the wrong variant.
+      document.querySelectorAll(".theme-logo").forEach((img) => {
+        img.src = logoSrcForTheme(theme);
+      });
+    }
+
+    function toggleTheme() {
+      const next = getTheme() === "dark" ? "light" : "dark";
+      localStorage.setItem("porch_theme", next);
+      applyTheme(next);
+    }
+
+    applyTheme(getTheme());
+
+    // Placeholder: no collapsed sidebar layout exists yet, this just gives the
+    // logo/panel-left hover swap somewhere to point until that's built.
+    function toggleSidebar() {}
+
+    async function refreshHostingStatus() {
+      const res = await fetch("/host/status");
+      const data = await res.json();
+      hostingOn = data.hosting;
+      updateShareUi();
+    }
+
+    // Greys the share icon out when hosting is off (still clickable, since
+    // that's how you turn hosting on in the first place), flips the toggle
+    // switch, shows the "Session" badge beside the chat name, and swaps the
+    // menu between the enable-session row and the actual copyable link.
+    function updateShareUi() {
+      document.getElementById("shareBtn").classList.toggle("opacity-60", !hostingOn);
+      document.getElementById("shareToggleBtn").classList.toggle("on", hostingOn);
+      document.getElementById("sessionBadge").classList.toggle("hidden", !hostingOn);
+      document.getElementById("shareLinkRow").classList.toggle("hidden", !hostingOn);
+      if (hostingOn) {
+        document.getElementById("shareLinkInput").value = `${location.origin}/chat/${currentSessionId}`;
+      }
+    }
+
+    async function toggleShareHosting() {
+      const endpoint = hostingOn ? "/host/stop" : "/host/start";
+      const res = await fetch(endpoint, { method: "POST" });
+      const data = await res.json();
+      hostingOn = data.hosting;
+      updateShareUi();
+
+      await fetch(`/sessions/${currentSessionId}/host-notice`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: hostingOn, name: localStorage.getItem("porch_user_name") || "Porch" }),
+      });
+    }
+
+    function copyShareLink() {
+      const input = document.getElementById("shareLinkInput");
+      navigator.clipboard.writeText(input.value);
+
+      const btn = document.getElementById("shareCopyBtn");
+      btn.classList.add("text-porch-text");
+      setTimeout(() => btn.classList.remove("text-porch-text"), 800);
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById("messageInput");
+      const message = input.value.trim();
+      if (!message) {
+        return;
+      }
+
+      const res = await fetch(`/sessions/${currentSessionId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: message, sender_name: localStorage.getItem("porch_user_name") || "Porch" }),
+      });
+
+      if (!res.ok) {
+        alert("Failed to send message (status " + res.status + ").");
+        return;
+      }
+
+      input.value = "";
+      autoGrowMessageInput();
+    }
+
+    // Grows the compose textarea with its content (up to max-h-40) instead of
+    // showing the textarea's own internal scrollbar for wrapped/multi-line text.
+    function autoGrowMessageInput() {
+      const input = document.getElementById("messageInput");
+      input.style.height = "auto";
+      input.style.height = `${input.scrollHeight}px`;
+    }
+
+    let lastSavedChatName = "New chat";
+
+    async function saveChatName() {
+      const input = document.getElementById("chatNameInput");
+      const name = input.value.trim() || "New chat";
+      input.value = name;
+      if (name === lastSavedChatName) {
+        return;
+      }
+      lastSavedChatName = name;
+
+      await fetch(`/sessions/${currentSessionId}/name`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+    }
+
+    // Only follows new content to the bottom if the user was already there —
+    // otherwise someone scrolled up to read history gets yanked back down on
+    // every incoming event.
+    function scrollChatToBottomIfNear() {
+      const chatLog = document.getElementById("chatLog");
+      const threshold = 80;
+      const isNearBottom = chatLog.scrollHeight - chatLog.scrollTop - chatLog.clientHeight < threshold;
+      if (isNearBottom) {
+        chatLog.scrollTop = chatLog.scrollHeight;
+      }
+    }
+
+    function addMarker(text) {
+      const chatContent = document.getElementById("chatContent");
+      const el = document.createElement("div");
+      el.className = "opacity-50 text-xs text-center";
+      el.textContent = text;
+      chatContent.appendChild(el);
+      scrollChatToBottomIfNear();
+    }
+
+    // Shown while the agent is rate-limited (see the rate_limited event the
+    // backend sends when the CLI reports a rate_limit_event) so the wait
+    // isn't silent. Mirrors addAgentMessage's header row exactly (same
+    // classes/sizing as the logo+model label) so swapping it out for the
+    // real message once the reply arrives reads as one continuous element
+    // rather than a layout jump between two differently-shaped rows.
+    function showWaiting() {
+      if (document.getElementById("waitingMarker")) return;
+      const chatContent = document.getElementById("chatContent");
+      const row = document.createElement("div");
+      row.id = "waitingMarker";
+      row.className = "flex flex-col items-start gap-1";
+
+      const header = document.createElement("div");
+      header.className = "flex items-center gap-1.5 px-1";
+
+      const gif = document.createElement("img");
+      gif.className = "w-4 h-4 rounded-[0.1875rem]";
+      gif.alt = "";
+      gif.src = "/waiting.gif";
+
+      const label = document.createElement("span");
+      label.id = "waitingMarkerLabel";
+      label.className = "text-[0.625rem] text-porch-muted transition-opacity duration-150";
+      label.textContent = "Waiting";
+
+      header.appendChild(gif);
+      header.appendChild(label);
+      row.appendChild(header);
+      chatContent.appendChild(row);
+      scrollChatToBottomIfNear();
+    }
+
+    function hideWaiting() {
+      const el = document.getElementById("waitingMarker");
+      if (el) el.remove();
+    }
+
+    // Swaps the marker from "Waiting" (the API call hasn't started yet) to
+    // "Thinking" (the agent has connected and is now working on a reply).
+    function markThinking() {
+      const label = document.getElementById("waitingMarkerLabel");
+      if (!label) return;
+      label.style.opacity = "0";
+      setTimeout(() => {
+        label.textContent = "Thinking";
+        label.style.opacity = "1";
+      }, 150);
+    }
+
+    // Human messages (ours or another participant's) always render the same
+    // way: left-aligned, avatar before the bubble, card background.
+    function messageTime() {
+      return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    }
+
+    function addHumanMessage(text, sender) {
+      const chatContent = document.getElementById("chatContent");
+      const row = document.createElement("div");
+      row.className = "flex flex-col items-end gap-1";
+
+      const myName = localStorage.getItem("porch_user_name") || "Porch";
+      const senderName = sender || myName;
+      const displayName = senderName === myName ? "Me" : senderName;
+
+      const nameLabel = document.createElement("span");
+      nameLabel.className = "text-xs text-porch-muted px-1";
+      nameLabel.textContent = displayName;
+      row.appendChild(nameLabel);
+
+      const wrap = document.createElement("div");
+      wrap.className = "flex items-center gap-2.5 max-w-[85%] sm:max-w-[75%]";
+
+      const avatar = document.createElement("span");
+      avatar.className = "sidebar-avatar w-7 h-7 shrink-0";
+      avatar.textContent = senderName.charAt(0).toUpperCase();
+
+      const bubble = document.createElement("div");
+      bubble.className = "bg-porch-input rounded-2xl px-3.5 py-2.5 whitespace-pre-wrap text-porch-text text-sm";
+      bubble.textContent = text;
+
+      wrap.appendChild(avatar);
+      wrap.appendChild(bubble);
+      row.appendChild(wrap);
+
+      const timestamp = document.createElement("span");
+      timestamp.className = "text-xs text-porch-muted px-1";
+      timestamp.textContent = messageTime();
+      row.appendChild(timestamp);
+
+      chatContent.appendChild(row);
+      scrollChatToBottomIfNear();
+    }
+
+    // Agent responses are the mirror of human messages: right-aligned, no
+    // background, just text, so the two sides read as a clear division.
+    function actionIcon(pathHtml) {
+      const btn = document.createElement("button");
+      btn.className = "bg-transparent border-0 p-1 rounded-md text-porch-muted cursor-pointer transition-colors duration-150 hover:text-porch-text hover:bg-porch-input";
+      btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${pathHtml}</svg>`;
+      return btn;
+    }
+
+    function addAgentMessage(text) {
+      const chatContent = document.getElementById("chatContent");
+      const row = document.createElement("div");
+      row.className = "flex flex-col items-start gap-1";
+
+      const header = document.createElement("div");
+      header.className = "flex items-center gap-1.5 px-1";
+
+      const logo = document.createElement("img");
+      logo.src = logoSrcForTheme(getTheme());
+      logo.alt = "Porch";
+      logo.className = "w-4 h-4 rounded-[0.1875rem] theme-logo";
+
+      const modelLabel = document.createElement("span");
+      modelLabel.className = "text-sm font-medium text-porch-muted";
+      modelLabel.textContent = document.getElementById("modelBtnLabel").textContent;
+
+      header.appendChild(logo);
+      header.appendChild(modelLabel);
+      row.appendChild(header);
+
+      const bubble = document.createElement("div");
+      bubble.className = "max-w-[85%] sm:max-w-[75%] text-porch-text whitespace-pre-wrap px-1 text-sm";
+      row.appendChild(bubble);
+      // Replayed history renders instantly (typeText is started below, once we
+      // know whether this is replacing the "Thinking" indicator or not).
+      if (!historyReplayed) {
+        bubble.textContent = text;
+      }
+
+      const actions = document.createElement("div");
+      actions.className = "flex items-center gap-0.5";
+
+      const copyBtn = actionIcon('<path d="M8 4v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7.242a2 2 0 0 0-.602-1.43L16.083 2.57A2 2 0 0 0 14.685 2H10a2 2 0 0 0-2 2Z"/><path d="M16 18v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2"/>');
+      copyBtn.title = "Copy";
+      copyBtn.onclick = () => {
+        navigator.clipboard.writeText(text);
+        copyBtn.classList.add("text-porch-text");
+        setTimeout(() => copyBtn.classList.remove("text-porch-text"), 800);
+      };
+
+      // Visual only: there's nowhere to send this yet, no persistence layer
+      // exists at all (see HLD Known Gaps), so a rating isn't stored anywhere.
+      const upBtn = actionIcon('<path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3.13 3.13 0 0 1 3 3.88Z"/>');
+      upBtn.title = "Good response";
+      upBtn.onclick = () => {
+        upBtn.classList.toggle("text-porch-text");
+        downBtn.classList.remove("text-porch-text");
+      };
+
+      const downBtn = actionIcon('<path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22h0a3.13 3.13 0 0 1-3-3.88Z"/>');
+      downBtn.title = "Bad response";
+      downBtn.onclick = () => {
+        downBtn.classList.toggle("text-porch-text");
+        upBtn.classList.remove("text-porch-text");
+      };
+
+      const retryBtn = actionIcon('<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>');
+      retryBtn.title = "Retry";
+      retryBtn.onclick = retryLastMessage;
+
+      const speakBtn = actionIcon('<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>');
+      speakBtn.title = "Read aloud";
+      speakBtn.onclick = () => toggleReadAloud(text, speakBtn);
+
+      actions.appendChild(copyBtn);
+      actions.appendChild(upBtn);
+      actions.appendChild(downBtn);
+      actions.appendChild(retryBtn);
+      actions.appendChild(speakBtn);
+      row.appendChild(actions);
+
+      const disclaimer = document.createElement("p");
+      disclaimer.className = "text-xs text-porch-muted px-1";
+      disclaimer.textContent = "AI can make mistakes. Please double-check responses.";
+      row.appendChild(disclaimer);
+
+      const timestamp = document.createElement("span");
+      timestamp.className = "text-xs text-porch-muted px-1";
+      timestamp.textContent = messageTime();
+      row.appendChild(timestamp);
+
+      // If the "Thinking" indicator is still showing, fade it out and fade this
+      // real message in in its place, instead of an abrupt swap.
+      const waitingEl = document.getElementById("waitingMarker");
+      if (waitingEl) {
+        row.style.opacity = "0";
+        row.style.transition = "opacity 200ms ease";
+        waitingEl.style.transition = "opacity 200ms ease";
+        waitingEl.style.opacity = "0";
+        setTimeout(() => {
+          // The "result" event's hideWaiting() can detach waitingEl before this
+          // timeout fires — replaceWith() on a detached node is a silent no-op,
+          // which was dropping the message entirely. Fall back to a plain append.
+          if (waitingEl.isConnected) {
+            waitingEl.replaceWith(row);
+          } else {
+            chatContent.appendChild(row);
+          }
+          requestAnimationFrame(() => { row.style.opacity = "1"; });
+          if (historyReplayed) typeText(bubble, text);
+          scrollChatToBottomIfNear();
+        }, 200);
+      } else {
+        chatContent.appendChild(row);
+        if (historyReplayed) typeText(bubble, text);
+        scrollChatToBottomIfNear();
+      }
+    }
+
+    // Claude-style reveal instead of the full response appearing at once. The
+    // agent SDK doesn't stream text deltas the way this animates (each event
+    // already carries the message's full text), so this is a cosmetic replay,
+    // not real token-by-token streaming from the API. Paced by length (~125
+    // chars/sec, clamped 400ms-6s) instead of a fixed total duration, so long
+    // replies don't fly by in the same ~1.4s as a one-liner.
+    function typeText(el, text) {
+      const tickMs = 20;
+      const msPerChar = 8;
+      const duration = Math.min(6000, Math.max(400, text.length * msPerChar));
+      const totalTicks = Math.max(1, Math.round(duration / tickMs));
+      const step = Math.max(1, Math.ceil(text.length / totalTicks));
+      let i = 0;
+      const interval = setInterval(() => {
+        i += step;
+        el.textContent = text.slice(0, i);
+        scrollChatToBottomIfNear();
+        if (i >= text.length) {
+          el.textContent = text;
+          clearInterval(interval);
+        }
+      }, tickMs);
+    }
+
+    // Browser built-in TTS (Web Speech API) — not any AI voice, just whatever
+    // voice the OS/browser ships with. No text-generation SDK provides speech.
+    function toggleReadAloud(text, btn) {
+      if (speechSynthesis.speaking) {
+        speechSynthesis.cancel();
+        return;
+      }
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.onend = () => btn.classList.remove("text-porch-text");
+      btn.classList.add("text-porch-text");
+      speechSynthesis.speak(utterance);
+    }
+
+    // Resends whichever human prompt was most recently seen (ours or another
+    // participant's) rather than tracking a per-bubble prompt, since only the
+    // latest exchange is realistically ever retried in practice.
+    async function retryLastMessage() {
+      if (!lastHumanPrompt) {
+        return;
+      }
+      await fetch(`/sessions/${currentSessionId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: lastHumanPrompt, sender_name: localStorage.getItem("porch_user_name") || "Porch" }),
+      });
+    }
+
+    function addToolNote(text) {
+      const chatContent = document.getElementById("chatContent");
+      const row = document.createElement("div");
+      row.className = "flex justify-start";
+
+      const note = document.createElement("div");
+      note.className = "max-w-[85%] sm:max-w-[75%] text-porch-muted text-xs italic px-1";
+      note.textContent = text;
+
+      row.appendChild(note);
+      chatContent.appendChild(row);
+      scrollChatToBottomIfNear();
+    }
+
+    // Renders a single streamed event (the SDK's raw Message JSON, or our own
+    // human_message event) as a chat-log entry, instead of dumping raw JSON.
+    function renderEvent(raw) {
+      let event;
+      try {
+        event = JSON.parse(raw);
+      } catch (e) {
+        addMarker(raw);
+        return;
+      }
+
+      if (event.type === "human_message") {
+        lastHumanPrompt = event.text;
+        addHumanMessage(event.text, event.sender);
+        // Only show the waiting indicator for a live message, not while replaying
+        // history — otherwise every replayed human message spawns its own
+        // waitingMarker, which defers the matching replayed assistant message
+        // through addAgentMessage's 200ms swap-timeout. Since replay fires in a
+        // tight burst with no real delay, every human message lands immediately
+        // while every assistant reply lands ~200ms later as a batch, scrambling
+        // the order into "all humans, then all assistants" instead of turn by turn.
+        if (historyReplayed) {
+          awaitingReply = true;
+          showWaiting();
+        }
+        return;
+      }
+
+      if (event.type === "user_joined") {
+        addMarker(`${event.name} joined the session`);
+        return;
+      }
+
+      if (event.type === "host_notice") {
+        addMarker(`${event.name} has ${event.enabled ? "enabled" : "disabled"} session to this chat`);
+        return;
+      }
+
+      if (event.type === "chat_name_updated") {
+        lastSavedChatName = event.name;
+        const input = document.getElementById("chatNameInput");
+        if (document.activeElement !== input) {
+          input.value = event.name;
+        }
+        return;
+      }
+
+      if (event.type === "system") {
+        if (awaitingReply) markThinking();
+        return;
+      }
+
+      if (event.type === "replay_complete") {
+        historyReplayed = true;
+        // The scroll position starts at the top (scrollTop 0) by default; for a
+        // long conversation that overflows the viewport, that leaves the oldest
+        // messages showing until the user manually scrolls all the way down.
+        // Force it to the latest message once history has finished loading,
+        // same as opening any real chat app lands you on the newest message.
+        document.getElementById("chatLog").scrollTop = document.getElementById("chatLog").scrollHeight;
+        return;
+      }
+
+      if (event.type === "rate_limited") {
+        if (awaitingReply) showWaiting();
+        return;
+      }
+
+      if (event.type === "agent_timeout") {
+        awaitingReply = false;
+        hideWaiting();
+        addMarker("The agent didn't respond in time. Please try again.");
+        return;
+      }
+
+      if (event.type === "result") {
+        awaitingReply = false;
+        hideWaiting();
+        return;
+      }
+
+      if (event.type === "assistant" && event.message && event.message.content) {
+        // A message with only a thinking block (no text/tool_use yet) shouldn't
+        // hide the indicator — that's the gap where "Thinking" disappeared but
+        // the real reply hadn't arrived. addAgentMessage handles removing (and
+        // fading out) the indicator itself once real text shows up.
+        const hasRenderableContent = event.message.content.some((block) => block.type === "text" || block.type === "tool_use");
+        if (hasRenderableContent) {
+          awaitingReply = false;
+          for (const block of event.message.content) {
+            if (block.type === "text") {
+              addAgentMessage(block.text);
+            } else if (block.type === "tool_use") {
+              hideWaiting();
+              addToolNote(`Used tool: ${block.name}`);
+            }
+          }
+        }
+        return;
+      }
+
+      // Fallback for any event shape not explicitly handled above.
+      addMarker(raw);
+    }
+
+    const wsUserName = encodeURIComponent(localStorage.getItem("porch_user_name") || "Porch");
+    const ws = new WebSocket(`ws://${location.host}/sessions/${currentSessionId}/ws?name=${wsUserName}`);
+
+    ws.onmessage = (event) => {
+      renderEvent(event.data);
+    };
+
+    ws.onerror = () => {
+      addMarker("WebSocket error, is the session ID correct?");
+    };
+
+    renderModelMenu();
+    refreshHostingStatus();
+  </script>
+</body>
+</html>
