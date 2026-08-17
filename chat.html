@@ -168,8 +168,11 @@
               </button>
               <div class="dropdown-panel bottom-full right-0 mb-2" id="modelMenu"></div>
             </div>
-            <button class="send-btn" onclick="sendMessage()">
+            <button class="send-btn" id="sendBtn" onclick="sendMessage()">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 10-5 5 5 5"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>
+            </button>
+            <button class="send-btn hidden" id="stopBtn" title="Stop" onclick="stopTurn()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>
             </button>
           </div>
         </div>
@@ -422,6 +425,28 @@
       input.value = "";
       autoGrowMessageInput();
     }
+
+    // Distinct from any hosting toggle: this stops the in-flight agent turn
+    // itself, not whether the session is shared. Safe to call even if the
+    // turn already finished (the backend no-ops).
+    async function stopTurn() {
+      await fetch(`/sessions/${currentSessionId}/stop-turn`, { method: "POST" });
+    }
+
+    // Keeps the compose area's Send/Stop button in sync with awaitingReply,
+    // called at every site that flips that flag rather than tracked as its
+    // own piece of state.
+    function updateStopButton() {
+      document.getElementById("sendBtn").classList.toggle("hidden", awaitingReply);
+      document.getElementById("stopBtn").classList.toggle("hidden", !awaitingReply);
+    }
+
+    // Closing the tab (or navigating away) while a turn is in flight would
+    // otherwise leave the backend generating - and billing - unattended.
+    // sendBeacon fires reliably during unload, unlike a normal fetch.
+    window.addEventListener("pagehide", () => {
+      if (awaitingReply) navigator.sendBeacon(`/sessions/${currentSessionId}/stop-turn`);
+    });
 
     // Grows the compose textarea with its content (up to max-h-40) instead of
     // showing the textarea's own internal scrollbar for wrapped/multi-line text.
@@ -771,6 +796,7 @@
         // the order into "all humans, then all assistants" instead of turn by turn.
         if (historyReplayed) {
           awaitingReply = true;
+          updateStopButton();
           showWaiting();
         }
         return;
@@ -818,13 +844,23 @@
 
       if (event.type === "agent_timeout") {
         awaitingReply = false;
+        updateStopButton();
         hideWaiting();
         addMarker("The agent didn't respond in time. Please try again.");
         return;
       }
 
+      if (event.type === "turn_stopped") {
+        awaitingReply = false;
+        updateStopButton();
+        hideWaiting();
+        addMarker("Turn stopped.");
+        return;
+      }
+
       if (event.type === "result") {
         awaitingReply = false;
+        updateStopButton();
         hideWaiting();
         return;
       }
@@ -837,6 +873,7 @@
         const hasRenderableContent = event.message.content.some((block) => block.type === "text" || block.type === "tool_use");
         if (hasRenderableContent) {
           awaitingReply = false;
+          updateStopButton();
           for (const block of event.message.content) {
             if (block.type === "text") {
               addAgentMessage(block.text);
