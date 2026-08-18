@@ -81,12 +81,67 @@
     height: 16px;
   }
 
+  /* Default (no [data-sidebar="collapsed"] on <html>) is the expanded, full
+     nav-row look — matches the "Collapse sidebar" tooltip text that already
+     shipped on the toggle button before this state existed to collapse
+     anything. [data-sidebar="collapsed"] below restores the original
+     icon-only rail exactly as it looked before expansion existed. */
+  .app-sidebar {
+    @apply fixed left-0 top-0 bottom-0 flex flex-col border-r border-porch-border bg-porch-bg z-10 overflow-hidden;
+    width: 15rem;
+    padding: 1.25rem 0.75rem;
+    transition: width 200ms ease, padding 200ms ease;
+  }
+
+  html[data-sidebar="collapsed"] .app-sidebar {
+    width: 3rem;
+    padding: 1.25rem 0;
+    align-items: center;
+  }
+
+  .app-main {
+    margin-left: 15rem;
+    transition: margin-left 200ms ease;
+  }
+
+  html[data-sidebar="collapsed"] .app-main {
+    margin-left: 3rem;
+  }
+
+  .sidebar-nav {
+    @apply flex flex-col gap-1 w-full;
+    margin-top: 2.25rem;
+  }
+
+  html[data-sidebar="collapsed"] .sidebar-nav {
+    @apply items-center;
+    gap: 0.9375rem;
+  }
+
   .sidebar-icon-btn {
-    @apply w-6 h-6 flex items-center justify-center text-porch-muted bg-transparent border-0 p-0 cursor-pointer transition-colors duration-150 hover:text-porch-text hover:bg-transparent;
+    @apply flex items-center gap-2.5 w-full h-9 px-2.5 rounded-md text-porch-muted bg-transparent border-0 cursor-pointer transition-colors duration-150 hover:text-porch-text hover:bg-porch-input;
+  }
+
+  html[data-sidebar="collapsed"] .sidebar-icon-btn {
+    @apply w-6 h-6 p-0 justify-center rounded-none hover:bg-transparent;
   }
 
   .sidebar-icon-btn svg {
-    @apply w-4 h-4;
+    @apply w-4 h-4 shrink-0;
+  }
+
+  .sidebar-label {
+    @apply text-sm whitespace-nowrap;
+  }
+
+  html[data-sidebar="collapsed"] .sidebar-label {
+    @apply hidden;
+  }
+
+  /* The label makes the tooltip redundant once expanded; only the icon-only
+     rail (where there's no visible label) needs the hover tooltip. */
+  html:not([data-sidebar="collapsed"]) .sidebar-nav .hovercard {
+    display: none;
   }
 
   /* Fixed px (see .sidebar-logo above) — the .sidebar-logo-btn img rule below

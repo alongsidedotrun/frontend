@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Porch</title>
+<title>Alongside</title>
 <link rel="icon" type="image/svg+xml" href="/logo.svg" />
 <link rel="preload" href="/fonts/Geist-Regular.woff2" as="font" type="font/woff2" crossorigin />
 <link rel="stylesheet" href="/styles.css" />
@@ -11,45 +11,50 @@
 <body>
   <div class="page-transition-overlay opacity-100" id="pageTransition"></div>
 
-  <div class="fixed left-0 top-0 bottom-0 w-12 flex flex-col items-center py-5 gap-0 border-r border-porch-border bg-porch-bg z-10">
+  <div class="app-sidebar">
     <button class="sidebar-logo-btn group" onclick="toggleSidebar()">
       <span class="sidebar-logo-mask">
-        <img class="sidebar-logo" src="/logo.svg" alt="Porch" id="sidebarLogoImg" />
+        <img class="sidebar-logo" src="/logo.svg" alt="Alongside" id="sidebarLogoImg" />
         <span class="sidebar-logo-toggle">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg>
         </span>
       </span>
-      <span class="hovercard">Collapse sidebar</span>
+      <span class="hovercard" id="sidebarToggleLabel">Collapse sidebar</span>
     </button>
 
-    <div class="relative group mt-9">
-      <button class="sidebar-icon-btn" onclick="location.href='/'">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><line x1="12" y1="9" x2="12" y2="15"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
-      </button>
-      <span class="hovercard">New chat</span>
-    </div>
-    <div class="relative group mt-[0.9375rem]">
-      <button class="sidebar-icon-btn">
-        <svg viewBox="0 0 16 16" fill="none">
-          <g clip-path="url(#sessions-clip)">
-            <path fill-rule="evenodd" clip-rule="evenodd" d="M10.0077 3.53868C9.22102 1.93713 7.57342 0.833496 5.66699 0.833496C2.99762 0.833496 0.83366 2.99745 0.83366 5.66683C0.83366 6.38156 0.989118 7.06133 1.26854 7.67305C1.34146 7.8327 1.35566 7.9835 1.32324 8.10467L1.23832 8.42203C0.966508 9.43792 1.89591 10.3673 2.91179 10.0955L3.22915 10.0106C3.31934 9.98645 3.42593 9.98814 3.54037 10.0207C3.88043 12.9185 6.34448 15.1668 9.33366 15.1668C10.2336 15.1668 11.0873 14.9627 11.8497 14.5977C12.0007 14.5254 12.1493 14.5108 12.2715 14.5435L13.0889 14.7622C14.1047 15.034 15.0341 14.1046 14.7623 13.0887L14.5436 12.2713C14.5109 12.1491 14.5256 12.0005 14.5978 11.8496C14.9628 11.0872 15.167 10.2335 15.167 9.3335C15.167 6.33979 12.9118 3.87281 10.0077 3.53868ZM8.84367 3.52045C5.96047 3.76024 3.67272 6.0969 3.50963 9.00123C3.33462 8.98455 3.15272 8.99586 2.97068 9.04456L2.65332 9.12948C2.38077 9.2024 2.13142 8.95305 2.20434 8.6805L2.28926 8.36314C2.39402 7.97158 2.32574 7.5807 2.17814 7.25757C1.95709 6.77364 1.83366 6.23533 1.83366 5.66683C1.83366 3.54974 3.5499 1.8335 5.66699 1.8335C6.98826 1.8335 8.15419 2.50205 8.84367 3.52045ZM9.33366 4.50016C12.003 4.50016 14.167 6.66412 14.167 9.3335C14.167 10.0809 13.9977 10.7873 13.6959 11.4178C13.5389 11.7456 13.4731 12.1393 13.5776 12.5298L13.7963 13.3472C13.8692 13.6197 13.6199 13.8691 13.3473 13.7961L12.53 13.5775C12.1395 13.473 11.7457 13.5388 11.4179 13.6957C10.7874 13.9976 10.081 14.1668 9.33366 14.1668C6.66428 14.1668 4.50033 12.0029 4.50033 9.3335C4.50033 6.66412 6.66428 4.50016 9.33366 4.50016Z" fill="currentColor"/>
-            <path d="M11.0003 9.3335C11.0003 9.70169 11.2988 10.0002 11.667 10.0002C12.0352 10.0002 12.3337 9.70169 12.3337 9.3335C12.3337 8.96531 12.0352 8.66683 11.667 8.66683C11.2988 8.66683 11.0003 8.96531 11.0003 9.3335Z" fill="currentColor"/>
-            <path d="M8.66699 9.3335C8.66699 9.70169 8.96547 10.0002 9.33366 10.0002C9.70185 10.0002 10.0003 9.70169 10.0003 9.3335C10.0003 8.96531 9.70185 8.66683 9.33366 8.66683C8.96547 8.66683 8.66699 8.96531 8.66699 9.3335Z" fill="currentColor"/>
-            <path d="M6.33366 9.3335C6.33366 9.70169 6.63214 10.0002 7.00033 10.0002C7.36852 10.0002 7.66699 9.70169 7.66699 9.3335C7.66699 8.96531 7.36852 8.66683 7.00033 8.66683C6.63214 8.66683 6.33366 8.96531 6.33366 9.3335Z" fill="currentColor"/>
-          </g>
-          <defs>
-            <clipPath id="sessions-clip"><rect width="16" height="16" fill="white" transform="matrix(-1 0 0 1 16 0)"/></clipPath>
-          </defs>
-        </svg>
-      </button>
-      <span class="hovercard">Chats</span>
-    </div>
-    <div class="relative group mt-[0.9375rem]">
-      <button class="sidebar-icon-btn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8.3 10a.7.7 0 0 1-.626-1.079L11.4 3a.7.7 0 0 1 1.198-.043L16.3 8.9a.7.7 0 0 1-.572 1.1Z"/><rect x="3" y="14" width="7" height="7" rx="1"/><circle cx="17.5" cy="17.5" r="3.5"/></svg>
-      </button>
-      <span class="hovercard">Artifacts</span>
-    </div>
+    <nav class="sidebar-nav">
+      <div class="relative group">
+        <button class="sidebar-icon-btn" onclick="location.href='/'">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><line x1="12" y1="9" x2="12" y2="15"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
+          <span class="sidebar-label">New chat</span>
+        </button>
+        <span class="hovercard">New chat</span>
+      </div>
+      <div class="relative group">
+        <button class="sidebar-icon-btn">
+          <svg viewBox="0 0 16 16" fill="none">
+            <g clip-path="url(#sessions-clip)">
+              <path fill-rule="evenodd" clip-rule="evenodd" d="M10.0077 3.53868C9.22102 1.93713 7.57342 0.833496 5.66699 0.833496C2.99762 0.833496 0.83366 2.99745 0.83366 5.66683C0.83366 6.38156 0.989118 7.06133 1.26854 7.67305C1.34146 7.8327 1.35566 7.9835 1.32324 8.10467L1.23832 8.42203C0.966508 9.43792 1.89591 10.3673 2.91179 10.0955L3.22915 10.0106C3.31934 9.98645 3.42593 9.98814 3.54037 10.0207C3.88043 12.9185 6.34448 15.1668 9.33366 15.1668C10.2336 15.1668 11.0873 14.9627 11.8497 14.5977C12.0007 14.5254 12.1493 14.5108 12.2715 14.5435L13.0889 14.7622C14.1047 15.034 15.0341 14.1046 14.7623 13.0887L14.5436 12.2713C14.5109 12.1491 14.5256 12.0005 14.5978 11.8496C14.9628 11.0872 15.167 10.2335 15.167 9.3335C15.167 6.33979 12.9118 3.87281 10.0077 3.53868ZM8.84367 3.52045C5.96047 3.76024 3.67272 6.0969 3.50963 9.00123C3.33462 8.98455 3.15272 8.99586 2.97068 9.04456L2.65332 9.12948C2.38077 9.2024 2.13142 8.95305 2.20434 8.6805L2.28926 8.36314C2.39402 7.97158 2.32574 7.5807 2.17814 7.25757C1.95709 6.77364 1.83366 6.23533 1.83366 5.66683C1.83366 3.54974 3.5499 1.8335 5.66699 1.8335C6.98826 1.8335 8.15419 2.50205 8.84367 3.52045ZM9.33366 4.50016C12.003 4.50016 14.167 6.66412 14.167 9.3335C14.167 10.0809 13.9977 10.7873 13.6959 11.4178C13.5389 11.7456 13.4731 12.1393 13.5776 12.5298L13.7963 13.3472C13.8692 13.6197 13.6199 13.8691 13.3473 13.7961L12.53 13.5775C12.1395 13.473 11.7457 13.5388 11.4179 13.6957C10.7874 13.9976 10.081 14.1668 9.33366 14.1668C6.66428 14.1668 4.50033 12.0029 4.50033 9.3335C4.50033 6.66412 6.66428 4.50016 9.33366 4.50016Z" fill="currentColor"/>
+              <path d="M11.0003 9.3335C11.0003 9.70169 11.2988 10.0002 11.667 10.0002C12.0352 10.0002 12.3337 9.70169 12.3337 9.3335C12.3337 8.96531 12.0352 8.66683 11.667 8.66683C11.2988 8.66683 11.0003 8.96531 11.0003 9.3335Z" fill="currentColor"/>
+              <path d="M8.66699 9.3335C8.66699 9.70169 8.96547 10.0002 9.33366 10.0002C9.70185 10.0002 10.0003 9.70169 10.0003 9.3335C10.0003 8.96531 9.70185 8.66683 9.33366 8.66683C8.96547 8.66683 8.66699 8.96531 8.66699 9.3335Z" fill="currentColor"/>
+              <path d="M6.33366 9.3335C6.33366 9.70169 6.63214 10.0002 7.00033 10.0002C7.36852 10.0002 7.66699 9.70169 7.66699 9.3335C7.66699 8.96531 7.36852 8.66683 7.00033 8.66683C6.63214 8.66683 6.33366 8.96531 6.33366 9.3335Z" fill="currentColor"/>
+            </g>
+            <defs>
+              <clipPath id="sessions-clip"><rect width="16" height="16" fill="white" transform="matrix(-1 0 0 1 16 0)"/></clipPath>
+            </defs>
+          </svg>
+          <span class="sidebar-label">Chats</span>
+        </button>
+        <span class="hovercard">Chats</span>
+      </div>
+      <div class="relative group">
+        <button class="sidebar-icon-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8.3 10a.7.7 0 0 1-.626-1.079L11.4 3a.7.7 0 0 1 1.198-.043L16.3 8.9a.7.7 0 0 1-.572 1.1Z"/><rect x="3" y="14" width="7" height="7" rx="1"/><circle cx="17.5" cy="17.5" r="3.5"/></svg>
+          <span class="sidebar-label">Artifacts</span>
+        </button>
+        <span class="hovercard">Artifacts</span>
+      </div>
+    </nav>
 
     <div class="relative mt-auto">
       <button class="sidebar-avatar" id="avatarBtn" onclick="toggleDropdown('avatarMenu', event)"></button>
@@ -78,7 +83,7 @@
     </div>
   </div>
 
-  <div class="h-screen flex flex-col ml-12 relative">
+  <div class="app-main h-screen flex flex-col relative">
     <div class="absolute top-0 inset-x-0 h-14 flex items-center justify-between gap-2 px-3 sm:px-5 z-20">
       <div class="flex items-center gap-2 min-w-0">
         <input class="chat-name-input" id="chatNameInput" value="New chat" onblur="saveChatName()" onkeydown="if (event.key === 'Enter') { event.preventDefault(); document.activeElement.blur(); }" />
@@ -356,9 +361,31 @@
 
     applyTheme(getTheme());
 
-    // Placeholder: no collapsed sidebar layout exists yet, this just gives the
-    // logo/panel-left hover swap somewhere to point until that's built.
-    function toggleSidebar() {}
+    // Mirrors applyTheme's pattern: persisted in localStorage, applied via a
+    // data attribute on <html> (see .app-sidebar/.app-main in input.css),
+    // defaulting to expanded — matches the "Collapse sidebar" tooltip text,
+    // which already implied that was the default before this state existed.
+    function getSidebarState() {
+      return localStorage.getItem("porch_sidebar") || "expanded";
+    }
+
+    function applySidebarState(state) {
+      if (state === "collapsed") {
+        document.documentElement.setAttribute("data-sidebar", "collapsed");
+      } else {
+        document.documentElement.removeAttribute("data-sidebar");
+      }
+      const label = document.getElementById("sidebarToggleLabel");
+      if (label) label.textContent = state === "collapsed" ? "Expand sidebar" : "Collapse sidebar";
+    }
+
+    function toggleSidebar() {
+      const next = getSidebarState() === "collapsed" ? "expanded" : "collapsed";
+      localStorage.setItem("porch_sidebar", next);
+      applySidebarState(next);
+    }
+
+    applySidebarState(getSidebarState());
 
     async function refreshHostingStatus() {
       const res = await fetch("/host/status");
@@ -608,7 +635,7 @@
 
       const logo = document.createElement("img");
       logo.src = logoSrcForTheme(getTheme());
-      logo.alt = "Porch";
+      logo.alt = "Alongside";
       logo.className = "w-4 h-4 rounded-[0.1875rem] theme-logo";
 
       const modelLabel = document.createElement("span");
