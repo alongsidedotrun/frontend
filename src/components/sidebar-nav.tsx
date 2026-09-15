@@ -909,39 +909,52 @@ function ProjectRow({
 // (that component's own comment has the full reasoning) -- not reused
 // directly since it isn't exported, and this row's own much narrower width
 // needs a smaller cap and icon size than an inbox card affords.
+//
+// Overlapping, with a real ring -- per explicit follow-up ("the models in
+// the sidebar and at topbar should be stacked with a 1px border that's the
+// same color as our bg so users can see the multiple models but not take
+// all the space"), reversing an earlier "no circle/ring, small positive
+// gap" decision. Back to InboxPage.tsx's own ModelStack technique (that
+// component's own comment has the full precedent, also ui/avatar.tsx's
+// AvatarGroup) -- -space-x-1 overlap, ring-1 ring-background (1px, not
+// that component's 2px: a request for "1px border" specifically).
+//
+// Real overflow handling, matching AppLayout.tsx's own chat-header model
+// stack (that component's own comment has the full request chain: up to
+// 4 real icons if that's everything, else the first 3 stay real icons
+// and the 4th slot is the real total provider count) -- per explicit
+// follow-up ("The top bar is correct but not the sidebar"). No HoverCard
+// here though, unlike that one -- per a further explicit follow-up ("the
+// sidebar should not have the hover"); this row is already a real link
+// with its own hover state, so a popover on top of that read as one
+// hover behavior too many. size-4/size-4.5, not size-3/size-3.5 -- per a
+// further follow-up ("increase the size a little bit more on the
+// sidebar as well, its hard to see").
 function SidebarModelStack({ models }: { models: { provider: string; model: string }[] }) {
+  const visible = models.length > 4 ? models.slice(0, 3) : models.slice(0, 4);
   return (
-    // mr-1, not ml-1 -- this now renders before the label (that row's own
-    // comment has the full reasoning), so the gap belongs on the trailing
-    // side, toward the label, not the leading side any more.
-    //
-    // Overlapping again, with a real ring -- per explicit follow-up ("the
-    // models in the sidebar and at topbar should be stacked with a 1px
-    // border that's the same color as our bg so users can see the
-    // multiple models but not take all the space"), reversing an earlier
-    // "no circle/ring, small positive gap" decision (this comment used to
-    // explain why bare non-overlapping icons were chosen instead). Back
-    // to InboxPage.tsx's own ModelStack technique (that component's own
-    // comment has the full precedent, also ui/avatar.tsx's AvatarGroup) --
-    // -space-x-1 overlap, ring-1 ring-background (1px, not that
-    // component's 2px: a request for "1px border" specifically) so each
-    // icon's own circular cutout stays visible against whatever sits
-    // behind it, letting several icons read as distinct while taking up
-    // less width than a bare gap-0.5 row would.
     <span className="mr-1 flex shrink-0 -space-x-1">
-      {models.slice(0, 2).map((entry, index) => {
+      {visible.map((entry, index) => {
         const found = QUICK_CHAT_MODELS.find((m) => m.value === entry.model);
         if (!found) return null;
         return (
           <span
             key={`${entry.provider}-${entry.model}`}
-            className="flex size-3.5 shrink-0 items-center justify-center rounded-full bg-background ring-1 ring-background"
+            className="flex size-4.5 shrink-0 items-center justify-center rounded-full bg-background ring-1 ring-background"
             style={{ zIndex: models.length - index }}
           >
-            <ProviderIcon model={found} className="size-3" />
+            <ProviderIcon model={found} className="size-4" />
           </span>
         );
       })}
+      {models.length > 4 && (
+        <span
+          className="flex size-4.5 shrink-0 items-center justify-center rounded-full bg-hover-2 text-[9px] font-medium text-muted-foreground ring-1 ring-background"
+          style={{ zIndex: 0 }}
+        >
+          {models.length}
+        </span>
+      )}
     </span>
   );
 }
