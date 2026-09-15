@@ -20,6 +20,7 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from "@/co
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
 import {
   DropdownMenu as BaseDropdownMenu,
   DropdownTrigger as BaseDropdownTrigger,
@@ -267,36 +268,69 @@ function PageBreadcrumb({
           {/* Model icon stack -- per explicit request ("we need to add
               the model at the chat name like the name of the sidebar has
               the icon of the model so that we can easily see all the
-              models in the chat"). Capped at 2 icons -- a chat using more
-              than two providers is rare, and this row has less width to
-              spare than the sidebar's own already-narrow one.
-              Overlapping, with a real 1px ring -- per a further explicit
-              follow-up ("the models in the sidebar and at topbar should
-              be stacked with a 1px border that's the same color as our
-              bg so users can see the multiple models but not take all
-              the space"), same technique as sidebar-nav.tsx's own
-              SidebarModelStack now uses (that component's own comment
-              has the full precedent chain back to InboxPage.tsx's
-              ModelStack/ui/avatar.tsx's AvatarGroup). size-4 icon inside
-              a slightly larger circle -- per a follow-up asking for size-4
-              specifically here, one step up from SidebarModelStack's own
-              size-3 (this row has more breathing room to spend it in). */}
+              models in the chat"), overlapping with a real 1px ring per
+              a follow-up ("the models... should be stacked with a 1px
+              border that's the same color as our bg"), matching sidebar-
+              nav.tsx's own SidebarModelStack (that component's own
+              comment has the full precedent chain back to
+              InboxPage.tsx's ModelStack/ui/avatar.tsx's AvatarGroup).
+              size-4 icon inside a slightly larger circle, one step up
+              from SidebarModelStack's own size-3 (this row has more
+              breathing room to spend it in).
+              Real overflow handling, not just a silent slice(0, 2) --
+              per a further explicit follow-up ("that only shows 2
+              providers... we should show up to 4 providers but stacked
+              and then if we get more then we do all the 3 stacked and
+              fourth be the number of providers in total so when someone
+              hovers over it then a popover shows all the providers"):
+              up to 4 real icons when that's everything; past 4, only the
+              first 3 are real provider icons and the 4th slot is the
+              real total count (not "+N" remaining, the actual number of
+              providers this chat has used) instead of a 4th icon.
+              Wrapped in a HoverCard either way so hovering always shows
+              the complete real list, including ones the stack itself
+              never had room to show a icon for. */}
           {models && models.length > 0 && (
-            <span className="mr-1 flex shrink-0 -space-x-1 align-middle">
-              {models.slice(0, 2).map((entry, index) => {
-                const found = QUICK_CHAT_MODELS.find((m) => m.value === entry.model);
-                if (!found) return null;
-                return (
-                  <span
-                    key={`${entry.provider}-${entry.model}`}
-                    className="flex size-4.5 shrink-0 items-center justify-center rounded-full bg-background ring-1 ring-background"
-                    style={{ zIndex: models.length - index }}
-                  >
-                    <ProviderIcon model={found} className="size-4" />
-                  </span>
-                );
-              })}
-            </span>
+            <HoverCard openDelay={150} closeDelay={0}>
+              <HoverCardTrigger asChild>
+                <span className="mr-1 flex shrink-0 -space-x-1 align-middle">
+                  {(models.length > 4 ? models.slice(0, 3) : models.slice(0, 4)).map((entry, index) => {
+                    const found = QUICK_CHAT_MODELS.find((m) => m.value === entry.model);
+                    if (!found) return null;
+                    return (
+                      <span
+                        key={`${entry.provider}-${entry.model}`}
+                        className="flex size-4.5 shrink-0 items-center justify-center rounded-full bg-background ring-1 ring-background"
+                        style={{ zIndex: models.length - index }}
+                      >
+                        <ProviderIcon model={found} className="size-4" />
+                      </span>
+                    );
+                  })}
+                  {models.length > 4 && (
+                    <span
+                      className="flex size-4.5 shrink-0 items-center justify-center rounded-full bg-hover-2 text-[9px] font-medium text-muted-foreground ring-1 ring-background"
+                      style={{ zIndex: 0 }}
+                    >
+                      {models.length}
+                    </span>
+                  )}
+                </span>
+              </HoverCardTrigger>
+              <HoverCardContent align="start" className="w-auto p-1.5">
+                <div className="flex flex-col gap-1">
+                  {models.map((entry) => {
+                    const found = QUICK_CHAT_MODELS.find((m) => m.value === entry.model);
+                    return (
+                      <div key={`${entry.provider}-${entry.model}`} className="flex items-center gap-1.5 text-xs text-foreground">
+                        {found && <ProviderIcon model={found} className="size-3.5 shrink-0" />}
+                        <span className="truncate">{found?.label ?? entry.model}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </HoverCardContent>
+            </HoverCard>
           )}
           {/* No more `sessionId ? ... : <BreadcrumbPage>Untitled chat</BreadcrumbPage>`
               branch -- confirmed directly as the real cause of "this changing
