@@ -9,7 +9,7 @@ import { SettingsSidebarNav, type SettingsSection } from "@/components/settings-
 import { useIsFullscreen, useIsTauri } from "@/hooks/use-tauri";
 import { useIsMac } from "@/hooks/use-platform";
 import { useIsMobile } from "@/hooks/use-media-query";
-import { preloadProviderIcons, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
+import { preloadProviderIcons, QUICK_CHAT_MODELS, ProviderIcon } from "@/lib/quick-chat-models";
 import { pushTurnNotification } from "@/lib/turn-notifications";
 import { loadNotifyTurnComplete, requestNotificationPermission, saveNotifyTurnComplete } from "@/lib/notify-turn-complete";
 import { loadLocallyHiddenChatIds } from "@/lib/locally-hidden-chats";
@@ -186,9 +186,22 @@ function AllowedCommandsDialog({
 function PageBreadcrumb({
   chatName,
   onSaveChatName,
+  models,
 }: {
   chatName: string;
   onSaveChatName: (name: string) => void;
+  // Every distinct provider/model this chat has actually used -- per
+  // explicit request ("we need to add the model at the chat name like
+  // the name of the sidebar has the icon of the model so that we can
+  // easily see all the models in the chat"), matching sidebar-nav.tsx's
+  // own SidebarModelStack. Not reused directly -- that component isn't
+  // exported, matching this codebase's own established pattern (its own
+  // comment: "Same overlapping-icon-stack technique as InboxPage.tsx's
+  // own ModelStack... not reused directly since it isn't exported" --
+  // each row gets its own small version tuned to its own width/icon size
+  // rather than one shared component threading every caller's own
+  // spacing needs).
+  models?: { provider: string; model: string }[];
 }) {
   const location = useLocation();
   const { sessionId } = useParams();
@@ -251,6 +264,24 @@ function PageBreadcrumb({
           same pass). */}
       <BreadcrumbList className="text-[11px]">
         <BreadcrumbItem>
+          {/* Model icon stack -- per explicit request ("we need to add
+              the model at the chat name like the name of the sidebar has
+              the icon of the model so that we can easily see all the
+              models in the chat"). Capped at 2 icons, same as sidebar-
+              nav.tsx's own SidebarModelStack (that component's own
+              comment covers the overlapping-stack precedent, InboxPage.tsx's
+              ModelStack) -- a chat using more than two providers is rare,
+              and this row has less width to spare than the sidebar's own
+              already-narrow one. */}
+          {models && models.length > 0 && (
+            <span className="mr-1 inline-flex shrink-0 items-center gap-0.5 align-middle">
+              {models.slice(0, 2).map((entry) => {
+                const found = QUICK_CHAT_MODELS.find((m) => m.value === entry.model);
+                if (!found) return null;
+                return <ProviderIcon key={`${entry.provider}-${entry.model}`} model={found} className="size-3 shrink-0" />;
+              })}
+            </span>
+          )}
           {/* No more `sessionId ? ... : <BreadcrumbPage>Untitled chat</BreadcrumbPage>`
               branch -- confirmed directly as the real cause of "this changing
               to Untitled and is moving to the left a bit... happens when
@@ -313,7 +344,7 @@ function PageBreadcrumb({
                   // differently-scoped dark: variant. Confirmed directly as the real
                   // cause of a visible background color on this input specifically in
                   // dark mode.
-                  className="h-6 w-48 border-none bg-transparent px-1 text-[13px] font-normal text-foreground shadow-none focus-visible:ring-0 md:text-[13px] dark:bg-transparent"
+                  className="h-6 w-48 border-none bg-transparent px-1 text-[11px] font-normal text-foreground shadow-none focus-visible:ring-0 md:text-[11px] dark:bg-transparent"
                 />
                 <button
                   type="button"
@@ -340,10 +371,17 @@ function PageBreadcrumb({
               // a plain button instead, matching the editing Input's own
               // size/padding so nothing shifts position when toggling
               // between the two.
+              // text-[11px], not 13px -- real bug, confirmed directly via
+              // a follow-up screenshot ("The chat name still pretty big
+              // compared to library and terminal"): this button's own
+              // explicit text-[13px] overrode the parent BreadcrumbList's
+              // text-[11px] (above) outright, since it's set directly on
+              // the element rather than inherited -- reducing the parent
+              // alone was never going to reach this.
               <button
                 type="button"
                 onClick={startEditing}
-                className="h-6 max-w-48 truncate rounded px-1 text-left text-[13px] font-normal text-foreground hover:bg-hover-2/50"
+                className="h-6 max-w-48 truncate rounded px-1 text-left text-[11px] font-normal text-foreground hover:bg-hover-2/50"
               >
                 {/* key={sessionId} -- confirmed directly as a real bug
                     ("switching from new chat to an existing chat quickly
@@ -640,7 +678,18 @@ export function AppLayout() {
   // server (receiveChatNameFromServer below) -- a rename doesn't otherwise
   // have any other reason to refetch.
   const [recents, setRecents] = useState<
-    { id: string; label: string; creatorName?: string | null; projectId?: string | null }[]
+    {
+      id: string;
+      label: string;
+      creatorName?: string | null;
+      projectId?: string | null;
+      // Already fetched below (models: c.models) but missing from this
+      // type until now -- needed for PageBreadcrumb's own model icon
+      // stack, per explicit request ("we need to add the model at the
+      // chat name... so that we can easily see all the models in the
+      // chat").
+      models?: { provider: string; model: string }[];
+    }[]
   >([]);
   const [sidebarProjects, setSidebarProjects] = useState<{ id: string; label: string }[]>([]);
   async function refreshSidebarLists() {
@@ -963,7 +1012,11 @@ export function AppLayout() {
               className={`relative z-10 flex h-10 shrink-0 items-center justify-between gap-2 border-b border-border pr-3 pl-2 ${hasOpenChat ? "" : "pointer-events-none"}`}
             >
               <div className="flex items-center gap-2">
-                <PageBreadcrumb chatName={chatName} onSaveChatName={saveChatName} />
+                <PageBreadcrumb
+                  chatName={chatName}
+                  onSaveChatName={saveChatName}
+                  models={recents.find((r) => r.id === sessionId)?.models}
+                />
               </div>
               {/* gap-0.5, not gap-2 -- icon-sm's own 28px box already has visible
                   empty margin around each 16px glyph, so gap-2 on top of that read
