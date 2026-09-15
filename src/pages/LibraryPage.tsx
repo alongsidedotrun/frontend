@@ -337,7 +337,12 @@ export function LibraryPage() {
           keeps the scrolling content below from visually bleeding through
           the border, the same way the right panel's own opaque header sits
           above its scrollable body. */}
-      <div className="absolute inset-x-0 top-0 z-10 border-b border-border bg-background px-4 pt-1 pb-4">
+      {/* py-2 + items-center, not pt-1 pb-4 -- per explicit follow-up ("the
+          topbar should be in the same page height as the right sidebar
+          Library | Terminal buttons"): matches right-panel.tsx's own
+          header row exactly (py-2, flex items-center), so both headers
+          render at the same height instead of just sharing a border. */}
+      <div className="absolute inset-x-0 top-0 z-10 flex items-center border-b border-border bg-background px-4 py-2">
         <PageContent>
           <span className="text-xs font-normal text-muted-foreground">Library</span>
         </PageContent>
