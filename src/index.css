@@ -1,0 +1,1453 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+/* Reinstated -- per explicit request ("Use system UI font" toggle,
+   settings-overlay.tsx's own AppearanceSection), this app's own custom
+   UI font again once that setting is switched off (default stays the
+   system stack, index.css's own --font-sans comment below has the full
+   "why system by default" history). Dropped entirely for a stretch this
+   session when the system stack was the only option -- now needed again
+   as the real alternative a real toggle switches to. */
+@import "@fontsource-variable/inter";
+/* Real markdown rendering for agent replies (streaming-text.tsx) -- code
+   blocks, tables, link/image controls, its own word-stagger reveal
+   animation. Per explicit request, matching dray's own use of the same
+   package (that app's own Markdown.tsx). */
+@import "streamdown/styles.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    /* Custom breakpoint below Tailwind's default sm (640px) -- sm already
+       comfortably covers tablets (iPad Mini and up start at 768px), but a
+       real phone (iPhone 16 is 393px, Pro Max is 430px) never reaches
+       sm/640 either, so unprefixed/xs: was the only way to tell "phone"
+       and "tablet-or-wider" apart. top-bar.tsx's mobile hamburger menu is
+       the one thing gated on this -- everything else in this app still
+       uses sm/lg as before. */
+    --breakpoint-xs: 30rem;
+    /* One step below Tailwind's own smallest built-in size (text-xs,
+       0.75rem/12px nominal) -- this app didn't have a named utility for
+       anything smaller until now. Still rem-based like every other size
+       in the scale (0.625rem = 10px nominal, tracking the root font-size
+       the same way text-xs already does), not a raw px value, so it
+       stays responsive instead of freezing at one literal pixel size.
+       Sidebar's own "describer" text (Projects/Recents section labels,
+       sidebar-nav.tsx) is the first real caller. */
+    --text-2xs: 0.625rem;
+    --font-heading: var(--font-sans);
+    /* Native system font stack, not a bundled web font -- per explicit
+       request ("the reason synara's looks so crisp is because of these
+       settings"), matching a setting Synara's own Settings ->
+       Typography and spacing panel ships ON by default ("Use system UI
+       font... render the interface with the native system font (SF Pro
+       on macOS)"): a system face renders with the OS's own hinting/
+       metrics at every size, where a downloaded variable font (Inter,
+       before this) doesn't always match as cleanly, especially at this
+       app's small 12px UI sizes. Literal stack copied from Synara's own
+       --font-ui-family fallback chain (index.css). Was 'Inter Variable'
+       (before that 'Geist Variable', per an earlier explicit request) --
+       that @fontsource import is dropped below too, now that nothing in
+       this app still asks for it by name. */
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    /* The one hover-background color for every menu/submenu item across
+       the sidebar and its dropdowns (project rows, chat sub-items,
+       Platform/Help items, the "..." Rename/Pin/Delete menu, etc.) --
+       dropdown items used to reach this via their own bg-accent/5 and
+       sidebar rows via bg-sidebar-accent at full strength, two different
+       classes at two different opacities defined per-component. --accent
+       and --sidebar-accent already resolve to the exact same color in both
+       themes (confirmed directly in :root/.dark below), so this is a
+       single shared token instead of duplicating the opacity fade at every
+       call site -- change the strength once here, not per component. */
+    --color-hover-accent: var(--hover-accent);
+    /* SidebarNav (sidebar-nav.tsx) token names, aliased onto this app's
+       existing palette rather than a second, independently-themed set --
+       ink/surface/hover-2/field/line are all just this app's own
+       foreground/background/accent/border colors under the names that
+       component's markup already uses. ink-2/ink-3 are lightened past
+       --muted-foreground itself (not just aliased to it) -- resting
+       sidebar text read as too close in weight to active/hovered text,
+       so both are mixed toward --background instead of reusing the
+       shared token verbatim, which would also brighten every other
+       muted-foreground usage across the app (buttons, timestamps, etc,
+       per frontend/STYLE_GUIDE.md) that isn't part of this request.
+       color-mix (not a second hardcoded hex per theme) so this stays
+       correct automatically in both light and dark without hand-tuning
+       two separate values. ink-3 lightens further than ink-2 -- it's
+       already the more-secondary tier (search icons, the Chats label). */
+    --color-ink: var(--foreground);
+    --color-ink-2: color-mix(in srgb, var(--muted-foreground) 80%, var(--background));
+    --color-ink-3: color-mix(in srgb, var(--muted-foreground) 50%, var(--background));
+    --color-surface: var(--popover);
+    --color-hover-2: var(--accent);
+    --color-field: var(--background);
+    --color-line: var(--border);
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    /* Codex's own single accent color (#0169cc, both light and dark --
+       contrast:0 in the theme pack the user shared, codex-theme-v1),
+       registered as a real utility (border-focus-accent/bg-focus-accent/
+       text-focus-accent) so every focus-visible border/send button in
+       this app can read the *same* blue instead of each hardcoding its
+       own -- border-blue-500 (Tailwind's stock blue, sidebar/inbox/
+       compose search inputs) and --send-button-bg (a third, different
+       hardcoded blue, #0091fe) had drifted into three different blues
+       across the app before this. */
+    --color-focus-accent: var(--focus-accent);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    /* "Section describer" text -- the small dim uppercase labels that
+       introduce a group (sidebar's "Projects"/"Help", dropdown category
+       headers like "Group by"/"Order by", the members-list section
+       headers). A flat, dedicated color rather than muted-foreground at a
+       reduced opacity, since muted-foreground itself is a real "resting
+       text" color now, not just a base to dim further. */
+    --color-section-foreground: var(--section-foreground);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+    --color-surface-1: var(--surface-1);
+    --color-surface-2: var(--surface-2);
+    --color-surface-3: var(--surface-3);
+    --color-surface-4: var(--surface-4);
+    --color-surface-5: var(--surface-5);
+    --color-surface-6: var(--surface-6);
+    --color-surface-7: var(--surface-7);
+    --color-surface-8: var(--surface-8);
+    --shadow-surface-1: var(--shadow-1);
+    --shadow-surface-2: var(--shadow-2);
+    --shadow-surface-3: var(--shadow-3);
+    --shadow-surface-4: var(--shadow-4);
+    --shadow-surface-5: var(--shadow-5);
+    --shadow-surface-6: var(--shadow-6);
+    --shadow-surface-7: var(--shadow-7);
+    --shadow-surface-8: var(--shadow-8);
+    --color-hover: var(--hover);
+    --color-active: var(--active);
+    --color-selected: var(--selected);
+    --color-destructive-light: var(--destructive-light);
+    --color-dm-drop: var(--dm-drop);
+    --color-dm-ring-high: var(--dm-ring-high);
+    --color-dm-ring-mid: var(--dm-ring-mid);
+    --color-dm-ring-base: var(--dm-ring-base);
+    --color-dm-hi-peak: var(--dm-hi-peak);
+    --color-dm-hi-high: var(--dm-hi-high);
+    --color-dm-hi-mid: var(--dm-hi-mid);
+    --color-dm-hi-base: var(--dm-hi-base);
+    --color-focus-ring: var(--focus-ring);
+    --overlay: var(--overlay);
+    --shadow-8: var(--shadow-8);
+    --shadow-7: var(--shadow-7);
+    --shadow-6: var(--shadow-6);
+    --shadow-5: var(--shadow-5);
+    --shadow-4: var(--shadow-4);
+    --shadow-3: var(--shadow-3);
+    --shadow-2: var(--shadow-2);
+    --shadow-1: var(--shadow-1);
+    --color-shadow-color: var(--shadow-color);
+  @keyframes sf-reveal-start {
+  from {
+    --sf-start: 1;
+        }
+  to {
+    --sf-start: 0;
+        }
+    }
+  @keyframes sf-reveal-end {
+  from {
+    --sf-end: 0;
+        }
+  to {
+    --sf-end: 1;
+        }
+    }
+  @keyframes sf-divider-start {
+  from {
+    opacity: 0;
+        }
+  to {
+    opacity: 1;
+        }
+    }
+  @keyframes sf-divider-end {
+  from {
+    opacity: 1;
+        }
+  to {
+    opacity: 0;
+        }
+    }
+  @keyframes spinner-move {
+  to {
+    stroke-dashoffset: -100;
+        }
+    }
+  @keyframes spinner-dash {
+  0%, 100% {
+    stroke-dasharray: 15 85;
+        }
+  50% {
+    stroke-dasharray: 40 60;
+        }
+    }
+}
+
+:root {
+    /* Tells the browser to render its own native UI (scrollbars, form
+       control chrome like <input type="checkbox">, the browser's default
+       focus ring) in a light style -- unrelated to this app's own
+       --background/--foreground variables above, which only ever
+       affected elements this app actually styles itself. Without this,
+       native scrollbars default to light regardless of .dark being
+       applied, since scrollbar rendering isn't tied to arbitrary CSS
+       custom properties at all, only to this specific property. */
+    color-scheme: light;
+    /* Main content/pages background -- Synara ships several named color
+       themes (theme.seed.generated.ts), and this app's own light/dark
+       tokens had drifted onto their "synara" theme's own values rather
+       than "codex" (their actual runtime default -- DEFAULT_THEME_STATE
+       seeds from getCodeThemeSeed("codex", variant), not the "synara"
+       theme), per explicit request ("make sure we are using the codex
+       color theme from synara's... i want us to use codex color theme").
+       #ffffff is codex's light "surface" value exactly. */
+    --background: #ffffff;
+    /* "Active" text -- hovered/selected menu items, headings, primary
+       body text. --muted-foreground below is the resting/inactive one.
+       #0d0d0d is codex's light "ink" value exactly, same request as
+       --background above. The sidebar rail's own rows (RailButton and
+       friends, sidebar-nav.tsx) now read this same token directly
+       (text-foreground) too, rather than a separate hardcoded hex -- one
+       shared active/inactive text pair for the whole app now, not two
+       independently drifting ones. */
+    --foreground: #0d0d0d;
+    --card: #ffffff;
+    --card-foreground: #0d0d0d;
+    /* var() references, not their own values: dropdown/popover menus
+       (Quick chat, the profile menu) should always match the page
+       background, including automatically if --background itself changes
+       later, not just today's specific color. */
+    --popover: var(--background);
+    --popover-foreground: var(--foreground);
+    --primary: oklch(0.205 0 0);
+    --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.97 0 0);
+    --secondary-foreground: oklch(0.205 0 0);
+    /* Same color as --accent -- both are the app's one hover-background
+       tone, just used by different components (Button ghost/secondary
+       hover vs. sidebar/dropdown hover). */
+    --muted: var(--accent);
+    /* Resting/inactive text -- Synara's own light --muted-foreground
+       formula exactly (color-mix(in srgb, neutral-500 90%, black),
+       Tailwind neutral-500 = #737373), not a precomputed approximation,
+       per explicit request ("update the dark mode and light mode to be
+       one color exactly like the color scheme at Synara's"). */
+    --muted-foreground: color-mix(in srgb, #737373 90%, black);
+    /* Hover AND active background -- one token for both, matching
+       Synara's own sidebar (its --sidebar-accent/--sidebar-accent-active
+       are the same --secondary value; SidebarRowStyles.ts's own hover/
+       active classes read it un-mixed). rgba(0, 0, 0, 0.04) is Synara's
+       own light --accent formula exactly (--alpha(black / 4%)), not a
+       flat color precomposited over a background -- same "exactly like
+       Synara's" request as --muted-foreground above. A real alpha color
+       here (not a solid hex) also means every existing bg-hover-2/50-style
+       call site keeps its own further-reduced-opacity read on top of it
+       automatically, preserving the transparency-driven "one token, read
+       at different opacities per use" design already in place elsewhere
+       in this app. The sidebar rail's own active row (RailButton,
+       sidebar-nav.tsx) now reads this token directly at full strength
+       (bg-accent) too, instead of a separate hardcoded #EFEFEF -- Synara's
+       own hover and active rows share one background, not two
+       independently drifting ones. */
+    --accent: rgba(0, 0, 0, 0.04);
+    /* Flat, not a reduced-opacity mix -- the hover and truly-active
+       background are the same literal color now, so there's nothing left
+       to blend. Kept as its own token (see the @theme block's
+       --color-hover-accent comment) since components read it by name. */
+    --hover-accent: var(--accent);
+    /* var(--foreground), not its own value: this is the same "hovered menu
+       item text" color as --sidebar-accent-foreground below, and both
+       should always match dark mode's existing var()-based pattern -- one
+       deliberate hover color per theme, not two oklch values that happen
+       to look similar. */
+    --accent-foreground: var(--foreground);
+    --destructive: oklch(0.577 0.245 27.325);
+    /* Main content/pages border -- codex's own light "border" formula
+       exactly (theme.logic.ts's buildLightDerivedTokens: formatRgba(ink,
+       0.09 + contrast*0.04)): a real alpha wash of --foreground's own ink
+       (#0d0d0d) rather than an independently hardcoded flat gray (was
+       #dfdfdf), per explicit request ("our border color needs to be
+       updated as well... to match synatra's codex borders"). The
+       "contrast" plugged into that formula isn't the raw 0 from the
+       codex-theme-v1 pack the user shared -- theme.logic.ts's own
+       normalizeContrastStrength() runs it through a curve first
+       (CONTRAST_CURVE_BASELINE.light = 45, CONTRAST_CURVE_BELOW_BASELINE
+       = 0.7: ((0-45)/60)*0.7 = -0.525), so the real multiplier is
+       negative here, not zero -- 0.09 + (-0.525 * 0.04) = 0.069, not
+       0.09 (this file's own earlier value, before the curve was
+       accounted for). Codex's own light borders are genuinely this
+       subtle by design at this pack's contrast setting -- a hairline,
+       not a visible rule. */
+    --border: rgba(13, 13, 13, 0.069);
+    --input: oklch(0.922 0 0);
+    --section-foreground: #7d7d7d;
+    /* Codex's own accent -- exact value from the theme pack the user
+       shared directly (codex-theme-v1 share string): #0169cc, same in
+       both light and dark (its own "contrast": 0 leaves accent
+       unadjusted per variant). The one real "brand blue" this app should
+       use anywhere it needs one. */
+    --focus-accent: #0169cc;
+    /* transparent, not a real color: every focus-visible:ring-* and
+       focus-visible:border-ring utility across the app's UI primitives
+       (Button, Input, Textarea,
+       Badge, the sidebar's own menu buttons, etc.) reads its ring color
+       from this one token -- several components used to fight it back
+       individually with their own focus-visible:ring-0 override (top-bar.tsx's
+       search input, compose-box.tsx's textarea and model-picker trigger),
+       which only ever covered that one component. Blanking the shared
+       token here removes the ring/border-color flash everywhere at once,
+       including spots nobody had gotten around to overriding yet (the
+       Help section's Appearance trigger, which was still showing it) --
+       one definition instead of N per-component patches. */
+    --ring: transparent;
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    /* Reduced from Nova's default 0.625rem -- every derived radius
+       (--radius-sm/md/lg/xl/etc. in @theme inline above) is a multiple of
+       this one value, so lowering it alone squares off corners everywhere
+       (buttons, inputs, sidebar, dropdowns, avatars) consistently rather
+       than hand-tuning each component. */
+    --radius: 0.375rem;
+    /* Sidebar bg -- var(--background) again, not its own distinct
+       literal, per explicit request ("our sidebar still not the same
+       color as the main color like the synara's"): Synara's own sidebar
+       reads --card (effectively the same value as its --background --
+       see that token's own definition), not a separate flat gray, so the
+       rail and main content read as one continuous surface rather than
+       two visibly different panels. Reverses an earlier explicit request
+       that had these as separate literals (#f7f7f7 here) -- a later,
+       more specific ask wins. */
+    --sidebar: var(--background);
+    --sidebar-foreground: var(--foreground);
+    --sidebar-primary: oklch(0.205 0 0);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: var(--accent);
+    --sidebar-accent-foreground: var(--foreground);
+    /* var(--border), not its own literal -- Synara's own sidebar border
+       reads the exact same --color-border token as everywhere else
+       (theme.logic.ts: "--sidebar-border": readCodexVariable("--color-border")),
+       not a separate color. Was #ededed. */
+    --sidebar-border: var(--border);
+    /* Same token-blanking as --ring above -- the sidebar's own menu
+       buttons/actions read their focus ring color from this separate
+       token, not --ring. */
+    --sidebar-ring: transparent;
+    /* Send button (compose-box.tsx) -- var(--focus-accent) now, codex's
+       own real accent blue, not an independently hardcoded literal
+       (#0091fe before this) -- per explicit request ("still not matching
+       their color scheme", followed by the exact codex-theme-v1 share
+       string). Same value in .dark below now (per an earlier explicit
+       request) -- this used to be a paler #aed1fe here specifically, with
+       .dark holding a different accent blue; that read as two different
+       buttons depending on theme rather than one button in two themes. */
+    --send-button-bg: var(--focus-accent);
+    /* Computed here as plain CSS, not inline inside a Tailwind arbitrary
+       value (hover:bg-[color-mix(in_oklch,var(--send-button-bg),black_25%)],
+       tried first) -- that version silently never applied at all. Nested
+       function-call arbitrary values (color-mix(...) inside bg-[...]) are
+       fragile in both Tailwind's own bracket parsing and tailwind-merge's
+       conflict resolution; a plain var() reference (what compose-box.tsx
+       uses now) is the same simple form the base --send-button-bg
+       reference already used and is known to work. */
+    --send-button-bg-hover: color-mix(in oklch, var(--send-button-bg), black 25%);
+    --send-button-bg-active: color-mix(in oklch, var(--send-button-bg), black 40%);
+    /* A real, evenly-stepped 8-tier ladder, not the installed registry's own
+       (surface-3 through 8 all flatten to plain #FFFFFF) -- per explicit
+       request ("the light active hover and hover is broken in the
+       dropdowns... do 2 jumps instead to be more noticeable"): that
+       original ladder trends *toward* white as level rises (level 1
+       #FAFAFA already 96% of the way there), so it runs out of room after
+       two steps -- a dropdown panel and its own item hover differed by
+       only 2 RGB units (#FAFAFA vs #FCFCFC), and anything nested deeper
+       than that was visually identical to the page background. Dark
+       mode's own ladder (below) has real ~7-unit steps across its whole
+       range for exactly this reason. Light mode reverses direction instead
+       of trying to out-white white: level 1 stays near the app's own
+       background, and each further level moves into a genuinely visible
+       gray, mirroring dark mode's own degree of contrast per step. */
+    --surface-1: #FAFAFA;
+    --surface-2: #F5F5F5;
+    --surface-3: #F0F0F0;
+    --surface-4: #EBEBEB;
+    --surface-5: #E6E6E6;
+    --surface-6: #E0E0E0;
+    --surface-7: #DADADA;
+    --surface-8: #D4D4D4;
+    --shadow-color: rgb(0 0 0 / 0.06);
+    --shadow-1: 0 0 0 1px var(--shadow-color);
+    --shadow-2: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color);
+    --shadow-3: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color), 0 3px 3px -1.5px var(--shadow-color);
+    --shadow-4: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color), 0 3px 3px -1.5px var(--shadow-color), 0 6px 6px -3px var(--shadow-color);
+    --shadow-5: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color), 0 3px 3px -1.5px var(--shadow-color), 0 6px 6px -3px var(--shadow-color), 0 12px 12px -6px var(--shadow-color);
+    --shadow-6: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color), 0 3px 3px -1.5px var(--shadow-color), 0 6px 6px -3px var(--shadow-color), 0 12px 12px -6px var(--shadow-color), 0 24px 24px -12px var(--shadow-color);
+    --shadow-7: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color), 0 3px 3px -1.5px var(--shadow-color), 0 6px 6px -3px var(--shadow-color), 0 12px 12px -6px var(--shadow-color), 0 24px 24px -12px var(--shadow-color), 0 48px 48px -24px var(--shadow-color);
+    --shadow-8: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color), 0 3px 3px -1.5px var(--shadow-color), 0 6px 6px -3px var(--shadow-color), 0 12px 12px -6px var(--shadow-color), 0 24px 24px -12px var(--shadow-color), 0 48px 48px -24px var(--shadow-color), 0 96px 96px -48px var(--shadow-color);
+    --hover: rgb(0 0 0 / 0.04);
+    --active: rgb(0 0 0 / 0.07);
+    --selected: #D4D4D4;
+    --destructive-light: #FEF2F2;
+    --overlay: 0 0 0;
+    --focus-ring: #6B97FF;
+    /* Shared "row" radius -- the sidebar's own row/hover treatment
+       (RailButton and friends, sidebar-nav.tsx) and the compose box's own
+       outer border (compose-box.tsx) both read this one value via
+       rounded-[var(--row-radius)] instead of each hardcoding their own
+       literal px, confirmed directly as a real, repeated mismatch (the
+       compose box drifting to a different token/tier than the sidebar's
+       own rows more than once). Scales up with the real viewport at the
+       breakpoints below (not a @container query -- the sidebar's own
+       width barely changes with the window, so a shared *screen*-size
+       signal is what actually keeps both elements moving together,
+       unlike each reading its own independent width). Base value (8px)
+       matches what every sidebar row already used before this existed.
+       See the two @media overrides directly below this block. */
+    --row-radius: 8px;
+    /* A literal-equal radius on the search input (28px tall) reads much
+       rounder than the same value on the compose box (~85px+ tall) --
+       confirmed directly ("the sidebar search still too rounded compared
+       to the compose"): identical px doesn't mean identical *visual*
+       roundedness once the two elements' own heights are this different
+       (radius-to-height ratio). calc()'d off --row-radius, not its own
+       flat number, so it still can't drift independently and inherits
+       the same responsive scaling automatically (no need to repeat it in
+       each @media block below). Used by the sidebar search input only
+       (sidebar-nav.tsx) -- rows/compose box keep the full --row-radius. */
+    --row-radius-sm: calc(var(--row-radius) * 0.75);
+    /* ChatPage.tsx's own message column + compose box width -- per
+       explicit request ("Chat width (Standard, Expanded)",
+       settings-overlay.tsx's own AppearanceSection). 800px matches
+       PAGE_CONTENT_WIDTH (page-content.tsx), the width every other page
+       already uses, so "Standard" here is a real default already baked
+       into the stylesheet, not something JS has to set on every load --
+       use-appearance-settings.ts's own applyChatWidth only ever
+       overrides this when "Expanded" is chosen, never re-sets 800px
+       itself. */
+    --chat-max-width: 800px;
+}
+
+/* --row-radius -- scales at real viewport breakpoints (matches Tailwind's
+   own md/xl breakpoints, 768/1280, for familiarity), not tied to .dark --
+   radius doesn't change with theme, only screen size. 8 -> 9 -> 10, not
+   8 -> 10 -> 12 -- confirmed directly as reading "too rounded" at wider
+   breakpoints with the original, more aggressive step; toned down across
+   the board (search bar, every sidebar row, the compose box all read
+   this same value) rather than singling any one of them out. */
+@media (min-width: 768px) {
+    :root {
+        --row-radius: 9px;
+    }
+}
+
+@media (min-width: 1280px) {
+    :root {
+        --row-radius: 10px;
+    }
+}
+
+.dark {
+    /* See :root's own comment above -- same property, dark side of the
+       same toggle, so native scrollbars/form controls switch to their
+       dark rendering along with everything else this app styles itself. */
+    color-scheme: dark;
+    /* Main content/pages background -- codex's own dark "surface" value
+       exactly, same "actual Synara theme, not their 'synara' theme"
+       correction as :root's own --background comment above explains. Was
+       #0e0e0e (this app's own earlier, wrong-theme value), before that
+       #151515. */
+    --background: #111111;
+    /* This is the "active" text color -- hovered/selected menu items,
+       headings, primary body text. --muted-foreground below is the
+       resting/inactive one. codex's own dark "ink" value exactly, same
+       request as --background above. The sidebar rail's own rows now
+       read this same token directly (text-foreground) too, same as
+       :root's own comment above explains -- was #f5f5f5, before that
+       #cecece. */
+    --foreground: #fcfcfc;
+    --card: #111111;
+    --card-foreground: #fcfcfc;
+    --popover: var(--background);
+    --popover-foreground: var(--foreground);
+    --primary: oklch(0.922 0 0);
+    --primary-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.269 0 0);
+    --secondary-foreground: #cecece;
+    /* Same color as --accent -- both are the app's one hover-background
+       tone, just used by different components (Button ghost/secondary
+       hover vs. sidebar/dropdown hover). No longer tied to --border (what
+       this used to be): hover background and border are two independently
+       specified colors now, not one value reused for both roles. */
+    --muted: var(--accent);
+    /* Resting/inactive text -- Synara's own dark --muted-foreground
+       formula exactly (color-mix(in srgb, neutral-500 90%, white)), same
+       "exactly like Synara's" request as :root's own --muted-foreground
+       comment above. Was #989898. */
+    --muted-foreground: color-mix(in srgb, #737373 90%, white);
+    /* Hover AND active background -- one token for both now, same as
+       :root's own --accent comment above explains (Synara's sidebar
+       shares one background for hover/active; the sidebar rail's own
+       active row reads this directly via bg-accent too, not a separate
+       hardcoded #1f1f1f any more). rgba(255, 255, 255, 0.04) is Synara's
+       own dark --accent formula exactly (--alpha(white / 4%)) -- a real
+       alpha color, not a flat hex precomposited over #0e0e0e -- noticeably
+       subtler than this app's previous #222222 against #151515, which
+       read as flatter/heavier by comparison. */
+    --accent: rgba(255, 255, 255, 0.04);
+    --hover-accent: var(--accent);
+    --accent-foreground: var(--foreground);
+    --destructive: oklch(0.704 0.191 22.216);
+    /* Main content/pages border -- codex's own dark "border" formula
+       exactly (theme.logic.ts's buildDarkDerivedTokens: formatRgba(ink,
+       0.1 + contrast*0.04)), same curve correction as :root's own
+       --border comment above explains (CONTRAST_CURVE_BASELINE.dark = 60:
+       ((0-60)/60)*0.7 = -0.7, so 0.1 + (-0.7*0.04) = 0.072, not the flat
+       0.1 this file had before accounting for the curve) -- reported
+       directly as reading too light/visible against the page compared to
+       Synara's own darker-blending edge ("still not right... a bit more
+       darker in dark mode"), which tracks: a lower alpha here mixes the
+       border closer to the near-black background instead of standing out
+       from it. Was #313131 before any of this. */
+    --border: rgba(252, 252, 252, 0.072);
+    --input: #1b1b1b;
+    --section-foreground: #6d6d6d;
+    /* transparent -- see :root's --ring comment above for why. */
+    --ring: transparent;
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    /* Sidebar bg -- var(--background) again, same reversal as :root's own
+       --sidebar comment above explains. Was #1b1b1b. */
+    --sidebar: var(--background);
+    --sidebar-foreground: var(--foreground);
+    --sidebar-primary: oklch(0.488 0.243 264.376);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: var(--accent);
+    --sidebar-accent-foreground: var(--foreground);
+    /* var(--border), same reversal as :root's own --sidebar-border
+       comment above explains. Was #252525. */
+    --sidebar-border: var(--border);
+    /* transparent -- see :root's --sidebar-ring comment above for why. */
+    --sidebar-ring: transparent;
+    /* --send-button-bg: no dark override any more -- :root's own value is
+       the same accent blue in both themes now (per explicit request), so
+       there's nothing left for .dark to override it with. */
+    --surface-1: #171717;
+    --surface-2: #1E1E1E;
+    --surface-3: #252525;
+    --surface-4: #2C2C2C;
+    --surface-5: #333333;
+    --surface-6: #3A3A3A;
+    --surface-7: #414141;
+    --surface-8: #484848;
+    --dm-hi-base: rgba(255,255,255,0.01);
+    --dm-hi-mid: rgba(255,255,255,0.02);
+    --dm-hi-high: rgba(255,255,255,0.04);
+    --dm-hi-peak: rgba(255,255,255,0.06);
+    --dm-ring-base: rgba(255,255,255,0.02);
+    --dm-ring-mid: rgba(255,255,255,0.04);
+    --dm-ring-high: rgba(255,255,255,0.06);
+    --dm-drop: rgba(0,0,0,0.18);
+    --shadow-1: inset 0 0 0 1px var(--dm-ring-base);
+    --shadow-2: inset 0 1px 0 0 var(--dm-hi-base), inset 0 0 0 1px var(--dm-ring-base), 0 1px 1px -0.5px var(--dm-drop);
+    --shadow-3: inset 0 1px 0 0 var(--dm-hi-mid), inset 0 0 0 1px var(--dm-ring-base), 0 0 0 1px rgba(0,0,0,0.12), 0 1px 1px -0.5px var(--dm-drop), 0 3px 3px -1.5px var(--dm-drop);
+    --shadow-4: inset 0 1px 0 0 var(--dm-hi-mid), inset 0 0 0 1px var(--dm-ring-mid), 0 0 0 1px rgba(0,0,0,0.14), 0 1px 1px -0.5px var(--dm-drop), 0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop);
+    --shadow-5: inset 0 1px 0 0 var(--dm-hi-high), inset 0 0 0 1px var(--dm-ring-mid), 0 0 0 1px rgba(0,0,0,0.16), 0 1px 1px -0.5px var(--dm-drop), 0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop), 0 12px 12px -6px var(--dm-drop);
+    --shadow-6: inset 0 1px 0 0 var(--dm-hi-high), inset 0 0 0 1px var(--dm-ring-high), 0 0 0 1px rgba(0,0,0,0.18), 0 1px 1px -0.5px var(--dm-drop), 0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop), 0 12px 12px -6px var(--dm-drop), 0 24px 24px -12px var(--dm-drop);
+    --shadow-7: inset 0 1px 0 0 var(--dm-hi-peak), inset 0 0 0 1px var(--dm-ring-high), 0 0 0 1px rgba(0,0,0,0.20), 0 1px 1px -0.5px var(--dm-drop), 0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop), 0 12px 12px -6px var(--dm-drop), 0 24px 24px -12px var(--dm-drop), 0 48px 48px -24px var(--dm-drop);
+    --shadow-8: inset 0 1px 0 0 var(--dm-hi-peak), inset 0 0 0 1px var(--dm-ring-high), 0 0 0 1px rgba(0,0,0,0.22), 0 1px 1px -0.5px var(--dm-drop), 0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop), 0 12px 12px -6px var(--dm-drop), 0 24px 24px -12px var(--dm-drop), 0 48px 48px -24px var(--dm-drop), 0 96px 96px -48px var(--dm-drop);
+    --hover: rgb(255 255 255 / 0.06);
+    --active: rgb(255 255 255 / 0.1);
+    --selected: #525252;
+    --destructive-light: #450A0A;
+    --overlay: 255 255 255;
+}
+
+/* Smooths the light/dark toggle (useTheme.ts's .dark class flip on
+   <html>) -- useTheme briefly adds .theme-transition to <html> around that
+   flip, and while it's present every element's color-driven properties
+   fade together over the same duration instead of the whole page
+   instantly snapping to the new palette. !important is required here: a
+   plain (non-important) rule, even a highly specific one, can't reliably
+   win against every element's own transition-property utility class
+   (transition-colors, transition-transform, arbitrary transition-[...],
+   etc.) -- those set transition-property as a full replacement list, not
+   an addition, so any element with one of those classes but no
+   background-color/color/etc. in its own list would otherwise keep
+   transitioning color instantly, out of sync with the rest of the page
+   (confirmed directly: Connect apps' .t-avatar tiles and the homepage's
+   quick-start cards both did exactly this). !important always outranks a
+   non-important declaration regardless of selector specificity or layer
+   order, so this reaches every element unconditionally for the brief
+   window it's applied, then gets out of the way once useTheme removes the
+   class -- normal hover/press transitions go back to each component's own
+   timing the rest of the time. */
+.theme-transition,
+.theme-transition * {
+  transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease, fill 200ms ease, stroke 200ms ease !important;
+}
+
+/* Companion to .theme-transition, opposite purpose: used on the
+   startViewTransition path (use-theme.tsx) instead of .theme-transition
+   (that's the fallback for browsers without View Transitions), where the
+   view transition's own snapshot crossfade is the ONLY animation that
+   should play. Without this, any element that already has its own
+   transition-colors for normal hover/focus/open-close interactions --
+   buttons, the search input, DropdownMenuContent's own open/close fade --
+   would ALSO independently animate its background-color the instant .dark
+   flips, at that component's own duration, on top of the view
+   transition's separate one. !important for the same reason
+   .theme-transition needs it: has to unconditionally beat every
+   element's own transition-property utility class, not just the ones
+   that don't set one at all. */
+.no-transitions,
+.no-transitions * {
+  transition: none !important;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    }
+  /* Every clickable button reads the same, everywhere -- confirmed
+     directly as a real inconsistency ("the inbox and getting started get
+     the interactive hand on the cursor to click but not the new or
+     avatar... make sure that we stick to one pointer for all buttons"):
+     browsers give an <a>/<Link> the pointer cursor for free, but never a
+     plain <button> (this app's own reference registry installs don't
+     override that either), so a row rendered as a real route link vs. a
+     plain button-with-onClick read as two different levels of
+     "clickable" purely by accident of which element it happened to be.
+     One global rule instead of hunting down every button's own className
+     by hand. */
+  button:not(:disabled) {
+    cursor: pointer;
+    }
+  /* html/body pinned to exactly the viewport height and never allowed to
+     scroll themselves -- this is an app shell (sidebar + main content),
+     not a page that's ever meant to be taller than the viewport, but
+     nothing previously stopped it from becoming one (the sidebar wrapper
+     only sets a *minimum* height, min-h-svh). Once any content anywhere
+     got close to viewport height, the whole document could pick up
+     scrollable overflow on top of the sidebar's own internal ScrollAreas
+     (Platform/Projects), and scrolling/dragging near that edge felt like
+     "the page keeps trying to move" -- clicking or scrolling in the main
+     content was fighting the outer document's own scroll/rubber-band
+     behavior instead of staying contained to whichever scrollable region
+     was actually under the cursor. overscroll-behavior additionally stops
+     scroll *chaining* -- without it, scrolling an inner region (e.g. the
+     Projects list) past its own end can still bleed into trying to move
+     whatever contains it, even when that container itself has nothing to
+     scroll. */
+  html, body {
+    height: 100svh;
+    overflow: hidden;
+    overscroll-behavior: none;
+    }
+  body {
+    @apply bg-background text-foreground;
+    }
+  /* This is a client-only-rendered SPA with no SSR/skeleton -- #root is
+     genuinely empty (just the dark background) until the JS bundle has
+     downloaded, parsed, and mounted the whole app, which on a slow
+     connection/device is a real, non-trivial gap (measured 1s+ under
+     throttling), not a bug to "fix" outright. Without this, the entire app
+     pops in at once the instant that finishes, reading as a jarring
+     "black screen then boom." Fading in React's first mounted element
+     softens that instant into a brief reveal instead -- this only smooths
+     the transition, it doesn't shrink the underlying load time. */
+  #root > * {
+    animation: app-mount-in 320ms ease-out;
+    }
+  @keyframes app-mount-in {
+    from {
+      opacity: 0;
+      }
+    to {
+      opacity: 1;
+      }
+    }
+  /* Dictation "listening" indicator (compose-box.tsx) -- three bars
+     bouncing out of phase (150ms stagger per bar) reads as a live
+     equalizer instead of a static toggled icon. */
+  @keyframes eq-bounce {
+    0%, 100% {
+      transform: scaleY(0.3);
+      }
+    50% {
+      transform: scaleY(1);
+      }
+    }
+  html {
+    @apply font-sans;
+    /* Removed a flat font-size: 90% that used to live here (baking in one
+       Cmd/Ctrl+- zoom step, since Tailwind's rem-based sizing all cascades
+       from this). A fixed percentage can't account for how different
+       displays actually render CSS pixels -- it happened to look right at
+       100% browser zoom on one machine and required manually zooming to
+       ~110% to compensate on another, which isn't something a person should
+       have to discover and redo per device. Elements that were already
+       given raw px sizes specifically to counteract this shrink (several
+       icon/text sizes across the app, each commented where they occur)
+       don't need any changes -- px was always absolute regardless of root
+       font-size, so removing the shrink just makes the rem-based majority
+       of the UI match what those already-un-shrunk elements were tuned to
+       look like, instead of the other way around. */
+    }
+  /* Radix ScrollArea's own internal Viewport content wrapper (not exposed
+     as a prop -- shadcn's scroll-area.tsx only styles Viewport itself,
+     `size-full`, not this element) renders as `display: table`. Table
+     layout's default table-layout:auto treats a percentage width as a
+     *minimum*, not a cap -- content that doesn't fit (e.g. a sidebar
+     project row widened by a "Pinned" badge) makes the table grow past
+     its own 100%, which is what was silently pushing rows (and their
+     absolutely-positioned "..." action button, out past the actually
+     visible/clipped area) wider than the sidebar -- no amount of
+     min-w-0/w-full on our own descendants could fix that, since none of
+     them touch this specific Radix-internal element. table-layout: fixed
+     makes the specified width an actual cap instead: content that
+     doesn't fit gets truncated/clipped by descendants' own overflow
+     handling (nav-projects.tsx's row already truncates the project name)
+     rather than growing the table. */
+  [data-slot="scroll-area-viewport"] > div {
+    table-layout: fixed;
+    width: 100%;
+    }
+  :focus-visible {
+    outline: 1px solid var(--focus-ring, #6B97FF);
+    outline-offset: 2px;
+    border-radius: var(--shape-input-radius, 8px);
+    }
+  a:focus-visible {
+    border-radius: 2px;
+    }
+}
+
+/* Transitions.dev — Panel reveal */
+
+/*
+  Usage:
+    <div class="t-panel-slide" data-open="false">
+      <!-- your panel contents -->
+    </div>
+
+  The panel slides on the Y axis, fades opacity 0 ↔ 1,
+  and cross-blurs --panel-blur ↔ 0, all on the same
+  duration / ease so a shorter travel (e.g. 50% of the
+  panel height) still reads as a full open / close.
+  Wrap it in your own container with `overflow: hidden`
+  if you want the closed state fully clipped. Set
+  --panel-translate-y to the travel distance (e.g. half
+  the panel's own height).
+
+  --panel-translate-y is 50% here (not a fixed px value) --
+  ExpandDrawer (HomePage.tsx) is h-1/2 of its own relative
+  container, not a fixed height, and percentage translateY is
+  relative to the element's own box, so this resolves to half
+  its real height at any viewport size rather than a stale
+  hardcoded number.
+*/
+
+:root {
+  --panel-open-dur: 400ms;
+  --panel-close-dur: 350ms;
+  --panel-translate-y: 50%;
+  --panel-blur: 2px;
+  --panel-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.t-panel-slide {
+  transform: translateY(var(--panel-translate-y));
+  opacity: 0;
+  filter: blur(var(--panel-blur));
+  pointer-events: none;
+  transition:
+    transform var(--panel-close-dur) var(--panel-ease),
+    opacity   var(--panel-close-dur) var(--panel-ease),
+    filter    var(--panel-close-dur) var(--panel-ease);
+  will-change: transform, opacity, filter;
+}
+.t-panel-slide[data-open="true"] {
+  transform: translateY(0);
+  opacity: 1;
+  filter: blur(0);
+  pointer-events: auto;
+  transition:
+    transform var(--panel-open-dur) var(--panel-ease),
+    opacity   var(--panel-open-dur) var(--panel-ease),
+    filter    var(--panel-open-dur) var(--panel-ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-panel-slide { transition: none !important; }
+}
+
+/* Transitions.dev — Avatar group hover */
+
+/*
+  Usage:
+    <!-- Apply .t-avatar to each item in your group (avatar,
+         chip, badge, button — anything). Bring your own size,
+         shape, and stacking; this stylesheet only owns the
+         hover transform + transition. -->
+    <div class="t-avatar-group">
+      <div class="t-avatar"><!-- your item --></div>
+      <div class="t-avatar"><!-- your item --></div>
+      <!-- … -->
+    </div>
+
+  Wire-up (vanilla JS):
+    On `mouseenter` of any .t-avatar, walk every sibling and
+    set inline:
+      el.style.setProperty('--shift',
+        (lift * Math.pow(falloff, distance)).toFixed(3) + 'px');
+      el.style.setProperty('--scale-active',
+        i === activeIdx ? scale : 1);
+    Set transition-timing-function inline BEFORE the
+    variable writes — use --avatar-ease-in on hover-in and
+    --avatar-ease-out on the root's `mouseleave` (resets
+    --shift to 0 and --scale-active to 1).
+*/
+
+:root {
+  --avatar-lift: -4px;
+  --avatar-dur: 320ms;
+  --avatar-scale: 1.05;
+  --avatar-falloff: 0.45;
+  --avatar-ease-in: cubic-bezier(0.22, 1, 0.36, 1);
+  --avatar-ease-out: cubic-bezier(0.34, 3.85, 0.64, 1);
+}
+
+/* Hover-spring transition only — bring your own avatar/chip
+   styling (size, shape, border, stacking, background). */
+.t-avatar {
+  transform-origin: center;
+  /* translateY before scale so scale doesn't amplify the lift offset. */
+  transform:
+    translateY(var(--shift, 0px))
+    scale(var(--scale-active, 1));
+  transition: transform var(--avatar-dur) var(--avatar-ease-in);
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-avatar { transition: none !important; transform: none !important; }
+}
+
+/* Transitions.dev — Tooltip open/close */
+
+/*
+  Usage:
+    <span class="t-tt-wrap">
+      <button class="t-tt-trigger" aria-describedby="tt-1">…</button>
+      <span class="t-tt" id="tt-1" role="tooltip">Tooltip text</span>
+    </span>
+
+  The wrap (not the trigger) is the hover target so the pointer
+  can drift onto the tooltip without flicker. transition-delay
+  only applies in the hover/focus rule, so leaving snaps it to 0
+  and the disappear plays immediately. Trigger styling is yours;
+  only the tooltip positioning + its transition live here.
+
+  Requires one bit of real JS, not pure CSS: set the wrap's own
+  data-tt-truncated attribute (present/absent, value doesn't
+  matter) on hover/focus, based on measuring whether the
+  trigger's own label is actually cut off right now
+  (label.scrollWidth > label.clientWidth) -- both the hover and
+  focus-visible rules below require it, so a label already
+  showing its full name in full never reveals a redundant
+  tooltip. See sidebar-nav.tsx's own positionFixedTooltip for the
+  reference implementation (also handles the .t-tt-fixed variant
+  below in the same pass).
+
+  First real usage: sidebar-nav.tsx's Projects/Recents rows and
+  top-bar.tsx's search dropdown rows -- all three had a native
+  `title` attribute (removed, a known accessibility anti-pattern:
+  unreliable for screen readers/keyboard/touch, see this repo's
+  own PR history) standing in for "show the full name when the
+  row's own text is truncated". This is the real replacement,
+  meant to be reused anywhere else in the app that same need comes
+  up, not a one-off for these three call sites.
+*/
+
+:root {
+  --tt-in-dur: 150ms;
+  --tt-out-dur: 50ms;
+  --tt-scale: 0.98;
+  /* 1000ms, not the original 80ms -- per explicit request, the tooltip
+     should only show up after a real pause on the trigger, not almost
+     immediately (1000ms landed here after 2000ms first, also per
+     explicit request -- felt too slow). */
+  --tt-delay: 1000ms;
+  --tt-in-ease: ease-out;
+  --tt-out-ease: ease-out;
+  --tt-bg: #222222;
+  --tt-fg: #f0f0f0;
+}
+
+.t-tt-wrap {
+  position: relative;
+  display: inline-block;
+}
+.t-tt {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  /* Same z-index reasoning as .t-tt-fixed below -- a neighboring element
+     with its own z-index could otherwise paint over this tooltip's own
+     opaque background despite this being the visually "on top" one. */
+  z-index: 9999;
+  transform: translate(-50%, 0) scale(var(--tt-scale));
+  transform-origin: 50% 100%;
+  /* 4px 8px + 10px text, not the original 8px 12px + inherited text size
+     -- per explicit request, a visibly smaller/shorter box. line-height
+     tightened to match (1 -- default browser line-height for a 10px font
+     is noticeably taller than the text itself, which read as extra
+     padding on top of the padding already shrunk here). */
+  padding: 4px 8px;
+  font-size: 10px;
+  line-height: 1;
+  border-radius: 4px;
+  background: var(--tt-bg);
+  color: var(--tt-fg);
+  white-space: nowrap;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.06),
+    0 2px 6px 0 rgba(0, 0, 0, 0.05),
+    0 4px 42px 0 rgba(0, 0, 0, 0.06);
+  opacity: 0;
+  pointer-events: none;
+  /* Default rule controls the LEAVE state. transition-delay
+     stays unset so leaving plays without delay. */
+  transition:
+    opacity   var(--tt-out-dur) var(--tt-out-ease),
+    transform var(--tt-out-dur) var(--tt-out-ease);
+}
+/* The 50ms delay belongs ONLY to the hover rule so leaving
+   the trigger snaps the delay back to 0 and the disappear
+   plays immediately. [data-tt-truncated] (set by whatever JS measures
+   the trigger's own real truncation state -- see sidebar-nav.tsx's
+   positionFixedTooltip for the reference implementation) gates this so
+   a label that already shows in full never reveals a redundant tooltip
+   on hover/focus. */
+.t-tt-wrap[data-tt-truncated]:hover .t-tt,
+.t-tt-wrap[data-tt-truncated] .t-tt-trigger:focus-visible + .t-tt {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+  transition-duration: var(--tt-in-dur);
+  transition-timing-function: var(--tt-in-ease);
+  transition-delay: var(--tt-delay);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-tt { transition: none !important; }
+}
+
+/* .t-tt-fixed -- variant for a trigger inside a clipped/scrollable
+   ancestor (overflow:hidden or overflow:auto) that would otherwise cut
+   the tooltip off, e.g. sidebar-nav.tsx's own <aside>, which needs its
+   own overflow-hidden for the collapse/curtain animation and can't drop
+   it just for this. .t-tt-wrap's own position:relative only creates a
+   containing block for position:absolute (the default .t-tt above), not
+   position:fixed -- switching to fixed makes it position against the
+   *viewport* instead, which escapes ALL ancestor clipping, at the cost
+   of needing its on-screen position supplied explicitly, since "100% of
+   the trigger's own box" (the default variant's own `bottom: calc(100% +
+   8px)`) no longer means anything once position is viewport-relative.
+   Add this class alongside .t-tt (className="t-tt t-tt-fixed"), and set
+   --tt-top/--tt-left inline on .t-tt-wrap on hover/focus to the
+   trigger's own real getBoundingClientRect() -- see sidebar-nav.tsx's
+   own positionFixedTooltip helper, reused by both its Projects and
+   Recents rows. Sits above-and-to-the-right of the trigger ("top right",
+   --tt-top is the row's own rect.top - 8, --tt-left is rect.right + 8,
+   both set in JS; translate(0, -100%) here lifts it fully above that
+   top anchor) -- directly ABOVE, BELOW, and centered-RIGHT were each
+   tried first: straight above/below landed the tooltip on top of
+   whichever row sits directly above/below the hovered one in the
+   sidebar's own dense, gap-px-apart Projects/Recents lists (confirmed
+   directly, screenshots: the neighboring row's own text read as
+   overlapping/interleaving with the tooltip); centered-right avoided
+   that but wasn't the requested placement. Diagonal keeps the same
+   "nothing else sits past the sidebar's own 220px-wide column" clearance
+   centered-right had, while opening upward instead of vertically
+   centered. Same fade/scale/delay transition as the default .t-tt --
+   only the positioning mechanism differs. */
+.t-tt-fixed {
+  position: fixed;
+  top: var(--tt-top, 0px);
+  left: var(--tt-left, 0px);
+  bottom: auto;
+  /* Without this, the opaque --tt-bg still painted, but a neighboring
+     row's own z-10 (RailButton/data-row rows, sidebar-nav.tsx) sat
+     *above* this tooltip's own default (unset/auto) stacking order, so
+     that row's text visibly bled through on top of the tooltip despite
+     the tooltip's own solid background -- confirmed directly,
+     screenshot: it read as if the tooltip had no background at all.
+     9999 is well past every z-index already in use in this app (the
+     highest, the mobile sidebar drawer, is z-50) so this always wins
+     regardless of what it happens to sit near. */
+  z-index: 9999;
+  transform: translate(0, -100%) scale(var(--tt-scale));
+  transform-origin: 0 100%;
+}
+/* [data-tt-truncated] gates both rules -- set by sidebar-nav.tsx's own
+   positionFixedTooltip only when the row's own label is actually cut off
+   (scrollWidth > clientWidth), so a short label that already shows its
+   full name in full never reveals a redundant tooltip on hover/focus. */
+.t-tt-wrap[data-tt-truncated]:hover .t-tt-fixed,
+.t-tt-wrap[data-tt-truncated] .t-tt-trigger:focus-visible + .t-tt-fixed {
+  transform: translate(0, -100%) scale(1);
+}
+
+/* Transitions.dev — Text states swap */
+/*
+  Usage:
+    <span class="t-text-swap">Processing…</span>
+
+  Driven by JS (three-phase sequence):
+    1. Add `.is-exit`  -> old text slides up + blurs + fades.
+    2. After --text-swap-dur: change textContent, then add
+       `.is-enter-start` (jumps to below, no transition).
+    3. Force reflow, remove `.is-enter-start` so the new text
+       animates back to 0 with the default transition.
+
+  Used by compose-box.tsx's own HomePage-only rotating placeholder
+  (ComposeBox's `placeholderCycle` prop) -- see that component's own
+  comment for the actual swap sequence/timing.
+*/
+:root {
+  --text-swap-dur: 150ms;
+  --text-swap-translate-y: 4px;
+  --text-swap-blur: 2px;
+  --text-swap-ease: ease-in-out;
+}
+
+.t-text-swap {
+  display: inline-block;
+  transform: translateY(0);
+  filter: blur(0);
+  opacity: 1;
+  transition:
+    transform var(--text-swap-dur) var(--text-swap-ease),
+    filter    var(--text-swap-dur) var(--text-swap-ease),
+    opacity   var(--text-swap-dur) var(--text-swap-ease);
+  will-change: transform, filter, opacity;
+}
+.t-text-swap.is-exit {
+  transform: translateY(calc(var(--text-swap-translate-y) * -1));
+  filter: blur(var(--text-swap-blur));
+  opacity: 0;
+}
+.t-text-swap.is-enter-start {
+  transform: translateY(var(--text-swap-translate-y));
+  filter: blur(var(--text-swap-blur));
+  opacity: 0;
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-text-swap { transition: none !important; }
+}
+
+/* Transitions.dev — Error state shake */
+/*
+  Usage:
+    <!-- Apply .t-input-wrap to your wrapper, .t-input to the
+         element that should shake (your input field, its
+         bordered wrapper — whatever owns the visible border),
+         and .t-error-msg to the message you want to reveal.
+         Bring your own sizing, padding, border colors, and
+         typography. -->
+    <div class="t-input-wrap">
+      <div class="t-input">
+        <input type="text">
+      </div>
+      <p class="t-error-msg">Please enter a valid email.</p>
+    </div>
+
+  Trigger:
+    - Add `.is-error` to .t-input-wrap and .t-input. Your
+      own border-color rules drive the visible color; this
+      stylesheet only owns the tween.
+    - Restart the shake by removing `.is-shaking` from
+      .t-input, forcing a reflow, then re-adding it.
+    - Optional: after --revert-hold ms, drop both
+      `.is-error` classes so border + message fade back
+      to neutral over --revert-dur.
+
+  Per-segment ease: each keyframe stop carries its own
+  animation-timing-function so each leg follows the Figma
+  cubic-bezier curve independently.
+*/
+
+:root {
+  --shake-distance: 6px;
+  --shake-overshoot: 4px;
+  --shake-dur-a: 80ms;
+  --shake-dur-b: 60ms;
+  --shake-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --revert-hold: 3000ms;
+  --revert-dur: 280ms;
+}
+
+/* Border-color tween. Define your input's default / focused
+   / error border-color in your own component CSS — this rule
+   only owns the interpolation. Use a constant border-width
+   across states so the tween never shifts inner content. */
+.t-input {
+  transition: border-color 150ms ease-out;
+  will-change: transform;
+}
+.t-input.is-error {
+  /* Error border auto-reverts on the hold timer, so the
+     fade-out uses the slower revert duration (matches the
+     message fade). */
+  transition: border-color var(--revert-dur, 280ms) ease-out;
+}
+
+/* Error message reveal. Visibility is delayed by --revert-dur
+   on hide so the message stays painted for the full opacity
+   fade-out. Entering .is-error drops the delay to 0 so the
+   message becomes visible immediately. */
+.t-error-msg {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity    var(--revert-dur, 280ms) ease-out,
+    visibility 0s linear var(--revert-dur, 280ms);
+}
+.t-input-wrap.is-error .t-error-msg {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity    var(--revert-dur, 280ms) ease-out,
+    visibility 0s linear 0s;
+}
+
+/* Multi-segment keyframe with per-stop easing so each leg
+   of the shake follows its own cubic-bezier independently.
+   %-stops are cumulative durations as a fraction of the
+   total (80, 60, 80, 60 = 280ms): 28.57%, 57.14%, 78.57%,
+   100%. Recompute if any segment duration changes. */
+.t-input.is-shaking {
+  animation: t-input-shake calc(
+      var(--shake-dur-a) * 2 + var(--shake-dur-b) * 2
+    ) linear;
+}
+@keyframes t-input-shake {
+  0%      { transform: translateX(0);                                 animation-timing-function: var(--shake-ease); }
+  28.57%  { transform: translateX(var(--shake-distance));             animation-timing-function: var(--shake-ease); }
+  57.14%  { transform: translateX(calc(var(--shake-distance) * -1)); animation-timing-function: var(--shake-ease); }
+  78.57%  { transform: translateX(var(--shake-overshoot));            animation-timing-function: var(--shake-ease); }
+  100%    { transform: translateX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-input { animation: none !important; transform: none !important; }
+}
+
+/* Transitions.dev — Row fade in */
+
+/*
+  Usage: ChatPage.tsx's own rows.map, one .t-row-in wrapper per row
+  (human/agent/tool/reasoning/marker/command/permission alike) --
+  every row fades and slides up slightly on mount, so messages
+  arriving back-to-back don't just snap into place.
+*/
+
+@keyframes t-row-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.t-row-in {
+  animation: t-row-in 220ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-row-in { animation: none !important; }
+}
+
+/* Transitions.dev — Shimmer text */
+
+/*
+  Usage: ChatPage.tsx's own waiting-phase indicator ("Waiting"/
+  "Thinking"/"Reasoning" -- see that component's own comment for which
+  phases are real signals vs. not built). Duplicate the visible string
+  into data-text so the ::before layer can mask the gradient onto the
+  same glyphs; ChatPage.tsx keeps them in sync since both come from the
+  same phase-label variable already.
+
+  --shimmer-base/--shimmer-highlight point at this app's own
+  --muted-foreground/--foreground theme tokens (not hardcoded hex, unlike
+  the reference component this was adapted from) so the effect follows
+  light/dark mode automatically, same as everything else in this app.
+*/
+
+:root {
+  --shimmer-dur: 2000ms;
+  --shimmer-base: var(--muted-foreground);
+  --shimmer-highlight: var(--foreground);
+  --shimmer-band: 400%;
+  --shimmer-ease: linear;
+}
+
+.t-shimmer {
+  position: relative;
+  display: inline-block;
+  color: var(--shimmer-base);
+}
+.t-shimmer::before {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(
+    90deg,
+    transparent          0%,
+    transparent         40%,
+    var(--shimmer-highlight) 50%,
+    transparent         60%,
+    transparent        100%
+  );
+  background-size: var(--shimmer-band) 100%;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: t-shimmer var(--shimmer-dur) var(--shimmer-ease) infinite;
+}
+@keyframes t-shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: 0% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-shimmer::before { animation: none !important; }
+}
+
+/* Transitions.dev — Chat width change */
+
+/*
+  Usage: every element whose own max-width reads var(--chat-max-width)
+  (ChatPage.tsx's message column and compose wrapper, HomePage.tsx's
+  compose wrapper, page-content.tsx's own PageContent when Settings
+  passes that same variable in) -- per explicit request ("we should do a
+  transition of the items expanding width"), so switching Appearance's
+  own Chat width between Standard/Expanded animates instead of snapping.
+  Base duration/easing matches sidebar-nav.tsx's own width transition
+  (SIDEBAR_MOTION_MS/SIDEBAR_EASING) for consistency with this app's one
+  other width-changing transition.
+
+  --chat-width-ease is direction-aware, not one fixed curve -- confirmed
+  directly as a real gap ("the animation from standard to expand is too
+  fast feeling snappy... can we replicate the same as expand to standard
+  for standard to expand"): cubic-bezier(0.16, 1, 0.3, 1) is a strong
+  ease-out (fast start, long decelerating tail), which reads as a natural
+  "settling into place" when shrinking back to Standard, but applied
+  forward (not reversed) to growing into Expanded it rushes through most
+  of the size change in the first fraction of the transition and merely
+  creeps for the rest, reading as an abrupt jump rather than a smooth
+  grow. use-appearance-settings.ts's own applyChatWidth sets this
+  variable to the time-mirrored ease-in curve (cubic-bezier(0.7, 0, 0.84,
+  0) -- the same four control points reflected through (0.5, 0.5), the
+  standard way to derive an ease-in that matches a given ease-out's
+  character) whenever it is switching *into* Expanded, so growing gets
+  the same quality of motion shrinking already had, not the same literal
+  curve run forward.
+*/
+
+.t-chat-width {
+  transition: max-width 280ms var(--chat-width-ease, cubic-bezier(0.16, 1, 0.3, 1));
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-chat-width { transition: none !important; }
+}
+
+html.transitioning *, html.transitioning *::before, html.transitioning *::after {
+    transition: border-radius 180ms ease-in-out, background-color 180ms ease-in-out, color 180ms ease-in-out, border-color 180ms ease-in-out, fill 180ms ease-in-out, stroke 180ms ease-in-out !important;
+}
+
+@property --sf-start {
+    syntax: "<number>";
+    inherits: false;
+    initial-value: 1;
+}
+
+@property --sf-end {
+    syntax: "<number>";
+    inherits: false;
+    initial-value: 1;
+}
+
+.scroll-fade, .scroll-fade-x {
+    --scroll-fade-size: 48px;
+}
+
+.scroll-fade {
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--scroll-fade-size), #000 calc(100% - var(--scroll-fade-size)), transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 var(--scroll-fade-size), #000 calc(100% - var(--scroll-fade-size)), transparent 100%);
+}
+
+.scroll-fade-x {
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--scroll-fade-size), #000 calc(100% - var(--scroll-fade-size)), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 var(--scroll-fade-size), #000 calc(100% - var(--scroll-fade-size)), transparent 100%);
+}
+
+@supports (timeline-scope: --sf) {
+  .scroll-divider {
+    position: relative;
+    timeline-scope: --sf-scroller;
+    --scroll-divider-size: 48px;
+    }
+  .scroll-divider .scroll-fade {
+    scroll-timeline-name: --sf-scroller;
+    }
+  .scroll-divider::before, .scroll-divider::after {
+    content: "";
+    position: absolute;
+    left: var(--scroll-divider-inset, 0px);
+    right: var(--scroll-divider-inset, 0px);
+    height: 1px;
+    background-color: var(--border);
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0;
+    }
+  .scroll-divider::before {
+    top: 0;
+    animation: sf-divider-start both linear;
+    animation-timeline: --sf-scroller;
+    animation-range: 0 var(--scroll-divider-size);
+    }
+  .scroll-divider:first-child::before {
+    content: none;
+    }
+  .scroll-divider::after {
+    bottom: 0;
+    animation: sf-divider-end both linear;
+    animation-timeline: --sf-scroller;
+    animation-range: calc(100% - var(--scroll-divider-size)) 100%;
+    }
+}
+
+@supports (animation-timeline: scroll()) {
+  .scroll-fade {
+    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, var(--sf-start)) 0, #000 var(--scroll-fade-size), #000 calc(100% - var(--scroll-fade-size)), rgba(0, 0, 0, var(--sf-end)) 100%);
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, var(--sf-start)) 0, #000 var(--scroll-fade-size), #000 calc(100% - var(--scroll-fade-size)), rgba(0, 0, 0, var(--sf-end)) 100%);
+    animation: sf-reveal-start both linear, sf-reveal-end both linear;
+    animation-timeline: scroll(self), scroll(self);
+    animation-range-start: 0, calc(100% - var(--scroll-fade-size));
+    animation-range-end: var(--scroll-fade-size), 100%;
+    }
+  .scroll-fade-x {
+    mask-image: linear-gradient(to right, rgba(0, 0, 0, var(--sf-start)) 0, #000 var(--scroll-fade-size), #000 calc(100% - var(--scroll-fade-size)), rgba(0, 0, 0, var(--sf-end)) 100%);
+    -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, var(--sf-start)) 0, #000 var(--scroll-fade-size), #000 calc(100% - var(--scroll-fade-size)), rgba(0, 0, 0, var(--sf-end)) 100%);
+    animation: sf-reveal-start both linear, sf-reveal-end both linear;
+    animation-timeline: scroll(self inline), scroll(self inline);
+    animation-range-start: 0, calc(100% - var(--scroll-fade-size));
+    animation-range-end: var(--scroll-fade-size), 100%;
+    }
+}
+
+@media (pointer: fine) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--overlay) / 0.08) transparent;
+    }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+    }
+  ::-webkit-scrollbar-track, ::-webkit-scrollbar-corner {
+    background: transparent;
+    }
+  ::-webkit-scrollbar-thumb {
+    background-color: rgb(var(--overlay) / 0.08);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 9999px;
+    }
+  ::-webkit-scrollbar-thumb:vertical {
+    border-left-width: 1px;
+    border-right-width: 5px;
+    }
+  ::-webkit-scrollbar-thumb:horizontal {
+    border-top-width: 1px;
+    border-bottom-width: 5px;
+    }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(var(--overlay) / 0.12);
+    }
+  ::-webkit-scrollbar-thumb:active {
+    background-color: rgb(var(--overlay) / 0.16);
+    }
+}
+
+@property --sf-start {
+    syntax: "<number>";
+    inherits: false;
+    initial-value: 1;
+}
+
+@property --sf-end {
+    syntax: "<number>";
+    inherits: false;
+    initial-value: 1;
+}
+
+@property --sf-start {
+    syntax: "<number>";
+    inherits: false;
+    initial-value: 1;
+}
+
+@property --sf-end {
+    syntax: "<number>";
+    inherits: false;
+    initial-value: 1;
+}
