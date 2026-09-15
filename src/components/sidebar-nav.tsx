@@ -70,6 +70,18 @@ import GlideMenu from "@/components/primitives/glide-menu";
  * ───────────────────────────────────────────────────────── */
 
 export const SIDEBAR_WIDTH = 220;
+// The real drag range for the expanded sidebar's own width (below, "Real
+// drag-resize" comment). MIN is SIDEBAR_WIDTH itself -- per explicit
+// follow-up ("the minimum draggable should be where our collapse bar is
+// at when expanded so we allow only users to expand the sidebar for the
+// reading chats name if they want"): dragging only ever makes the
+// sidebar wider than its own default, never narrower, so there's no
+// separate "collapsed but not really collapsed" in-between width to
+// design row layout around -- rows only ever need to handle "default" or
+// "wider than default." MAX is a plain, generous cap against dragging it
+// into taking over the whole window.
+export const SIDEBAR_MIN_WIDTH = SIDEBAR_WIDTH;
+export const SIDEBAR_MAX_WIDTH = 360;
 // No longer actually reachable -- `collapsed` now always fully collapses
 // the sidebar to width 0 on every platform (the <aside> below's own
 // fullyCollapsed comment has the full reasoning), so this narrow-rail
@@ -603,6 +615,7 @@ function ProjectRow({
   onMenuOpenChange,
   onRename,
   onDeleteRequest,
+  rowWidth,
 }: {
   item: SidebarProject;
   expanded: boolean;
@@ -611,6 +624,9 @@ function ProjectRow({
   onSelect: () => void;
   onNewChat: () => void;
   menuOpen: boolean;
+  // Same real bug/fix as ChatRow's own identical prop -- that component's
+  // own comment has the full reasoning.
+  rowWidth: number;
   onMenuOpenChange: (open: boolean) => void;
   onRename: (name: string) => void;
   onDeleteRequest: () => void;
@@ -675,7 +691,8 @@ function ProjectRow({
       // own initial paint -- a network round trip can't finish before the
       // page first renders) it appears with a hard, instant snap instead
       // of the same graceful entrance every chat row gets.
-      className="t-tt-wrap t-row-in group mx-2 block w-[204px] rounded-[var(--row-radius)]"
+      className="t-tt-wrap t-row-in group mx-2 block rounded-[var(--row-radius)]"
+      style={{ width: rowWidth }}
       onMouseEnter={positionFixedTooltip}
       onFocus={positionFixedTooltip}
     >
@@ -973,6 +990,7 @@ function ChatRow({
   onArchive,
   onDeleteRequest,
   onAssignToProject,
+  rowWidth,
 }: {
   item: SidebarRecent;
   active: boolean;
@@ -983,6 +1001,12 @@ function ChatRow({
   onArchive: () => void;
   onDeleteRequest: () => void;
   onAssignToProject: (projectId: string | null) => void;
+  // Real bug, confirmed directly ("the chat name... width are not
+  // expanding dynamically"): this row's own w-[204px] Tailwind class was
+  // a fixed value, independent of the sidebar's own live, now-draggable
+  // width -- an inline style (below) is what actually lets it track a
+  // runtime value; a Tailwind class can't interpolate one.
+  rowWidth: number;
 }) {
   // Same reblur fix as ProjectRow's own "..." trigger (that row's own
   // comment has the full bug report).
@@ -1030,7 +1054,8 @@ function ChatRow({
   return (
     <span
       data-chat-id={item.id}
-      className="t-tt-wrap t-row-in group relative mx-2 block w-[204px]"
+      className="t-tt-wrap t-row-in group relative mx-2 block"
+      style={{ width: rowWidth }}
       onMouseEnter={positionFixedTooltip}
       onFocus={positionFixedTooltip}
     >
@@ -1220,6 +1245,13 @@ export function RailButton({
   pressEffect = true,
   danger = false,
   glideRow = true,
+  // Defaults to SIDEBAR_ROW_WIDTH -- settings-overlay.tsx's own
+  // (non-resizable) SettingsSidebarNav calls this with no override and
+  // keeps that fixed width; sidebar-nav.tsx's own real, now-draggable
+  // <aside> passes its live computed rowWidth instead, per explicit
+  // request ("the chat name and the search bar width are not expanding
+  // dynamically").
+  rowWidth = SIDEBAR_ROW_WIDTH,
 }: {
   icon: ReactNode;
   label: string;
@@ -1257,6 +1289,7 @@ export function RailButton({
   // (this component's own export comment has the full reasoning), same
   // semantic color that row already carried before reusing this component.
   danger?: boolean;
+  rowWidth?: number;
 }) {
   // bg-accent (var(--accent), index.css) on the active row -- the same
   // token the hover highlight itself reads at half opacity
@@ -1289,7 +1322,7 @@ export function RailButton({
   } ${danger ? "hover:bg-destructive/10" : active ? "bg-accent" : ""}`;
   const style = fullWidth
     ? {
-        width: collapsed ? SIDEBAR_COLLAPSED_ROW_WIDTH : SIDEBAR_ROW_WIDTH,
+        width: collapsed ? SIDEBAR_COLLAPSED_ROW_WIDTH : rowWidth,
         transition: `background-color 150ms, color 150ms, transform 150ms, width ${SIDEBAR_MOTION_MS}ms ${SIDEBAR_EASING}`,
       }
     : { transition: "background-color 150ms, color 150ms, transform 150ms" };
@@ -1739,6 +1772,49 @@ export default function SidebarNav({
   // than a push-layout rail/hidden choice, so it keeps its existing
   // persistent-narrow-rail-when-closed behavior unchanged.
   const fullyCollapsed = collapsed && !isMobile;
+  // Real drag-resize, matching AppLayout.tsx's own right-panel drag handle
+  // (that file's own startRightPanelResize has the identical shape) --
+  // per explicit request ("make the left sidebar to be draggable like the
+  // right sidebar but keep a minimum draggable width so it does not snap
+  // for collapsed"). SIDEBAR_MIN_WIDTH sits well above SIDEBAR_WIDTH's own
+  // row-layout needs (SIDEBAR_ROW_WIDTH + its own insets), so dragging
+  // narrower never approaches the fully-collapsed (width: 0) look -- that
+  // stays a separate, discrete toggle (toggleCollapsed above), never
+  // reachable by dragging. Not applied while collapsed/fullyCollapsed:
+  // there's nothing meaningful to drag at 0 or at the (unreachable, see
+  // SIDEBAR_COLLAPSED_WIDTH's own comment) narrow-rail width.
+  const [width, setWidth] = useState(SIDEBAR_WIDTH);
+  const [isResizingWidth, setIsResizingWidth] = useState(false);
+  function startResize(event: React.MouseEvent) {
+    event.preventDefault();
+    setIsResizingWidth(true);
+    const startX = event.clientX;
+    const startWidth = width;
+    // globalThis.MouseEvent, not the bare MouseEvent this file's own top
+    // import already shadows with React's synthetic event type -- the
+    // native window listener below hands this a real DOM event, not a
+    // React one.
+    function onMove(moveEvent: globalThis.MouseEvent) {
+      setWidth(Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, startWidth + (moveEvent.clientX - startX))));
+    }
+    function onUp() {
+      setIsResizingWidth(false);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }
+  // Real bug, confirmed directly ("the chat name and the search bar
+  // width are not expanding dynamically"): every row's own width (search
+  // bar, chat rows via RailButton, the avatar/help row) was computed off
+  // the fixed SIDEBAR_ROW_WIDTH constant regardless of this sidebar's own
+  // live, now-draggable width -- dragging wider grew the <aside> itself
+  // but left every row still clipped at the old 204px. Same margin math
+  // as SIDEBAR_WIDTH/SIDEBAR_ROW_WIDTH's own fixed relationship (220-204
+  // = 16px of mx-2 inset on both sides), just computed off the live width
+  // instead of the constant.
+  const rowWidth = width - (SIDEBAR_WIDTH - SIDEBAR_ROW_WIDTH);
   // Wraps a real navigation/selection action so picking a destination on
   // mobile also closes the drawer back to the collapsed rail, same as
   // ChatGPT/Claude -- desktop's own push-layout collapse doesn't need
@@ -1813,13 +1889,39 @@ export default function SidebarNav({
       // above describes, instead of needing a separate dimming overlay
       // over the rest of the page to hide that content some other way.
       // Harmless on desktop too, where nothing ever renders underneath it.
-      className={`flex shrink-0 overflow-hidden bg-sidebar transition-[width] ${fullyCollapsed ? "" : "border-r border-border"} ${isMobile ? "fixed top-0 left-0 z-50 h-dvh" : `relative ${fill ? "h-full" : "h-[600px]"}`} ${className}`}
+      className={`relative flex shrink-0 overflow-hidden bg-sidebar transition-[width] ${fullyCollapsed ? "" : "border-r border-border"} ${isMobile ? "fixed top-0 left-0 z-50 h-dvh" : `relative ${fill ? "h-full" : "h-[600px]"}`} ${className}`}
       style={{
-        width: fullyCollapsed ? 0 : collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH,
-        transitionDuration: `${SIDEBAR_MOTION_MS}ms`,
+        width: fullyCollapsed ? 0 : collapsed ? SIDEBAR_COLLAPSED_WIDTH : width,
+        transitionDuration: isResizingWidth ? "0ms" : `${SIDEBAR_MOTION_MS}ms`,
         transitionTimingFunction: SIDEBAR_EASING,
       }}
     >
+      {/* Real drag-resize handle -- per explicit request ("make the left
+          sidebar to be draggable like the right sidebar"), matching
+          AppLayout.tsx's own right-panel resize handle in spirit (a thin
+          hover-highlighted strip, mousedown starts the drag). Only while
+          genuinely expanded and not on mobile (the drawer's own width
+          there is a fixed, non-resizable cover-the-content value, not
+          this push-layout one) -- collapsed/fullyCollapsed have nothing
+          meaningful to drag. absolute right-0, not a flex sibling: this
+          sits *inside* the already width-animated <aside>, so it tracks
+          the live edge automatically through the same collapse/expand
+          transition without needing its own separate position math. */}
+      {!collapsed && !isMobile && (
+        <div
+          onMouseDown={startResize}
+          // w-px, not w-1 (4px) -- real bug, confirmed directly ("the left
+          // sidebar is getting an thicker blue highlight when i drag
+          // compared to the right sidebar"); matches AppLayout.tsx's own
+          // right-panel handle width exactly. bg-transparent at rest, not
+          // bg-border like that handle -- this sidebar's own <aside>
+          // already draws border-r border-border along this same edge, so
+          // a resting bg-border here would double that line up, the same
+          // class of bug the right panel's own containers had fixed
+          // earlier (border-l removed there for the identical reason).
+          className="absolute top-0 right-0 z-10 h-full w-px shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-focus-accent"
+        />
+      )}
       {/* width animates in step with the <aside> above (same value, same
           transition) -- this was left fixed at 220px after the <aside>
           itself went back to animating its own outer width, which made
@@ -1841,8 +1943,8 @@ export default function SidebarNav({
       <div
         className="flex min-h-0 shrink-0 flex-col pt-2 transition-[width]"
         style={{
-          width: fullyCollapsed ? 0 : collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH,
-          transitionDuration: `${SIDEBAR_MOTION_MS}ms`,
+          width: fullyCollapsed ? 0 : collapsed ? SIDEBAR_COLLAPSED_WIDTH : width,
+          transitionDuration: isResizingWidth ? "0ms" : `${SIDEBAR_MOTION_MS}ms`,
           transitionTimingFunction: SIDEBAR_EASING,
         }}
       >
@@ -1883,7 +1985,7 @@ export default function SidebarNav({
         <div
           className="mx-2 flex h-6 shrink-0 items-center overflow-hidden"
           style={{
-            width: collapsed ? SIDEBAR_COLLAPSED_ROW_WIDTH : SIDEBAR_ROW_WIDTH,
+            width: collapsed ? SIDEBAR_COLLAPSED_ROW_WIDTH : rowWidth,
             transition: `width ${SIDEBAR_MOTION_MS}ms ${SIDEBAR_EASING}`,
           }}
         >
@@ -2008,7 +2110,7 @@ export default function SidebarNav({
         {collapsed ? (
           <SidebarSearch value={searchQuery} onChange={setSearchQuery} collapsed={collapsed} onExpandSidebar={() => toggleCollapsed(false)} />
         ) : (
-          <div className="mx-2 flex h-7 w-[204px] items-center">
+          <div className="mx-2 flex h-7 items-center" style={{ width: rowWidth }}>
             <SidebarSearch value={searchQuery} onChange={setSearchQuery} collapsed={collapsed} onExpandSidebar={() => toggleCollapsed(false)} />
           </div>
         )}
@@ -2028,6 +2130,7 @@ export default function SidebarNav({
           {showGettingStarted && (
             <RailButton
               collapsed={collapsed}
+              rowWidth={rowWidth}
               icon={placeholderNav ? <BlankPageIcon className="size-[14px]" /> : WELCOME_ITEM.icon}
               label={placeholderNav ? "Placeholder" : WELCOME_ITEM.label}
               url={WELCOME_ITEM.url}
@@ -2037,6 +2140,7 @@ export default function SidebarNav({
           )}
           <RailButton
             collapsed={collapsed}
+            rowWidth={rowWidth}
             icon={placeholderNav ? <BlankPageIcon className="size-[14px]" /> : INBOX_ITEM.icon}
             label={placeholderNav ? "Placeholder" : INBOX_ITEM.label}
             url={INBOX_ITEM.url}
@@ -2045,6 +2149,7 @@ export default function SidebarNav({
           />
           <RailButton
             collapsed={collapsed}
+            rowWidth={rowWidth}
             icon={placeholderNav ? <BlankPageIcon className="size-[14px]" /> : LIBRARY_ITEM.icon}
             label={placeholderNav ? "Placeholder" : LIBRARY_ITEM.label}
             url={LIBRARY_ITEM.url}
@@ -2067,6 +2172,7 @@ export default function SidebarNav({
               instead of two copies of the same classes drifting apart. */}
           <RailButton
             collapsed={collapsed}
+            rowWidth={rowWidth}
             icon={<PlusIcon className="size-[14px]" />}
             label="New chat"
             active={activeNav === "home"}
@@ -2328,6 +2434,7 @@ export default function SidebarNav({
                       item={item}
                       expanded={expanded}
                       hasChats={projectChats.length > 0}
+                      rowWidth={rowWidth}
                       // Only when there's something to expand into -- per
                       // explicit request ("we should not expand when its
                       // empty"): an empty project just gets selected, no
@@ -2394,6 +2501,7 @@ export default function SidebarNav({
                                 item={chatItem}
                                 active={selectedRecent === chatItem.id}
                                 projects={projects}
+                                rowWidth={rowWidth}
                                 menuOpen={menuOpenId === chatItem.id}
                                 onMenuOpenChange={(open) => setMenuOpenId(open ? chatItem.id : null)}
                                 onSelect={() => navigateAndClose(() => navigate(`/chat/${chatItem.id}`))}
@@ -2452,6 +2560,7 @@ export default function SidebarNav({
                     item={item}
                     active={selectedRecent === item.id}
                     projects={projects}
+                    rowWidth={rowWidth}
                     menuOpen={menuOpenId === item.id}
                     onMenuOpenChange={(open) => setMenuOpenId(open ? item.id : null)}
                     onSelect={() => navigateAndClose(() => navigate(`/chat/${item.id}`))}
@@ -2508,6 +2617,7 @@ export default function SidebarNav({
           <GlideGroup>
             <RailButton
               collapsed={collapsed}
+              rowWidth={rowWidth}
               icon={<SettingsIcon className="size-[14px]" />}
               label="Settings"
               onClick={() => (onOpenSettings ? onOpenSettings() : navigate("/settings"))}
@@ -2532,7 +2642,7 @@ export default function SidebarNav({
             // rounded-[var(--row-radius)] shape.
             className="mx-2 mt-1 flex h-7 shrink-0 items-center gap-1 overflow-hidden rounded-[var(--row-radius)]"
             style={{
-              width: collapsed ? SIDEBAR_COLLAPSED_ROW_WIDTH : SIDEBAR_ROW_WIDTH,
+              width: collapsed ? SIDEBAR_COLLAPSED_ROW_WIDTH : rowWidth,
               transition: `width ${SIDEBAR_MOTION_MS}ms ${SIDEBAR_EASING}`,
             }}
           >
