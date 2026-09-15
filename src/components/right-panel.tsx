@@ -404,7 +404,15 @@ function ChatFileListPanel({
 
   return (
     <div className="flex h-full min-w-0 flex-col border-l border-border bg-background">
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
+      {/* h-10, not py-2 -- real bug, confirmed directly via a follow-up
+          screenshot ("the chat and right sidebar topbar bottom borders
+          are not aligned to be seamless"): this header's own border sits
+          directly beside the chat header's own (AppLayout.tsx), and only
+          sharing one real fixed height (not two paddings that happen to
+          compute close) guarantees the two lines land at the same y --
+          same fix applied to FileEditorPanel's own identical header
+          below, and to LibraryPage.tsx's. */}
+      <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-3">
         {/* Library/Terminal pill tabs -- per explicit request ("the right
             sidebar should show two options Library or Terminal", a real
             screenshot of VS Code's own Explorer/Terminal tab pair, with
@@ -568,7 +576,7 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
 
   return (
     <div className="flex h-full min-w-0 flex-col border-l border-border bg-background">
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
+      <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-3">
         <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">{isMarkdown ? title : fileName(path)}</span>
         {navButtons}
         {dirty && (

@@ -337,12 +337,15 @@ export function LibraryPage() {
           keeps the scrolling content below from visually bleeding through
           the border, the same way the right panel's own opaque header sits
           above its scrollable body. */}
-      {/* py-2 + items-center, not pt-1 pb-4 -- per explicit follow-up ("the
-          topbar should be in the same page height as the right sidebar
-          Library | Terminal buttons"): matches right-panel.tsx's own
-          header row exactly (py-2, flex items-center), so both headers
-          render at the same height instead of just sharing a border. */}
-      <div className="absolute inset-x-0 top-0 z-10 flex items-center border-b border-border bg-background px-4 py-2">
+      {/* h-10 + items-center, not py-2/pt-1 pb-4 -- per two explicit
+          follow-ups: first to match the right sidebar's own header
+          height, then a real bug confirmed directly via a screenshot
+          ("the chat and right sidebar topbar bottom borders are not
+          aligned to be seamless") -- matching *content sizing* to a
+          coincidentally similar height isn't the same guarantee as all
+          three headers (this one, right-panel.tsx's, AppLayout.tsx's
+          chat header) sharing one real fixed height. */}
+      <div className="absolute inset-x-0 top-0 z-10 flex h-10 items-center border-b border-border bg-background px-4">
         <PageContent>
           <span className="text-xs font-normal text-muted-foreground">Library</span>
         </PageContent>

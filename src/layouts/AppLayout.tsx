@@ -913,32 +913,29 @@ export function AppLayout() {
             // the buttons at the top right so we need to add a topbar
             // bottom border too"), matching the same border now added to
             // Library's own header (LibraryPage.tsx) and the right panel's
-            // (right-panel.tsx). This reverses the border-only half of the
-            // "no top bar" decision below -- everything else about that
-            // decision (no fixed h-12, no background, sizing to its own
-            // content) still holds.
+            // (right-panel.tsx). This reverses the "no top bar" decision
+            // below -- both its border and (see h-10, next) its "sizes to
+            // its own content, no fixed height" half -- since a border
+            // shared across a real seam (this header sits directly left of
+            // the right panel's own header, screenshot confirmed) has to
+            // land at the exact same y for the two to actually read as one
+            // continuous line rather than two separately-drawn ones a pixel
+            // or two apart. h-10, not py-1.5 -- real bug, confirmed
+            // directly via a follow-up screenshot ("the chat and right
+            // sidebar topbar bottom borders are not aligned to be
+            // seamless"): matching content sizing to a coincidentally
+            // similar height (both landing near 40px) isn't the same
+            // guarantee as both rows sharing one real fixed height, and it
+            // showed. h-10 mirrors dray's own reference (the comment this
+            // replaces already cited its `h-(--titlebar-h)`, 40px) and is
+            // now also set explicitly on right-panel.tsx's own two headers
+            // and LibraryPage.tsx's, so all three are pinned to the same
+            // value instead of three independent paddings that happen to
+            // land close.
             //
-            // No h-12 -- per that earlier explicit request, matching
-            // dray's own equivalent header (its App.tsx's own <header>,
-            // which repurposes its native title-bar strip instead of
-            // drawing a separate bordered bar below it): "there's no top
-            // bar at the content page" there, just the session name
-            // sitting bare with no background/fixed-height chrome of its
-            // own. py-2, not h-12, so this row still sizes to its own
-            // content instead of collapsing to nothing. Quick chat/Memory/
-            // Share/AvatarStack all stayed at first (this was originally
-            // just a styling change, drop the border/height/bg, not a
-            // removal of dray's session-name-only header contents) --
-            // since replaced by small icon buttons below, per a later,
-            // separate request.
-            // px-3 py-1.5, not px-4 py-2 -- dray's own equivalent header is a
-            // fixed h-(--titlebar-h) (40px) row with px-3; this row sizes to
-            // its own content instead (no fixed height, see this file's own
-            // comment above), but at px-4 py-2 with size-7 icon buttons
-            // inside it computed taller and wider than that 40px reference,
-            // which is what read as "too big" -- px-3 py-1.5 lands closer to
-            // it without pinning an exact height this row was deliberately
-            // built to not have.
+            // Below: the original "no top bar" decision's own reasoning,
+            // for the parts that still hold (no background, dray's own
+            // session-name-only header contents).
             // relative z-10 -- confirmed directly as the real root cause of
             // "still not working" (neither the hover background nor the
             // tooltip pill, on either fix attempt): this row sits at the
@@ -958,7 +955,7 @@ export function AppLayout() {
             // own comment), safely above the drag region's z-0.
             <motion.header
               animate={{ opacity: hasOpenChat ? 1 : 0, transition: spring.slow }}
-              className={`relative z-10 flex shrink-0 items-center justify-between gap-2 border-b border-border py-1.5 pr-3 pl-2 ${hasOpenChat ? "" : "pointer-events-none"}`}
+              className={`relative z-10 flex h-10 shrink-0 items-center justify-between gap-2 border-b border-border pr-3 pl-2 ${hasOpenChat ? "" : "pointer-events-none"}`}
             >
               <div className="flex items-center gap-2">
                 <PageBreadcrumb chatName={chatName} onSaveChatName={saveChatName} />
