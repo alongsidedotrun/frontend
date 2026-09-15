@@ -244,7 +244,12 @@ function PageBreadcrumb({
           regardless. Just the title itself now, same as a chat that *does*
           belong to a real project would still show past its own project's
           name once that assignment exists. */}
-      <BreadcrumbList className="text-[13px]">
+      {/* text-[11px], down from 13px -- per explicit follow-up ("the chat
+          name should be reduce to match the font size at icon + library
+          and icon + terminal"): matches the right panel's own Library/
+          Terminal pill labels (right-panel.tsx, reduced to 11px in the
+          same pass). */}
+      <BreadcrumbList className="text-[11px]">
         <BreadcrumbItem>
           {/* No more `sessionId ? ... : <BreadcrumbPage>Untitled chat</BreadcrumbPage>`
               branch -- confirmed directly as the real cause of "this changing

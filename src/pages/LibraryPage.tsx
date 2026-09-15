@@ -345,10 +345,21 @@ export function LibraryPage() {
           coincidentally similar height isn't the same guarantee as all
           three headers (this one, right-panel.tsx's, AppLayout.tsx's
           chat header) sharing one real fixed height. */}
-      <div className="absolute inset-x-0 top-0 z-10 flex h-10 items-center border-b border-border bg-background px-4">
-        <PageContent>
-          <span className="text-xs font-normal text-muted-foreground">Library</span>
-        </PageContent>
+      {/* No PageContent wrapper, text-foreground (not text-xs text-muted-
+          foreground) -- real bug, confirmed directly via a screenshot
+          ("The top bar at library now does not match the topbar at
+          chats"): PageContent centers/caps its children at 800px, which
+          is right for the page's own scrollable content but reads as
+          "Library" floating centered rather than sitting flush left the
+          way the chat header's own title does (AppLayout.tsx's
+          PageBreadcrumb, pl-2 on its row, no centering wrapper). Matches
+          that title's own color/left position directly. text-[11px] --
+          matches that same title's own size, reduced from 13px in the
+          same pass this page's own size was set at, per a further
+          explicit follow-up ("the chat name should be reduce to match
+          the font size at icon + library and icon + terminal"). */}
+      <div className="absolute inset-x-0 top-0 z-10 flex h-10 items-center border-b border-border bg-background pr-3 pl-2">
+        <span className="text-[11px] font-normal text-foreground">Library</span>
       </div>
     </div>
   );
