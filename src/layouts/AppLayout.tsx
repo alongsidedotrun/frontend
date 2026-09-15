@@ -272,13 +272,15 @@ function PageBreadcrumb({
               comment covers the overlapping-stack precedent, InboxPage.tsx's
               ModelStack) -- a chat using more than two providers is rare,
               and this row has less width to spare than the sidebar's own
-              already-narrow one. */}
+              already-narrow one. size-3.5, not size-3 -- real bug,
+              confirmed directly ("The model icon is too small, increase
+              that"); matches SidebarModelStack's own icon size exactly. */}
           {models && models.length > 0 && (
             <span className="mr-1 inline-flex shrink-0 items-center gap-0.5 align-middle">
               {models.slice(0, 2).map((entry) => {
                 const found = QUICK_CHAT_MODELS.find((m) => m.value === entry.model);
                 if (!found) return null;
-                return <ProviderIcon key={`${entry.provider}-${entry.model}`} model={found} className="size-3 shrink-0" />;
+                return <ProviderIcon key={`${entry.provider}-${entry.model}`} model={found} className="size-3.5 shrink-0" />;
               })}
             </span>
           )}
