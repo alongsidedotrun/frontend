@@ -913,21 +913,34 @@ function SidebarModelStack({ models }: { models: { provider: string; model: stri
   return (
     // mr-1, not ml-1 -- this now renders before the label (that row's own
     // comment has the full reasoning), so the gap belongs on the trailing
-    // side, toward the label, not the leading side any more. size-3 icon,
-    // matching the row's own text-xs (12px) label -- per explicit follow-up
-    // ("increase the icon size to match the font size"). No circle/ring
-    // background any more -- per explicit follow-up ("it should only be the
-    // icon"), and a small positive gap instead of the old overlapping
-    // -space-x-1: that overlap only read cleanly with the ring providing
-    // real separation between icons, per Inbox's own ModelStack (that
-    // component's own comment has the full reasoning for the technique);
-    // with no ring, two overlapping bare icons would just visually clip into
-    // each other instead of clearly reading as two.
-    <span className="mr-1 flex shrink-0 items-center gap-0.5">
-      {models.slice(0, 2).map((entry) => {
+    // side, toward the label, not the leading side any more.
+    //
+    // Overlapping again, with a real ring -- per explicit follow-up ("the
+    // models in the sidebar and at topbar should be stacked with a 1px
+    // border that's the same color as our bg so users can see the
+    // multiple models but not take all the space"), reversing an earlier
+    // "no circle/ring, small positive gap" decision (this comment used to
+    // explain why bare non-overlapping icons were chosen instead). Back
+    // to InboxPage.tsx's own ModelStack technique (that component's own
+    // comment has the full precedent, also ui/avatar.tsx's AvatarGroup) --
+    // -space-x-1 overlap, ring-1 ring-background (1px, not that
+    // component's 2px: a request for "1px border" specifically) so each
+    // icon's own circular cutout stays visible against whatever sits
+    // behind it, letting several icons read as distinct while taking up
+    // less width than a bare gap-0.5 row would.
+    <span className="mr-1 flex shrink-0 -space-x-1">
+      {models.slice(0, 2).map((entry, index) => {
         const found = QUICK_CHAT_MODELS.find((m) => m.value === entry.model);
         if (!found) return null;
-        return <ProviderIcon key={`${entry.provider}-${entry.model}`} model={found} className="size-3.5 shrink-0" />;
+        return (
+          <span
+            key={`${entry.provider}-${entry.model}`}
+            className="flex size-3.5 shrink-0 items-center justify-center rounded-full bg-background ring-1 ring-background"
+            style={{ zIndex: models.length - index }}
+          >
+            <ProviderIcon model={found} className="size-3" />
+          </span>
+        );
       })}
     </span>
   );

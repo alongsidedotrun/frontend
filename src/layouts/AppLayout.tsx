@@ -267,20 +267,34 @@ function PageBreadcrumb({
           {/* Model icon stack -- per explicit request ("we need to add
               the model at the chat name like the name of the sidebar has
               the icon of the model so that we can easily see all the
-              models in the chat"). Capped at 2 icons, same as sidebar-
-              nav.tsx's own SidebarModelStack (that component's own
-              comment covers the overlapping-stack precedent, InboxPage.tsx's
-              ModelStack) -- a chat using more than two providers is rare,
-              and this row has less width to spare than the sidebar's own
-              already-narrow one. size-3.5, not size-3 -- real bug,
-              confirmed directly ("The model icon is too small, increase
-              that"); matches SidebarModelStack's own icon size exactly. */}
+              models in the chat"). Capped at 2 icons -- a chat using more
+              than two providers is rare, and this row has less width to
+              spare than the sidebar's own already-narrow one.
+              Overlapping, with a real 1px ring -- per a further explicit
+              follow-up ("the models in the sidebar and at topbar should
+              be stacked with a 1px border that's the same color as our
+              bg so users can see the multiple models but not take all
+              the space"), same technique as sidebar-nav.tsx's own
+              SidebarModelStack now uses (that component's own comment
+              has the full precedent chain back to InboxPage.tsx's
+              ModelStack/ui/avatar.tsx's AvatarGroup). size-4 icon inside
+              a slightly larger circle -- per a follow-up asking for size-4
+              specifically here, one step up from SidebarModelStack's own
+              size-3 (this row has more breathing room to spend it in). */}
           {models && models.length > 0 && (
-            <span className="mr-1 inline-flex shrink-0 items-center gap-0.5 align-middle">
-              {models.slice(0, 2).map((entry) => {
+            <span className="mr-1 flex shrink-0 -space-x-1 align-middle">
+              {models.slice(0, 2).map((entry, index) => {
                 const found = QUICK_CHAT_MODELS.find((m) => m.value === entry.model);
                 if (!found) return null;
-                return <ProviderIcon key={`${entry.provider}-${entry.model}`} model={found} className="size-3.5 shrink-0" />;
+                return (
+                  <span
+                    key={`${entry.provider}-${entry.model}`}
+                    className="flex size-4.5 shrink-0 items-center justify-center rounded-full bg-background ring-1 ring-background"
+                    style={{ zIndex: models.length - index }}
+                  >
+                    <ProviderIcon model={found} className="size-4" />
+                  </span>
+                );
               })}
             </span>
           )}
