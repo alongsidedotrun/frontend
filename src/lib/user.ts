@@ -1,0 +1,119 @@
+import { useSyncExternalStore } from "react";
+
+// Moved out of AppLayout.tsx -- was defined and exported there ("so ChatPage
+// reuses the exact same fallback/lookup instead of a second copy that could
+// drift"), which worked for ChatPage.tsx (a route AppLayout renders via its
+// own outlet, not a module it imports directly). sidebar-nav.tsx is
+// different -- AppLayout.tsx imports it directly, so sidebar-nav.tsx
+// importing back from AppLayout.tsx would be a real circular import. A
+// shared, dependency-free home avoids that for every caller instead of
+// working around it per call site.
+const USER_NAME_KEY = "alongside_user_name";
+const nameListeners = new Set<() => void>();
+
+// "Guest", not the app's own name -- real bug, confirmed directly
+// ("that had Alongside as the signed in user... i didn't create the user
+// alongside"): a device that has never set a name or signed in read as if
+// it already had a real account called "Alongside", the product's own
+// name, rather than as the not-yet-personalized default it actually is.
+export function getUserDisplayName() {
+  return localStorage.getItem(USER_NAME_KEY) || "Guest";
+}
+
+// settings-overlay.tsx's own Profile section calls this from a real "change
+// your name" control -- per explicit request ("we should be able to allow
+// users to change their name at Profile"). Reactive (useUserDisplayName,
+// below), same pattern as useUserAvatarImage just below it, so the sidebar
+// account row and every message header using this device's own name update
+// the moment it changes instead of only on next unrelated re-render.
+export function setUserDisplayName(name: string) {
+  const trimmed = name.trim();
+  if (trimmed) localStorage.setItem(USER_NAME_KEY, trimmed);
+  else localStorage.removeItem(USER_NAME_KEY);
+  nameListeners.forEach((listener) => listener());
+}
+
+export function useUserDisplayName(): string {
+  return useSyncExternalStore(
+    (listener) => {
+      nameListeners.add(listener);
+      return () => nameListeners.delete(listener);
+    },
+    getUserDisplayName
+  );
+}
+
+// One color, picked once and kept forever (until a real "change your
+// avatar" feature in Settings overwrites it), not re-derived from the
+// display name on every render -- per explicit request ("we should have
+// only one default avatar until the user changes it so that its the same
+// around sidebar, messages and the future profile at settings"). Hashing
+// the name string (DefaultAvatar's own approach for every *other*
+// multiplayer participant, ui/avatar.tsx) would silently change this
+// user's own color the moment they rename themselves, or if any two
+// surfaces ever passed a slightly different name string -- a persisted
+// seed, independent of the name entirely, can't drift that way.
+const AVATAR_SEED_KEY = "alongside_avatar_seed";
+
+export function getUserAvatarSeed(): number {
+  const stored = localStorage.getItem(AVATAR_SEED_KEY);
+  const parsed = stored === null ? NaN : Number(stored);
+  if (Number.isFinite(parsed)) return parsed;
+  const seed = Math.floor(Math.random() * 100000);
+  localStorage.setItem(AVATAR_SEED_KEY, String(seed));
+  return seed;
+}
+
+// AuthPage.tsx's own submitSignup calls this right after a real account is
+// created -- confirmed directly as a real bug ("the icon for alongside is
+// red for all the accounts i have locally"): the lazy generation above only
+// ever fires once per browser (a single global key, not one per account), so
+// every account created locally on the same device kept inheriting whichever
+// color the very first one happened to get. A brand new account should get
+// its own random color, not the device's leftover one.
+export function regenerateUserAvatarSeed(): number {
+  const seed = Math.floor(Math.random() * 100000);
+  localStorage.setItem(AVATAR_SEED_KEY, String(seed));
+  return seed;
+}
+
+// The real "change your avatar" feature the seed's own comment above
+// foreshadowed -- per explicit request ("add a new menu at settings for
+// Profile where we can allow users to upload their avatar picture").
+// Stored as a data URL directly in localStorage (same simplicity level as
+// alongside_user_name/alongside_avatar_seed above -- no backend upload endpoint or
+// file-system path to manage for a Free tier single local user), read by
+// ui/avatar.tsx's DefaultAvatar in place of the generated logo-on-color
+// mark whenever the name being rendered is this device's own
+// (getUserDisplayName()). useSyncExternalStore, not a plain getter alone
+// (matching the settingsHistory/turn-notifications pattern already
+// established this session) -- every surface rendering this device's own
+// avatar (sidebar, chat, this same Settings page) needs to update the
+// moment a new photo is uploaded, not just on their own next unrelated
+// re-render.
+const AVATAR_IMAGE_KEY = "alongside_avatar_image";
+const avatarImageListeners = new Set<() => void>();
+
+export function getUserAvatarImage(): string | null {
+  return localStorage.getItem(AVATAR_IMAGE_KEY);
+}
+
+export function setUserAvatarImage(dataUrl: string) {
+  localStorage.setItem(AVATAR_IMAGE_KEY, dataUrl);
+  avatarImageListeners.forEach((listener) => listener());
+}
+
+export function clearUserAvatarImage() {
+  localStorage.removeItem(AVATAR_IMAGE_KEY);
+  avatarImageListeners.forEach((listener) => listener());
+}
+
+export function useUserAvatarImage(): string | null {
+  return useSyncExternalStore(
+    (listener) => {
+      avatarImageListeners.add(listener);
+      return () => avatarImageListeners.delete(listener);
+    },
+    getUserAvatarImage
+  );
+}
