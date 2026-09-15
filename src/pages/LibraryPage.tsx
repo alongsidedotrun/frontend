@@ -267,22 +267,26 @@ export function LibraryPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1, transition: spring.moderate }}
             exit={{ opacity: 0, transition: spring.moderate.exit }}
-            className="absolute inset-0 top-0 flex"
+            // top-10, not top-0 with pt-10 padding inside each column --
+            // real bug, confirmed directly via a screenshot ("This bottom
+            // border at the library page still incorrect and not matchng
+            // the chat top bar"): the actual issue was never the header's
+            // own height, it was this container starting at the very top
+            // of the page (top-0) and only padding its own *content* down
+            // (pt-10) -- the columns' own border-r/border-b boxes still
+            // started at y:0, underneath/behind the header, so the left
+            // rail's vertical divider visibly crossed straight through
+            // the header's own horizontal border instead of starting
+            // below it. Starting the whole container at top-10 (the
+            // header's real height) means there's nothing here at all in
+            // that top 40px for a divider to cross through.
+            className="absolute inset-x-0 top-10 bottom-0 flex"
           >
             {/* Left rail: projects (foldable, nesting their own chats) and
                 standalone chats -- selecting one shows its files to the
                 right, mirroring cydonia's own foldable project_head()
                 pattern (this session's own design-reference research). */}
-            {/* pt-10, not pt-14 -- real bug, confirmed directly ("The
-                library top bar is huge in height compared to the chat
-                topbar"): this reserve dates from before the header was
-                pinned to a real h-10 (40px, matching the chat/right-panel
-                headers exactly) -- the old pt-14 (56px) left a real 16px
-                gap of dead space between the header's own border-bottom
-                and where content actually starts, reading as an
-                oversized header even though the bordered strip itself
-                was already the right height. */}
-            <div className="flex w-64 shrink-0 flex-col overflow-y-auto border-r border-border px-2 pt-10 pb-4">
+            <div className="flex w-64 shrink-0 flex-col overflow-y-auto border-r border-border px-2 pt-2 pb-4">
               <div className="flex flex-col gap-0.5">
                 {projects.map((project) => {
                   const expanded = expandedProjects.has(project.projectId);
@@ -333,9 +337,7 @@ export function LibraryPage() {
                 tree reused from the earlier flat view (buildTree/TreeView
                 are generic over any LibraryFile[], no changes needed
                 there). */}
-            {/* pt-10, not pt-14 -- same real bug/fix as the left rail's
-                own identical reserve, just above. */}
-            <div className="min-w-0 flex-1 overflow-y-auto px-4 pt-10 pb-6">
+            <div className="min-w-0 flex-1 overflow-y-auto px-4 pt-2 pb-6">
               {selectedFiles === null ? (
                 <p className="p-2 text-[13px] text-muted-foreground">Select a project or chat to see its files.</p>
               ) : (
