@@ -247,6 +247,29 @@ function PageBreadcrumb({
     );
   }
 
+  // Real bug, confirmed directly (pasted rendered HTML showing this whole
+  // header at opacity: 0 on the Library page): this header is always
+  // mounted on every page -- even one with no open chat -- specifically
+  // to *reserve its own real height* so opacity/visibility toggling never
+  // causes a layout jump (this component's own header comment has the
+  // full reasoning). LibraryPage.tsx used to build its own second, real
+  // 40px header on top of that already-reserved-but-invisible space,
+  // which is what actually produced "the library topbar is huge" --
+  // never a border or padding bug, two real headers stacked. The fix is
+  // this branch, not more CSS on Library's own page: reuse this same
+  // reserved slot instead of adding another one.
+  if (location.pathname === "/library") {
+    return (
+      <Breadcrumb>
+        <BreadcrumbList className="text-[11px]">
+          <BreadcrumbItem>
+            <BreadcrumbPage>Library</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+    );
+  }
+
   return (
     <Breadcrumb>
       {/* No "Home >" leading crumb any more -- per explicit request: projects are
@@ -503,6 +526,16 @@ export function AppLayout() {
   const { sessionId } = useParams();
   const hasOpenChat = Boolean(sessionId);
   const location = useLocation();
+  // Real bug, confirmed directly (pasted rendered HTML showing this
+  // header at opacity: 0 on Library): this header stays mounted and
+  // reserved-but-invisible on every page without an open chat, so a
+  // second page (LibraryPage.tsx) building its own separate header
+  // stacked a real, visible header underneath an already-reserved
+  // invisible one -- two headers, not a padding/border bug. Library now
+  // reuses this same slot (PageBreadcrumb's own /library branch) instead
+  // of building a second one, so this header needs to actually show
+  // (not just reserve space) on that route too.
+  const showChatHeader = hasOpenChat || location.pathname === "/library";
   const navigate = useNavigate();
   // Gates only the chat header's own Share action below -- per explicit
   // request/correction ("we should not gate the send because they don't
@@ -1058,8 +1091,8 @@ export function AppLayout() {
             // matches the sidebar's own real stacking level (that div's
             // own comment), safely above the drag region's z-0.
             <motion.header
-              animate={{ opacity: hasOpenChat ? 1 : 0, transition: spring.slow }}
-              className={`relative z-10 flex h-10 shrink-0 items-center justify-between gap-2 border-b border-border pr-3 pl-2 ${hasOpenChat ? "" : "pointer-events-none"}`}
+              animate={{ opacity: showChatHeader ? 1 : 0, transition: spring.slow }}
+              className={`relative z-10 flex h-10 shrink-0 items-center justify-between gap-2 border-b border-border pr-3 pl-2 ${showChatHeader ? "" : "pointer-events-none"}`}
             >
               <div className="flex items-center gap-2">
                 <PageBreadcrumb

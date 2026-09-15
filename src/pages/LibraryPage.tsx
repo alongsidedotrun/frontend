@@ -267,20 +267,19 @@ export function LibraryPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1, transition: spring.moderate }}
             exit={{ opacity: 0, transition: spring.moderate.exit }}
-            // top-10, not top-0 with pt-10 padding inside each column --
-            // real bug, confirmed directly via a screenshot ("This bottom
-            // border at the library page still incorrect and not matchng
-            // the chat top bar"): the actual issue was never the header's
-            // own height, it was this container starting at the very top
-            // of the page (top-0) and only padding its own *content* down
-            // (pt-10) -- the columns' own border-r/border-b boxes still
-            // started at y:0, underneath/behind the header, so the left
-            // rail's vertical divider visibly crossed straight through
-            // the header's own horizontal border instead of starting
-            // below it. Starting the whole container at top-10 (the
-            // header's real height) means there's nothing here at all in
-            // that top 40px for a divider to cross through.
-            className="absolute inset-x-0 top-10 bottom-0 flex"
+            // top-0, plain -- this page no longer builds its own separate
+            // header (see PageBreadcrumb's own /library branch,
+            // AppLayout.tsx): the real bug behind every earlier attempt
+            // to fix "the library topbar" via border/height/positioning
+            // tweaks here was that this page was building a second,
+            // real header stacked underneath AppLayout.tsx's own
+            // chat-scoped header, which stays mounted (reserved height,
+            // opacity 0) on every page without an open chat -- two
+            // headers, not a CSS bug in either one. With Library now
+            // reusing that same shared slot instead, this container
+            // starts at the true top of the page with nothing above it
+            // to clear.
+            className="absolute inset-0 top-0 flex"
           >
             {/* Left rail: projects (foldable, nesting their own chats) and
                 standalone chats -- selecting one shows its files to the
@@ -349,36 +348,6 @@ export function LibraryPage() {
           </motion.div>
         )}
       </AnimatePresence>
-      {/* border-b border-border + bg-background -- per explicit request
-          ("we need to add a bottom border to match the right sidebar"),
-          matching right-panel.tsx's own header row treatment. bg-background
-          keeps the scrolling content below from visually bleeding through
-          the border, the same way the right panel's own opaque header sits
-          above its scrollable body. */}
-      {/* h-10 + items-center, not py-2/pt-1 pb-4 -- per two explicit
-          follow-ups: first to match the right sidebar's own header
-          height, then a real bug confirmed directly via a screenshot
-          ("the chat and right sidebar topbar bottom borders are not
-          aligned to be seamless") -- matching *content sizing* to a
-          coincidentally similar height isn't the same guarantee as all
-          three headers (this one, right-panel.tsx's, AppLayout.tsx's
-          chat header) sharing one real fixed height. */}
-      {/* No PageContent wrapper, text-foreground (not text-xs text-muted-
-          foreground) -- real bug, confirmed directly via a screenshot
-          ("The top bar at library now does not match the topbar at
-          chats"): PageContent centers/caps its children at 800px, which
-          is right for the page's own scrollable content but reads as
-          "Library" floating centered rather than sitting flush left the
-          way the chat header's own title does (AppLayout.tsx's
-          PageBreadcrumb, pl-2 on its row, no centering wrapper). Matches
-          that title's own color/left position directly. text-[11px] --
-          matches that same title's own size, reduced from 13px in the
-          same pass this page's own size was set at, per a further
-          explicit follow-up ("the chat name should be reduce to match
-          the font size at icon + library and icon + terminal"). */}
-      <div className="absolute inset-x-0 top-0 z-10 flex h-10 items-center border-b border-border bg-background pr-3 pl-2">
-        <span className="text-[11px] font-normal text-foreground">Library</span>
-      </div>
     </div>
   );
 }
