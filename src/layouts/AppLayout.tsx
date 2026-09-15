@@ -908,17 +908,27 @@ export function AppLayout() {
               it skips this row (and the space it reserves) entirely
               instead of just fading it to invisible. */}
           {!isSettingsRoute && (
-              // No h-12/border-b any more -- per explicit request, matching
+              // border-b border-border added back -- per a later explicit
+            // follow-up ("Our chat name as well has a top bar together with
+            // the buttons at the top right so we need to add a topbar
+            // bottom border too"), matching the same border now added to
+            // Library's own header (LibraryPage.tsx) and the right panel's
+            // (right-panel.tsx). This reverses the border-only half of the
+            // "no top bar" decision below -- everything else about that
+            // decision (no fixed h-12, no background, sizing to its own
+            // content) still holds.
+            //
+            // No h-12 -- per that earlier explicit request, matching
             // dray's own equivalent header (its App.tsx's own <header>,
             // which repurposes its native title-bar strip instead of
             // drawing a separate bordered bar below it): "there's no top
             // bar at the content page" there, just the session name
-            // sitting bare with no border/background/fixed-height chrome
-            // of its own. py-2, not h-12, so this row still sizes to its
-            // own content instead of collapsing to nothing. Quick
-            // chat/Memory/Share/AvatarStack all stayed at first (this was
-            // originally just a styling change, drop the border/height/bg,
-            // not a removal of dray's session-name-only header contents) --
+            // sitting bare with no background/fixed-height chrome of its
+            // own. py-2, not h-12, so this row still sizes to its own
+            // content instead of collapsing to nothing. Quick chat/Memory/
+            // Share/AvatarStack all stayed at first (this was originally
+            // just a styling change, drop the border/height/bg, not a
+            // removal of dray's session-name-only header contents) --
             // since replaced by small icon buttons below, per a later,
             // separate request.
             // px-3 py-1.5, not px-4 py-2 -- dray's own equivalent header is a
@@ -948,7 +958,7 @@ export function AppLayout() {
             // own comment), safely above the drag region's z-0.
             <motion.header
               animate={{ opacity: hasOpenChat ? 1 : 0, transition: spring.slow }}
-              className={`relative z-10 flex shrink-0 items-center justify-between gap-2 py-1.5 pr-3 pl-2 ${hasOpenChat ? "" : "pointer-events-none"}`}
+              className={`relative z-10 flex shrink-0 items-center justify-between gap-2 border-b border-border py-1.5 pr-3 pl-2 ${hasOpenChat ? "" : "pointer-events-none"}`}
             >
               <div className="flex items-center gap-2">
                 <PageBreadcrumb chatName={chatName} onSaveChatName={saveChatName} />
