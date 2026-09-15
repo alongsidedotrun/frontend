@@ -134,7 +134,12 @@ export function LibraryPage() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/library")
+    // /library/files, not a bare /library -- real bug, confirmed directly
+    // ("if I reload i get [raw JSON]"): this page's own client-side route
+    // is also exactly /library, and the backend's real API route at that
+    // same exact path won a full-page reload over the SPA (server.rs's
+    // own route registration comment has the full reasoning).
+    fetch("/library/files")
       .then((res) => (res.ok ? res.json() : []))
       .then(
         (

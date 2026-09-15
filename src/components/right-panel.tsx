@@ -385,7 +385,12 @@ function ChatFileListPanel({
     let cancelled = false;
     setFiles(null);
     setError(null);
-    fetch("/library")
+    // /library/files, not a bare /library -- real bug, confirmed directly
+    // ("if I reload i get [raw JSON]"): LibraryPage.tsx's own route is
+    // exactly /library too, and the backend's real API route at that same
+    // exact path won a full-page reload over the SPA (server.rs's own
+    // route registration comment has the full reasoning).
+    fetch("/library/files")
       .then((res) => {
         if (!res.ok) throw new Error(`Failed to load files (status ${res.status}).`);
         return res.json();
