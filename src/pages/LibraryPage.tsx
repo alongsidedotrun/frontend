@@ -331,7 +331,13 @@ export function LibraryPage() {
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="absolute inset-x-0 top-0 z-10 px-4 pt-1 pb-4">
+      {/* border-b border-border + bg-background -- per explicit request
+          ("we need to add a bottom border to match the right sidebar"),
+          matching right-panel.tsx's own header row treatment. bg-background
+          keeps the scrolling content below from visually bleeding through
+          the border, the same way the right panel's own opaque header sits
+          above its scrollable body. */}
+      <div className="absolute inset-x-0 top-0 z-10 border-b border-border bg-background px-4 pt-1 pb-4">
         <PageContent>
           <span className="text-xs font-normal text-muted-foreground">Library</span>
         </PageContent>
