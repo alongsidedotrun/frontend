@@ -403,7 +403,13 @@ function ChatFileListPanel({
   }, [chatId]);
 
   return (
-    <div className="flex h-full min-w-0 flex-col border-l border-border bg-background">
+    // No border-l here -- real bug, confirmed directly ("the border...
+    // between chat and right sidebar is doubled instead of being only
+    // one border like the left sidebar"): AppLayout.tsx's own drag-resize
+    // handle (a real w-px bg-border div) already draws that seam, sitting
+    // immediately left of this panel -- this border-l drew a second,
+    // adjacent line right next to it.
+    <div className="flex h-full min-w-0 flex-col bg-background">
       {/* h-10, not py-2 -- real bug, confirmed directly via a follow-up
           screenshot ("the chat and right sidebar topbar bottom borders
           are not aligned to be seamless"): this header's own border sits
@@ -575,7 +581,9 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
   }
 
   return (
-    <div className="flex h-full min-w-0 flex-col border-l border-border bg-background">
+    // No border-l here either -- same fix, same reasoning as
+    // ChatFileListPanel's own identical container above.
+    <div className="flex h-full min-w-0 flex-col bg-background">
       <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-3">
         <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">{isMarkdown ? title : fileName(path)}</span>
         {navButtons}
