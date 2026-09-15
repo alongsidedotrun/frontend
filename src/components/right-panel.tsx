@@ -428,15 +428,23 @@ function ChatFileListPanel({
             that a working terminal is its own real feature (a PTY
             process on the backend, xterm.js on the frontend), not a
             small addition alongside the file library. */}
+        {/* size-3.5 -- already matches AppLayout.tsx's own right-panel
+            toggle icon (the "collapse right sidebar" icon,
+            SidebarRightIcon, also size-3.5), confirmed directly -- per
+            explicit request ("The library and terminal icon should be
+            the same size as the collapse right sidebar icon size").
+            text-[11px], down from 12px, to sit better proportionally
+            next to that icon size -- per the same follow-up ("reduce the
+            font size to match the new size of the icons"). */}
         <div className="flex min-w-0 flex-1 items-center gap-1">
-          <span className="flex items-center gap-1 truncate rounded-md bg-hover-2/50 px-2 py-1 text-[12px] font-medium text-foreground">
+          <span className="flex items-center gap-1 truncate rounded-md bg-hover-2/50 px-2 py-1 text-[11px] font-medium text-foreground">
             <FolderIcon className="size-3.5 shrink-0" />
             Library
           </span>
           <span
             aria-disabled
             title="Terminal is not available yet"
-            className="flex cursor-not-allowed items-center gap-1 truncate rounded-md px-2 py-1 text-[12px] text-muted-foreground opacity-50"
+            className="flex cursor-not-allowed items-center gap-1 truncate rounded-md px-2 py-1 text-[11px] text-muted-foreground opacity-50"
           >
             <TerminalIcon className="size-3.5 shrink-0" />
             Terminal
