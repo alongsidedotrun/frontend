@@ -12,19 +12,15 @@ import {
   useCreateBlockNote,
   SideMenu,
   SideMenuController,
-  DragHandleButton,
-  DragHandleMenu,
-  BlockColorsItem,
-  TableRowHeaderItem,
-  TableColumnHeaderItem,
-  blockTypeSelectItems,
   useComponentsContext,
   useDictionary,
   useBlockNoteEditor,
+  useExtension,
   useExtensionState,
   type SideMenuProps,
 } from "@blocknote/react";
-import { SideMenuExtension } from "@blocknote/core/extensions";
+import { SideMenuExtension, SuggestionMenu } from "@blocknote/core/extensions";
+import { GripVertical } from "lucide-react";
 import { offset } from "@floating-ui/react";
 import { en } from "@blocknote/core/locales";
 import { BlockNoteView, lightDefaultTheme, darkDefaultTheme, type Theme } from "@blocknote/mantine";
@@ -219,25 +215,24 @@ function Cover({ path }: { path: string }) {
   );
 }
 
-// "Transform >" submenu -- per explicit request ("we should make / as
-// part of the draggable icon as Transform > and keep the same size as
-// dropdown as colors and not this huge dropdown"): the "/" slash menu
-// already lists every block type this editor supports, but only as a
-// separate, much larger suggestion-menu UI, and the drag-handle menu
-// itself only ever showed BlockNote's own default items (Delete, Colors)
-// -- there's no built-in "turn into" item in this package version.
-// blockTypeSelectItems is the exact same data source the formatting
-// toolbar's own compact block-type dropdown already draws from (13
-// entries: paragraph, headings 1-6 plus their toggle variants, quote,
-// toggle/bullet/numbered/check list), reused directly here instead of
-// hand-duplicating that list, rendered as a right-opening submenu built
-// the same way BlockColorsItem builds its own (Menu.Root
-// position="right" sub -- matching size/style exactly, not the slash
-// menu's own SuggestionMenu UI).
-function TransformItem({ children }: { children: ReactNode }) {
+// Opens the exact same "/" suggestion menu typing "/" does, instead of a
+// custom Delete/Transform/Colors dropdown -- per explicit request ("can
+// we actually remove the transform and colors dropdown totally and when
+// we click at the draggable we open the same as / when we type it"),
+// replacing the whole custom-menu approach this file was building up
+// (that path also had a real, unresolved stuck-transition rendering bug
+// -- a 100x6 "ghost" dropdown sliver -- on top of not being what was
+// wanted any more). openSuggestionMenu's own deleteTriggerCharacter:
+// false means this never actually types a "/" into the block (which
+// would leave a stray character behind); it just opens the menu as if
+// one had been typed. Delete is dropped entirely, not relocated -- per
+// explicit follow-up confirming that's fine, since existing means
+// (selecting the block's text and backspacing) already remove a block.
+function SingleHandleSideMenu(props: SideMenuProps) {
   const Components = useComponentsContext()!;
   const dict = useDictionary();
   const editor = useBlockNoteEditor();
+  const sideMenu = useExtension(SideMenuExtension);
   const block = useExtensionState(SideMenuExtension, {
     selector: (state) => state?.block,
   });
@@ -245,107 +240,19 @@ function TransformItem({ children }: { children: ReactNode }) {
   if (block === undefined) return null;
 
   return (
-    <Components.Generic.Menu.Root position="right" sub={true}>
-      <Components.Generic.Menu.Trigger sub={true}>
-        <Components.Generic.Menu.Item className="bn-menu-item" subTrigger={true}>
-          {children}
-        </Components.Generic.Menu.Item>
-      </Components.Generic.Menu.Trigger>
-      <Components.Generic.Menu.Dropdown sub={true} className="bn-menu-dropdown">
-        {blockTypeSelectItems(dict).map((item) => {
-          const Icon = item.icon;
-          const propsMatch = Object.entries(item.props ?? {}).every(([key, value]) => block.props[key] === value);
-          return (
-            <Components.Generic.Menu.Item
-              key={`${item.type}-${item.name}`}
-              className="bn-menu-item"
-              icon={<Icon size={18} />}
-              checked={block.type === item.type && propsMatch}
-              onClick={() => {
-                editor.updateBlock(block, { type: item.type as never, props: item.props as never });
-              }}
-            >
-              {item.name}
-            </Components.Generic.Menu.Item>
-          );
-        })}
-      </Components.Generic.Menu.Dropdown>
-    </Components.Generic.Menu.Root>
-  );
-}
-
-// Custom Delete item, not BlockNote's own RemoveBlockItem -- per explicit
-// request ("the / is showing the option to delete even though we did not
-// type anything, delete should show only after something is typed"):
-// RemoveBlockItem has no such guard, and deleting an empty block is a
-// perfectly normal editor action everywhere else, so this is a deliberate
-// product choice for this app specifically, not a bug fix -- confirmed
-// directly before building it (asked whether this meant reordering only
-// or an actual behavior change). A block counts as empty when its own
-// content array has nothing in it, BlockNote's own representation for a
-// block with no text/inline content typed into it yet; non-text block
-// types (image, table, etc.) don't have a content array at all and are
-// always deletable regardless.
-function isBlockContentEmpty(block: { content?: unknown }): boolean {
-  return Array.isArray(block.content) && block.content.length === 0;
-}
-
-function DeleteBlockItem({ children }: { children: ReactNode }) {
-  const editor = useBlockNoteEditor();
-  const Components = useComponentsContext()!;
-  const block = useExtensionState(SideMenuExtension, {
-    selector: (state) => state?.block,
-  });
-
-  if (block === undefined || isBlockContentEmpty(block)) return null;
-
-  return (
-    <Components.Generic.Menu.Item
-      className="bn-menu-item"
-      onClick={() => {
-        const selectedBlocks = editor.getSelection()?.blocks;
-        const blocksToRemove = selectedBlocks?.some((b) => b.id === block.id) ? selectedBlocks : [block];
-        editor.removeBlocks(blocksToRemove);
-      }}
-    >
-      {children}
-    </Components.Generic.Menu.Item>
-  );
-}
-
-// A single gutter icon, not BlockNote's default separate "+"/drag-handle
-// pair -- per explicit request (referencing cydonia's own source directly:
-// bezel-editor's menu.rs `handle()` renders one "⠿" glyph that drags to
-// reorder on mousedown+move, or opens the block menu on a plain click
-// disambiguated at release). BlockNote's own DragHandleButton already
-// does exactly this (its own source wraps the drag handle in a
-// Menu.Root/Menu.Trigger, opening DragHandleMenu -- BlockNote's "turn
-// into"/duplicate/delete menu -- on click, while native HTML5 draggable
-// still handles the reorder drag) -- so this only drops AddBlockButton
-// ("+") from the default two-button side menu, not a new interaction.
-// Custom children on DragHandleMenu -- per a further explicit request
-// ("when I click at the icon only shows delete and colors"): BlockNote's
-// own default DragHandleMenu (used when no children are passed) only
-// ever renders RemoveBlockItem/BlockColorsItem/the two table-header
-// items -- there's no "turn into" item built in. TransformItem (above)
-// adds that; the table-header items are kept too, unchanged, so nothing
-// existing regresses. Delete moved to last (below Colors), not first --
-// per a further explicit request ("delete should show... under colors as
-// well") -- and swapped for DeleteBlockItem (above), which hides itself
-// on an empty block instead of always being offered.
-function SingleHandleSideMenu(props: SideMenuProps) {
-  const dict = useDictionary();
-  return (
     <SideMenu {...props}>
-      <DragHandleButton {...props}>
-        <DragHandleMenu>
-          <TransformItem>Transform</TransformItem>
-          <BlockColorsItem>{dict.drag_handle.colors_menuitem}</BlockColorsItem>
-          <TableRowHeaderItem>{dict.drag_handle.header_row_menuitem}</TableRowHeaderItem>
-          <TableColumnHeaderItem>{dict.drag_handle.header_column_menuitem}</TableColumnHeaderItem>
-          <DeleteBlockItem>{dict.drag_handle.delete_menuitem}</DeleteBlockItem>
-        </DragHandleMenu>
-      </DragHandleButton>
+      <Components.SideMenu.Button
+        label={dict.side_menu.drag_handle_label}
+        draggable={true}
+        onDragStart={(event) => sideMenu.blockDragStart(event, block)}
+        onDragEnd={sideMenu.blockDragEnd}
+        onClick={() => {
+          editor.setTextCursorPosition(block, "end");
+          editor.getExtension(SuggestionMenu)?.openSuggestionMenu("/", { deleteTriggerCharacter: false });
+        }}
+        className="bn-button"
+        icon={<GripVertical size={18} data-test="dragHandle" />}
+      />
     </SideMenu>
   );
 }
@@ -767,31 +674,15 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
           both use container query units (cqi) scaled off *this* panel's
           own actual rendered width, not the viewport -- this panel
           resizes independently of the window (its own drag handle), so a
-          vw-based size would react to the wrong dimension.
-          overflow-x-hidden, not just overflow-auto -- real bug, confirmed
-          directly ("there's a horizontal scrollbar when the dropdown
-          opens"): BlockNote's own Mantine Menu (the drag-handle menu's
-          Delete/Transform/Colors dropdown) renders withinPortal={false},
-          hardcoded in this package's own Menu.tsx wrapper with no exposed
-          prop to change it -- floating-ui positions the dropdown, but its
-          DOM node stays a real descendant of this scrollable container.
-          floating-ui's own size/shift middleware only keeps it within the
-          *viewport*, not this narrower panel, so Transform's own 13-item
-          list can still render wide enough to extend past this panel's
-          own right edge while considering itself "in bounds," growing
-          this container's scrollWidth same as any other overflow would.
-          A first attempt fixed this by portaling the whole side menu to
-          document.body (SideMenuController's own portalElement prop) --
-          reverted (see that component's own comment) since it moved the
-          drag handle button itself, not just its dropdown, breaking the
-          block-hover tracking that shows/hides it. Clipping horizontal
-          overflow here instead (this editor's content never legitimately
-          needs horizontal scroll -- text wraps, code blocks get their own
-          scroll container) is the safer fix: it can in principle clip a
-          couple of Transform's widest labels on an unusually narrow
-          panel rather than showing them in full, but doesn't touch
-          anything about how the handle itself behaves. */}
-      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto [container-type:inline-size]">
+          vw-based size would react to the wrong dimension. The custom
+          Delete/Transform/Colors drag-handle dropdown that used to
+          overflow this container horizontally (needing an overflow-x-
+          hidden mitigation here) is gone -- SingleHandleSideMenu now
+          opens the "/" suggestion menu instead, which is BlockNote's own
+          default UI and already handles its own sizing/positioning
+          correctly, so there's nothing left for this container to guard
+          against. */}
+      <div className="min-h-0 flex-1 overflow-auto [container-type:inline-size]">
         {error ? (
           <p className="p-3 text-[13px] text-muted-foreground">{error}</p>
         ) : content === null ? (
