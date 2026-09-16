@@ -4,7 +4,8 @@ import { AnimatePresence, motion } from "motion/react";
 import { hotkeysCoreFeature, syncDataLoaderFeature } from "@headless-tree/core";
 import { useTree } from "@headless-tree/react";
 import { Tree, TreeItem, TreeItemLabel } from "@/components/reui/tree";
-import { FolderIcon, File02Icon, ChevronRightIcon, BubbleChatIcon } from "@/components/icons/untitled-ui";
+import { SidebarModelStack } from "@/components/sidebar-nav";
+import { FolderIcon, File02Icon, ChevronRightIcon } from "@/components/icons/untitled-ui";
 import { FileExtensionBadge, stripExtension } from "@/components/file-extension-badge";
 import { spring } from "@/lib/springs";
 import { AlongsideLogo } from "@/components/icons/alongside-logo";
@@ -151,9 +152,33 @@ export function LibraryPage() {
   // sidebar's own Projects/Chats grouping instead of one flat selector list.
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [expandedChats, setExpandedChats] = useState<Set<string>>(new Set());
+  // Per-chat models, so a chat row can show the same model icon stack the
+  // real sidebar/topbar show instead of a plain chat-bubble icon -- per
+  // explicit request. GET /library/files itself has no model data (it's
+  // built from chat_events/tool_use rows, not chat metadata), so this
+  // reuses /sessions, the same endpoint AppLayout.tsx's own sidebar
+  // already fetches for this exact purpose.
+  const [chatModels, setChatModels] = useState<Record<string, { provider: string; model: string }[]>>({});
 
   useEffect(() => {
     document.title = "Library";
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/sessions")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: { id: string; models?: { provider: string; model: string }[] }[]) => {
+        if (cancelled) return;
+        const byId: Record<string, { provider: string; model: string }[]> = {};
+        for (const chat of data) {
+          if (chat.models && chat.models.length > 0) byId[chat.id] = chat.models;
+        }
+        setChatModels(byId);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -354,7 +379,7 @@ export function LibraryPage() {
                           onClick={() => toggleChat(chat.chatId)}
                           className="flex items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-hover-2/50"
                         >
-                          <BubbleChatIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                          {chatModels[chat.chatId] && <SidebarModelStack models={chatModels[chat.chatId]} />}
                           <span className="min-w-0 flex-1 truncate">{chat.label}</span>
                           <ChevronRightIcon className={`size-3 shrink-0 text-muted-foreground transition-transform ${expanded ? "rotate-90" : ""}`} />
                         </button>

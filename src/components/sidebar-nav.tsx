@@ -947,7 +947,7 @@ function ProjectRow({
 // hover behavior too many. size-4/size-4.5, not size-3/size-3.5 -- per a
 // further follow-up ("increase the size a little bit more on the
 // sidebar as well, its hard to see").
-function SidebarModelStack({ models }: { models: { provider: string; model: string }[] }) {
+export function SidebarModelStack({ models }: { models: { provider: string; model: string }[] }) {
   const visible = models.length > 4 ? models.slice(0, 3) : models.slice(0, 4);
   return (
     <span className="mr-1 flex shrink-0 -space-x-1">
