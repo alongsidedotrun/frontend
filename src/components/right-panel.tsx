@@ -767,8 +767,31 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
           both use container query units (cqi) scaled off *this* panel's
           own actual rendered width, not the viewport -- this panel
           resizes independently of the window (its own drag handle), so a
-          vw-based size would react to the wrong dimension. */}
-      <div className="min-h-0 flex-1 overflow-auto [container-type:inline-size]">
+          vw-based size would react to the wrong dimension.
+          overflow-x-hidden, not just overflow-auto -- real bug, confirmed
+          directly ("there's a horizontal scrollbar when the dropdown
+          opens"): BlockNote's own Mantine Menu (the drag-handle menu's
+          Delete/Transform/Colors dropdown) renders withinPortal={false},
+          hardcoded in this package's own Menu.tsx wrapper with no exposed
+          prop to change it -- floating-ui positions the dropdown, but its
+          DOM node stays a real descendant of this scrollable container.
+          floating-ui's own size/shift middleware only keeps it within the
+          *viewport*, not this narrower panel, so Transform's own 13-item
+          list can still render wide enough to extend past this panel's
+          own right edge while considering itself "in bounds," growing
+          this container's scrollWidth same as any other overflow would.
+          A first attempt fixed this by portaling the whole side menu to
+          document.body (SideMenuController's own portalElement prop) --
+          reverted (see that component's own comment) since it moved the
+          drag handle button itself, not just its dropdown, breaking the
+          block-hover tracking that shows/hides it. Clipping horizontal
+          overflow here instead (this editor's content never legitimately
+          needs horizontal scroll -- text wraps, code blocks get their own
+          scroll container) is the safer fix: it can in principle clip a
+          couple of Transform's widest labels on an unusually narrow
+          panel rather than showing them in full, but doesn't touch
+          anything about how the handle itself behaves. */}
+      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto [container-type:inline-size]">
         {error ? (
           <p className="p-3 text-[13px] text-muted-foreground">{error}</p>
         ) : content === null ? (
@@ -817,31 +840,25 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
                     if (!hydratingRef.current) setDirty(true);
                   }}
                 >
-                  {/* portalElement={null} -- real bug, confirmed directly
-                      via the actual rendered DOM (pasted dropdown markup
-                      showing `left: 24px; max-width: 407px`, floating-ui's
-                      own absolute positioning/sizing, computed against the
-                      *viewport* as its boundary, not this panel's own
-                      narrower width): without this, the menu portals into
-                      editor.portalElement, which defaults to the editor's
-                      own bn-container -- still a real DOM descendant of
-                      this panel's scrollable container (the earlier
-                      overflow-x-hidden fix on that container's own
-                      className), not actually escaping it. Since
-                      floating-ui only avoids overflowing the *viewport*
-                      (its own default boundary), not this narrower panel,
-                      a submenu with room to spare against the window but
-                      not against the panel still rendered inside that
-                      scrollable box -- clipping it there just hid part of
-                      the menu instead of fixing the scrollbar, since the
-                      clip and the menu were still in the same box. null
-                      routes this specific portal straight to
-                      document.body (resolvePortalTarget's own documented
-                      meaning: "escape any ancestor stacking context"),
-                      genuinely outside this panel's DOM subtree, so
-                      neither the scrollbar nor the clipping trade-off
-                      applies any more. */}
-                  <SideMenuController sideMenu={SingleHandleSideMenu} floatingUIOptions={sideMenuFloatingUIOptions} portalElement={null} />
+                  {/* portalElement={null} reverted -- real bug, confirmed
+                      directly ("now its broken when i hover over the
+                      draggable, that keeps switching between a click and
+                      a text which stops me from opening the menu"):
+                      SideMenuController's own portalElement moves the
+                      *entire* floating side menu -- the drag handle
+                      button itself, not just its Delete/Transform/Colors
+                      dropdown -- to wherever it points. Routing that to
+                      document.body separated the handle's own DOM
+                      position from the block-hover tracking that shows/
+                      hides it (SideMenuExtension's mouseover-driven
+                      state), which is what actually produced the
+                      flicker. The dropdown's own portaling (Mantine's
+                      withinPortal, hardcoded false in this package's own
+                      Menu.tsx wrapper) is a separate system with no
+                      exposed prop to override from here -- the scrollbar
+                      this was meant to fix needs a different approach
+                      that doesn't touch the handle's own positioning. */}
+                  <SideMenuController sideMenu={SingleHandleSideMenu} floatingUIOptions={sideMenuFloatingUIOptions} />
                 </BlockNoteView>
               </>
             ) : (
