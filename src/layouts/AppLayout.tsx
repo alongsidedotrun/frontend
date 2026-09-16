@@ -261,7 +261,14 @@ function PageBreadcrumb({
   if (location.pathname === "/library") {
     return (
       <Breadcrumb>
-        <BreadcrumbList className="text-[11px]">
+        {/* pl-2 on top of the header's own pl-2 (its <header> above) --
+            per explicit request ("give the top bar title... the same
+            indentation as the describer so it looks aligned"): matches
+            LibraryPage.tsx's own left column, whose "Projects"/"Chats"
+            labels sit at px-2 (the column) + px-2 (the label row) = 16px
+            from the page edge, while this title otherwise only had the
+            header's own 8px. */}
+        <BreadcrumbList className="pl-2 text-[11px]">
           <BreadcrumbItem>
             <BreadcrumbPage>Library</BreadcrumbPage>
           </BreadcrumbItem>
