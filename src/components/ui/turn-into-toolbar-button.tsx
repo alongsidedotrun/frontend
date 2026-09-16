@@ -167,8 +167,19 @@ export function TurnIntoToolbarButton(props: DropdownMenuProps) {
         </ToolbarButton>
       </DropdownMenuTrigger>
 
+      {/* w-auto -- real bug, confirmed directly via screenshot ("the
+          dropdown for turn into seems to not be the full width to fit
+          to content"): dropdown-menu.tsx's own DropdownMenuContent
+          bases its width on w-(--radix-dropdown-menu-trigger-width),
+          fine for a real select-style dropdown that should match its
+          own trigger's width, but wrong here -- this list-style menu's
+          rows are wider than the trigger button itself (e.g. "Heading
+          1", "Bulleted list"), so binding to the trigger's width
+          clipped them. w-auto overrides that binding for this one
+          dropdown only -- dropdown-menu.tsx itself (shared with
+          nav-user.tsx's own real select-style dropdown) is untouched. */}
       <DropdownMenuContent
-        className="ignore-click-outside/toolbar min-w-0"
+        className="ignore-click-outside/toolbar w-auto min-w-0"
         onCloseAutoFocus={(e) => {
           e.preventDefault();
           editor.tf.focus();
