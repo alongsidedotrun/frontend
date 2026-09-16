@@ -9,6 +9,7 @@ import { SearchIcon, UserIcon } from "@/components/icons/untitled-ui";
 import { spring } from "@/lib/springs";
 import { modelDisplayName, ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
 import { AlongsideLogo } from "@/components/icons/alongside-logo";
+import { SidebarModelStack } from "@/components/sidebar-nav";
 
 type InboxModel = { provider: string; model: string };
 
@@ -51,35 +52,6 @@ function formatRelativeTime(value: string): string {
   if (months < 12) return `${months} month${months === 1 ? "" : "s"} ago`;
   const years = Math.floor(months / 12);
   return `${years} year${years === 1 ? "" : "s"} ago`;
-}
-
-// Overlapping icon stack, one per distinct provider a chat has actually
-// used -- per explicit request ("if I switch to claude or codex that should
-// show both but in a stack card format"). -space-x-1.5 + ring-2
-// ring-background is the same overlap technique ui/avatar.tsx's own
-// AvatarGroup already uses (its own "group/avatar-group flex -space-x-2..."
-// className), reused here directly rather than pulling in the full Avatar
-// component for plain provider-mark <img>s. Capped at 3 -- a real, visible
-// "+N" count past that would need actual UI of its own to be honest about
-// what's hidden, not built here since no chat has hit that in practice yet.
-function ModelStack({ models }: { models: InboxModel[] }) {
-  return (
-    <span className="flex shrink-0 -space-x-1.5">
-      {models.slice(0, 3).map((entry, index) => {
-        const found = QUICK_CHAT_MODELS.find((m) => m.value === entry.model);
-        if (!found) return null;
-        return (
-          <span
-            key={`${entry.provider}-${entry.model}`}
-            className="flex size-3.5 items-center justify-center rounded-full bg-background ring-2 ring-background"
-            style={{ zIndex: models.length - index }}
-          >
-            <ProviderIcon model={found} className="size-3" />
-          </span>
-        );
-      })}
-    </span>
-  );
 }
 
 function SearchBar({ query, onChange }: { query: string; onChange: (value: string) => void }) {
@@ -344,8 +316,17 @@ export function InboxPage() {
                       </span>
                     )}
                     <div className="flex items-center gap-1.5 pr-16">
-                      {model && <ProviderIcon model={model} className="size-4 shrink-0" />}
                       <span className="min-w-0 flex-1 truncate text-sm font-normal text-foreground">{item.name}</span>
+                      {/* Every distinct model this chat has used, matching
+                          the topbar's own overlapping stack (SidebarModelStack,
+                          up to 4 real icons, else the first 3 plus a real
+                          total-count 4th slot) -- per explicit request
+                          ("we should show the same as the top bar multiple
+                          models or more than 4 beside the chat name"),
+                          moved here from the sender row below (ModelStack,
+                          removed), which now shows only the one model that
+                          actually authored the last message. */}
+                      {item.models.length > 0 && <SidebarModelStack models={item.models} />}
                     </div>
                     {item.snippet && (
                       // Who actually sent the snippet -- per explicit request
@@ -354,9 +335,13 @@ export function InboxPage() {
                       // for a human message (this app has no real per-user
                       // avatar yet -- sidebar-nav.tsx's own account row uses
                       // this exact same theme-inverted circle+glyph stand-in for
-                      // the same reason), or -- for an assistant reply -- a
-                      // stack of every provider this chat has actually used
-                      // (ModelStack above) plus their real names as text.
+                      // the same reason), or -- for an assistant reply -- the
+                      // one model that actually sent it (item.model, the most
+                      // recently started agent session for this chat -- per a
+                      // later explicit request: "the description should be the
+                      // last message author like Gemini Icon + Gemini Model's
+                      // Name", not a stack of every model the chat has ever
+                      // used, which now lives beside the chat name instead).
                       // Stacked vertically (sender row, then message below), not
                       // inline beside the name -- per explicit request ("the
                       // message should not be beside the name of the model but
@@ -370,28 +355,10 @@ export function InboxPage() {
                               <UserIcon className="size-2 text-white dark:text-black" />
                             </span>
                           ) : (
-                            item.models.length > 0 && <ModelStack models={item.models} />
+                            model && <ProviderIcon model={model} className="size-3 shrink-0" />
                           )}
-                          {item.snippetKind !== "human" && item.models.length > 0 && (
-                            // min-w-0 + truncate, not shrink-0 -- confirmed
-                            // directly as a real bug ("the inbox cards is
-                            // not fitting to the size of the screen and
-                            // its being cropped instead of reduce the
-                            // width of each card"): with several providers
-                            // joined into one long name string, shrink-0
-                            // refused to let this span shrink at all,
-                            // forcing the whole row (and card) to overflow
-                            // horizontally rather than truncating this
-                            // text with an ellipsis the way the snippet
-                            // line below it already does.
-                            <span className="min-w-0 truncate text-2xs text-muted-foreground">
-                              {item.models
-                                .map((entry) => {
-                                  const found = QUICK_CHAT_MODELS.find((m) => m.value === entry.model);
-                                  return found ? modelDisplayName(found) : entry.model;
-                                })
-                                .join(", ")}
-                            </span>
+                          {item.snippetKind !== "human" && model && (
+                            <span className="min-w-0 truncate text-2xs text-muted-foreground">{modelDisplayName(model)}</span>
                           )}
                         </div>
                         {/* Same active-font/50%-dimmed treatment as the
