@@ -17,7 +17,6 @@ import { isChatNotificationsEnabled, setChatNotificationsEnabled } from "@/lib/c
 import { useIsSignedIn } from "@/lib/auth";
 import { getUserDisplayName } from "@/lib/user";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from "@/components/ui/breadcrumb";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
@@ -111,76 +110,6 @@ function ChatNameText({ name }: { name: string }) {
     >
       {prevNameRef.current}
     </span>
-  );
-}
-
-// Lists this chat's own saved "always allow" permission rules (scoped to
-// its project if it has one, otherwise the chat itself -- server.rs's own
-// list_permission_rules resolves that the same way find_permission_rule/
-// create_permission_rule already do) with a delete button per row -- the
-// only way to undo one of ChatPage.tsx's own PermissionCard "always allow"
-// choices short of editing the database directly.
-function AllowedCommandsDialog({
-  sessionId,
-  open,
-  onOpenChange,
-}: {
-  sessionId: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const [rules, setRules] = useState<{ id: string; scope_type: string; tool_name: string; pattern: string }[]>([]);
-
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    fetch(`/sessions/${sessionId}/permission-rules`)
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data) => {
-        if (!cancelled) setRules(data);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [open, sessionId]);
-
-  async function removeRule(id: string) {
-    setRules((current) => current.filter((rule) => rule.id !== id));
-    await fetch(`/permission-rules/${id}`, { method: "DELETE" });
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Allowed commands</DialogTitle>
-          <DialogDescription>
-            Commands and file edits you chose "always allow" for -- scoped to this chat's project if it has one, otherwise just this
-            chat.
-          </DialogDescription>
-        </DialogHeader>
-        {rules.length === 0 ? (
-          <p className="py-4 text-center text-[13px] text-muted-foreground">Nothing allowed yet.</p>
-        ) : (
-          <div className="flex flex-col gap-1">
-            {rules.map((rule) => (
-              <div key={rule.id} className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 text-[13px]">
-                <span className="shrink-0 text-2xs text-muted-foreground">{rule.tool_name}</span>
-                <span className="min-w-0 flex-1 truncate font-mono text-foreground">{rule.pattern}</span>
-                <button
-                  type="button"
-                  aria-label={`Remove ${rule.pattern}`}
-                  onClick={() => void removeRule(rule.id)}
-                  className="flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-hover-2/50 hover:text-foreground"
-                >
-                  <XIcon className="size-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
   );
 }
 
@@ -598,12 +527,6 @@ export function AppLayout() {
   useEffect(() => {
     setChatNotifyEnabledState(!!sessionId && isChatNotificationsEnabled(sessionId));
   }, [sessionId]);
-  // Persisted "always allow" permission rules (real reference screenshot's
-  // own "Yes, allow ... for this project" choice, ChatPage.tsx's own
-  // PermissionCard) -- surfaced here, in the same "..." menu Share chat/
-  // Add to project already live in, since there's otherwise no way to ever
-  // undo a saved rule short of editing the database directly.
-  const [allowedCommandsOpen, setAllowedCommandsOpen] = useState(false);
   // Chat header's own "..." menu -- "Add to project" -- per explicit
   // request ("the chat three dots at the sidebar and at the top right
   // icons should allow us to attach the chat an existing project or new
@@ -1349,160 +1272,6 @@ export function AppLayout() {
                     (size-7/28px), but the icons inside it hadn't been
                     stepped down to the matching compact icon token (14px)
                     yet. */}
-                {/* Real "..." menu now, not a decorative Share icon -- per
-                    explicit request ("at the top right of the chat once
-                    created where it shows the name we should add a three
-                    dots vertically so that users can click on that and
-                    Share chat or Enable notification"). Share chat posts
-                    the exact same "/share" prompt the compose box's own
-                    slash command sends (server.rs's send_message
-                    intercepts that literal text before it ever reaches
-                    the agent, server.rs:570) -- the currently-open
-                    ChatPage's own WebSocket picks up the resulting
-                    "share_result" event and renders it same as always, no
-                    separate share logic duplicated here. Enable/Disable
-                    notification writes chat-notifications.ts's own
-                    per-chat override -- real per-chat opt-in, confirmed as
-                    a genuine gap: notifyTurnComplete used to only ever
-                    check the one global toggle, so a chat had no way to
-                    get notified while that toggle was off. Only rendered
-                    once a chat actually exists (sessionId, hasOpenChat --
-                    matches this whole header's own guard above), since
-                    neither action means anything on the Home/new-chat
-                    screen. */}
-                {sessionId && (
-                  // size="compact" -- per explicit request ("Share chat
-                  // and enable notifications dropdown needs to be smaller
-                  // maybe text-xs and icon to match that size"), the same
-                  // SizeProvider step every other "make this dropdown
-                  // smaller" request in this app already reaches for
-                  // (nav-user.tsx's own Provider usage rows,
-                  // settings-overlay.tsx's own account-row dropdown) --
-                  // steps MenuItem's own icon/text size tokens down a tier
-                  // instead of hand-picking a one-off text-xs override
-                  // that would drift from those the moment the shared
-                  // scale changes.
-                  <BaseDropdownMenu size="compact">
-                    <BaseDropdownTrigger
-                      render={
-                        <MoreTrigger orientation="vertical" size="md" bg autoHide={false} aria-label="Chat options" />
-                      }
-                    />
-                    <BaseDropdownContent align="end" className="w-40">
-                      <BaseDropdownLabel>More</BaseDropdownLabel>
-                      {/* Gated on sign-in, not on anything provider-related --
-                          per explicit request/correction ("the send button
-                          should be available once users have setup their
-                          providers, we should not gate the send because
-                          they don't have an account. We will gate only
-                          share because that requires an account for user
-                          management at chats"). Disabled (not hidden), with
-                          an info icon + tooltip explaining why -- per
-                          explicit follow-up ("change that to an i for
-                          information... The share feature is only
-                          available when signed in"), replacing the earlier
-                          "(sign in required)" suffix on the label itself.
-                          pointer-events-auto on the icon -- the row's own
-                          disabled styling sets pointer-events-none
-                          (menu-item.tsx), which would otherwise swallow the
-                          hover needed to show this tooltip too. */}
-                      <BaseMenuItem
-                        index={0}
-                        icon={ShareIcon}
-                        label="Share chat"
-                        disabled={!isSignedIn}
-                        className="gap-[7px]"
-                        badge={
-                          !isSignedIn && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="pointer-events-auto flex shrink-0 items-center text-muted-foreground">
-                                  <InfoCircleIcon className="size-3.5" />
-                                </span>
-                              </TooltipTrigger>
-                              {/* z-[9999] -- real bug, confirmed directly
-                                  ("the hover for the i is behind the
-                                  dropdown"): this tooltip renders nested
-                                  inside the "..." dropdown's own popup,
-                                  which climbs its own z-index with nesting
-                                  depth (ui/dropdown.tsx's own zIndexSubstrate
-                                  comment) well past the tooltip's default
-                                  z-50. A safely high fixed value, not just
-                                  enough to clear this one menu's own depth,
-                                  so it stays correct if this tooltip pattern
-                                  ever gets reused inside a deeper nested
-                                  menu. */}
-                              <TooltipContent className="z-[9999]">The share feature is only available when signed in.</TooltipContent>
-                            </Tooltip>
-                          )
-                        }
-                        onSelect={() =>
-                          void fetch(`/sessions/${sessionId}/messages`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ prompt: "/share", sender_name: getUserDisplayName() }),
-                          })
-                        }
-                      />
-                      <BaseMenuItem
-                        index={1}
-                        icon={BellIcon}
-                        label={chatNotifyEnabled ? "Disable notification" : "Enable notification"}
-                        className="gap-[7px]"
-                        onSelect={() => {
-                          setChatNotificationsEnabled(sessionId, !chatNotifyEnabled);
-                          setChatNotifyEnabledState(!chatNotifyEnabled);
-                        }}
-                      />
-                      <BaseMenuItem
-                        index={2}
-                        icon={CheckIcon}
-                        label="Allowed commands"
-                        className="gap-[7px]"
-                        onSelect={() => setAllowedCommandsOpen(true)}
-                      />
-                      <DropdownSeparator />
-                      {/* Add to project -- per explicit request ("the chat
-                          three dots at the sidebar and at the top right
-                          icons should allow us to attach the chat an
-                          existing project or new project"), same actions
-                          sidebar-nav.tsx's own ChatRow menu already has,
-                          including that same file's own later follow-up
-                          ("remove the third menu and flip add project to
-                          remove from project"): a chat already in a project
-                          gets a plain "Remove from project" instead of the
-                          submenu. */}
-                      {recents.find((r) => r.id === sessionId)?.projectId ? (
-                        <BaseMenuItem
-                          index={3}
-                          icon={FolderIcon}
-                          label="Remove from project"
-                          className="gap-[7px]"
-                          onSelect={() => void assignChatToProject(null)}
-                        />
-                      ) : sidebarProjects.length > 0 ? (
-                        <DropdownSubMenuItem index={3} icon={FolderIcon} label="Add to project" className="gap-[7px] text-[12px]">
-                          <BaseDropdownLabel>Projects</BaseDropdownLabel>
-                          {sidebarProjects.map((project) => (
-                            <DropdownSubItem
-                              key={project.id}
-                              className="py-1.5 pl-2.5 text-[12px]"
-                              onClick={() => void assignChatToProject(project.id)}
-                            >
-                              {project.label}
-                            </DropdownSubItem>
-                          ))}
-                        </DropdownSubMenuItem>
-                      ) : (
-                        // Plain, disabled row, not a submenu -- same fix as
-                        // sidebar-nav.tsx's own ChatRow (that file's own
-                        // comment has the full reasoning/screenshot).
-                        <BaseMenuItem index={3} icon={FolderIcon} label="Add to project" className="gap-[7px]" disabled />
-                      )}
-                    </BaseDropdownContent>
-                  </BaseDropdownMenu>
-                )}
-                {sessionId && <AllowedCommandsDialog sessionId={sessionId} open={allowedCommandsOpen} onOpenChange={setAllowedCommandsOpen} />}
                 {/* Memory button removed -- per explicit request ("we won't
                     do that now"), same decorative/placeholder status it
                     always had, just not shipped for now. */}
@@ -1592,6 +1361,163 @@ export function AppLayout() {
                 >
                   <SidebarRightIcon className="size-3.5" />
                 </button>
+                {/* Real "..." menu now, not a decorative Share icon -- per
+                    explicit request ("at the top right of the chat once
+                    created where it shows the name we should add a three
+                    dots vertically so that users can click on that and
+                    Share chat or Enable notification"). Share chat posts
+                    the exact same "/share" prompt the compose box's own
+                    slash command sends (server.rs's send_message
+                    intercepts that literal text before it ever reaches
+                    the agent, server.rs:570) -- the currently-open
+                    ChatPage's own WebSocket picks up the resulting
+                    "share_result" event and renders it same as always, no
+                    separate share logic duplicated here. Enable/Disable
+                    notification writes chat-notifications.ts's own
+                    per-chat override -- real per-chat opt-in, confirmed as
+                    a genuine gap: notifyTurnComplete used to only ever
+                    check the one global toggle, so a chat had no way to
+                    get notified while that toggle was off. Only rendered
+                    once a chat actually exists (sessionId, hasOpenChat --
+                    matches this whole header's own guard above), since
+                    neither action means anything on the Home/new-chat
+                    screen. */}
+                {sessionId && (
+                  // size="compact" -- per explicit request ("Share chat
+                  // and enable notifications dropdown needs to be smaller
+                  // maybe text-xs and icon to match that size"), the same
+                  // SizeProvider step every other "make this dropdown
+                  // smaller" request in this app already reaches for
+                  // (nav-user.tsx's own Provider usage rows,
+                  // settings-overlay.tsx's own account-row dropdown) --
+                  // steps MenuItem's own icon/text size tokens down a tier
+                  // instead of hand-picking a one-off text-xs override
+                  // that would drift from those the moment the shared
+                  // scale changes.
+                  <BaseDropdownMenu size="compact">
+                    <BaseDropdownTrigger
+                      render={
+                        <MoreTrigger orientation="vertical" size="md" bg autoHide={false} aria-label="Chat options" />
+                      }
+                    />
+                    <BaseDropdownContent align="end" className="w-40">
+                      <BaseDropdownLabel>More</BaseDropdownLabel>
+                      {/* Enable/Disable notification first -- per explicit
+                          follow-up ("remove the allowed commands option and
+                          move Enable notifications to the top as that's the
+                          only available option there now"): with Allowed
+                          commands gone (below), this is the one item that
+                          always works regardless of sign-in state, unlike
+                          Share chat right after it. */}
+                      <BaseMenuItem
+                        index={0}
+                        icon={BellIcon}
+                        label={chatNotifyEnabled ? "Disable notification" : "Enable notification"}
+                        className="gap-[7px]"
+                        onSelect={() => {
+                          setChatNotificationsEnabled(sessionId, !chatNotifyEnabled);
+                          setChatNotifyEnabledState(!chatNotifyEnabled);
+                        }}
+                      />
+                      {/* Gated on sign-in, not on anything provider-related --
+                          per explicit request/correction ("the send button
+                          should be available once users have setup their
+                          providers, we should not gate the send because
+                          they don't have an account. We will gate only
+                          share because that requires an account for user
+                          management at chats"). Disabled (not hidden), with
+                          an info icon + tooltip explaining why -- per
+                          explicit follow-up ("change that to an i for
+                          information... The share feature is only
+                          available when signed in"), replacing the earlier
+                          "(sign in required)" suffix on the label itself.
+                          pointer-events-auto on the icon -- the row's own
+                          disabled styling sets pointer-events-none
+                          (menu-item.tsx), which would otherwise swallow the
+                          hover needed to show this tooltip too. */}
+                      <BaseMenuItem
+                        index={1}
+                        icon={ShareIcon}
+                        label="Share chat"
+                        disabled={!isSignedIn}
+                        className="gap-[7px]"
+                        badge={
+                          !isSignedIn && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="pointer-events-auto flex shrink-0 items-center text-muted-foreground">
+                                  <InfoCircleIcon className="size-3.5" />
+                                </span>
+                              </TooltipTrigger>
+                              {/* z-[9999] -- real bug, confirmed directly
+                                  ("the hover for the i is behind the
+                                  dropdown"): this tooltip renders nested
+                                  inside the "..." dropdown's own popup,
+                                  which climbs its own z-index with nesting
+                                  depth (ui/dropdown.tsx's own zIndexSubstrate
+                                  comment) well past the tooltip's default
+                                  z-50. A safely high fixed value, not just
+                                  enough to clear this one menu's own depth,
+                                  so it stays correct if this tooltip pattern
+                                  ever gets reused inside a deeper nested
+                                  menu. */}
+                              <TooltipContent className="z-[9999]">The share feature is only available when signed in.</TooltipContent>
+                            </Tooltip>
+                          )
+                        }
+                        onSelect={() =>
+                          void fetch(`/sessions/${sessionId}/messages`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ prompt: "/share", sender_name: getUserDisplayName() }),
+                          })
+                        }
+                      />
+                      {/* Allowed commands removed entirely -- per explicit
+                          request. AllowedCommandsDialog (this file's own
+                          removed function) is gone too, since this was its
+                          only way to open. */}
+                      <DropdownSeparator />
+                      {/* Add to project -- per explicit request ("the chat
+                          three dots at the sidebar and at the top right
+                          icons should allow us to attach the chat an
+                          existing project or new project"), same actions
+                          sidebar-nav.tsx's own ChatRow menu already has,
+                          including that same file's own later follow-up
+                          ("remove the third menu and flip add project to
+                          remove from project"): a chat already in a project
+                          gets a plain "Remove from project" instead of the
+                          submenu. */}
+                      {recents.find((r) => r.id === sessionId)?.projectId ? (
+                        <BaseMenuItem
+                          index={2}
+                          icon={FolderIcon}
+                          label="Remove from project"
+                          className="gap-[7px]"
+                          onSelect={() => void assignChatToProject(null)}
+                        />
+                      ) : sidebarProjects.length > 0 ? (
+                        <DropdownSubMenuItem index={2} icon={FolderIcon} label="Add to project" className="gap-[7px] text-[12px]">
+                          <BaseDropdownLabel>Projects</BaseDropdownLabel>
+                          {sidebarProjects.map((project) => (
+                            <DropdownSubItem
+                              key={project.id}
+                              className="py-1.5 pl-2.5 text-[12px]"
+                              onClick={() => void assignChatToProject(project.id)}
+                            >
+                              {project.label}
+                            </DropdownSubItem>
+                          ))}
+                        </DropdownSubMenuItem>
+                      ) : (
+                        // Plain, disabled row, not a submenu -- same fix as
+                        // sidebar-nav.tsx's own ChatRow (that file's own
+                        // comment has the full reasoning/screenshot).
+                        <BaseMenuItem index={2} icon={FolderIcon} label="Add to project" className="gap-[7px]" disabled />
+                      )}
+                    </BaseDropdownContent>
+                  </BaseDropdownMenu>
+                )}
               </div>
             </motion.header>
           )}
