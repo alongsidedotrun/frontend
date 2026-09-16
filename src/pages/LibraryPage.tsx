@@ -323,10 +323,10 @@ export function LibraryPage() {
                           onClick={() => toggleProject(project.projectId)}
                           className="flex items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-hover-2/50"
                         >
-                          <ChevronRightIcon className={`size-3 shrink-0 text-muted-foreground transition-transform ${expanded ? "rotate-90" : ""}`} />
                           <FolderIcon className="size-3.5 shrink-0 text-muted-foreground" />
                           <span className="min-w-0 flex-1 truncate">{project.label}</span>
                           <span className="shrink-0 text-2xs text-muted-foreground">{project.chats.length}</span>
+                          <ChevronRightIcon className={`size-3 shrink-0 text-muted-foreground transition-transform ${expanded ? "rotate-90" : ""}`} />
                         </button>
                         {expanded && (
                           <div className="pl-5">
@@ -354,9 +354,9 @@ export function LibraryPage() {
                           onClick={() => toggleChat(chat.chatId)}
                           className="flex items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-hover-2/50"
                         >
-                          <ChevronRightIcon className={`size-3 shrink-0 text-muted-foreground transition-transform ${expanded ? "rotate-90" : ""}`} />
                           <BubbleChatIcon className="size-3.5 shrink-0 text-muted-foreground" />
                           <span className="min-w-0 flex-1 truncate">{chat.label}</span>
+                          <ChevronRightIcon className={`size-3 shrink-0 text-muted-foreground transition-transform ${expanded ? "rotate-90" : ""}`} />
                         </button>
                         {expanded && (
                           <div className="flex flex-col gap-0.5 pl-7">
