@@ -92,3 +92,39 @@
   align-items: center !important;
   justify-content: center !important;
 }
+
+/* The "/" suggestion menu (also opened by the drag handle now -- see
+   right-panel.tsx's own SingleHandleSideMenu comment) at BlockNote's own
+   default sizing -- real bug, confirmed directly ("reduce the items size
+   for the dropdown for the drag-handle and /? The font and height are
+   too big, hard to read"): a 52px-tall row with a 14px title, sized for
+   a full document page, reads oversized next to this panel's own 13px
+   editor text and compact 20px drag-handle row (above). Fixed px values,
+   not this file's own cqi-based clamp (the editor body text's own fix,
+   further up) -- a dropdown menu doesn't need to keep growing with a
+   wider panel the way reading text does; it just needed to come down to
+   this app's own general compact scale once, matching the icon sizes
+   already fixed above. */
+.bn-container .bn-suggestion-menu-item {
+  min-height: 32px !important;
+  padding: 4px 8px !important;
+}
+
+.bn-container .bn-mt-suggestion-menu-item-title {
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
+.bn-container .bn-mt-suggestion-menu-item-subtitle {
+  font-size: 10px !important;
+  line-height: 13px !important;
+}
+
+.bn-container .bn-mt-suggestion-menu-item-section[data-position="left"] {
+  padding: 4px !important;
+}
+
+.bn-container .bn-mt-suggestion-menu-item-section[data-position="left"] svg {
+  width: 14px !important;
+  height: 14px !important;
+}
