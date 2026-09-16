@@ -1071,6 +1071,40 @@ export function AppLayout() {
   const routeJustChanged = location.pathname !== prevPathnameForWidthRef.current;
   prevPathnameForWidthRef.current = location.pathname;
 
+  // Belt-and-suspenders on top of routeJustChanged above -- confirmed
+  // directly that a real width transition was STILL visibly playing on
+  // the destination page after a route change ("the width animation is
+  // not playing at library but its playing at new chat page"), meaning
+  // routeJustChanged's own duration overrides didn't reach whatever
+  // element was actually still animating. Rather than keep chasing that
+  // element one at a time, this reuses the exact mechanism use-theme.tsx
+  // already relies on for the same class of problem (many independent
+  // transitions all needing to be silenced for one moment): .no-
+  // transitions (index.css) forces `transition: none !important` on
+  // every element underneath it, added for a single frame right after
+  // any route change and removed on the next one, so whichever element
+  // was animating (this one or a new one found later) simply can't.
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    root.classList.add("no-transitions");
+    // Double rAF, not a single one -- a single rAF callback can still run
+    // before the browser has actually painted the frame the class was
+    // meant to cover, removing it too early to have suppressed anything.
+    // The first rAF lands after that paint; the second one is where it's
+    // actually safe to remove the class.
+    let innerId = 0;
+    const outerId = requestAnimationFrame(() => {
+      innerId = requestAnimationFrame(() => {
+        root.classList.remove("no-transitions");
+      });
+    });
+    return () => {
+      cancelAnimationFrame(outerId);
+      cancelAnimationFrame(innerId);
+      root.classList.remove("no-transitions");
+    };
+  }, [location.pathname]);
+
   // Real bug, confirmed directly ("we need our transition again when
   // opening the file, the right sidebar should transition like it does
   // on chat"): mainContent/the right panel below normally transition
