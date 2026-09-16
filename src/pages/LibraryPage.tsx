@@ -5,8 +5,8 @@ import { hotkeysCoreFeature, syncDataLoaderFeature } from "@headless-tree/core";
 import { useTree } from "@headless-tree/react";
 import { Tree, TreeItem, TreeItemLabel } from "@/components/reui/tree";
 import { SidebarModelStack } from "@/components/sidebar-nav";
-import { FolderIcon, ChevronRightIcon, DeleteIcon } from "@/components/icons/untitled-ui";
-import { FileExtensionBadge, stripExtension } from "@/components/file-extension-badge";
+import { FolderIcon, ChevronRightIcon, DeleteIcon, EditIcon } from "@/components/icons/untitled-ui";
+import { FileExtensionBadge, stripExtension, extensionOf } from "@/components/file-extension-badge";
 import { spring } from "@/lib/springs";
 import { AlongsideLogo } from "@/components/icons/alongside-logo";
 import {
@@ -18,6 +18,7 @@ import {
 import { MenuItem as BaseMenuItem } from "@/components/ui/menu-item";
 import { MoreTrigger } from "@/components/ui/more-trigger";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 // Which project/chat rows are left expanded, persisted across visits --
 // per explicit request ("chats and projects in the library should open
@@ -104,14 +105,24 @@ function buildTreeItems(files: LibraryFile[]): Record<string, LibraryTreeItem> {
   return items;
 }
 
-// Shared "..." > Delete file menu for a Library file row -- per explicit
-// request ("we should have a three dots for a more dropdown like we do in
-// most other three dots... Delete file... use the same that we use for
-// deleting chat"). Same confirm-swaps-the-dropdown-content-in-place
-// pattern as sidebar-nav.tsx's own ChatRow/ProjectRow (that file's own
-// comments on this pattern have the full reasoning) rather than a separate
-// dialog/overlay.
-function LibraryFileMoreMenu({ fileName, onDelete }: { fileName: string; onDelete: () => void }) {
+// Shared "..." > Rename file / Delete file menu for a Library file row --
+// per explicit request ("we should have a three dots for a more dropdown
+// like we do in most other three dots... Delete file"), and a follow-up
+// ("rename is missing... on top of delete file"). Same confirm-swaps-the-
+// dropdown-content-in-place pattern as sidebar-nav.tsx's own ChatRow/
+// ProjectRow for Delete; Rename instead just closes the menu and hands
+// off to the row's own inline rename input (LibraryFileNameCell, below),
+// matching ProjectRow's own "swap the label for an input" rename UI
+// rather than a rename dialog.
+function LibraryFileMoreMenu({
+  fileName,
+  onRenameRequest,
+  onDelete,
+}: {
+  fileName: string;
+  onRenameRequest: () => void;
+  onDelete: () => void;
+}) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
@@ -176,6 +187,13 @@ function LibraryFileMoreMenu({ fileName, onDelete }: { fileName: string; onDelet
               <BaseDropdownLabel>More</BaseDropdownLabel>
               <BaseMenuItem
                 index={0}
+                icon={EditIcon}
+                label="Rename file"
+                className="gap-[7px]"
+                onSelect={onRenameRequest}
+              />
+              <BaseMenuItem
+                index={1}
                 icon={DeleteIcon}
                 label="Delete file"
                 destructive
@@ -191,14 +209,80 @@ function LibraryFileMoreMenu({ fileName, onDelete }: { fileName: string; onDelet
   );
 }
 
+// Icon + name (or, mid-rename, an inline input) + the "..." menu above --
+// shared between the Projects tree view and the flat Chats list so
+// neither has to duplicate the rename-input/extension-preserving logic.
+// Renaming only ever edits the base name; the real file's extension
+// (leaf's own, via extensionOf) is reattached on commit rather than left
+// editable, since FileExtensionBadge already renders it separately and a
+// changed extension would silently change how this same file opens.
+function LibraryFileNameCell({ leaf, onRename, onDelete }: { leaf: string; onRename: (newLeaf: string) => void; onDelete: () => void }) {
+  const [renaming, setRenaming] = useState(false);
+  const [draft, setDraft] = useState(() => stripExtension(leaf));
+  const ext = extensionOf(leaf);
+
+  function commitRename() {
+    const trimmed = draft.trim();
+    const base = stripExtension(leaf);
+    if (trimmed && trimmed !== base) onRename(ext ? `${trimmed}.${ext}` : trimmed);
+    setRenaming(false);
+  }
+
+  return (
+    <>
+      <FileExtensionBadge name={leaf} />
+      {renaming ? (
+        <Input
+          autoFocus
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          onFocus={(event) => event.target.select()}
+          onBlur={commitRename}
+          onKeyDown={(event) => {
+            // stopPropagation -- the flat Chats list's own row (below)
+            // listens for Enter/Space at the row level to open the file
+            // (role="button" there, not a real <button>); without this,
+            // committing a rename with Enter would also bubble up and
+            // open the file right after.
+            event.stopPropagation();
+            if (event.key === "Enter") {
+              event.preventDefault();
+              commitRename();
+            } else if (event.key === "Escape") {
+              event.preventDefault();
+              setDraft(stripExtension(leaf));
+              setRenaming(false);
+            }
+          }}
+          onClick={(event) => event.stopPropagation()}
+          onPointerDown={(event) => event.stopPropagation()}
+          className="h-5 min-w-0 flex-1 border-none bg-transparent px-1 text-xs focus-visible:ring-0"
+        />
+      ) : (
+        <span className="min-w-0 flex-1 truncate">{stripExtension(leaf)}</span>
+      )}
+      <LibraryFileMoreMenu
+        fileName={leaf}
+        onRenameRequest={() => {
+          setDraft(stripExtension(leaf));
+          setRenaming(true);
+        }}
+        onDelete={onDelete}
+      />
+    </>
+  );
+}
+
 function LibraryTreeView({
   files,
   onOpenFile,
   onDeleteFile,
+  onRenameFile,
 }: {
   files: LibraryFile[];
   onOpenFile: (path: string) => void;
   onDeleteFile: (path: string) => void;
+  onRenameFile: (path: string, newLeaf: string) => void;
 }) {
   const items = useMemo(() => buildTreeItems(files), [files]);
   const tree = useTree<LibraryTreeItem>({
@@ -246,9 +330,11 @@ function LibraryTreeView({
                 onClick={() => onOpenFile(file.filePath)}
                 className="flex min-w-0 flex-1 items-center gap-1.5 py-1 pr-2 pl-2 text-xs text-foreground transition-colors hover:bg-hover-2/50"
               >
-                <FileExtensionBadge name={data.name} />
-                <span className="min-w-0 flex-1 truncate">{stripExtension(data.name)}</span>
-                <LibraryFileMoreMenu fileName={data.name} onDelete={() => onDeleteFile(file.filePath)} />
+                <LibraryFileNameCell
+                  leaf={data.name}
+                  onRename={(newLeaf) => onRenameFile(file.filePath, newLeaf)}
+                  onDelete={() => onDeleteFile(file.filePath)}
+                />
                 <span className="shrink-0 text-2xs text-muted-foreground">{formatRelativeTime(file.lastModified)}</span>
               </TreeItemLabel>
             </div>
@@ -412,6 +498,23 @@ export function LibraryPage() {
     setFiles((prev) => prev.filter((f) => f.filePath !== filePath));
   }
 
+  // "..." > Rename file -- per explicit follow-up request ("rename is
+  // missing for the file on top of delete file"). Same on-disk-only
+  // caveat as deleteFile above: this row's own data doesn't live-scan the
+  // directory, so it's just patched locally on success rather than
+  // refetched; an older chat that touched this file under its old name
+  // keeps pointing at the now-missing path until it's opened again.
+  async function renameFile(filePath: string, newLeaf: string) {
+    const res = await fetch("/files/rename", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: filePath, new_name: newLeaf }),
+    });
+    if (!res.ok) return;
+    const { path: newPath }: { path: string } = await res.json();
+    setFiles((prev) => prev.map((f) => (f.filePath === filePath ? { ...f, filePath: newPath } : f)));
+  }
+
   function toggleProject(projectId: string) {
     setExpandedProjects((prev) => {
       const next = new Set(prev);
@@ -513,7 +616,7 @@ export function LibraryPage() {
                         </button>
                         {expanded && (
                           <div className="pl-5">
-                            <LibraryTreeView files={project.files} onOpenFile={openFile} onDeleteFile={deleteFile} />
+                            <LibraryTreeView files={project.files} onOpenFile={openFile} onDeleteFile={deleteFile} onRenameFile={renameFile} />
                           </div>
                         )}
                       </div>
@@ -569,9 +672,11 @@ export function LibraryPage() {
                                   }}
                                   className="group flex w-full items-center gap-1.5 rounded-[6px] py-1 pr-2 pl-2 text-left text-xs text-foreground transition-colors hover:bg-hover-2/50"
                                 >
-                                  <FileExtensionBadge name={leaf} />
-                                  <span className="min-w-0 flex-1 truncate">{stripExtension(leaf)}</span>
-                                  <LibraryFileMoreMenu fileName={leaf} onDelete={() => deleteFile(file.filePath)} />
+                                  <LibraryFileNameCell
+                                    leaf={leaf}
+                                    onRename={(newLeaf) => renameFile(file.filePath, newLeaf)}
+                                    onDelete={() => deleteFile(file.filePath)}
+                                  />
                                   <span className="shrink-0 text-2xs text-muted-foreground">{formatRelativeTime(file.lastModified)}</span>
                                 </div>
                               );
