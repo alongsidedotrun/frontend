@@ -3,7 +3,6 @@ import { useOutletContext } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { hotkeysCoreFeature, syncDataLoaderFeature } from "@headless-tree/core";
 import { useTree } from "@headless-tree/react";
-import { PageContent } from "@/components/page-content";
 import { Tree, TreeItem, TreeItemLabel } from "@/components/reui/tree";
 import { FolderIcon, File02Icon, ChevronRightIcon, BubbleChatIcon } from "@/components/icons/untitled-ui";
 import { FileExtensionBadge, stripExtension } from "@/components/file-extension-badge";
@@ -135,8 +134,7 @@ function LibraryTreeView({ files, onOpenFile }: { files: LibraryFile[]; onOpenFi
 }
 
 type ChatGroup = { chatId: string; label: string; files: LibraryFile[] };
-type ProjectGroup = { projectId: string; label: string; chats: ChatGroup[] };
-type Selection = { type: "project"; id: string } | { type: "chat"; id: string };
+type ProjectGroup = { projectId: string; label: string; chats: ChatGroup[]; files: LibraryFile[] };
 
 // GET /library -- backend/src/db.rs's own list_library_files, one row per
 // distinct file a Write/Edit tool_use has actually touched, most-recent
@@ -146,14 +144,13 @@ export function LibraryPage() {
   const { openFile } = useOutletContext<{ openFile: (path: string) => void }>();
   const [files, setFiles] = useState<LibraryFile[]>([]);
   const [loaded, setLoaded] = useState(false);
-  // Nested projects -> chats -> files, per explicit direction ("another
-  // second left sidebar to project the projects or chats and once we open
-  // we can see the files inside that chat or project") -- replaces the
-  // earlier flat "By project / By chat" toggle entirely, since a project's
-  // own chats are always shown nested under it now rather than needing a
-  // separate view mode.
+  // A Projects section (each expanding into the real headless-tree file
+  // browser, since a project can span many chats' worth of nested folders)
+  // and a Chats section (each expanding into a flat file list -- a single
+  // chat's own files don't need folder-nesting UI), mirroring the real
+  // sidebar's own Projects/Chats grouping instead of one flat selector list.
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
-  const [selection, setSelection] = useState<Selection | null>(null);
+  const [expandedChats, setExpandedChats] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     document.title = "Library";
@@ -218,9 +215,10 @@ export function LibraryPage() {
       if (file.projectId) {
         let project = projectMap.get(file.projectId);
         if (!project) {
-          project = { projectId: file.projectId, label: file.projectName ?? "Untitled project", chats: [] };
+          project = { projectId: file.projectId, label: file.projectName ?? "Untitled project", chats: [], files: [] };
           projectMap.set(file.projectId, project);
         }
+        project.files.push(file);
         if (!project.chats.some((c) => c.chatId === file.chatId)) project.chats.push(chat);
       }
     }
@@ -229,40 +227,32 @@ export function LibraryPage() {
 
   const isEmpty = loaded && files.length === 0;
 
-  // Default to the first available project/chat once real data loads,
-  // rather than an empty "select something" state on every visit --
-  // cydonia's own sidebar always opens onto a real selection too.
+  // Default-expand the first available project/chat once real data loads,
+  // rather than an all-collapsed, empty-looking list on first visit.
   useEffect(() => {
-    if (selection || (!projects.length && !standaloneChats.length)) return;
-    if (projects.length > 0) {
-      setSelection({ type: "project", id: projects[0].projectId });
-      setExpandedProjects((prev) => new Set(prev).add(projects[0].projectId));
-    } else {
-      setSelection({ type: "chat", id: standaloneChats[0].chatId });
-    }
-    // Only reacts to data becoming available, not to selection itself --
-    // this is a one-time default, not something that should fight a
-    // user's own later selection.
+    if (expandedProjects.size || expandedChats.size || (!projects.length && !standaloneChats.length)) return;
+    if (projects.length > 0) setExpandedProjects(new Set([projects[0].projectId]));
+    else setExpandedChats(new Set([standaloneChats[0].chatId]));
+    // Only reacts to data becoming available, not to the expand sets
+    // themselves -- this is a one-time default, not something that should
+    // fight a user's own later expand/collapse.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projects, standaloneChats]);
-
-  const selectedFiles = useMemo(() => {
-    if (!selection) return null;
-    if (selection.type === "chat") {
-      return (
-        standaloneChats.find((c) => c.chatId === selection.id)?.files ??
-        projects.flatMap((p) => p.chats).find((c) => c.chatId === selection.id)?.files ??
-        null
-      );
-    }
-    return projects.find((p) => p.projectId === selection.id)?.chats.flatMap((c) => c.files) ?? null;
-  }, [selection, projects, standaloneChats]);
 
   function toggleProject(projectId: string) {
     setExpandedProjects((prev) => {
       const next = new Set(prev);
       if (next.has(projectId)) next.delete(projectId);
       else next.add(projectId);
+      return next;
+    });
+  }
+
+  function toggleChat(chatId: string) {
+    setExpandedChats((prev) => {
+      const next = new Set(prev);
+      if (next.has(chatId)) next.delete(chatId);
+      else next.add(chatId);
       return next;
     });
   }
@@ -308,70 +298,89 @@ export function LibraryPage() {
             // to clear.
             className="absolute inset-0 top-0 flex"
           >
-            {/* Left rail: projects (foldable, nesting their own chats) and
-                standalone chats -- selecting one shows its files to the
-                right, mirroring cydonia's own foldable project_head()
-                pattern (this session's own design-reference research). */}
-            <div className="flex w-64 shrink-0 flex-col overflow-y-auto border-r border-border px-2 pt-2 pb-4">
+            {/* Single sidebar-style column, mirroring the app's own
+                left sidebar's own Projects/Chats grouping (sidebar-nav.tsx)
+                instead of a separate selector + file-browser split: a
+                Projects section (each expanding into the real
+                headless-tree file browser, since a project can span many
+                chats' worth of nested folders) and a Chats section (each
+                expanding into a flat file list -- a single chat's own
+                files don't need folder-nesting UI). */}
+            <div className="flex w-64 shrink-0 flex-col gap-3 overflow-y-auto border-r border-border px-2 pt-2 pb-4">
               <div className="flex flex-col gap-0.5">
-                {projects.map((project) => {
-                  const expanded = expandedProjects.has(project.projectId);
-                  return (
-                    <div key={project.projectId} className="flex flex-col gap-0.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          toggleProject(project.projectId);
-                          setSelection({ type: "project", id: project.projectId });
-                        }}
-                        className={`flex items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-left text-xs transition-colors hover:bg-hover-2/50 ${selection?.type === "project" && selection.id === project.projectId ? "bg-hover-2/50 text-foreground" : "text-foreground"}`}
-                      >
-                        <ChevronRightIcon className={`size-3 shrink-0 text-muted-foreground transition-transform ${expanded ? "rotate-90" : ""}`} />
-                        <FolderIcon className="size-3.5 shrink-0 text-muted-foreground" />
-                        <span className="min-w-0 flex-1 truncate">{project.label}</span>
-                        <span className="shrink-0 text-2xs text-muted-foreground">{project.chats.length}</span>
-                      </button>
-                      {expanded &&
-                        project.chats.map((chat) => (
-                          <button
-                            key={chat.chatId}
-                            type="button"
-                            onClick={() => setSelection({ type: "chat", id: chat.chatId })}
-                            className={`flex items-center gap-1.5 rounded-[6px] py-1.5 pr-2 pl-7 text-left text-xs transition-colors hover:bg-hover-2/50 ${selection?.type === "chat" && selection.id === chat.chatId ? "bg-hover-2/50 text-foreground" : "text-muted-foreground"}`}
-                          >
-                            <BubbleChatIcon className="size-3.5 shrink-0" />
-                            <span className="min-w-0 flex-1 truncate">{chat.label}</span>
-                          </button>
-                        ))}
-                    </div>
-                  );
-                })}
-                {standaloneChats.map((chat) => (
-                  <button
-                    key={chat.chatId}
-                    type="button"
-                    onClick={() => setSelection({ type: "chat", id: chat.chatId })}
-                    className={`flex items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-left text-xs transition-colors hover:bg-hover-2/50 ${selection?.type === "chat" && selection.id === chat.chatId ? "bg-hover-2/50 text-foreground" : "text-foreground"}`}
-                  >
-                    <BubbleChatIcon className="size-3.5 shrink-0 text-muted-foreground" />
-                    <span className="min-w-0 flex-1 truncate">{chat.label}</span>
-                  </button>
-                ))}
+                <div className="px-2 pt-1 pb-0.5 text-2xs font-medium tracking-wide text-muted-foreground uppercase">Projects</div>
+                {projects.length === 0 ? (
+                  <p className="px-2 py-1 text-xs text-muted-foreground">No projects</p>
+                ) : (
+                  projects.map((project) => {
+                    const expanded = expandedProjects.has(project.projectId);
+                    return (
+                      <div key={project.projectId} className="flex flex-col gap-0.5">
+                        <button
+                          type="button"
+                          onClick={() => toggleProject(project.projectId)}
+                          className="flex items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-hover-2/50"
+                        >
+                          <ChevronRightIcon className={`size-3 shrink-0 text-muted-foreground transition-transform ${expanded ? "rotate-90" : ""}`} />
+                          <FolderIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                          <span className="min-w-0 flex-1 truncate">{project.label}</span>
+                          <span className="shrink-0 text-2xs text-muted-foreground">{project.chats.length}</span>
+                        </button>
+                        {expanded && (
+                          <div className="pl-5">
+                            <LibraryTreeView files={project.files} onOpenFile={openFile} />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
               </div>
-            </div>
-            {/* Right side: the selected project/chat's own files, rendered
-                via @reui/c-tree-3's real headless-tree-backed Tree/TreeItem
-                primitives. Keyed by the selection so switching project/chat
-                remounts the tree instead of needing headless-tree's own
-                dynamic-data-reload APIs. */}
-            <div className="min-w-0 flex-1 overflow-y-auto px-4 pt-2 pb-6">
-              {selectedFiles === null ? (
-                <p className="p-2 text-[13px] text-muted-foreground">Select a project or chat to see its files.</p>
-              ) : (
-                <PageContent>
-                  <LibraryTreeView key={`${selection?.type}-${selection?.id}`} files={selectedFiles} onOpenFile={openFile} />
-                </PageContent>
-              )}
+              <div className="flex flex-col gap-0.5">
+                <div className="px-2 pt-1 pb-0.5 text-2xs font-medium tracking-wide text-muted-foreground uppercase">Chats</div>
+                {standaloneChats.length === 0 ? (
+                  <p className="px-2 py-1 text-xs text-muted-foreground">No chats</p>
+                ) : (
+                  standaloneChats.map((chat) => {
+                    const expanded = expandedChats.has(chat.chatId);
+                    return (
+                      <div key={chat.chatId} className="flex flex-col gap-0.5">
+                        <button
+                          type="button"
+                          onClick={() => toggleChat(chat.chatId)}
+                          className="flex items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-hover-2/50"
+                        >
+                          <ChevronRightIcon className={`size-3 shrink-0 text-muted-foreground transition-transform ${expanded ? "rotate-90" : ""}`} />
+                          <BubbleChatIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                          <span className="min-w-0 flex-1 truncate">{chat.label}</span>
+                        </button>
+                        {expanded && (
+                          <div className="flex flex-col gap-0.5 pl-7">
+                            {chat.files.map((file) => {
+                              const leaf = file.filePath.split("/").filter(Boolean).pop() ?? file.filePath;
+                              return (
+                                <button
+                                  key={file.filePath}
+                                  type="button"
+                                  onClick={() => openFile(file.filePath)}
+                                  className="flex items-center gap-1.5 rounded-[6px] py-1 pr-2 text-left text-xs text-foreground transition-colors hover:bg-hover-2/50"
+                                >
+                                  <File02Icon className="size-3.5 shrink-0 text-muted-foreground" />
+                                  <div className="flex min-w-0 flex-1 items-center gap-1">
+                                    <span className="min-w-0 truncate">{stripExtension(leaf)}</span>
+                                    <FileExtensionBadge name={leaf} />
+                                  </div>
+                                  <span className="shrink-0 text-2xs text-muted-foreground">{formatRelativeTime(file.lastModified)}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
           </motion.div>
         )}
