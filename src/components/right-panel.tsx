@@ -52,10 +52,22 @@ import { MoreTrigger } from "@/components/ui/more-trigger";
 // renders as its own static element and the body blocks passed into
 // BlockNote never include it as a duplicate. Falls back to the filename
 // (extension stripped) when there's no such heading yet.
-function splitTitle(markdownText: string, path: string): { title: string; body: string } {
+// useFilenameFallback (default true): only the initial load-from-disk
+// call (below) should invent a title from the filename when there's no
+// heading -- real bug, confirmed directly ("that keeps hardcoding
+// example to the file instead of keeping Untitled"): togglePlainText's
+// own plaintext -> blocks direction also called this, so an
+// intentionally emptied title (no heading left in the raw text) got
+// silently resurrected as the file's real name every time the user
+// switched views, even though they'd already cleared it on purpose.
+function splitTitle(
+  markdownText: string,
+  path: string,
+  useFilenameFallback = true
+): { title: string; body: string } {
   const lines = markdownText.split("\n");
   const headingIndex = lines.findIndex((line) => /^#{1,6}\s+/.test(line));
-  const fallbackTitle = fileName(path).replace(/\.(md|markdown)$/i, "");
+  const fallbackTitle = useFilenameFallback ? fileName(path).replace(/\.(md|markdown)$/i, "") : "";
   if (headingIndex === -1 || lines.slice(0, headingIndex).some((line) => line.trim() !== "")) {
     return { title: fallbackTitle, body: markdownText };
   }
@@ -392,11 +404,11 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
 
   function togglePlainText() {
     if (view === "blocks") {
-      setContent(combineTitle(title, editor.api.markdown.serialize()));
+      setContent(combineTitle(title, editor.api.markdown.serialize({ preserveEmptyParagraphs: false })));
       setView("plaintext");
     } else {
       if (content !== null) {
-        const { title: t, body } = splitTitle(content, path);
+        const { title: t, body } = splitTitle(content, path, false);
         setTitle(t);
         hydratingRef.current = true;
         editor.tf.setValue(body);
@@ -408,7 +420,10 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
 
   async function save() {
     if (content === null || saving) return;
-    const markdown = isMarkdown && view === "blocks" ? combineTitle(title, editor.api.markdown.serialize()) : content;
+    const markdown =
+      isMarkdown && view === "blocks"
+        ? combineTitle(title, editor.api.markdown.serialize({ preserveEmptyParagraphs: false }))
+        : content;
     setSaving(true);
     try {
       await fetch("/files", {
@@ -589,7 +604,7 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
                 onChange={(value) => {
                   setContent(value);
                   setDirty(true);
-                  if (isMarkdown) setTitle(splitTitle(value, path).title);
+                  if (isMarkdown) setTitle(splitTitle(value, path, false).title);
                 }}
                 onKeyDown={(event) => {
                   if ((event.metaKey || event.ctrlKey) && event.key === "s") {
