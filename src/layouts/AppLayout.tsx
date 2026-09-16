@@ -959,20 +959,35 @@ export function AppLayout() {
     setPanelVisible(false);
   }, [sessionId]);
 
-  // Real bug, confirmed directly ("when I open the file at library and
-  // move to new chat, that stays open, it should stay open at library
-  // page only"): the effect above only resets on a real sessionId change,
-  // but Library and New Chat both have no sessionId at all (undefined on
-  // both), so leaving Library for New Chat never tripped it -- a file
-  // opened from Library kept showing in the panel on a page that has
-  // nothing to do with it. Checked directly against location.pathname
-  // (not the isLibraryRoute const further below, which is declared after
-  // this point in the function) -- fires exactly when leaving /library.
+  // Hide (not clear) the panel when leaving Library, and restore it on
+  // return -- real bug, confirmed directly ("when I open the file at
+  // library and move to new chat, that stays open, it should stay open
+  // at library page only"), then a direct correction on the first fix
+  // ("No, it should not close, if i left open at library when i comeback
+  // to it, it should still be open"): the effect above only resets on a
+  // real sessionId change, but Library and New Chat both have no
+  // sessionId at all (undefined on both), so that transition never
+  // tripped it -- a file opened from Library kept showing on unrelated
+  // pages. A first pass *cleared* panelNav on every non-Library route,
+  // which fixed the leak but also permanently forgot the file, so
+  // returning to Library never reopened it either. This snapshot ref
+  // instead remembers exactly what was open (only when it was actually a
+  // Library-opened panel -- !sessionId excludes a real chat's own file,
+  // which the sessionId effect above already owns resetting) and restores
+  // it the moment /library is reached again, from anywhere.
+  const libraryPanelSnapshotRef = useRef<{ history: RightPanelEntry[]; index: number } | null>(null);
   useEffect(() => {
     if (location.pathname !== "/library") {
-      setPanelNav({ history: [], index: -1 });
+      libraryPanelSnapshotRef.current = rightPanel && !sessionId ? panelNav : null;
       setPanelVisible(false);
+    } else if (libraryPanelSnapshotRef.current) {
+      setPanelNav(libraryPanelSnapshotRef.current);
+      setPanelVisible(true);
     }
+    // Checked directly against location.pathname (not the isLibraryRoute
+    // const further below, which is declared after this point in the
+    // function) -- fires exactly when leaving or arriving at /library.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
   function navigateRightPanel(entry: RightPanelEntry) {
