@@ -237,19 +237,31 @@ function LibraryFileNameCell({ leaf, onRename, onDelete }: { leaf: string; onRen
   // popup: Base UI keeps focus trapped inside a Menu.Popup until it's
   // actually done closing (its exit animation, not just visually faded),
   // so autoFocus's one and only attempt -- firing the instant this input
-  // mounts, well before that trap releases -- was simply overridden.
-  // Real bug, confirmed directly ("I press enter to save and never
-  // saves", after the trigger's own reblur fix alone didn't resolve it):
-  // this refocuses again once the dropdown's own exit animation
-  // (springs.ts's spring.fast.exit, 60ms) has had time to actually
-  // finish and let go of the trap.
+  // mounts, well before that trap releases -- was simply overridden. Real
+  // bug, confirmed directly ("I press enter to save and never saves"),
+  // still not resolved by a single delayed re-focus attempt (Base UI's
+  // own exact release timing isn't a fixed, reliably-outrunnable number).
+  // Polls every animation frame instead, for up to 1s, re-asserting focus
+  // on every frame it isn't already there -- outlasts the trap regardless
+  // of its actual duration, and stops the moment focus genuinely sticks
+  // (checked via document.activeElement, not just "did .focus() throw").
   useEffect(() => {
     if (!renaming) return;
-    const id = setTimeout(() => {
-      inputRef.current?.focus();
-      inputRef.current?.select();
-    }, 180);
-    return () => clearTimeout(id);
+    let frame = 0;
+    const start = performance.now();
+    const tick = () => {
+      const input = inputRef.current;
+      if (!input) return;
+      if (document.activeElement !== input) {
+        input.focus();
+        input.select();
+      } else {
+        return;
+      }
+      if (performance.now() - start < 1000) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
   }, [renaming]);
 
   function commitRename() {
