@@ -158,8 +158,22 @@ export function FixedToolbarButtons() {
           </ToolbarGroup>
         </ToolbarOverflow>
       )}
-
-      <div className="grow" />
+      {/* Only rendered in read-only mode, when ToolbarOverflow itself
+          isn't -- real bug, confirmed directly via screenshot ("We still
+          have space before the ... starts"): ToolbarOverflow's own
+          container needs to actually claim the row's real leftover
+          space (flex-1, moved there below) so its own clientWidth
+          measurement reflects what's truly available, not just whatever
+          its currently-visible content happens to add up to -- a
+          shrink-only box that starts small and only ever gets smaller
+          each time it hides another item never grows back to remeasure
+          against the *real* available width, so it kept hiding more
+          than it needed to, leaving genuine free space behind. With
+          ToolbarOverflow claiming that space directly, this plain
+          spacer would double up as a second, competing flex-grower --
+          it's only still needed here to push the trailing groups to the
+          row's far end when ToolbarOverflow isn't rendered at all. */}
+      {readOnly && <div className="grow" />}
 
       <ToolbarGroup>
         <MarkToolbarButton nodeType={KEYS.highlight} tooltip="Highlight">

@@ -382,16 +382,26 @@ export function ToolbarOverflow({ children }: { children: React.ReactNode }) {
   const hiddenItems = measured ? items.slice(visibleCount) : [];
 
   return (
-    // min-w-0, not flex-1 -- real bug, caught before it ever shipped: this
-    // sits next to fixed-toolbar-buttons.tsx's own trailing "grow" spacer
-    // (pushes the pinned highlight/comment/mode groups to the row's far
-    // end), which ALSO wants flex-grow. Two competing growers would split
-    // whatever's left over between them instead of the spacer taking all
-    // of it -- this needs to report its own *actually available* width
-    // (however much the row's other items left it, via ordinary flex-
-    // shrink) for the overflow math above to size against the right
-    // number, not an inflated one from also being allowed to grow.
-    <div ref={containerRef} className="flex min-w-0 items-center overflow-hidden">
+    // flex-1, not just min-w-0 -- real bug, confirmed directly via
+    // screenshot ("We still have space before the ... starts") and a
+    // follow-up ("if i zoom out or go to a bg screen the tools don't
+    // start adding to the tool bar to exit the three dots"): an earlier
+    // version left this at its own default flex-shrink-only sizing
+    // specifically to avoid competing with fixed-toolbar-buttons.tsx's
+    // own trailing "grow" spacer (pushes the pinned highlight/comment/
+    // mode groups to the row's far end) -- but without flex-grow, this
+    // container only ever reports whatever width its *currently visible*
+    // content happens to add up to, not the row's real leftover space.
+    // Hiding an item shrinks it; nothing ever makes it grow back to
+    // remeasure against the true available width, even when the window
+    // gets wider -- it just settles smaller than it needs to be and
+    // stays there, both understating how much *should* be able to fit
+    // and never re-expanding once something's already hidden. Restored
+    // to flex-1 (this component's own actual layout home now claims the
+    // row's leftover space directly) -- the trailing spacer in
+    // fixed-toolbar-buttons.tsx is conditionally removed there instead,
+    // so the two no longer compete for the same growth.
+    <div ref={containerRef} className="flex min-w-0 flex-1 items-center overflow-hidden">
       {visibleItems.map((item, index) => (
         <div
           key={index}
