@@ -959,6 +959,22 @@ export function AppLayout() {
     setPanelVisible(false);
   }, [sessionId]);
 
+  // Real bug, confirmed directly ("when I open the file at library and
+  // move to new chat, that stays open, it should stay open at library
+  // page only"): the effect above only resets on a real sessionId change,
+  // but Library and New Chat both have no sessionId at all (undefined on
+  // both), so leaving Library for New Chat never tripped it -- a file
+  // opened from Library kept showing in the panel on a page that has
+  // nothing to do with it. Checked directly against location.pathname
+  // (not the isLibraryRoute const further below, which is declared after
+  // this point in the function) -- fires exactly when leaving /library.
+  useEffect(() => {
+    if (location.pathname !== "/library") {
+      setPanelNav({ history: [], index: -1 });
+      setPanelVisible(false);
+    }
+  }, [location.pathname]);
+
   function navigateRightPanel(entry: RightPanelEntry) {
     setPanelNav(({ history, index }) => ({ history: [...history.slice(0, index + 1), entry], index: index + 1 }));
     setPanelVisible(true);
