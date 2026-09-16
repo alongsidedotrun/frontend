@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
+import { hotkeysCoreFeature, syncDataLoaderFeature } from "@headless-tree/core";
+import { useTree } from "@headless-tree/react";
 import { PageContent } from "@/components/page-content";
+import { Tree, TreeItem, TreeItemLabel } from "@/components/reui/tree";
 import { FolderIcon, File02Icon, ChevronRightIcon, BubbleChatIcon } from "@/components/icons/untitled-ui";
 import { FileExtensionBadge, stripExtension } from "@/components/file-extension-badge";
 import { spring } from "@/lib/springs";
@@ -39,71 +42,95 @@ function formatRelativeTime(value: string): string {
 // directory nest together the same way a real file tree would -- issue
 // #286's own "use monocode's file tree pattern" direction, without pulling
 // in monocode's actual code (its own tree has git-status/rename/move
-// affordances this read-only view doesn't need).
-type TreeNode = {
+// affordances this read-only view doesn't need). Built as a flat id->item
+// map for @headless-tree/react's own dataLoader shape, rather than the
+// nested-object shape a hand-rolled recursive renderer would use.
+type LibraryTreeItem = {
   name: string;
-  children: Map<string, TreeNode>;
-  files: LibraryFile[];
+  children?: string[];
+  file?: LibraryFile;
 };
 
-function buildTree(files: LibraryFile[]): TreeNode {
-  const root: TreeNode = { name: "", children: new Map(), files: [] };
+function buildTreeItems(files: LibraryFile[]): Record<string, LibraryTreeItem> {
+  const items: Record<string, LibraryTreeItem> = { root: { name: "", children: [] } };
   for (const file of files) {
     const parts = file.filePath.split("/").filter(Boolean);
     const leaf = parts.pop();
     if (!leaf) continue;
-    let node = root;
+    let parentId = "root";
+    let path = "";
     for (const part of parts) {
-      let next = node.children.get(part);
-      if (!next) {
-        next = { name: part, children: new Map(), files: [] };
-        node.children.set(part, next);
+      path += `/${part}`;
+      const id = `dir:${path}`;
+      if (!items[id]) {
+        items[id] = { name: part, children: [] };
+        items[parentId].children!.push(id);
       }
-      node = next;
+      parentId = id;
     }
-    node.files.push({ ...file, filePath: leaf });
+    const fileId = `file:${file.filePath}`;
+    items[fileId] = { name: leaf, file };
+    items[parentId].children!.push(fileId);
   }
-  return root;
+  return items;
 }
 
-function TreeView({ node, depth = 0, onOpenFile }: { node: TreeNode; depth?: number; onOpenFile: (path: string) => void }) {
+function LibraryTreeView({ files, onOpenFile }: { files: LibraryFile[]; onOpenFile: (path: string) => void }) {
+  const items = useMemo(() => buildTreeItems(files), [files]);
+  const tree = useTree<LibraryTreeItem>({
+    rootItemId: "root",
+    getItemName: (item) => item.getItemData().name,
+    isItemFolder: (item) => !item.getItemData().file,
+    dataLoader: {
+      getItem: (itemId) => items[itemId],
+      getChildren: (itemId) => items[itemId]?.children ?? [],
+    },
+    features: [syncDataLoaderFeature, hotkeysCoreFeature],
+  });
+
   return (
-    <div className="flex flex-col gap-0.5">
-      {[...node.children.values()].map((child) => (
-        <div key={child.name} className="flex flex-col gap-0.5">
-          <div className="flex items-center gap-1.5 py-1 text-xs text-muted-foreground" style={{ paddingLeft: depth * 16 }}>
-            <FolderIcon className="size-3.5 shrink-0" />
-            <span className="truncate">{child.name}</span>
-          </div>
-          <TreeView node={child} depth={depth + 1} onOpenFile={onOpenFile} />
-        </div>
-      ))}
-      {node.files.map((file) => (
-        <button
-          key={`${file.chatId}-${file.filePath}`}
-          type="button"
-          // Opens the real right-side editor panel (issue #288, phase 1)
-          // instead of navigating to the source chat -- per that issue's
-          // own explicit direction, superseding Library's original "click
-          // opens the chat" behavior (issue #286).
-          onClick={() => onOpenFile(file.filePath)}
-          className="flex items-center gap-1.5 rounded-[6px] py-1 pr-2 text-left text-xs text-foreground transition-colors hover:bg-hover-2/50"
-          style={{ paddingLeft: depth * 16 + 20 }}
-        >
-          <File02Icon className="size-3.5 shrink-0 text-muted-foreground" />
-          {/* flex-1 on the wrapper, not the name span -- same real bug/fix
-              right-panel.tsx's own identical row has the full reasoning
-              for: a truncating span with flex-1 directly on it stretches
-              to fill the row regardless of actual text length, pushing
-              the badge to the row's far edge instead of beside the name. */}
-          <div className="flex min-w-0 flex-1 items-center gap-1">
-            <span className="min-w-0 truncate">{stripExtension(file.filePath)}</span>
-            <FileExtensionBadge name={file.filePath} />
-          </div>
-          <span className="shrink-0 text-2xs text-muted-foreground">{formatRelativeTime(file.lastModified)}</span>
-        </button>
-      ))}
-    </div>
+    <Tree indent={16} tree={tree} className="gap-0.5">
+      {tree.getItems().map((item) => {
+        const data = item.getItemData();
+        const file = data.file;
+        return (
+          <TreeItem key={item.getId()} item={item} className="rounded-[6px]">
+            {file ? (
+              <TreeItemLabel
+                // Opens the real right-side editor panel (issue #288, phase 1)
+                // instead of navigating to the source chat -- per that issue's
+                // own explicit direction, superseding Library's original
+                // "click opens the chat" behavior (issue #286). Attached here
+                // rather than on TreeItem itself: TreeItem merges
+                // item.getProps() after its own props, so a custom onClick
+                // passed to it would be silently overridden by headless-tree's
+                // internal handler -- TreeItemLabel doesn't spread getProps(),
+                // so both this click and headless-tree's own selection still fire.
+                onClick={() => onOpenFile(file.filePath)}
+                className="flex min-w-0 flex-1 items-center gap-1.5 py-1 pr-2 text-xs text-foreground transition-colors hover:bg-hover-2/50"
+              >
+                <File02Icon className="size-3.5 shrink-0 text-muted-foreground" />
+                {/* flex-1 on the wrapper, not the name span -- same real bug/fix
+                    right-panel.tsx's own identical row has the full reasoning
+                    for: a truncating span with flex-1 directly on it stretches
+                    to fill the row regardless of actual text length, pushing
+                    the badge to the row's far edge instead of beside the name. */}
+                <div className="flex min-w-0 flex-1 items-center gap-1">
+                  <span className="min-w-0 truncate">{stripExtension(data.name)}</span>
+                  <FileExtensionBadge name={data.name} />
+                </div>
+                <span className="shrink-0 text-2xs text-muted-foreground">{formatRelativeTime(file.lastModified)}</span>
+              </TreeItemLabel>
+            ) : (
+              <TreeItemLabel className="flex items-center gap-1.5 py-1 text-xs text-muted-foreground">
+                <FolderIcon className="size-3.5 shrink-0" />
+                <span className="truncate">{data.name}</span>
+              </TreeItemLabel>
+            )}
+          </TreeItem>
+        );
+      })}
+    </Tree>
   );
 }
 
@@ -332,16 +359,17 @@ export function LibraryPage() {
                 ))}
               </div>
             </div>
-            {/* Right side: the selected project/chat's own files, real file
-                tree reused from the earlier flat view (buildTree/TreeView
-                are generic over any LibraryFile[], no changes needed
-                there). */}
+            {/* Right side: the selected project/chat's own files, rendered
+                via @reui/c-tree-3's real headless-tree-backed Tree/TreeItem
+                primitives. Keyed by the selection so switching project/chat
+                remounts the tree instead of needing headless-tree's own
+                dynamic-data-reload APIs. */}
             <div className="min-w-0 flex-1 overflow-y-auto px-4 pt-2 pb-6">
               {selectedFiles === null ? (
                 <p className="p-2 text-[13px] text-muted-foreground">Select a project or chat to see its files.</p>
               ) : (
                 <PageContent>
-                  <TreeView node={buildTree(selectedFiles)} onOpenFile={openFile} />
+                  <LibraryTreeView key={`${selection?.type}-${selection?.id}`} files={selectedFiles} onOpenFile={openFile} />
                 </PageContent>
               )}
             </div>
