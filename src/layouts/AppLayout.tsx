@@ -954,15 +954,20 @@ export function AppLayout() {
   // still works.
   const [rightPanelWidth, setRightPanelWidth] = useState(420);
   const [isResizingRightPanel, setIsResizingRightPanel] = useState(false);
-  // LibraryPage.tsx's own main column only ever holds its w-64 sidebar --
-  // real bug, confirmed directly via screenshot: opening a file there left
-  // a large empty gap between that sidebar and the (normally narrow) right
-  // panel, since the panel kept its ordinary fixed chat-editing width
-  // instead of using the space Library itself has nothing to put there.
-  // Filling the whole remaining row on this one route only, rather than
-  // fixing it globally, since a real open chat still needs that space for
-  // its own conversation.
+  // LibraryPage.tsx's own main column only ever holds its own w-64 project/
+  // chat sidebar -- real bug, confirmed directly via screenshot: opening a
+  // file there left a large empty gap between that sidebar and the
+  // (normally narrow) right panel, since the panel kept its ordinary fixed
+  // chat-editing width instead of using the space Library has nothing else
+  // to put there. Shrinking mainContent to exactly LibraryPage's own
+  // sidebar width (not to 0 -- a first pass at this collapsed the sidebar
+  // itself too, hiding it behind the now full-width panel instead of
+  // keeping it visible alongside the file) lets the right panel absorb
+  // everything past it, on this one route only -- a real open chat still
+  // needs that middle column for its own conversation.
   const libraryFullPanel = location.pathname === "/library" && rightPanel !== null;
+  // Must match LibraryPage.tsx's own left column ("w-64").
+  const LIBRARY_SIDEBAR_WIDTH = 256;
 
   function startRightPanelResize(event: React.MouseEvent) {
     event.preventDefault();
@@ -1625,7 +1630,10 @@ export function AppLayout() {
             is defined once and referenced from both the always-mounted
             main column and this drawer's sibling position, so neither
             duplicates the whole content column's own JSX. */}
-        <div className={`flex min-h-0 min-w-0 flex-col overflow-hidden ${libraryFullPanel ? "w-0 flex-none" : "flex-1"}`}>
+        <div
+          className={`flex min-h-0 min-w-0 flex-col overflow-hidden ${libraryFullPanel ? "flex-none" : "flex-1"}`}
+          style={libraryFullPanel ? { width: LIBRARY_SIDEBAR_WIDTH } : undefined}
+        >
           {mainContent}
         </div>
         {/* relative z-10 -- real bug, confirmed directly ("Any of the
