@@ -126,17 +126,29 @@ function LibraryFileMoreMenu({
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
+  // Same reblur fix sidebar-nav.tsx's own ChatRow/ProjectRow triggers use
+  // -- real bug, confirmed directly ("the rename file is not working...
+  // I press enter to save and never saves"): Base UI returns real DOM
+  // focus to this trigger a beat after the menu closes, which stole focus
+  // straight back off Rename's own inline input (autoFocus only fires
+  // once, on mount, so it never gets a second chance to reclaim focus
+  // once Base UI's delayed refocus wins) -- keystrokes, Enter included,
+  // were landing on this button instead of the input the whole time.
+  function handleMenuOpenChange(open: boolean) {
+    setMenuOpen(open);
+    // Reset to the plain menu, not the confirm prompt, same as
+    // ChatRow/ProjectRow's own identical reset.
+    if (!open) setConfirmingDelete(false);
+    if (open) return;
+    const button = menuTriggerRef.current;
+    if (!button) return;
+    const reblur = () => button.blur();
+    button.addEventListener("focus", reblur, { once: true });
+    setTimeout(() => button.removeEventListener("focus", reblur), 1000);
+  }
 
   return (
-    <BaseDropdownMenu
-      open={menuOpen}
-      onOpenChange={(open) => {
-        setMenuOpen(open);
-        // Reset to the plain menu, not the confirm prompt, same as
-        // ChatRow/ProjectRow's own identical reset.
-        if (!open) setConfirmingDelete(false);
-      }}
-    >
+    <BaseDropdownMenu open={menuOpen} onOpenChange={handleMenuOpenChange}>
       <BaseDropdownTrigger
         render={
           <MoreTrigger
