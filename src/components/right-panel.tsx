@@ -11,6 +11,8 @@ import { json } from "@codemirror/lang-json";
 import { Plate, usePlateEditor } from "platejs/react";
 import { EditorKit } from "@/components/editor/editor-kit";
 import { Editor, EditorContainer } from "@/components/ui/editor";
+import { FixedToolbar } from "@/components/ui/fixed-toolbar";
+import { FixedToolbarButtons } from "@/components/ui/fixed-toolbar-buttons";
 import { XIcon, File02Icon, ChevronLeftIcon, ChevronRightIcon, FolderIcon, TerminalIcon, DotsVerticalIcon } from "@/components/icons/untitled-ui";
 import { Button } from "@/components/ui/button";
 import { FileExtensionBadge, stripExtension } from "@/components/file-extension-badge";
@@ -481,7 +483,33 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
         ) : (
           <>
             {isMarkdown && view === "blocks" ? (
-              <>
+              // FixedToolbar/title/EditorContainer all live inside this one
+              // <Plate>, in this exact order -- real bug, confirmed
+              // directly via screenshot ("The title is above the tools
+              // bar, that should be in the content area below"):
+              // FixedToolbarKit (editor-kit.tsx) was previously part of
+              // the plugin bundle, whose own render.beforeEditable hook
+              // always inserts the toolbar immediately above wherever
+              // <Editor> itself renders, regardless of other sibling
+              // JSX -- so the title <input>, rendered before <Editor> but
+              // outside <Plate> entirely, ended up above the toolbar
+              // instead of below it. FixedToolbarKit is now left out of
+              // the bundle (see that file's own comment) and rendered
+              // here explicitly instead, so it's first, unconditionally,
+              // with the title and body both after it. sticky top-0
+              // (FixedToolbar's own class) needs a scrollable ancestor to
+              // stick against -- this panel's own outer overflow-auto
+              // container (above) is that ancestor, since EditorContainer
+              // itself has that overflow overridden away below.
+              <Plate
+                editor={editor}
+                onChange={() => {
+                  if (!hydratingRef.current) setDirty(true);
+                }}
+              >
+                <FixedToolbar>
+                  <FixedToolbarButtons />
+                </FixedToolbar>
                 {/* A plain, static text input -- not a Plate block -- per
                     explicit request ("the title should not be click and
                     drag but static"): splitTitle (above) already keeps
@@ -507,17 +535,10 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
                   className="w-full border-0 bg-transparent px-[54px] pt-8 pb-1 font-bold text-foreground outline-none placeholder:text-muted-foreground/60"
                   style={{ fontSize: "clamp(20px, 6cqi, 32px)" }}
                 />
-                <Plate
-                  editor={editor}
-                  onChange={() => {
-                    if (!hydratingRef.current) setDirty(true);
-                  }}
-                >
-                  <EditorContainer variant="default" className="h-auto overflow-visible">
-                    <Editor variant="none" className="px-[54px] py-2" />
-                  </EditorContainer>
-                </Plate>
-              </>
+                <EditorContainer variant="default" className="h-auto overflow-visible">
+                  <Editor variant="none" className="px-[54px] py-2" />
+                </EditorContainer>
+              </Plate>
             ) : (
               <CodeMirror
                 value={content}
