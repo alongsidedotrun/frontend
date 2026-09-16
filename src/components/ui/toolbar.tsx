@@ -283,8 +283,16 @@ export function ToolbarGroup({
     >
       <div className="flex items-center">{children}</div>
 
+      {/* h-6 -- real bug, confirmed directly via screenshot ("our toolbar
+          is missing the | dividers"): Separator's own self-stretch (for
+          orientation="vertical") only does anything inside a flex/grid
+          parent, but this wrapping div (needed for the group-last:hidden
+          toggle) is a plain block, so the separator had no height to
+          stretch to and rendered at 0px -- invisible. Same h-6 convention
+          media-toolbar.tsx/column-node.tsx's own vertical separators
+          already use for exactly this reason. */}
       <div className="group-last/toolbar-group:hidden! mx-1.5 py-0.5">
-        <Separator orientation="vertical" />
+        <Separator orientation="vertical" className="h-6" />
       </div>
     </div>
   );

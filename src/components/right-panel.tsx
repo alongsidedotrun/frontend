@@ -452,8 +452,13 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
           {content !== null ? (isMarkdown ? title : fileName(path)) : ""}
         </span>
         {navButtons}
+        {/* size="xs" (h-6), not "sm" -- real bug, confirmed directly
+            ("the save button is enormous"): this row's other buttons
+            (navButtons, the "..." trigger below) are all sized to match
+            a size-6 icon button, and "sm" (h-7, plus text padding) read
+            noticeably larger next to them. */}
         {dirty && (
-          <Button size="sm" disabled={saving} onClick={() => void save()}>
+          <Button size="xs" disabled={saving} onClick={() => void save()}>
             Save
           </Button>
         )}
