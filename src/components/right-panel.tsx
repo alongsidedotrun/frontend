@@ -531,6 +531,12 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
                     setTitle(event.target.value);
                     setDirty(true);
                   }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      editor.tf.focus({ edge: "startEditor" });
+                    }
+                  }}
                   placeholder="Untitled"
                   className="w-full border-0 bg-transparent px-[54px] pt-8 pb-1 font-bold text-foreground outline-none placeholder:text-muted-foreground/60"
                   style={{ fontSize: "clamp(20px, 6cqi, 32px)" }}
