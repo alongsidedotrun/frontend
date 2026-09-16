@@ -316,7 +316,6 @@ export function InboxPage() {
                       </span>
                     )}
                     <div className="flex items-center gap-1.5 pr-16">
-                      <span className="min-w-0 flex-1 truncate text-sm font-normal text-foreground">{item.name}</span>
                       {/* Every distinct model this chat has used, matching
                           the topbar's own overlapping stack (SidebarModelStack,
                           up to 4 real icons, else the first 3 plus a real
@@ -325,8 +324,12 @@ export function InboxPage() {
                           models or more than 4 beside the chat name"),
                           moved here from the sender row below (ModelStack,
                           removed), which now shows only the one model that
-                          actually authored the last message. */}
+                          actually authored the last message. Leading, not
+                          trailing, the name -- per a direct follow-up ("The
+                          providers icon shopuld be at the left and not
+                          right"). */}
                       {item.models.length > 0 && <SidebarModelStack models={item.models} />}
+                      <span className="min-w-0 flex-1 truncate text-sm font-normal text-foreground">{item.name}</span>
                     </div>
                     {item.snippet && (
                       // Who actually sent the snippet -- per explicit request
