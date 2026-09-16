@@ -767,23 +767,8 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
           both use container query units (cqi) scaled off *this* panel's
           own actual rendered width, not the viewport -- this panel
           resizes independently of the window (its own drag handle), so a
-          vw-based size would react to the wrong dimension.
-          overflow-x-hidden, not just overflow-auto -- real bug, confirmed
-          directly ("there's a horizontal scrollbar when the dropdown
-          opens"): BlockNote's own Mantine Menu (drag-handle menu,
-          Transform/Colors submenus) renders withinPortal={false} --
-          floating-ui positions it, but its DOM node still lives inside
-          this scrollable container rather than a portal at document.body.
-          A submenu wide enough to extend past this panel's own right edge
-          (Transform's own 13-item list, in particular) grows this
-          container's scrollWidth same as any other in-flow overflow would,
-          producing a real horizontal scrollbar for the whole editor over
-          something that's only ever a transient floating menu. Clipping
-          horizontal overflow here (this editor's own content never
-          legitimately needs horizontal scroll -- text wraps, code blocks
-          get their own scroll container) hides that overflow instead of
-          scrolling the whole panel for it. */}
-      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto [container-type:inline-size]">
+          vw-based size would react to the wrong dimension. */}
+      <div className="min-h-0 flex-1 overflow-auto [container-type:inline-size]">
         {error ? (
           <p className="p-3 text-[13px] text-muted-foreground">{error}</p>
         ) : content === null ? (
@@ -832,7 +817,31 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
                     if (!hydratingRef.current) setDirty(true);
                   }}
                 >
-                  <SideMenuController sideMenu={SingleHandleSideMenu} floatingUIOptions={sideMenuFloatingUIOptions} />
+                  {/* portalElement={null} -- real bug, confirmed directly
+                      via the actual rendered DOM (pasted dropdown markup
+                      showing `left: 24px; max-width: 407px`, floating-ui's
+                      own absolute positioning/sizing, computed against the
+                      *viewport* as its boundary, not this panel's own
+                      narrower width): without this, the menu portals into
+                      editor.portalElement, which defaults to the editor's
+                      own bn-container -- still a real DOM descendant of
+                      this panel's scrollable container (the earlier
+                      overflow-x-hidden fix on that container's own
+                      className), not actually escaping it. Since
+                      floating-ui only avoids overflowing the *viewport*
+                      (its own default boundary), not this narrower panel,
+                      a submenu with room to spare against the window but
+                      not against the panel still rendered inside that
+                      scrollable box -- clipping it there just hid part of
+                      the menu instead of fixing the scrollbar, since the
+                      clip and the menu were still in the same box. null
+                      routes this specific portal straight to
+                      document.body (resolvePortalTarget's own documented
+                      meaning: "escape any ancestor stacking context"),
+                      genuinely outside this panel's DOM subtree, so
+                      neither the scrollbar nor the clipping trade-off
+                      applies any more. */}
+                  <SideMenuController sideMenu={SingleHandleSideMenu} floatingUIOptions={sideMenuFloatingUIOptions} portalElement={null} />
                 </BlockNoteView>
               </>
             ) : (
