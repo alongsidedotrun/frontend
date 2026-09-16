@@ -593,7 +593,15 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
     // ChatFileListPanel's own identical container above.
     <div className="flex h-full min-w-0 flex-col bg-background">
       <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-3">
-        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">{isMarkdown ? title : fileName(path)}</span>
+        {/* Blank until content actually loads, not the filename-derived
+            guess immediately -- per explicit request ("we should show no
+            text until actual text is available"): a markdown file's real
+            title (splitTitle, below) can differ from that guess once the
+            file's own first heading is read, so showing the guess first
+            was a real, if brief, wrong-title flash on every open. */}
+        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
+          {content !== null ? (isMarkdown ? title : fileName(path)) : ""}
+        </span>
         {navButtons}
         {dirty && (
           <Button size="sm" disabled={saving} onClick={() => void save()}>
@@ -635,7 +643,10 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
         {error ? (
           <p className="p-3 text-[13px] text-muted-foreground">{error}</p>
         ) : content === null ? (
-          <p className="p-3 text-[13px] text-muted-foreground">Loading...</p>
+          // Blank, not a "Loading..." placeholder -- per explicit request
+          // ("we should show no text until actual text is available"),
+          // matching the header title's own identical treatment above.
+          null
         ) : (
           <>
             {/* Shown above either view -- both are still the same

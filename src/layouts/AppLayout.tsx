@@ -561,6 +561,15 @@ export function AppLayout() {
   const { sessionId } = useParams();
   const hasOpenChat = Boolean(sessionId);
   const location = useLocation();
+  // The route the page-level crossfade has actually *settled* on -- only
+  // updates once the outgoing page's own exit animation genuinely
+  // finishes (the outlet's own AnimatePresence onExitComplete, below),
+  // unlike location.pathname which changes the instant navigation
+  // happens. Layout decisions that shouldn't visibly disturb a page
+  // that's still mid-exit (Library's own sidebar-width squeeze, its file
+  // panel restoring) key off this instead of the raw route -- see that
+  // effect's own comment for the real bug this fixes.
+  const [settledPathname, setSettledPathname] = useState(location.pathname);
   // Real bug, confirmed directly (pasted rendered HTML showing this
   // header at opacity: 0 on Library): this header stays mounted and
   // reserved-but-invisible on every page without an open chat, so a
@@ -990,11 +999,27 @@ export function AppLayout() {
   // paint instead, so there's never a stale in-between frame to animate
   // away from.
   const libraryPanelSnapshotRef = useRef<{ history: RightPanelEntry[]; index: number } | null>(null);
+  // settledPathname, not location.pathname, gates the *restore* branch
+  // below -- real bug, confirmed directly ("when moving from new chat
+  // page to library... the right panel shows the name example at the
+  // top bar and Loading()... the entire library page should be the one
+  // showing the fade out of the new chat page and fading in the left
+  // panel and right panel"): restoring immediately on the raw route
+  // change re-mounted the file panel (and squeezed mainContent down to
+  // Library's own 256px, below) *while the outgoing New Chat page was
+  // still mid-fade-out inside that same now-narrow column* -- both
+  // pages briefly shared one ancestor whose width had already jumped to
+  // the *new* page's own layout. settledPathname instead only updates
+  // once the outgoing page's own exit animation has genuinely finished
+  // (the outlet's own AnimatePresence onExitComplete, below), so the
+  // outgoing page keeps its natural full width for its entire fade-out,
+  // and Library's own sidebar/panel structure -- including restoring
+  // this snapshot -- only appears afterward.
   useLayoutEffect(() => {
     if (location.pathname !== "/library") {
       libraryPanelSnapshotRef.current = rightPanel && !sessionId ? panelNav : null;
       setPanelVisible(false);
-    } else if (libraryPanelSnapshotRef.current) {
+    } else if (settledPathname === "/library" && libraryPanelSnapshotRef.current) {
       setPanelNav(libraryPanelSnapshotRef.current);
       setPanelVisible(true);
     }
@@ -1002,7 +1027,7 @@ export function AppLayout() {
     // const further below, which is declared after this point in the
     // function) -- fires exactly when leaving or arriving at /library.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname]);
+  }, [location.pathname, settledPathname]);
 
   function navigateRightPanel(entry: RightPanelEntry) {
     setPanelNav(({ history, index }) => ({ history: [...history.slice(0, index + 1), entry], index: index + 1 }));
@@ -1045,7 +1070,11 @@ export function AppLayout() {
   // keeping it visible alongside the file) lets the right panel absorb
   // everything past it, on this one route only -- a real open chat still
   // needs that middle column for its own conversation.
-  const isLibraryRoute = location.pathname === "/library";
+  // settledPathname, not location.pathname -- see that state's own
+  // comment: this drives the actual layout squeeze/expand, which needs
+  // to wait for the outgoing page's exit animation to finish, same
+  // reasoning as the panel-restore effect above.
+  const isLibraryRoute = settledPathname === "/library";
   const libraryFullPanel = isLibraryRoute && rightPanel !== null;
   // Must match LibraryPage.tsx's own left column ("w-64").
   const LIBRARY_SIDEBAR_WIDTH = 256;
@@ -1590,7 +1619,17 @@ export function AppLayout() {
               of the page. */}
           <div className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col">
           <div className="relative z-10 min-h-0 flex-1">
-            <AnimatePresence initial={false}>
+            {/* onExitComplete -> setSettledPathname: real bug, confirmed
+                directly ("moving from new chat page to library... the
+                entire library page should be the one showing the fade
+                out of the new chat page and fading in the left panel and
+                right panel"): settledPathname (this file's own comment on
+                its declaration has the full reasoning) needs to know the
+                exact moment the outgoing page's own exit animation here
+                finishes, so Library's sidebar/panel layout squeeze
+                doesn't kick in and visibly squash that outgoing page
+                while it's still fading out. */}
+            <AnimatePresence initial={false} onExitComplete={() => setSettledPathname(location.pathname)}>
               <motion.div
                 key={location.pathname}
                 initial={{ opacity: 0 }}
