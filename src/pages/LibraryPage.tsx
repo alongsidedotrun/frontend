@@ -1,14 +1,23 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { hotkeysCoreFeature, syncDataLoaderFeature } from "@headless-tree/core";
 import { useTree } from "@headless-tree/react";
 import { Tree, TreeItem, TreeItemLabel } from "@/components/reui/tree";
 import { SidebarModelStack } from "@/components/sidebar-nav";
-import { FolderIcon, ChevronRightIcon } from "@/components/icons/untitled-ui";
+import { FolderIcon, ChevronRightIcon, DeleteIcon } from "@/components/icons/untitled-ui";
 import { FileExtensionBadge, stripExtension } from "@/components/file-extension-badge";
 import { spring } from "@/lib/springs";
 import { AlongsideLogo } from "@/components/icons/alongside-logo";
+import {
+  DropdownMenu as BaseDropdownMenu,
+  DropdownTrigger as BaseDropdownTrigger,
+  DropdownContent as BaseDropdownContent,
+  DropdownLabel as BaseDropdownLabel,
+} from "@/components/ui/dropdown";
+import { MenuItem as BaseMenuItem } from "@/components/ui/menu-item";
+import { MoreTrigger } from "@/components/ui/more-trigger";
+import { Button } from "@/components/ui/button";
 
 // Which project/chat rows are left expanded, persisted across visits --
 // per explicit request ("chats and projects in the library should open
@@ -95,7 +104,103 @@ function buildTreeItems(files: LibraryFile[]): Record<string, LibraryTreeItem> {
   return items;
 }
 
-function LibraryTreeView({ files, onOpenFile }: { files: LibraryFile[]; onOpenFile: (path: string) => void }) {
+// Shared "..." > Delete file menu for a Library file row -- per explicit
+// request ("we should have a three dots for a more dropdown like we do in
+// most other three dots... Delete file... use the same that we use for
+// deleting chat"). Same confirm-swaps-the-dropdown-content-in-place
+// pattern as sidebar-nav.tsx's own ChatRow/ProjectRow (that file's own
+// comments on this pattern have the full reasoning) rather than a separate
+// dialog/overlay.
+function LibraryFileMoreMenu({ fileName, onDelete }: { fileName: string; onDelete: () => void }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
+
+  return (
+    <BaseDropdownMenu
+      open={menuOpen}
+      onOpenChange={(open) => {
+        setMenuOpen(open);
+        // Reset to the plain menu, not the confirm prompt, same as
+        // ChatRow/ProjectRow's own identical reset.
+        if (!open) setConfirmingDelete(false);
+      }}
+    >
+      <BaseDropdownTrigger
+        render={
+          <MoreTrigger
+            ref={menuTriggerRef}
+            aria-label={`More options for ${fileName}`}
+            onClick={(event) => event.stopPropagation()}
+            active={menuOpen}
+            className="absolute top-1/2 right-1 z-20 -translate-y-1/2"
+          />
+        }
+      />
+      <BaseDropdownContent align="start" side="right" className="w-40 overflow-hidden">
+        <AnimatePresence mode="wait" initial={false}>
+          {confirmingDelete ? (
+            <motion.div
+              key="confirm"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.12 }}
+            >
+              <BaseDropdownLabel>Delete</BaseDropdownLabel>
+              <div className="px-2 pb-2 text-[11px] font-normal text-foreground">Would you like to delete this file?</div>
+              <div className="flex gap-1.5 px-2 pb-1.5">
+                <Button
+                  variant="outline"
+                  className="h-7 flex-1 text-[11px]"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setConfirmingDelete(false);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="h-7 flex-1 bg-red-600 text-[11px] text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDelete();
+                    setMenuOpen(false);
+                  }}
+                >
+                  Delete
+                </Button>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div key="menu" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.12 }}>
+              <BaseDropdownLabel>More</BaseDropdownLabel>
+              <BaseMenuItem
+                index={0}
+                icon={DeleteIcon}
+                label="Delete file"
+                destructive
+                closeOnClick={false}
+                className="gap-[7px]"
+                onSelect={() => setConfirmingDelete(true)}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </BaseDropdownContent>
+    </BaseDropdownMenu>
+  );
+}
+
+function LibraryTreeView({
+  files,
+  onOpenFile,
+  onDeleteFile,
+}: {
+  files: LibraryFile[];
+  onOpenFile: (path: string) => void;
+  onDeleteFile: (path: string) => void;
+}) {
   const items = useMemo(() => buildTreeItems(files), [files]);
   const tree = useTree<LibraryTreeItem>({
     rootItemId: "root",
@@ -113,27 +218,43 @@ function LibraryTreeView({ files, onOpenFile }: { files: LibraryFile[]; onOpenFi
       {tree.getItems().map((item) => {
         const data = item.getItemData();
         const file = data.file;
-        return (
-          <TreeItem key={item.getId()} item={item} className="rounded-[6px]">
-            {file ? (
+        return file ? (
+          // asChild -- real restructuring needed for the "..." menu below:
+          // TreeItem otherwise renders as a real <button> (tree.tsx's own
+          // Comp), and a MoreTrigger (also a <button>) can't nest inside
+          // one without invalid HTML/broken click semantics. TreeItemLabel
+          // (a <span>) already carries the real onClick and is what
+          // headless-tree's own item.getProps() (merged onto this
+          // wrapping div regardless of asChild) expects to coexist with,
+          // so switching only the outer element to a div, not touching
+          // TreeItemLabel, keeps the same click-to-open/keyboard-select
+          // behavior the folder branch below still gets from a real button.
+          <TreeItem key={item.getId()} item={item} asChild className="rounded-[6px]">
+            <div className="group relative">
               <TreeItemLabel
                 // Opens the real right-side editor panel (issue #288, phase 1)
                 // instead of navigating to the source chat -- per that issue's
                 // own explicit direction, superseding Library's original
-                // "click opens the chat" behavior (issue #286). Attached here
-                // rather than on TreeItem itself: TreeItem merges
-                // item.getProps() after its own props, so a custom onClick
-                // passed to it would be silently overridden by headless-tree's
-                // internal handler -- TreeItemLabel doesn't spread getProps(),
-                // so both this click and headless-tree's own selection still fire.
+                // "click opens the chat" behavior (issue #286).
                 onClick={() => onOpenFile(file.filePath)}
-                className="flex min-w-0 flex-1 items-center gap-1.5 py-1 pr-2 text-xs text-foreground transition-colors hover:bg-hover-2/50"
+                className="flex min-w-0 flex-1 items-center gap-1.5 py-1 pr-7 pl-2 text-xs text-foreground transition-colors hover:bg-hover-2/50"
               >
                 <FileExtensionBadge name={data.name} />
                 <span className="min-w-0 flex-1 truncate">{stripExtension(data.name)}</span>
                 <span className="shrink-0 text-2xs text-muted-foreground">{formatRelativeTime(file.lastModified)}</span>
               </TreeItemLabel>
-            ) : (
+              {/* "..." > Delete file -- per explicit request ("we should
+                  have a three dots for a more dropdown like we do in most
+                  other three dots"). group-hover/focus-within -- MoreTrigger's
+                  own autoHide default -- keeps it invisible until the row
+                  is actually interacted with, same as every other row
+                  trigger in the app. */}
+              <LibraryFileMoreMenu fileName={data.name} onDelete={() => onDeleteFile(file.filePath)} />
+            </div>
+          </TreeItem>
+        ) : (
+          <TreeItem key={item.getId()} item={item} className="rounded-[6px]">
+            {(
               <TreeItemLabel className="flex items-center gap-1.5 py-1 text-xs text-muted-foreground">
                 <FolderIcon className="size-3.5 shrink-0" />
                 <span className="truncate">{data.name}</span>
@@ -276,6 +397,20 @@ export function LibraryPage() {
 
   const isEmpty = loaded && files.length === 0;
 
+  // "..." > Delete file -- per explicit request ("we should have a three
+  // dots for a more dropdown like we do in most other three dots... Delete
+  // file"), matching the same confirm-in-dropdown pattern chat/project rows
+  // already use (sidebar-nav.tsx's own ChatRow/ProjectRow). Only removes
+  // the real file from disk -- this row's own data (files state) is built
+  // from each chat's historical Write/Edit tool-use events, not a live
+  // directory listing, so an older chat that touched this same path keeps
+  // its own row until it's opened again (matching how a file deleted
+  // outside the app entirely already behaves: read_file just 404s).
+  async function deleteFile(filePath: string) {
+    await fetch(`/files?path=${encodeURIComponent(filePath)}`, { method: "DELETE" });
+    setFiles((prev) => prev.filter((f) => f.filePath !== filePath));
+  }
+
   function toggleProject(projectId: string) {
     setExpandedProjects((prev) => {
       const next = new Set(prev);
@@ -377,7 +512,7 @@ export function LibraryPage() {
                         </button>
                         {expanded && (
                           <div className="pl-5">
-                            <LibraryTreeView files={project.files} onOpenFile={openFile} />
+                            <LibraryTreeView files={project.files} onOpenFile={openFile} onDeleteFile={deleteFile} />
                           </div>
                         )}
                       </div>
@@ -410,16 +545,18 @@ export function LibraryPage() {
                             {chat.files.map((file) => {
                               const leaf = file.filePath.split("/").filter(Boolean).pop() ?? file.filePath;
                               return (
-                                <button
-                                  key={file.filePath}
-                                  type="button"
-                                  onClick={() => openFile(file.filePath)}
-                                  className="flex items-center gap-1.5 rounded-[6px] px-2 py-1 text-left text-xs text-foreground transition-colors hover:bg-hover-2/50"
-                                >
-                                  <FileExtensionBadge name={leaf} />
-                                  <span className="min-w-0 flex-1 truncate">{stripExtension(leaf)}</span>
-                                  <span className="shrink-0 text-2xs text-muted-foreground">{formatRelativeTime(file.lastModified)}</span>
-                                </button>
+                                <div key={file.filePath} className="group relative">
+                                  <button
+                                    type="button"
+                                    onClick={() => openFile(file.filePath)}
+                                    className="flex w-full items-center gap-1.5 rounded-[6px] py-1 pr-7 pl-2 text-left text-xs text-foreground transition-colors hover:bg-hover-2/50"
+                                  >
+                                    <FileExtensionBadge name={leaf} />
+                                    <span className="min-w-0 flex-1 truncate">{stripExtension(leaf)}</span>
+                                    <span className="shrink-0 text-2xs text-muted-foreground">{formatRelativeTime(file.lastModified)}</span>
+                                  </button>
+                                  <LibraryFileMoreMenu fileName={leaf} onDelete={() => deleteFile(file.filePath)} />
+                                </div>
                               );
                             })}
                           </div>
