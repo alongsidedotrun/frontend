@@ -973,6 +973,22 @@ export function AppLayout() {
     // exactly this same spot, not reset to the chat's own file list.
     setPanelVisible(false);
   }
+  // Real bug, confirmed directly ("I renamed example file in the library
+  // and the right sidebar still showing the not updated file name"):
+  // Library's own rename patches its own file list, but has no way to
+  // reach into this panel's own navigation history, so a file already
+  // open here (by its old path) kept showing the old path/title forever
+  // -- FileEditorPanel's own `path` prop, and everything it derives from
+  // that (the title, splitTitle's own filename fallback), never changes
+  // on its own just because the file moved on disk. Patches every
+  // history entry pointing at the old path, not just the current one, so
+  // going back/forward in this panel's own history doesn't resurrect it.
+  function renameOpenFile(oldPath: string, newPath: string) {
+    setPanelNav(({ history, index }) => ({
+      history: history.map((entry) => (entry.type === "file" && entry.path === oldPath ? { ...entry, path: newPath } : entry)),
+      index,
+    }));
+  }
 
   // Real drag-resize (mouse-driven width state), not react-resizable-panels
   // -- per explicit request ("make sure we are using the same drawer
@@ -1118,6 +1134,7 @@ export function AppLayout() {
     openSettings,
     refreshSidebarLists,
     openFile: (path: string) => navigateRightPanel({ type: "file", path }),
+    renameOpenFile,
     // Per explicit request ("The right sidebar is not expanding enough, it
     // should expand to compact the chat message so instead of being 800px
     // default that be 400px with the sidebar open") -- ChatPage.tsx reads

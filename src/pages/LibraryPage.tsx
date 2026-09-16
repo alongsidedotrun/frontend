@@ -362,7 +362,11 @@ type ProjectGroup = { projectId: string; label: string; chats: ChatGroup[]; file
 // first. Grouped here client-side (same pattern InboxPage.tsx already uses
 // for its own search filtering) rather than needing a query param per view.
 export function LibraryPage() {
-  const { openFile, rightPanelOpen } = useOutletContext<{ openFile: (path: string) => void; rightPanelOpen: boolean }>();
+  const { openFile, rightPanelOpen, renameOpenFile } = useOutletContext<{
+    openFile: (path: string) => void;
+    rightPanelOpen: boolean;
+    renameOpenFile: (oldPath: string, newPath: string) => void;
+  }>();
   const [files, setFiles] = useState<LibraryFile[]>([]);
   const [loaded, setLoaded] = useState(false);
   // A Projects section (each expanding into the real headless-tree file
@@ -504,6 +508,11 @@ export function LibraryPage() {
   // directory, so it's just patched locally on success rather than
   // refetched; an older chat that touched this file under its old name
   // keeps pointing at the now-missing path until it's opened again.
+  // renameOpenFile -- real bug, confirmed directly ("the right sidebar
+  // still showing the not updated file name"): the file editor panel's
+  // own path prop, and everything it derives from that (the title,
+  // splitTitle's own filename fallback), never changes on its own just
+  // because Library renamed the file elsewhere -- it has to be told.
   async function renameFile(filePath: string, newLeaf: string) {
     const res = await fetch("/files/rename", {
       method: "POST",
@@ -513,6 +522,7 @@ export function LibraryPage() {
     if (!res.ok) return;
     const { path: newPath }: { path: string } = await res.json();
     setFiles((prev) => prev.map((f) => (f.filePath === filePath ? { ...f, filePath: newPath } : f)));
+    renameOpenFile(filePath, newPath);
   }
 
   function toggleProject(projectId: string) {
