@@ -133,7 +133,6 @@ function LibraryFileMoreMenu({ fileName, onDelete }: { fileName: string; onDelet
             aria-label={`More options for ${fileName}`}
             onClick={(event) => event.stopPropagation()}
             active={menuOpen}
-            className="absolute top-1/2 right-1 z-20 -translate-y-1/2"
           />
         }
       />
@@ -230,26 +229,28 @@ function LibraryTreeView({
           // TreeItemLabel, keeps the same click-to-open/keyboard-select
           // behavior the folder branch below still gets from a real button.
           <TreeItem key={item.getId()} item={item} asChild className="rounded-[6px]">
-            <div className="group relative">
+            <div className="group">
+              {/* The "..." trigger and Delete file live inside this same
+                  span, before the timestamp -- per explicit request ("the
+                  three dots is to be before 1 day ago and not after").
+                  Valid nesting here (unlike the flat Chats list below):
+                  TreeItemLabel itself is a plain <span>, and TreeItem's
+                  own outer element is now a <div> (asChild, above), not a
+                  <button> -- so MoreTrigger (a real <button>) has no
+                  button ancestor to conflict with. */}
               <TreeItemLabel
                 // Opens the real right-side editor panel (issue #288, phase 1)
                 // instead of navigating to the source chat -- per that issue's
                 // own explicit direction, superseding Library's original
                 // "click opens the chat" behavior (issue #286).
                 onClick={() => onOpenFile(file.filePath)}
-                className="flex min-w-0 flex-1 items-center gap-1.5 py-1 pr-7 pl-2 text-xs text-foreground transition-colors hover:bg-hover-2/50"
+                className="flex min-w-0 flex-1 items-center gap-1.5 py-1 pr-2 pl-2 text-xs text-foreground transition-colors hover:bg-hover-2/50"
               >
                 <FileExtensionBadge name={data.name} />
                 <span className="min-w-0 flex-1 truncate">{stripExtension(data.name)}</span>
+                <LibraryFileMoreMenu fileName={data.name} onDelete={() => onDeleteFile(file.filePath)} />
                 <span className="shrink-0 text-2xs text-muted-foreground">{formatRelativeTime(file.lastModified)}</span>
               </TreeItemLabel>
-              {/* "..." > Delete file -- per explicit request ("we should
-                  have a three dots for a more dropdown like we do in most
-                  other three dots"). group-hover/focus-within -- MoreTrigger's
-                  own autoHide default -- keeps it invisible until the row
-                  is actually interacted with, same as every other row
-                  trigger in the app. */}
-              <LibraryFileMoreMenu fileName={data.name} onDelete={() => onDeleteFile(file.filePath)} />
             </div>
           </TreeItem>
         ) : (
@@ -545,17 +546,33 @@ export function LibraryPage() {
                             {chat.files.map((file) => {
                               const leaf = file.filePath.split("/").filter(Boolean).pop() ?? file.filePath;
                               return (
-                                <div key={file.filePath} className="group relative">
-                                  <button
-                                    type="button"
-                                    onClick={() => openFile(file.filePath)}
-                                    className="flex w-full items-center gap-1.5 rounded-[6px] py-1 pr-7 pl-2 text-left text-xs text-foreground transition-colors hover:bg-hover-2/50"
-                                  >
-                                    <FileExtensionBadge name={leaf} />
-                                    <span className="min-w-0 flex-1 truncate">{stripExtension(leaf)}</span>
-                                    <span className="shrink-0 text-2xs text-muted-foreground">{formatRelativeTime(file.lastModified)}</span>
-                                  </button>
+                                // A div, not a <button> -- real restructuring
+                                // needed for the "..." trigger to sit before
+                                // the timestamp, not after it (per explicit
+                                // request, "the three dots is to be before 1
+                                // day ago and not after"): MoreTrigger is
+                                // itself a real <button>, which can't nest
+                                // inside another <button> without invalid
+                                // HTML. role="button"/tabIndex/onKeyDown below
+                                // keep the same click-and-keyboard-activate
+                                // behavior a real button gave for free.
+                                <div
+                                  key={file.filePath}
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={() => openFile(file.filePath)}
+                                  onKeyDown={(event) => {
+                                    if (event.key === "Enter" || event.key === " ") {
+                                      event.preventDefault();
+                                      openFile(file.filePath);
+                                    }
+                                  }}
+                                  className="group flex w-full items-center gap-1.5 rounded-[6px] py-1 pr-2 pl-2 text-left text-xs text-foreground transition-colors hover:bg-hover-2/50"
+                                >
+                                  <FileExtensionBadge name={leaf} />
+                                  <span className="min-w-0 flex-1 truncate">{stripExtension(leaf)}</span>
                                   <LibraryFileMoreMenu fileName={leaf} onDelete={() => deleteFile(file.filePath)} />
+                                  <span className="shrink-0 text-2xs text-muted-foreground">{formatRelativeTime(file.lastModified)}</span>
                                 </div>
                               );
                             })}
