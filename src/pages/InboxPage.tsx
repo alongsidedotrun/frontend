@@ -303,7 +303,12 @@ export function InboxPage() {
                     // propagating up through this un-set card and forcing
                     // the whole card wider than its container instead of
                     // letting the inner ellipsis actually take effect.
-                    className="relative flex w-full min-w-0 flex-col gap-1 rounded-xl border border-border px-4 py-3 text-left transition-colors hover:bg-hover-2/50"
+                    // overflow-hidden -- belt-and-suspenders alongside the
+                    // snippet <p>'s own w-full fix above: guarantees no
+                    // content can ever visually render past this card's own
+                    // rounded border, regardless of which nested flex item
+                    // turns out not to have resolved a definite width.
+                    className="relative flex w-full min-w-0 flex-col gap-1 overflow-hidden rounded-xl border border-border px-4 py-3 text-left transition-colors hover:bg-hover-2/50"
                   >
                     {/* Absolute top-right, not inline in the name row -- per
                         explicit request ("last updated... at the right top").
@@ -351,7 +356,7 @@ export function InboxPage() {
                       // underneath like the message from the agent"), matching
                       // ChatPage.tsx's own agent-row layout (icon+label row,
                       // reply text below it).
-                      <div className="flex min-w-0 flex-col gap-0.5">
+                      <div className="flex w-full min-w-0 flex-col gap-0.5">
                         <div className="flex min-w-0 items-center gap-1.5">
                           {item.snippetKind === "human" ? (
                             <span className="flex size-3 shrink-0 items-center justify-center rounded-full bg-black dark:bg-white">
@@ -368,8 +373,18 @@ export function InboxPage() {
                             sidebar's own Projects/Recents empty-state
                             placeholders (sidebar-nav.tsx), reused here directly
                             rather than the generic text-muted-foreground this
-                            used before. */}
-                        <p className="min-w-0 truncate text-2xs text-foreground opacity-50">{item.snippet}</p>
+                            used before. w-full, not just min-w-0/truncate --
+                            real bug, confirmed directly via screenshot ("the
+                            last message going beyond the width boundary when
+                            it should do the ... instead"): a run of text with
+                            no wrap points at all (a markdown-style link with a
+                            long, space-free URL, here) still needs this flex
+                            item to actually resolve to a definite width to
+                            ellipsis against -- min-w-0 alone only stops this
+                            paragraph's own min-content size from forcing the
+                            row wider, it doesn't itself give the paragraph a
+                            width to truncate to. */}
+                        <p className="w-full min-w-0 truncate text-2xs text-foreground opacity-50">{item.snippet}</p>
                       </div>
                     )}
                   </button>
