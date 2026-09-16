@@ -8,24 +8,9 @@ import { python } from "@codemirror/lang-python";
 import { html } from "@codemirror/lang-html";
 import { css } from "@codemirror/lang-css";
 import { json } from "@codemirror/lang-json";
-import {
-  useCreateBlockNote,
-  SideMenu,
-  SideMenuController,
-  useComponentsContext,
-  useDictionary,
-  useBlockNoteEditor,
-  useExtension,
-  useExtensionState,
-  type SideMenuProps,
-} from "@blocknote/react";
-import { SideMenuExtension, SuggestionMenu } from "@blocknote/core/extensions";
-import { GripVertical } from "lucide-react";
-import { offset } from "@floating-ui/react";
-import { en } from "@blocknote/core/locales";
-import { BlockNoteView, lightDefaultTheme, darkDefaultTheme, type Theme } from "@blocknote/mantine";
-import "@blocknote/mantine/style.css";
-import "./right-panel.css";
+import { Plate, usePlateEditor } from "platejs/react";
+import { EditorKit } from "@/components/editor/editor-kit";
+import { Editor, EditorContainer } from "@/components/ui/editor";
 import { XIcon, File02Icon, ChevronLeftIcon, ChevronRightIcon, FolderIcon, TerminalIcon, DotsVerticalIcon } from "@/components/icons/untitled-ui";
 import { Button } from "@/components/ui/button";
 import { FileExtensionBadge, stripExtension } from "@/components/file-extension-badge";
@@ -37,39 +22,17 @@ import {
 import { MenuItem as BaseMenuItem } from "@/components/ui/menu-item";
 import { MoreTrigger } from "@/components/ui/more-trigger";
 
-// Real BlockNote block editor (issue #299) -- replaces the earlier
-// Streamdown-based read-mostly preview per explicit direction (referencing
-// a sibling repo, cydonia, as a design target: click-to-transform a block
-// into a different type, drag-and-drop block reordering, a "Plain text"
-// toggle). BlockNote ships the drag handle/side menu and the slash "turn
-// into" menu itself, so neither needs custom implementation here.
-//
-// Transparent editor background, same real bug/fix class as the CodeMirror
-// background fix elsewhere in this file: BlockNote's own default themes
-// bake in a real (non-transparent) editor background rather than blending
-// into this panel's own bg-background. Unlike CodeMirror's stylesheet-based
-// theme (a real specificity fight, needed Prec.highest + !important),
-// BlockNote's Theme is applied as inline CSS custom properties on the
-// editor's own DOM node (applyBlockNoteCSSVariablesFromTheme), so a plain
-// override here is sufficient -- no specificity contest to force.
-const lightTheme: Theme = {
-  ...lightDefaultTheme,
-  colors: { ...lightDefaultTheme.colors, editor: { ...lightDefaultTheme.colors.editor, background: "transparent" } },
-};
-const darkTheme: Theme = {
-  ...darkDefaultTheme,
-  colors: { ...darkDefaultTheme.colors, editor: { ...darkDefaultTheme.colors.editor, background: "transparent" } },
-};
-
-// Shorter empty-block placeholder -- per explicit request ("it should only
-// be Type / for commands and not Enter..."): BlockNote's own default
-// ("Enter text or type '/' for commands", @blocknote/core's en locale)
-// spells out both ways to start a block; overriding just this one string
-// on top of the full `en` dictionary (options.dictionary replaces the
-// whole dictionary, not a per-key merge, per BlockNoteEditor.ts's own
-// `this.dictionary = options.dictionary || en`) keeps every other real
-// translation intact.
-const dictionary = { ...en, placeholders: { ...en.placeholders, default: "Type '/' for commands" } };
+// Real Plate.js block editor -- replaces BlockNote (issue #299 originally
+// built this on BlockNote; migrated per explicit request, "give me other
+// alternatives to blocknote, there's a lot to fix and i want something
+// ready to use" -- BlockNote's packaged Mantine/Emotion styling needed a
+// long running series of !important CSS overrides to fit this panel's
+// compact scale, each one its own bug report; Plate ships through the
+// shadcn CLI as copied-in source instead of a packaged stylesheet, so
+// sizing is just this app's own Tailwind classes going forward). EditorKit
+// (src/components/editor/editor-kit.tsx) is Plate's own full stock plugin
+// bundle -- headings/lists/tables/media/AI/markdown/comments/suggestions/
+// the fixed toolbar, all included, none of it hand-assembled here.
 
 // This document's real title, not its raw filename -- per explicit
 // request ("instead of example.md at the top that should be the title of
@@ -109,175 +72,6 @@ function splitTitle(markdownText: string, path: string): { title: string; body: 
 function combineTitle(title: string, body: string): string {
   return title.trim() ? `# ${title.trim()}\n\n${body}` : body;
 }
-
-// A real, uploaded cover image -- per explicit direction ("what is it
-// used by cydonia to generate the cover?... don't implement anything, the
-// only thing we should have is upload cover"): checked cydonia's own
-// cover.rs directly -- its generated pattern is a from-scratch procedural
-// algorithm (a hand-tuned halftone dither), not something worth porting,
-// but that same file also supports a real uploaded cover image, stored as
-// a plain file beside the document ("the file being there is the whole
-// of the state" -- its own comment). This mirrors that: GET/POST
-// /files/cover (backend/src/server.rs) store the cover as
-// `<basename>.cover.<ext>` next to the markdown file, no DB row, so
-// there's nothing to keep in sync and a cover deleted outside the app is
-// simply gone -- same trust boundary as /files itself.
-function Cover({ path }: { path: string }) {
-  // Real bug, confirmed directly via a screenshot (a broken-image glyph
-  // sitting where the cover should be, on a file with no cover uploaded
-  // yet -- the overwhelmingly common case right now): starting hasCover
-  // optimistically true meant the <img> always mounted and always
-  // attempted to load /files/cover before anything had confirmed a cover
-  // actually exists, so a missing one always hit the browser's own
-  // native broken-image rendering first, onError or not. Starting false
-  // and confirming existence with a HEAD request before ever rendering
-  // the <img> means a missing cover never gets an <img> tag at all.
-  const [hasCover, setHasCover] = useState(false);
-  const [version, setVersion] = useState(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setHasCover(false);
-    setVersion(0);
-    fetch(`/files/cover?path=${encodeURIComponent(path)}`, { method: "HEAD" })
-      .then((res) => {
-        if (!cancelled && res.ok) setHasCover(true);
-      })
-      .catch(() => {
-        // No cover, or the request itself failed -- either way, the
-        // neutral placeholder (already the default) is the right state.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [path]);
-
-  async function handleUpload(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = () => reject(new Error("Failed to read the selected file."));
-      reader.readAsDataURL(file);
-    });
-    await fetch("/files/cover", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path, data_url: dataUrl }),
-    });
-    setHasCover(true);
-    setVersion((v) => v + 1);
-  }
-
-  return (
-    // bg-black/[0.06] dark:bg-white/[0.06], not bg-muted -- real bug,
-    // confirmed directly ("For no cover, just add something like a plain
-    // lighter bg for dark mode and a darker bg for light mode"): bg-muted
-    // already darkens in light mode and lightens in dark mode (the same
-    // direction requested), but only at a 4% --accent opacity meant for
-    // subtle hover states, not a placeholder that needs to actually read
-    // as a real "cover" area against the page.
-    <div className="group relative h-[110px] w-full shrink-0 bg-black/[0.06] dark:bg-white/[0.06]">
-      {hasCover && (
-        // key={version} -- a plain src change alone doesn't force a
-        // reload if the URL is otherwise identical to what's already
-        // painted; the version query param (bumped after a real upload)
-        // guarantees a fresh request instead of the old image lingering.
-        <img
-          key={version}
-          src={`/files/cover?path=${encodeURIComponent(path)}&v=${version}`}
-          alt=""
-          className="h-full w-full object-cover"
-          onError={() => setHasCover(false)}
-        />
-      )}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/png,image/jpeg,image/webp,image/gif"
-        className="hidden"
-        onChange={(event) => void handleUpload(event)}
-      />
-      {/* Bottom-right, only on hover -- per explicit direction ("inside
-          the cover at the bottom right"), matching Notion's own
-          add/change-cover placement. */}
-      <button
-        type="button"
-        onClick={() => fileInputRef.current?.click()}
-        className="absolute right-2 bottom-2 rounded-md border border-border bg-background/90 px-2 py-1 text-[12px] text-foreground opacity-0 shadow-sm backdrop-blur-sm transition-opacity group-hover:opacity-100"
-      >
-        {hasCover ? "Change cover" : "Add cover"}
-      </button>
-    </div>
-  );
-}
-
-// Opens the exact same "/" suggestion menu typing "/" does, instead of a
-// custom Delete/Transform/Colors dropdown -- per explicit request ("can
-// we actually remove the transform and colors dropdown totally and when
-// we click at the draggable we open the same as / when we type it"),
-// replacing the whole custom-menu approach this file was building up
-// (that path also had a real, unresolved stuck-transition rendering bug
-// -- a 100x6 "ghost" dropdown sliver -- on top of not being what was
-// wanted any more). openSuggestionMenu's own deleteTriggerCharacter:
-// false means this never actually types a "/" into the block (which
-// would leave a stray character behind); it just opens the menu as if
-// one had been typed. Delete is dropped entirely, not relocated -- per
-// explicit follow-up confirming that's fine, since existing means
-// (selecting the block's text and backspacing) already remove a block.
-function SingleHandleSideMenu(props: SideMenuProps) {
-  const Components = useComponentsContext()!;
-  const dict = useDictionary();
-  const editor = useBlockNoteEditor();
-  const sideMenu = useExtension(SideMenuExtension);
-  const block = useExtensionState(SideMenuExtension, {
-    selector: (state) => state?.block,
-  });
-
-  if (block === undefined) return null;
-
-  return (
-    <SideMenu {...props}>
-      <Components.SideMenu.Button
-        label={dict.side_menu.drag_handle_label}
-        draggable={true}
-        onDragStart={(event) => sideMenu.blockDragStart(event, block)}
-        onDragEnd={sideMenu.blockDragEnd}
-        onClick={() => {
-          editor.setTextCursorPosition(block, "end");
-          editor.getExtension(SuggestionMenu)?.openSuggestionMenu("/", { deleteTriggerCharacter: false });
-        }}
-        className="bn-button"
-        icon={<GripVertical size={18} data-test="dragHandle" />}
-      />
-    </SideMenu>
-  );
-}
-
-// Real bug, confirmed directly via a follow-up screenshot ("the drag icon
-// and text still not vertically centralised"): BlockNote's own default
-// placement for this menu is "left-start" (top-aligned to the block, not
-// centered) plus a *hardcoded per-block-type pixel offset* to fake
-// vertical centering (@blocknote/react's own SideMenuController.tsx,
-// getBlockOffset() -- e.g. +39px for an h1), tuned for BlockNote's own
-// default (larger) font sizes. Shrinking the font scale to fit this panel
-// (right-panel.css) made every one of those hardcoded numbers wrong, so
-// no further pixel-guessing fix would hold. Overriding placement to
-// plain "left" instead makes floating-ui center the menu against the
-// reference block's own real height itself (no per-block-type table to
-// keep in sync with font-size changes), and mainAxis: 6 adds real
-// breathing room between the handle and the block's own text -- per a
-// further explicit follow-up ("increase the gap of the icon to the text
-// so when we hover over it, the hover bg do not touch the text").
-const sideMenuFloatingUIOptions = {
-  useFloatingOptions: {
-    placement: "left" as const,
-    middleware: [offset({ mainAxis: 6 })],
-  },
-};
 
 // Extension -> CodeMirror language extension. Anything not listed here
 // still gets a real, editable plain-text CodeMirror instance (no syntax
@@ -539,7 +333,7 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
   const [error, setError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
-  // Real block editor (BlockNote) for markdown files -- per explicit
+  // Real block editor (Plate.js) for markdown files -- per explicit
   // direction (referencing cydonia's own editor as a design target: click-
   // to-transform a block, drag-reorder, a "Plain text" toggle), replacing
   // the earlier Streamdown-based preview. Every other extension keeps the
@@ -550,12 +344,13 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
   const [view, setView] = useState<"blocks" | "plaintext">("blocks");
   const [title, setTitle] = useState(() => fileName(path).replace(/\.(md|markdown)$/i, ""));
   // Recreated per file (deps: [path]) -- a fresh editor/document per open
-  // file rather than one long-lived instance reused across files.
-  const editor = useCreateBlockNote({ dictionary }, [path]);
-  // Guards editor.replaceBlocks calls (initial hydration from disk, and
+  // file rather than one long-lived instance reused across files, same
+  // convention useCreateBlockNote's own [path] deps arg used.
+  const editor = usePlateEditor({ plugins: EditorKit }, [path]);
+  // Guards editor.tf.setValue calls (initial hydration from disk, and
   // plaintext -> blocks conversion on toggle) from tripping the dirty flag
-  // via BlockNoteView's own onChange -- those are real content-setting
-  // operations, not a user edit.
+  // via Plate's own onChange -- those are real content-setting operations,
+  // not a user edit.
   const hydratingRef = useRef(false);
 
   useEffect(() => {
@@ -577,7 +372,7 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
           const { title: t, body } = splitTitle(text, path);
           setTitle(t);
           hydratingRef.current = true;
-          editor.replaceBlocks(editor.document, editor.tryParseMarkdownToBlocks(body));
+          editor.tf.setValue(body);
           hydratingRef.current = false;
         }
       })
@@ -594,14 +389,14 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
 
   function togglePlainText() {
     if (view === "blocks") {
-      setContent(combineTitle(title, editor.blocksToMarkdownLossy()));
+      setContent(combineTitle(title, editor.api.markdown.serialize()));
       setView("plaintext");
     } else {
       if (content !== null) {
         const { title: t, body } = splitTitle(content, path);
         setTitle(t);
         hydratingRef.current = true;
-        editor.replaceBlocks(editor.document, editor.tryParseMarkdownToBlocks(body));
+        editor.tf.setValue(body);
         hydratingRef.current = false;
       }
       setView("blocks");
@@ -610,7 +405,7 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
 
   async function save() {
     if (content === null || saving) return;
-    const markdown = isMarkdown && view === "blocks" ? combineTitle(title, editor.blocksToMarkdownLossy()) : content;
+    const markdown = isMarkdown && view === "blocks" ? combineTitle(title, editor.api.markdown.serialize()) : content;
     setSaving(true);
     try {
       await fetch("/files", {
@@ -670,18 +465,11 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
       {/* [container-type:inline-size] -- per explicit request ("the font
           size needs to be dynamic... i need to fits to screen because in
           a smaller screen smaller fonts looks massive"): the title
-          input's and the block editor's own font-size (right-panel.css)
-          both use container query units (cqi) scaled off *this* panel's
-          own actual rendered width, not the viewport -- this panel
-          resizes independently of the window (its own drag handle), so a
-          vw-based size would react to the wrong dimension. The custom
-          Delete/Transform/Colors drag-handle dropdown that used to
-          overflow this container horizontally (needing an overflow-x-
-          hidden mitigation here) is gone -- SingleHandleSideMenu now
-          opens the "/" suggestion menu instead, which is BlockNote's own
-          default UI and already handles its own sizing/positioning
-          correctly, so there's nothing left for this container to guard
-          against. */}
+          input's own font-size (its own inline clamp(), below) uses
+          container query units (cqi) scaled off *this* panel's own
+          actual rendered width, not the viewport -- this panel resizes
+          independently of the window (its own drag handle), so a
+          vw-based size would react to the wrong dimension. */}
       <div className="min-h-0 flex-1 overflow-auto [container-type:inline-size]">
         {error ? (
           <p className="p-3 text-[13px] text-muted-foreground">{error}</p>
@@ -692,26 +480,22 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
           null
         ) : (
           <>
-            {/* Shown above either view -- both are still the same
-                document, per explicit request that "all of our .mds"
-                get this, not just the Blocks view. */}
-            {isMarkdown && <Cover path={path} />}
             {isMarkdown && view === "blocks" ? (
               <>
-                {/* A plain, static text input -- not a BlockNote block --
-                    per explicit request ("the title should not be click
-                    and drag but static"): splitTitle (above) already
-                    keeps this out of editor.document entirely, so it
-                    never picks up BlockNote's own per-block chrome (drag
-                    handle/turn-into menu) the way it did when the title
-                    was still just "whichever block happens to be first".
-                    px-[54px] matches bn-editor's own padding-inline
-                    (right-panel.css) so the title's left edge lines up
-                    with the body text below it. font-size: clamp(...cqi)
-                    -- same responsive-to-panel-width approach as the
-                    body text below (right-panel.css's own comment has
-                    the full reasoning), scaled up since a title reads
-                    larger than body text. */}
+                {/* A plain, static text input -- not a Plate block -- per
+                    explicit request ("the title should not be click and
+                    drag but static"): splitTitle (above) already keeps
+                    this out of the document entirely, so it never picks
+                    up Plate's own per-block chrome (drag handle/turn-into
+                    menu) the way it did when the title was still just
+                    "whichever block happens to be first". px-[54px]
+                    matches the editor's own left padding (ui/editor.tsx's
+                    own "default"/"none" variant paddings) so the title's
+                    left edge lines up with the body text below it.
+                    font-size: clamp(...cqi) -- same responsive-to-panel-
+                    width approach as this container's own [container-
+                    type:inline-size] comment above, scaled up since a
+                    title reads larger than body text. */}
                 <input
                   type="text"
                   value={title}
@@ -723,34 +507,16 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
                   className="w-full border-0 bg-transparent px-[54px] pt-8 pb-1 font-bold text-foreground outline-none placeholder:text-muted-foreground/60"
                   style={{ fontSize: "clamp(20px, 6cqi, 32px)" }}
                 />
-                <BlockNoteView
+                <Plate
                   editor={editor}
-                  theme={document.documentElement.classList.contains("dark") ? darkTheme : lightTheme}
-                  sideMenu={false}
                   onChange={() => {
                     if (!hydratingRef.current) setDirty(true);
                   }}
                 >
-                  {/* portalElement={null} reverted -- real bug, confirmed
-                      directly ("now its broken when i hover over the
-                      draggable, that keeps switching between a click and
-                      a text which stops me from opening the menu"):
-                      SideMenuController's own portalElement moves the
-                      *entire* floating side menu -- the drag handle
-                      button itself, not just its Delete/Transform/Colors
-                      dropdown -- to wherever it points. Routing that to
-                      document.body separated the handle's own DOM
-                      position from the block-hover tracking that shows/
-                      hides it (SideMenuExtension's mouseover-driven
-                      state), which is what actually produced the
-                      flicker. The dropdown's own portaling (Mantine's
-                      withinPortal, hardcoded false in this package's own
-                      Menu.tsx wrapper) is a separate system with no
-                      exposed prop to override from here -- the scrollbar
-                      this was meant to fix needs a different approach
-                      that doesn't touch the handle's own positioning. */}
-                  <SideMenuController sideMenu={SingleHandleSideMenu} floatingUIOptions={sideMenuFloatingUIOptions} />
-                </BlockNoteView>
+                  <EditorContainer variant="default" className="h-auto overflow-visible">
+                    <Editor variant="none" className="px-[54px] py-2" />
+                  </EditorContainer>
+                </Plate>
               </>
             ) : (
               <CodeMirror

@@ -1,4 +1,6 @@
 @import "tailwindcss";
+
+@plugin "tailwind-scrollbar-hide";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 /* Reinstated -- per explicit request ("Use system UI font" toggle,
@@ -177,6 +179,8 @@
     --shadow-2: var(--shadow-2);
     --shadow-1: var(--shadow-1);
     --color-shadow-color: var(--shadow-color);
+    --color-brand: var(--brand);
+    --color-highlight: var(--highlight);
   @keyframes sf-reveal-start {
   from {
     --sf-start: 1;
@@ -467,6 +471,8 @@
        overrides this when "Expanded" is chosen, never re-sets 800px
        itself. */
     --chat-max-width: 800px;
+    --highlight: oklch(0.852 0.199 91.936);
+    --brand: oklch(0.623 0.214 259.815);
 }
 
 /* --row-radius -- scales at real viewport breakpoints (matches Tailwind's
@@ -605,6 +611,8 @@
     --selected: #525252;
     --destructive-light: #450A0A;
     --overlay: 255 255 255;
+    --highlight: oklch(0.852 0.199 91.936);
+    --brand: oklch(0.707 0.165 254.624);
 }
 
 /* Smooths the light/dark toggle (useTheme.ts's .dark class flip on
