@@ -990,6 +990,20 @@ export function AppLayout() {
     }));
   }
 
+  // Real bug, confirmed directly ("the files at the right sidebar and
+  // library are not updating in real time so i have to refresh"): the
+  // right panel's own file list (ChatFileListPanel, right-panel.tsx) only
+  // ever fetches once per chatId, with nothing telling it a Write/Edit
+  // tool_use just landed for the chat it's already showing. ChatPage
+  // calls this (via the same outlet context openFile/renameOpenFile
+  // already go through) whenever it processes one of those tool_use
+  // blocks in the live event stream; bumping this tick is threaded down
+  // as a dependency into that same fetch effect, below.
+  const [filesTouchedTick, setFilesTouchedTick] = useState(0);
+  function notifyFilesTouched() {
+    setFilesTouchedTick((tick) => tick + 1);
+  }
+
   // Real drag-resize (mouse-driven width state), not react-resizable-panels
   // -- per explicit request ("make sure we are using the same drawer
   // transition as the left sidebar collapse"): the left sidebar's own open/
@@ -1135,6 +1149,7 @@ export function AppLayout() {
     refreshSidebarLists,
     openFile: (path: string) => navigateRightPanel({ type: "file", path }),
     renameOpenFile,
+    notifyFilesTouched,
     // Per explicit request ("The right sidebar is not expanding enough, it
     // should expand to compact the chat message so instead of being 800px
     // default that be 400px with the sidebar open") -- ChatPage.tsx reads
@@ -1890,6 +1905,7 @@ export function AppLayout() {
                     onForward={rightPanelGoForward}
                     canGoBack={panelNav.index > 0}
                     canGoForward={panelNav.index < panelNav.history.length - 1}
+                    filesTouchedTick={filesTouchedTick}
                   />
                 </div>
               </>

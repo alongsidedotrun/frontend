@@ -130,8 +130,11 @@ type ChatRow =
 // Same idea as dray's own ToolCall.tsx SUMMARY_FIELDS -- the one input field most
 // worth showing inline for a given tool, so a tool row reads as "Read app.py" or
 // "Bash: npm test" instead of a bare tool name. Falls through in order since a
-// block only ever has some of these; the first one present wins.
-const TOOL_SUMMARY_FIELDS = ["file_path", "path", "notebook_path", "command", "pattern", "query", "url", "description"];
+// block only ever has some of these; the first one present wins. TargetFile --
+// Antigravity's own write_to_file names its path field differently than every
+// other provider (db.rs's own FILE_PATH_KEYS has the same real, confirmed-
+// directly discrepancy for Library's file list).
+const TOOL_SUMMARY_FIELDS = ["file_path", "path", "TargetFile", "notebook_path", "command", "pattern", "query", "url", "description"];
 
 function summarizeToolInput(input: unknown): string | null {
   if (!input || typeof input !== "object") return null;
@@ -141,6 +144,22 @@ function summarizeToolInput(input: unknown): string | null {
     if (typeof value === "string" && value) return value;
   }
   return null;
+}
+
+// Maps a provider-specific tool name onto the name this file's own rendering
+// already knows how to treat specially, so a tool row reads the same
+// regardless of which provider's own internal name produced it -- per
+// explicit request ("write_to_file should be hidden as that's a backend
+// thing"): Antigravity's write_to_file is functionally the same action as
+// Claude's own Write (replace a file's full contents), but showing its raw
+// internal tool name verbatim in a "worked for Ns" row read as an
+// implementation detail leaking through, not a real tool.
+const TOOL_NAME_ALIASES: Record<string, string> = {
+  write_to_file: "Write",
+};
+
+function normalizeToolName(name: string): string {
+  return TOOL_NAME_ALIASES[name] ?? name;
 }
 
 function messageTime() {
@@ -243,14 +262,16 @@ export function ChatPage() {
   // own auto-naming happened to fail (chat_name_failed, not
   // chat_name_updated) -- receiveChatNameFromServer's own existing refresh
   // call only fires on a successful rename, not on every real message.
-  const { chatName, receiveChatNameFromServer, refreshSidebarLists, openSettings, openFile, rightPanelOpen } = useOutletContext<{
-    chatName: string;
-    receiveChatNameFromServer: (name: string) => void;
-    refreshSidebarLists: () => void;
-    openSettings: (section: SettingsSection) => void;
-    openFile: (path: string) => void;
-    rightPanelOpen: boolean;
-  }>();
+  const { chatName, receiveChatNameFromServer, refreshSidebarLists, openSettings, openFile, rightPanelOpen, notifyFilesTouched } =
+    useOutletContext<{
+      chatName: string;
+      receiveChatNameFromServer: (name: string) => void;
+      refreshSidebarLists: () => void;
+      openSettings: (section: SettingsSection) => void;
+      openFile: (path: string) => void;
+      rightPanelOpen: boolean;
+      notifyFilesTouched: () => void;
+    }>();
   // Real correction, per explicit follow-up ("we reduce to 400px but
   // there's so much space around it, instead of reducing the content to
   // 400px, keep that as 800px and reduce the outside paddings on left and
@@ -1239,13 +1260,21 @@ export function ChatPage() {
               // itself is kept on the row too so ChatRowView can show the full raw
               // arguments on expand, matching dray's own ToolCall.tsx.
               setWaitingPhase(null);
+              const toolName = normalizeToolName(block.name);
               pushRow({
                 kind: "tool",
                 id: nextRowId(),
-                name: block.name,
+                name: toolName,
                 summary: summarizeToolInput(block.input),
                 input: block.input,
               });
+              // Real bug, confirmed directly ("the files at the right
+              // sidebar and library are not updating in real time so i
+              // have to refresh"): right-panel.tsx's own ChatFileListPanel
+              // only fetches once per chat, with nothing telling it a new
+              // file just landed here. Write/Edit is exactly the moment
+              // that becomes true.
+              if (toolName === "Write" || toolName === "Edit") notifyFilesTouched();
             }
           }
         }

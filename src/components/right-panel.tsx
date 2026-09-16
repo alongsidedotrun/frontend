@@ -188,6 +188,7 @@ export function RightPanel({
   onForward,
   canGoBack,
   canGoForward,
+  filesTouchedTick,
 }: {
   state: RightPanelState;
   onClose: () => void;
@@ -196,10 +197,16 @@ export function RightPanel({
   onForward: () => void;
   canGoBack: boolean;
   canGoForward: boolean;
+  // Bumped by AppLayout.tsx whenever the active chat's own live event
+  // stream processes a Write/Edit tool_use -- see that file's own
+  // notifyFilesTouched comment for the real bug this fixes.
+  filesTouchedTick: number;
 }) {
   const navButtons = <NavButtons canGoBack={canGoBack} canGoForward={canGoForward} onBack={onBack} onForward={onForward} />;
   if (state.type === "list") {
-    return <ChatFileListPanel chatId={state.chatId} onSelectFile={onSelectFile} navButtons={navButtons} />;
+    return (
+      <ChatFileListPanel chatId={state.chatId} onSelectFile={onSelectFile} navButtons={navButtons} refreshSignal={filesTouchedTick} />
+    );
   }
   return <FileEditorPanel path={state.path} onClose={onClose} navButtons={navButtons} />;
 }
@@ -211,10 +218,17 @@ function ChatFileListPanel({
   chatId,
   onSelectFile,
   navButtons,
+  refreshSignal,
 }: {
   chatId: string;
   onSelectFile: (path: string) => void;
   navButtons: ReactNode;
+  // Bumped whenever the active chat's own live event stream processes a
+  // Write/Edit tool_use -- real bug, confirmed directly ("the files at the
+  // right sidebar and library are not updating in real time so i have to
+  // refresh"): this only ever fetched once per chatId, with nothing
+  // telling it a new file just landed for the chat it's already showing.
+  refreshSignal: number;
 }) {
   const [files, setFiles] = useState<{ filePath: string; lastModified: string }[] | null>(null);
   // Real bug, confirmed directly ("the sidebar is stuck at loading... and
@@ -224,10 +238,17 @@ function ChatFileListPanel({
   // from still-loading. FileEditorPanel's own fetch already handles this
   // correctly; this one was just missing the same real error path.
   const [error, setError] = useState<string | null>(null);
+  const prevChatIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    setFiles(null);
+    // Only reset to the loading state for a genuinely different chat --
+    // a refreshSignal bump mid-conversation should refetch quietly, not
+    // flash the whole list back to blank while it reloads.
+    if (prevChatIdRef.current !== chatId) {
+      prevChatIdRef.current = chatId;
+      setFiles(null);
+    }
     setError(null);
     // /library/files, not a bare /library -- real bug, confirmed directly
     // ("if I reload i get [raw JSON]"): LibraryPage.tsx's own route is
@@ -249,7 +270,7 @@ function ChatFileListPanel({
     return () => {
       cancelled = true;
     };
-  }, [chatId]);
+  }, [chatId, refreshSignal]);
 
   return (
     // No border-l here -- real bug, confirmed directly ("the border...
