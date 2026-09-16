@@ -176,9 +176,22 @@ export function TurnIntoToolbarButton(props: DropdownMenuProps) {
           this same narrow side panel before the Plate migration. Matches
           this app's own established compact menu scale elsewhere
           (menu-item.tsx's own BaseMenuItem: text-xs labels, size-3.5
-          icons, ~28-32px rows) rather than Plate's book-page defaults. */}
+          icons, ~28-32px rows) rather than Plate's book-page defaults.
+          w-auto -- a second real bug, confirmed directly via a follow-up
+          screenshot ("the rest of the toolbar still not fit into it and
+          the dropdown still chopped"): dropdown-menu.tsx's own
+          DropdownMenuContent bases its width on
+          w-(--radix-dropdown-menu-trigger-width) -- fine for a real
+          select-style dropdown, which should match its own trigger's
+          width, but wrong for this list-style "Turn into" menu, whose
+          content should size to its own longest row instead. Shrinking
+          the trigger button itself (above) shrank the whole dropdown
+          along with it, clipping every row's text regardless of each
+          item's own min-w. w-auto overrides that binding for this one
+          dropdown only -- dropdown-menu.tsx itself (shared with
+          nav-user.tsx's own real select-style dropdown) is untouched. */}
       <DropdownMenuContent
-        className="ignore-click-outside/toolbar min-w-0"
+        className="ignore-click-outside/toolbar w-auto min-w-0"
         onCloseAutoFocus={(e) => {
           e.preventDefault();
           editor.tf.focus();
