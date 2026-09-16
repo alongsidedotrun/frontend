@@ -188,9 +188,28 @@ function PageBreadcrumb({
   chatName,
   onSaveChatName,
   models,
+  active,
 }: {
   chatName: string;
   onSaveChatName: (name: string) => void;
+  // Mirrors the parent header's own showChatHeader -- real bug, confirmed
+  // directly ("I am at Library page with no chat open and I move to new
+  // chat and then the topbar changes from Library to the chat name
+  // instead of fading out Library and not show anything else"): this
+  // component picks its branch (Home/Library/chat-name) purely from the
+  // *current* route, but the header itself stays mounted and only fades
+  // its opacity out rather than unmounting (see that header's own
+  // comment) -- so the instant the route changed away from /library, this
+  // swapped straight to the chat-name branch (showing whatever stale
+  // chatName was left over from the last real chat) for the entire
+  // fade-out, instead of continuing to show "Library" the whole time
+  // nothing else is visible yet. Freezing the rendered output while
+  // inactive (below) instead of always deriving it live fixes this the
+  // same way the header's own chatName-preservation comment already
+  // fixes the analogous "leaving a chat" case -- both are really the
+  // same bug (visible content briefly disagreeing with what should still
+  // be showing during a fade-out), just triggered from a different route.
+  active: boolean;
   // Every distinct provider/model this chat has actually used -- per
   // explicit request ("we need to add the model at the chat name like
   // the name of the sidebar has the icon of the model so that we can
@@ -215,6 +234,7 @@ function PageBreadcrumb({
   // editable input firing onSaveChatName straight from onChange couldn't do.
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(chatName);
+  const contentRef = useRef<React.ReactNode>(null);
 
   function startEditing() {
     setDraft(chatName);
@@ -230,8 +250,9 @@ function PageBreadcrumb({
     setEditing(false);
   }
 
+  let content: React.ReactNode;
   if (location.pathname === "/getting-started") {
-    return (
+    content = (
       <Breadcrumb>
         {/* text-[13px]: matches dray's own --text-ui token (0.8125rem =
             13px) -- their session-header row (SessionHeader.tsx) sets this
@@ -245,21 +266,19 @@ function PageBreadcrumb({
         </BreadcrumbList>
       </Breadcrumb>
     );
-  }
-
-  // Real bug, confirmed directly (pasted rendered HTML showing this whole
-  // header at opacity: 0 on the Library page): this header is always
-  // mounted on every page -- even one with no open chat -- specifically
-  // to *reserve its own real height* so opacity/visibility toggling never
-  // causes a layout jump (this component's own header comment has the
-  // full reasoning). LibraryPage.tsx used to build its own second, real
-  // 40px header on top of that already-reserved-but-invisible space,
-  // which is what actually produced "the library topbar is huge" --
-  // never a border or padding bug, two real headers stacked. The fix is
-  // this branch, not more CSS on Library's own page: reuse this same
-  // reserved slot instead of adding another one.
-  if (location.pathname === "/library") {
-    return (
+  } else if (location.pathname === "/library") {
+    // Real bug, confirmed directly (pasted rendered HTML showing this whole
+    // header at opacity: 0 on the Library page): this header is always
+    // mounted on every page -- even one with no open chat -- specifically
+    // to *reserve its own real height* so opacity/visibility toggling never
+    // causes a layout jump (this component's own header comment has the
+    // full reasoning). LibraryPage.tsx used to build its own second, real
+    // 40px header on top of that already-reserved-but-invisible space,
+    // which is what actually produced "the library topbar is huge" --
+    // never a border or padding bug, two real headers stacked. The fix is
+    // this branch, not more CSS on Library's own page: reuse this same
+    // reserved slot instead of adding another one.
+    content = (
       <Breadcrumb>
         {/* pl-2 on top of the header's own pl-2 (its <header> above) --
             per explicit request ("give the top bar title... the same
@@ -275,9 +294,8 @@ function PageBreadcrumb({
         </BreadcrumbList>
       </Breadcrumb>
     );
-  }
-
-  return (
+  } else {
+    content = (
     <Breadcrumb>
       {/* No "Home >" leading crumb any more -- per explicit request: projects are
           real data now (GET /projects, backend/src/server.rs -- the SQLite
@@ -489,7 +507,17 @@ function PageBreadcrumb({
         </BreadcrumbItem>
       </BreadcrumbList>
     </Breadcrumb>
-  );
+    );
+  }
+
+  // Freeze the rendered output while inactive instead of always returning
+  // freshly-derived content -- see the `active` prop's own comment above
+  // for the real bug this fixes (Library -> New Chat briefly showing a
+  // stale chat name instead of continuing to show "Library" for the
+  // header's whole fade-out). Only updates while active, so the frozen
+  // value is always whatever was last genuinely visible.
+  if (active) contentRef.current = content;
+  return contentRef.current ?? content;
 }
 
 // Code/Design -- reached from the compose box's own Chat/Code/Design
@@ -1154,6 +1182,7 @@ export function AppLayout() {
                   chatName={chatName}
                   onSaveChatName={saveChatName}
                   models={recents.find((r) => r.id === sessionId)?.models}
+                  active={showChatHeader}
                 />
               </div>
               {/* gap-0.5, not gap-2 -- icon-sm's own 28px box already has visible
