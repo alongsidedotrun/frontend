@@ -333,7 +333,7 @@ export function LibraryPage() {
                 files don't need folder-nesting UI). */}
             <div className="flex w-64 shrink-0 flex-col gap-3 overflow-y-auto border-r border-border px-2 pt-2 pb-4">
               <div className="flex flex-col gap-0.5">
-                <div className="mx-2 mb-0.5 flex h-5 items-center px-2 text-xs font-normal text-foreground select-none">
+                <div className="mb-0.5 flex h-5 items-center px-2 text-xs font-normal text-foreground select-none">
                   <span className="opacity-50">Projects</span>
                 </div>
                 {projects.length === 0 ? (
@@ -364,7 +364,7 @@ export function LibraryPage() {
                 )}
               </div>
               <div className="flex flex-col gap-0.5">
-                <div className="mx-2 mb-0.5 flex h-5 items-center px-2 text-xs font-normal text-foreground select-none">
+                <div className="mb-0.5 flex h-5 items-center px-2 text-xs font-normal text-foreground select-none">
                   <span className="opacity-50">Chats</span>
                 </div>
                 {standaloneChats.length === 0 ? (
