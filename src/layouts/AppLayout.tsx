@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate, useOutlet, useLocation, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { RightPanel } from "@/components/right-panel";
@@ -975,8 +975,22 @@ export function AppLayout() {
   // Library-opened panel -- !sessionId excludes a real chat's own file,
   // which the sessionId effect above already owns resetting) and restores
   // it the moment /library is reached again, from anywhere.
+  // useLayoutEffect, not useEffect -- real bug, confirmed directly ("we
+  // get the transition of the new chat page expanding its width...
+  // Does that make sense? We should not transition state between
+  // pages"): a plain effect runs *after* the browser has already
+  // painted the route-change render, so for one real frame the width
+  // styles below still computed off the *old* panelVisible/panelNav
+  // (rightPanel not yet cleared) -- routeJustChanged suppressed that
+  // frame's own transition duration, but the very next frame (this
+  // effect's setPanelVisible actually landing) was a same-route update
+  // again, so it animated normally, reading as the panel briefly
+  // flashing open then sliding shut on every single page leave. Moving
+  // the reset into a layout effect lets React apply it before that first
+  // paint instead, so there's never a stale in-between frame to animate
+  // away from.
   const libraryPanelSnapshotRef = useRef<{ history: RightPanelEntry[]; index: number } | null>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (location.pathname !== "/library") {
       libraryPanelSnapshotRef.current = rightPanel && !sessionId ? panelNav : null;
       setPanelVisible(false);
@@ -1035,6 +1049,27 @@ export function AppLayout() {
   const libraryFullPanel = isLibraryRoute && rightPanel !== null;
   // Must match LibraryPage.tsx's own left column ("w-64").
   const LIBRARY_SIDEBAR_WIDTH = 256;
+
+  // Real bug, confirmed directly ("when switching pages... we get the
+  // transition of the new chat page expanding its width because the
+  // document that was open at library used that width, and if i return
+  // to library, the same opening transition happens again... We should
+  // not transition state between pages"): mainContent/the right panel's
+  // width transition is meant for opening/closing a file *while staying
+  // on* Library, not for a route change that happens to also change
+  // libraryFullPanel's own value (leaving Library with a file open drops
+  // it back to false; returning restores it back to true) -- from this
+  // effect's own perspective those look identical to a real toggle, so
+  // both animated too. Compared against a ref of the previous render's
+  // own pathname, in the render body itself (same technique this file's
+  // own lastSessionIdRef/chatName correction above already uses) so the
+  // very first render after a route change can see that it just
+  // happened and skip the transition for that one commit only -- any
+  // later toggle on the *same* route (actually opening/closing a file)
+  // still animates normally.
+  const prevPathnameForWidthRef = useRef(location.pathname);
+  const routeJustChanged = location.pathname !== prevPathnameForWidthRef.current;
+  prevPathnameForWidthRef.current = location.pathname;
 
   // Real bug, confirmed directly ("we need our transition again when
   // opening the file, the right sidebar should transition like it does
@@ -1755,7 +1790,7 @@ export function AppLayout() {
                 ? {
                     width: libraryFullPanel ? LIBRARY_SIDEBAR_WIDTH : contentRowWidth,
                     transitionProperty: "width",
-                    transitionDuration: `${SIDEBAR_MOTION_MS}ms`,
+                    transitionDuration: routeJustChanged ? "0ms" : `${SIDEBAR_MOTION_MS}ms`,
                     transitionTimingFunction: SIDEBAR_EASING,
                   }
                 : undefined
@@ -1783,7 +1818,7 @@ export function AppLayout() {
             style={{
               width: rightPanelTargetWidth,
               transitionProperty: "width",
-              transitionDuration: isResizingRightPanel ? "0ms" : `${SIDEBAR_MOTION_MS}ms`,
+              transitionDuration: isResizingRightPanel || routeJustChanged ? "0ms" : `${SIDEBAR_MOTION_MS}ms`,
               transitionTimingFunction: SIDEBAR_EASING,
             }}
           >
