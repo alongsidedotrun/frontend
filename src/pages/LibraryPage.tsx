@@ -232,6 +232,25 @@ function LibraryFileNameCell({ leaf, onRename, onDelete }: { leaf: string; onRen
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState(() => stripExtension(leaf));
   const ext = extensionOf(leaf);
+  const inputRef = useRef<HTMLInputElement>(null);
+  // autoFocus alone lost every time to the "..." dropdown's own closing
+  // popup: Base UI keeps focus trapped inside a Menu.Popup until it's
+  // actually done closing (its exit animation, not just visually faded),
+  // so autoFocus's one and only attempt -- firing the instant this input
+  // mounts, well before that trap releases -- was simply overridden.
+  // Real bug, confirmed directly ("I press enter to save and never
+  // saves", after the trigger's own reblur fix alone didn't resolve it):
+  // this refocuses again once the dropdown's own exit animation
+  // (springs.ts's spring.fast.exit, 60ms) has had time to actually
+  // finish and let go of the trap.
+  useEffect(() => {
+    if (!renaming) return;
+    const id = setTimeout(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }, 180);
+    return () => clearTimeout(id);
+  }, [renaming]);
 
   function commitRename() {
     const trimmed = draft.trim();
@@ -245,6 +264,7 @@ function LibraryFileNameCell({ leaf, onRename, onDelete }: { leaf: string; onRen
       <FileExtensionBadge name={leaf} />
       {renaming ? (
         <Input
+          ref={inputRef}
           autoFocus
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
