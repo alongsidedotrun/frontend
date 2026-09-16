@@ -158,7 +158,7 @@ export function TurnIntoToolbarButton(props: DropdownMenuProps) {
     <DropdownMenu open={open} onOpenChange={setOpen} modal={false} {...props}>
       <DropdownMenuTrigger asChild>
         <ToolbarButton
-          className="min-w-[90px] text-xs"
+          className="min-w-[125px]"
           pressed={open}
           tooltip="Turn into"
           isDropdown
@@ -167,31 +167,8 @@ export function TurnIntoToolbarButton(props: DropdownMenuProps) {
         </ToolbarButton>
       </DropdownMenuTrigger>
 
-      {/* Sized down from Plate's own defaults to match this app's compact
-          scale -- real bug, confirmed directly via screenshot ("the turn
-          into dropdown is very squished... does [scaling] by default?
-          [It doesn't] "): Plate's stock toolbar/menus are sized for a
-          full document page (min-w-[180px] rows, default text-sm/size-4
-          icons), same class of problem BlockNote's own defaults had in
-          this same narrow side panel before the Plate migration. Matches
-          this app's own established compact menu scale elsewhere
-          (menu-item.tsx's own BaseMenuItem: text-xs labels, size-3.5
-          icons, ~28-32px rows) rather than Plate's book-page defaults.
-          w-auto -- a second real bug, confirmed directly via a follow-up
-          screenshot ("the rest of the toolbar still not fit into it and
-          the dropdown still chopped"): dropdown-menu.tsx's own
-          DropdownMenuContent bases its width on
-          w-(--radix-dropdown-menu-trigger-width) -- fine for a real
-          select-style dropdown, which should match its own trigger's
-          width, but wrong for this list-style "Turn into" menu, whose
-          content should size to its own longest row instead. Shrinking
-          the trigger button itself (above) shrank the whole dropdown
-          along with it, clipping every row's text regardless of each
-          item's own min-w. w-auto overrides that binding for this one
-          dropdown only -- dropdown-menu.tsx itself (shared with
-          nav-user.tsx's own real select-style dropdown) is untouched. */}
       <DropdownMenuContent
-        className="ignore-click-outside/toolbar w-auto min-w-0"
+        className="ignore-click-outside/toolbar min-w-0"
         onCloseAutoFocus={(e) => {
           e.preventDefault();
           editor.tf.focus();
@@ -208,10 +185,10 @@ export function TurnIntoToolbarButton(props: DropdownMenuProps) {
           {turnIntoItems.map(({ icon, label, value: itemValue }) => (
             <DropdownMenuRadioItem
               key={itemValue}
-              className="min-w-[140px] gap-1.5 py-1 pl-2 text-xs *:first:[span]:hidden [&_svg]:size-3.5"
+              className="min-w-[180px] pl-2 *:first:[span]:hidden"
               value={itemValue}
             >
-              <span className="pointer-events-none absolute right-2 flex size-3 items-center justify-center">
+              <span className="pointer-events-none absolute right-2 flex size-3.5 items-center justify-center">
                 <DropdownMenuItemIndicator>
                   <CheckIcon />
                 </DropdownMenuItemIndicator>

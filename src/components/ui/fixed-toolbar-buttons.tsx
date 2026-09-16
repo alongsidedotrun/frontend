@@ -43,7 +43,7 @@ import { ModeToolbarButton } from './mode-toolbar-button';
 import { MoreToolbarButton } from './more-toolbar-button';
 import { TableToolbarButton } from './table-toolbar-button';
 import { ToggleToolbarButton } from './toggle-toolbar-button';
-import { ToolbarGroup, ToolbarOverflow } from './toolbar';
+import { ToolbarGroup } from './toolbar';
 import { TurnIntoToolbarButton } from './turn-into-toolbar-button';
 
 export function FixedToolbarButtons() {
@@ -51,16 +51,8 @@ export function FixedToolbarButtons() {
 
   return (
     <div className="flex w-full">
-      {/* ToolbarOverflow, not a plain fragment -- per explicit request
-          ("when an item is missing out of view... the last visible item
-          [should] become a three dots so when users click at it they can
-          see the options that could not fit"): wraps every group between
-          here and the trailing highlight/comment/mode groups (below,
-          intentionally left outside -- those stay pinned at the row's
-          own far end regardless of width, matching where a "settings"-
-          style control usually lives). */}
       {!readOnly && (
-        <ToolbarOverflow>
+        <>
           <ToolbarGroup>
             <UndoToolbarButton />
             <RedoToolbarButton />
@@ -156,24 +148,10 @@ export function FixedToolbarButtons() {
           <ToolbarGroup>
             <MoreToolbarButton />
           </ToolbarGroup>
-        </ToolbarOverflow>
+        </>
       )}
-      {/* Only rendered in read-only mode, when ToolbarOverflow itself
-          isn't -- real bug, confirmed directly via screenshot ("We still
-          have space before the ... starts"): ToolbarOverflow's own
-          container needs to actually claim the row's real leftover
-          space (flex-1, moved there below) so its own clientWidth
-          measurement reflects what's truly available, not just whatever
-          its currently-visible content happens to add up to -- a
-          shrink-only box that starts small and only ever gets smaller
-          each time it hides another item never grows back to remeasure
-          against the *real* available width, so it kept hiding more
-          than it needed to, leaving genuine free space behind. With
-          ToolbarOverflow claiming that space directly, this plain
-          spacer would double up as a second, competing flex-grower --
-          it's only still needed here to push the trailing groups to the
-          row's far end when ToolbarOverflow isn't rendered at all. */}
-      {readOnly && <div className="grow" />}
+
+      <div className="grow" />
 
       <ToolbarGroup>
         <MarkToolbarButton nodeType={KEYS.highlight} tooltip="Highlight">
