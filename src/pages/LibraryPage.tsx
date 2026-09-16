@@ -10,6 +10,26 @@ import { FileExtensionBadge, stripExtension } from "@/components/file-extension-
 import { spring } from "@/lib/springs";
 import { AlongsideLogo } from "@/components/icons/alongside-logo";
 
+// Which project/chat rows are left expanded, persisted across visits --
+// per explicit request ("chats and projects in the library should open
+// collapsed and not expanded, unless we left expanded, we need to save
+// that somehow cached"). Same load-defensively pattern
+// locally-hidden-chats.ts already uses (a parse failure or missing key
+// just falls back to "nothing expanded", not a thrown error).
+const EXPANDED_PROJECTS_KEY = "alongside_library_expanded_projects";
+const EXPANDED_CHATS_KEY = "alongside_library_expanded_chats";
+
+function loadExpandedIds(key: string): Set<string> {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    return new Set(Array.isArray(parsed) ? parsed : []);
+  } catch {
+    return new Set();
+  }
+}
+
 type LibraryFile = {
   filePath: string;
   chatId: string;
@@ -142,8 +162,20 @@ export function LibraryPage() {
   // and a Chats section (each expanding into a flat file list -- a single
   // chat's own files don't need folder-nesting UI), mirroring the real
   // sidebar's own Projects/Chats grouping instead of one flat selector list.
-  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
-  const [expandedChats, setExpandedChats] = useState<Set<string>>(new Set());
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(() => loadExpandedIds(EXPANDED_PROJECTS_KEY));
+  const [expandedChats, setExpandedChats] = useState<Set<string>>(() => loadExpandedIds(EXPANDED_CHATS_KEY));
+  // Persisted (not just in-memory) -- per explicit request ("chats and
+  // projects in the library should open collapsed and not expanded,
+  // unless we left expanded, we need to save that somehow cached"):
+  // whatever the user leaves expanded survives leaving Library and
+  // coming back, or reloading, rather than resetting to the previous
+  // "auto-expand the first item" default on every fresh visit.
+  useEffect(() => {
+    localStorage.setItem(EXPANDED_PROJECTS_KEY, JSON.stringify([...expandedProjects]));
+  }, [expandedProjects]);
+  useEffect(() => {
+    localStorage.setItem(EXPANDED_CHATS_KEY, JSON.stringify([...expandedChats]));
+  }, [expandedChats]);
   // Per-chat models, so a chat row can show the same model icon stack the
   // real sidebar/topbar show instead of a plain chat-bubble icon -- per
   // explicit request. GET /library/files itself has no model data (it's
@@ -243,18 +275,6 @@ export function LibraryPage() {
   }, [files]);
 
   const isEmpty = loaded && files.length === 0;
-
-  // Default-expand the first available project/chat once real data loads,
-  // rather than an all-collapsed, empty-looking list on first visit.
-  useEffect(() => {
-    if (expandedProjects.size || expandedChats.size || (!projects.length && !standaloneChats.length)) return;
-    if (projects.length > 0) setExpandedProjects(new Set([projects[0].projectId]));
-    else setExpandedChats(new Set([standaloneChats[0].chatId]));
-    // Only reacts to data becoming available, not to the expand sets
-    // themselves -- this is a one-time default, not something that should
-    // fight a user's own later expand/collapse.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projects, standaloneChats]);
 
   function toggleProject(projectId: string) {
     setExpandedProjects((prev) => {
