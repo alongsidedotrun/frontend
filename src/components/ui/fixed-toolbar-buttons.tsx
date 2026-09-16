@@ -43,7 +43,7 @@ import { ModeToolbarButton } from './mode-toolbar-button';
 import { MoreToolbarButton } from './more-toolbar-button';
 import { TableToolbarButton } from './table-toolbar-button';
 import { ToggleToolbarButton } from './toggle-toolbar-button';
-import { ToolbarGroup } from './toolbar';
+import { ToolbarGroup, ToolbarOverflow } from './toolbar';
 import { TurnIntoToolbarButton } from './turn-into-toolbar-button';
 
 export function FixedToolbarButtons() {
@@ -51,8 +51,16 @@ export function FixedToolbarButtons() {
 
   return (
     <div className="flex w-full">
+      {/* ToolbarOverflow, not a plain fragment -- per explicit request
+          ("when an item is missing out of view... the last visible item
+          [should] become a three dots so when users click at it they can
+          see the options that could not fit"): wraps every group between
+          here and the trailing highlight/comment/mode groups (below,
+          intentionally left outside -- those stay pinned at the row's
+          own far end regardless of width, matching where a "settings"-
+          style control usually lives). */}
       {!readOnly && (
-        <>
+        <ToolbarOverflow>
           <ToolbarGroup>
             <UndoToolbarButton />
             <RedoToolbarButton />
@@ -148,7 +156,7 @@ export function FixedToolbarButtons() {
           <ToolbarGroup>
             <MoreToolbarButton />
           </ToolbarGroup>
-        </>
+        </ToolbarOverflow>
       )}
 
       <div className="grow" />

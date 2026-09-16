@@ -5,12 +5,15 @@ import * as React from 'react';
 import * as ToolbarPrimitive from '@radix-ui/react-toolbar';
 import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 import { type VariantProps, cva } from 'class-variance-authority';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, MoreHorizontalIcon } from 'lucide-react';
 
 import {
+  DropdownMenu,
+  DropdownMenuContent,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipTrigger } from '@/components/ui/tooltip';
@@ -298,6 +301,122 @@ export function ToolbarGroup({
       <div className="group-last/toolbar-group:hidden! mx-1.5 py-0.5">
         <Separator orientation="vertical" />
       </div>
+    </div>
+  );
+}
+
+// Collapses trailing toolbar groups into a "..." menu once they no
+// longer fit -- real feature request ("when an item is missing out of
+// view, we should make the last visible item to become a three dots so
+// when users click at it they can see the options that could not fit
+// into the toolbar"), on top of (not replacing) FixedToolbar's own
+// horizontal-scroll fallback for whatever's still too narrow to show
+// even the first group.
+//
+// A real priority-nav pattern, not a fixed breakpoint list: every group
+// is measured exactly once, on mount, while all of them are still
+// actually rendered in the row (the only moment their real widths are
+// knowable without permanently double-mounting every toolbar button --
+// each one carries its own hooks/effects/editor state, so a second,
+// always-present "invisible measuring copy" of the whole toolbar would
+// mean every button's logic runs twice, all the time, just to measure
+// something that's fixed once known). Those cached widths, not a fresh
+// measurement, drive every later recalculation, including widening the
+// panel back out -- a group hidden into the overflow menu is genuinely
+// unmounted from the visible row (not just visually hidden), so it has
+// no width to remeasure directly once it's inside the "..." dropdown
+// instead.
+export function ToolbarOverflow({ children }: { children: React.ReactNode }) {
+  const items = React.useMemo(() => React.Children.toArray(children), [children]);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const itemRefs = React.useRef<(HTMLDivElement | null)[]>([]);
+  const widthsRef = React.useRef<number[]>([]);
+  const moreRef = React.useRef<HTMLDivElement>(null);
+  const [measured, setMeasured] = React.useState(false);
+  const [visibleCount, setVisibleCount] = React.useState(items.length);
+
+  const recalculate = React.useCallback(() => {
+    const container = containerRef.current;
+    if (!container || widthsRef.current.length < items.length) return;
+    const containerWidth = container.clientWidth;
+    const moreWidth = moreRef.current?.offsetWidth ?? 36;
+    let total = 0;
+    let fit = items.length;
+    for (let i = 0; i < items.length; i++) {
+      total += widthsRef.current[i] ?? 0;
+      const stillHasMoreAfterThis = i < items.length - 1;
+      if (total > containerWidth - (stillHasMoreAfterThis ? moreWidth : 0)) {
+        fit = i;
+        break;
+      }
+    }
+    setVisibleCount(Math.max(0, fit));
+  }, [items.length]);
+
+  // Runs before the browser paints this first render (unlike a plain
+  // effect), so the "measure every item" pass below and the corrected
+  // visible/hidden split it produces both happen within the same commit
+  // -- the full, unfiltered list this renders with initially is never
+  // actually visible to the user.
+  React.useLayoutEffect(() => {
+    widthsRef.current = itemRefs.current.map((el) => el?.offsetWidth ?? 0);
+    setMeasured(true);
+    recalculate();
+    // Deliberately just [items.length], not recalculate/items themselves
+    // -- this pass exists to capture each item's real width exactly
+    // once; re-running it because recalculate's own identity changed
+    // (e.g. from a resize) would remeasure a row that, past the first
+    // render, may no longer contain every item.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.length]);
+
+  React.useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const observer = new ResizeObserver(recalculate);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [recalculate]);
+
+  const visibleItems = measured ? items.slice(0, visibleCount) : items;
+  const hiddenItems = measured ? items.slice(visibleCount) : [];
+
+  return (
+    // min-w-0, not flex-1 -- real bug, caught before it ever shipped: this
+    // sits next to fixed-toolbar-buttons.tsx's own trailing "grow" spacer
+    // (pushes the pinned highlight/comment/mode groups to the row's far
+    // end), which ALSO wants flex-grow. Two competing growers would split
+    // whatever's left over between them instead of the spacer taking all
+    // of it -- this needs to report its own *actually available* width
+    // (however much the row's other items left it, via ordinary flex-
+    // shrink) for the overflow math above to size against the right
+    // number, not an inflated one from also being allowed to grow.
+    <div ref={containerRef} className="flex min-w-0 items-center overflow-hidden">
+      {visibleItems.map((item, index) => (
+        <div
+          key={index}
+          ref={(el) => {
+            itemRefs.current[index] = el;
+          }}
+          className="flex shrink-0 items-center"
+        >
+          {item}
+        </div>
+      ))}
+      {hiddenItems.length > 0 && (
+        <div ref={moreRef} className="shrink-0">
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger asChild>
+              <ToolbarButton tooltip="More">
+                <MoreHorizontalIcon />
+              </ToolbarButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="flex w-auto min-w-0 flex-wrap gap-0.5 p-1">
+              {hiddenItems}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
     </div>
   );
 }
