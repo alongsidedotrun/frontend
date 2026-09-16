@@ -202,7 +202,16 @@ function LibraryFileMoreMenu({
                 icon={EditIcon}
                 label="Rename file"
                 className="gap-[7px]"
-                onSelect={onRenameRequest}
+                onSelect={() => {
+                  // Temporary diagnostic logging -- per explicit request
+                  // ("can we add a log so we can see what is happening
+                  // when we click rename, and enter to save"), since
+                  // several rounds of reasoned-from-code fixes for this
+                  // haven't resolved it and there's no browser available
+                  // here to observe it directly. Remove once resolved.
+                  console.log("[rename] Rename file selected");
+                  onRenameRequest();
+                }}
               />
               <BaseMenuItem
                 index={1}
@@ -247,27 +256,42 @@ function LibraryFileNameCell({ leaf, onRename, onDelete }: { leaf: string; onRen
   // (checked via document.activeElement, not just "did .focus() throw").
   useEffect(() => {
     if (!renaming) return;
+    console.log("[rename] entering rename mode for", leaf);
     let frame = 0;
+    let attempts = 0;
     const start = performance.now();
     const tick = () => {
       const input = inputRef.current;
       if (!input) return;
       if (document.activeElement !== input) {
+        attempts++;
         input.focus();
         input.select();
       } else {
+        console.log("[rename] input has focus after", attempts, "attempts,", Math.round(performance.now() - start), "ms");
         return;
       }
-      if (performance.now() - start < 1000) frame = requestAnimationFrame(tick);
+      if (performance.now() - start < 1000) {
+        frame = requestAnimationFrame(tick);
+      } else {
+        console.log("[rename] gave up trying to focus the input after 1s,", attempts, "attempts. document.activeElement:", document.activeElement);
+      }
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [renaming]);
+  }, [renaming, leaf]);
 
-  function commitRename() {
+  function commitRename(source: string) {
     const trimmed = draft.trim();
     const base = stripExtension(leaf);
-    if (trimmed && trimmed !== base) onRename(ext ? `${trimmed}.${ext}` : trimmed);
+    console.log("[rename] commitRename via", source, "-- draft:", JSON.stringify(draft), "trimmed:", JSON.stringify(trimmed), "base:", JSON.stringify(base));
+    if (trimmed && trimmed !== base) {
+      const newLeaf = ext ? `${trimmed}.${ext}` : trimmed;
+      console.log("[rename] calling onRename with", JSON.stringify(newLeaf));
+      onRename(newLeaf);
+    } else {
+      console.log("[rename] not calling onRename (empty or unchanged)");
+    }
     setRenaming(false);
   }
 
@@ -281,7 +305,10 @@ function LibraryFileNameCell({ leaf, onRename, onDelete }: { leaf: string; onRen
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onFocus={(event) => event.target.select()}
-          onBlur={commitRename}
+          onBlur={() => {
+            console.log("[rename] input blurred");
+            commitRename("blur");
+          }}
           onKeyDown={(event) => {
             // stopPropagation -- the flat Chats list's own row (below)
             // listens for Enter/Space at the row level to open the file
@@ -290,8 +317,9 @@ function LibraryFileNameCell({ leaf, onRename, onDelete }: { leaf: string; onRen
             // open the file right after.
             event.stopPropagation();
             if (event.key === "Enter") {
+              console.log("[rename] Enter pressed, target:", event.target, "activeElement:", document.activeElement);
               event.preventDefault();
-              commitRename();
+              commitRename("enter");
             } else if (event.key === "Escape") {
               event.preventDefault();
               setDraft(stripExtension(leaf));
@@ -558,13 +586,25 @@ export function LibraryPage() {
   // splitTitle's own filename fallback), never changes on its own just
   // because Library renamed the file elsewhere -- it has to be told.
   async function renameFile(filePath: string, newLeaf: string) {
-    const res = await fetch("/files/rename", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path: filePath, new_name: newLeaf }),
-    });
-    if (!res.ok) return;
+    console.log("[rename] POST /files/rename", { path: filePath, new_name: newLeaf });
+    let res: Response;
+    try {
+      res = await fetch("/files/rename", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: filePath, new_name: newLeaf }),
+      });
+    } catch (err) {
+      console.log("[rename] fetch threw", err);
+      return;
+    }
+    console.log("[rename] response status", res.status, res.ok);
+    if (!res.ok) {
+      console.log("[rename] body:", await res.text().catch(() => "<unreadable>"));
+      return;
+    }
     const { path: newPath }: { path: string } = await res.json();
+    console.log("[rename] success, new path:", newPath);
     setFiles((prev) => prev.map((f) => (f.filePath === filePath ? { ...f, filePath: newPath } : f)));
     renameOpenFile(filePath, newPath);
   }
