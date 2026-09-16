@@ -40,6 +40,34 @@ function loadExpandedIds(key: string): Set<string> {
   }
 }
 
+// Root cause of "the rename is not working", found only once real console
+// logs (per explicit request) showed the actual request: it wasn't a
+// frontend bug at all -- every rename was correctly reaching
+// POST /files/rename and 404ing there, because Library's own /library/files
+// rows are built from each chat's historical Write/Edit tool-use events
+// (db.rs's own list_library_files), which never change once written. A
+// rename earlier in the very same session had already succeeded (renaming
+// the real file on disk), but reloading Library re-fetched that same
+// original, now-stale path from history and represented it as if nothing
+// had happened -- so trying to rename *that* 404'd, looking exactly like
+// the feature had never worked at all, when it had worked every time.
+// Persisted client-side (original historical path -> current real path),
+// same defensive load pattern as loadExpandedIds above, so a rename
+// survives a Library reload/app restart instead of reverting to a path
+// that no longer exists on disk.
+const RENAMED_PATHS_KEY = "alongside_library_renamed_paths";
+
+function loadRenamedPaths(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(RENAMED_PATHS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
 type LibraryFile = {
   filePath: string;
   chatId: string;
@@ -202,16 +230,7 @@ function LibraryFileMoreMenu({
                 icon={EditIcon}
                 label="Rename file"
                 className="gap-[7px]"
-                onSelect={() => {
-                  // Temporary diagnostic logging -- per explicit request
-                  // ("can we add a log so we can see what is happening
-                  // when we click rename, and enter to save"), since
-                  // several rounds of reasoned-from-code fixes for this
-                  // haven't resolved it and there's no browser available
-                  // here to observe it directly. Remove once resolved.
-                  console.log("[rename] Rename file selected");
-                  onRenameRequest();
-                }}
+                onSelect={onRenameRequest}
               />
               <BaseMenuItem
                 index={1}
@@ -256,42 +275,27 @@ function LibraryFileNameCell({ leaf, onRename, onDelete }: { leaf: string; onRen
   // (checked via document.activeElement, not just "did .focus() throw").
   useEffect(() => {
     if (!renaming) return;
-    console.log("[rename] entering rename mode for", leaf);
     let frame = 0;
-    let attempts = 0;
     const start = performance.now();
     const tick = () => {
       const input = inputRef.current;
       if (!input) return;
       if (document.activeElement !== input) {
-        attempts++;
         input.focus();
         input.select();
       } else {
-        console.log("[rename] input has focus after", attempts, "attempts,", Math.round(performance.now() - start), "ms");
         return;
       }
-      if (performance.now() - start < 1000) {
-        frame = requestAnimationFrame(tick);
-      } else {
-        console.log("[rename] gave up trying to focus the input after 1s,", attempts, "attempts. document.activeElement:", document.activeElement);
-      }
+      if (performance.now() - start < 1000) frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [renaming, leaf]);
+  }, [renaming]);
 
-  function commitRename(source: string) {
+  function commitRename() {
     const trimmed = draft.trim();
     const base = stripExtension(leaf);
-    console.log("[rename] commitRename via", source, "-- draft:", JSON.stringify(draft), "trimmed:", JSON.stringify(trimmed), "base:", JSON.stringify(base));
-    if (trimmed && trimmed !== base) {
-      const newLeaf = ext ? `${trimmed}.${ext}` : trimmed;
-      console.log("[rename] calling onRename with", JSON.stringify(newLeaf));
-      onRename(newLeaf);
-    } else {
-      console.log("[rename] not calling onRename (empty or unchanged)");
-    }
+    if (trimmed && trimmed !== base) onRename(ext ? `${trimmed}.${ext}` : trimmed);
     setRenaming(false);
   }
 
@@ -305,10 +309,7 @@ function LibraryFileNameCell({ leaf, onRename, onDelete }: { leaf: string; onRen
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onFocus={(event) => event.target.select()}
-          onBlur={() => {
-            console.log("[rename] input blurred");
-            commitRename("blur");
-          }}
+          onBlur={commitRename}
           onKeyDown={(event) => {
             // stopPropagation -- the flat Chats list's own row (below)
             // listens for Enter/Space at the row level to open the file
@@ -317,9 +318,8 @@ function LibraryFileNameCell({ leaf, onRename, onDelete }: { leaf: string; onRen
             // open the file right after.
             event.stopPropagation();
             if (event.key === "Enter") {
-              console.log("[rename] Enter pressed, target:", event.target, "activeElement:", document.activeElement);
               event.preventDefault();
-              commitRename("enter");
+              commitRename();
             } else if (event.key === "Escape") {
               event.preventDefault();
               setDraft(stripExtension(leaf));
@@ -460,6 +460,11 @@ export function LibraryPage() {
   useEffect(() => {
     localStorage.setItem(EXPANDED_CHATS_KEY, JSON.stringify([...expandedChats]));
   }, [expandedChats]);
+  // See RENAMED_PATHS_KEY's own comment above for why this exists.
+  const [renamedPaths, setRenamedPaths] = useState<Record<string, string>>(() => loadRenamedPaths());
+  useEffect(() => {
+    localStorage.setItem(RENAMED_PATHS_KEY, JSON.stringify(renamedPaths));
+  }, [renamedPaths]);
   // Per-chat models, so a chat row can show the same model icon stack the
   // real sidebar/topbar show instead of a plain chat-bubble icon -- per
   // explicit request. GET /library/files itself has no model data (it's
@@ -513,7 +518,12 @@ export function LibraryPage() {
           setLoaded(true);
           setFiles(
             data.map((f) => ({
-              filePath: f.file_path,
+              // renamedPaths[...] ?? -- applies any rename this session (or
+              // a past one) has already made to this file, since the
+              // history-derived path above never updates on its own. See
+              // RENAMED_PATHS_KEY's own comment for the real bug this
+              // fixes.
+              filePath: renamedPaths[f.file_path] ?? f.file_path,
               chatId: f.chat_id,
               chatName: f.chat_name,
               projectId: f.project_id,
@@ -526,6 +536,11 @@ export function LibraryPage() {
     return () => {
       cancelled = true;
     };
+    // Deliberately just [] -- this only needs whatever renamedPaths held
+    // at the moment Library loaded; a rename made *during* this session
+    // updates `files` directly (renameFile's own setFiles call below),
+    // it doesn't need this fetch to re-run.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Two-level grouping -- projects (each with its own nested chats) and
@@ -586,27 +601,25 @@ export function LibraryPage() {
   // splitTitle's own filename fallback), never changes on its own just
   // because Library renamed the file elsewhere -- it has to be told.
   async function renameFile(filePath: string, newLeaf: string) {
-    console.log("[rename] POST /files/rename", { path: filePath, new_name: newLeaf });
-    let res: Response;
-    try {
-      res = await fetch("/files/rename", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: filePath, new_name: newLeaf }),
-      });
-    } catch (err) {
-      console.log("[rename] fetch threw", err);
-      return;
-    }
-    console.log("[rename] response status", res.status, res.ok);
-    if (!res.ok) {
-      console.log("[rename] body:", await res.text().catch(() => "<unreadable>"));
-      return;
-    }
+    const res = await fetch("/files/rename", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: filePath, new_name: newLeaf }),
+    });
+    if (!res.ok) return;
     const { path: newPath }: { path: string } = await res.json();
-    console.log("[rename] success, new path:", newPath);
     setFiles((prev) => prev.map((f) => (f.filePath === filePath ? { ...f, filePath: newPath } : f)));
     renameOpenFile(filePath, newPath);
+    // Record it against whichever historical path this file was already
+    // known by -- if filePath is itself already a rename target (a prior
+    // rename this session or an earlier one), keep pointing the SAME
+    // original key at the newest path rather than adding a second,
+    // now-dangling entry for it. See RENAMED_PATHS_KEY's own comment for
+    // why this needs to persist at all.
+    setRenamedPaths((prev) => {
+      const originalKey = Object.keys(prev).find((key) => prev[key] === filePath) ?? filePath;
+      return { ...prev, [originalKey]: newPath };
+    });
   }
 
   function toggleProject(projectId: string) {
