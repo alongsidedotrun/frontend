@@ -8,7 +8,24 @@ import { python } from "@codemirror/lang-python";
 import { html } from "@codemirror/lang-html";
 import { css } from "@codemirror/lang-css";
 import { json } from "@codemirror/lang-json";
-import { useCreateBlockNote, SideMenu, SideMenuController, DragHandleButton, type SideMenuProps } from "@blocknote/react";
+import {
+  useCreateBlockNote,
+  SideMenu,
+  SideMenuController,
+  DragHandleButton,
+  DragHandleMenu,
+  RemoveBlockItem,
+  BlockColorsItem,
+  TableRowHeaderItem,
+  TableColumnHeaderItem,
+  blockTypeSelectItems,
+  useComponentsContext,
+  useDictionary,
+  useBlockNoteEditor,
+  useExtensionState,
+  type SideMenuProps,
+} from "@blocknote/react";
+import { SideMenuExtension } from "@blocknote/core/extensions";
 import { offset } from "@floating-ui/react";
 import { en } from "@blocknote/core/locales";
 import { BlockNoteView, lightDefaultTheme, darkDefaultTheme, type Theme } from "@blocknote/mantine";
@@ -203,6 +220,61 @@ function Cover({ path }: { path: string }) {
   );
 }
 
+// "Transform >" submenu -- per explicit request ("we should make / as
+// part of the draggable icon as Transform > and keep the same size as
+// dropdown as colors and not this huge dropdown"): the "/" slash menu
+// already lists every block type this editor supports, but only as a
+// separate, much larger suggestion-menu UI, and the drag-handle menu
+// itself only ever showed BlockNote's own default items (Delete, Colors)
+// -- there's no built-in "turn into" item in this package version.
+// blockTypeSelectItems is the exact same data source the formatting
+// toolbar's own compact block-type dropdown already draws from (13
+// entries: paragraph, headings 1-6 plus their toggle variants, quote,
+// toggle/bullet/numbered/check list), reused directly here instead of
+// hand-duplicating that list, rendered as a right-opening submenu built
+// the same way BlockColorsItem builds its own (Menu.Root
+// position="right" sub -- matching size/style exactly, not the slash
+// menu's own SuggestionMenu UI).
+function TransformItem({ children }: { children: ReactNode }) {
+  const Components = useComponentsContext()!;
+  const dict = useDictionary();
+  const editor = useBlockNoteEditor();
+  const block = useExtensionState(SideMenuExtension, {
+    selector: (state) => state?.block,
+  });
+
+  if (block === undefined) return null;
+
+  return (
+    <Components.Generic.Menu.Root position="right" sub={true}>
+      <Components.Generic.Menu.Trigger sub={true}>
+        <Components.Generic.Menu.Item className="bn-menu-item" subTrigger={true}>
+          {children}
+        </Components.Generic.Menu.Item>
+      </Components.Generic.Menu.Trigger>
+      <Components.Generic.Menu.Dropdown sub={true} className="bn-menu-dropdown">
+        {blockTypeSelectItems(dict).map((item) => {
+          const Icon = item.icon;
+          const propsMatch = Object.entries(item.props ?? {}).every(([key, value]) => block.props[key] === value);
+          return (
+            <Components.Generic.Menu.Item
+              key={`${item.type}-${item.name}`}
+              className="bn-menu-item"
+              icon={<Icon size={18} />}
+              checked={block.type === item.type && propsMatch}
+              onClick={() => {
+                editor.updateBlock(block, { type: item.type as never, props: item.props as never });
+              }}
+            >
+              {item.name}
+            </Components.Generic.Menu.Item>
+          );
+        })}
+      </Components.Generic.Menu.Dropdown>
+    </Components.Generic.Menu.Root>
+  );
+}
+
 // A single gutter icon, not BlockNote's default separate "+"/drag-handle
 // pair -- per explicit request (referencing cydonia's own source directly:
 // bezel-editor's menu.rs `handle()` renders one "⠿" glyph that drags to
@@ -213,10 +285,26 @@ function Cover({ path }: { path: string }) {
 // into"/duplicate/delete menu -- on click, while native HTML5 draggable
 // still handles the reorder drag) -- so this only drops AddBlockButton
 // ("+") from the default two-button side menu, not a new interaction.
+// Custom children on DragHandleMenu -- per a further explicit request
+// ("when I click at the icon only shows delete and colors"): BlockNote's
+// own default DragHandleMenu (used when no children are passed) only
+// ever renders RemoveBlockItem/BlockColorsItem/the two table-header
+// items -- there's no "turn into" item built in. TransformItem (above)
+// adds that; the table-header items are kept too, unchanged, so nothing
+// existing regresses.
 function SingleHandleSideMenu(props: SideMenuProps) {
+  const dict = useDictionary();
   return (
     <SideMenu {...props}>
-      <DragHandleButton {...props} />
+      <DragHandleButton {...props}>
+        <DragHandleMenu>
+          <RemoveBlockItem>{dict.drag_handle.delete_menuitem}</RemoveBlockItem>
+          <TransformItem>Transform</TransformItem>
+          <BlockColorsItem>{dict.drag_handle.colors_menuitem}</BlockColorsItem>
+          <TableRowHeaderItem>{dict.drag_handle.header_row_menuitem}</TableRowHeaderItem>
+          <TableColumnHeaderItem>{dict.drag_handle.header_column_menuitem}</TableColumnHeaderItem>
+        </DragHandleMenu>
+      </DragHandleButton>
     </SideMenu>
   );
 }
