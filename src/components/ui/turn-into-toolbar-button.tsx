@@ -158,7 +158,7 @@ export function TurnIntoToolbarButton(props: DropdownMenuProps) {
     <DropdownMenu open={open} onOpenChange={setOpen} modal={false} {...props}>
       <DropdownMenuTrigger asChild>
         <ToolbarButton
-          className="min-w-[125px]"
+          className="min-w-[90px] text-xs"
           pressed={open}
           tooltip="Turn into"
           isDropdown
@@ -167,6 +167,16 @@ export function TurnIntoToolbarButton(props: DropdownMenuProps) {
         </ToolbarButton>
       </DropdownMenuTrigger>
 
+      {/* Sized down from Plate's own defaults to match this app's compact
+          scale -- real bug, confirmed directly via screenshot ("the turn
+          into dropdown is very squished... does [scaling] by default?
+          [It doesn't] "): Plate's stock toolbar/menus are sized for a
+          full document page (min-w-[180px] rows, default text-sm/size-4
+          icons), same class of problem BlockNote's own defaults had in
+          this same narrow side panel before the Plate migration. Matches
+          this app's own established compact menu scale elsewhere
+          (menu-item.tsx's own BaseMenuItem: text-xs labels, size-3.5
+          icons, ~28-32px rows) rather than Plate's book-page defaults. */}
       <DropdownMenuContent
         className="ignore-click-outside/toolbar min-w-0"
         onCloseAutoFocus={(e) => {
@@ -185,10 +195,10 @@ export function TurnIntoToolbarButton(props: DropdownMenuProps) {
           {turnIntoItems.map(({ icon, label, value: itemValue }) => (
             <DropdownMenuRadioItem
               key={itemValue}
-              className="min-w-[180px] pl-2 *:first:[span]:hidden"
+              className="min-w-[140px] gap-1.5 py-1 pl-2 text-xs *:first:[span]:hidden [&_svg]:size-3.5"
               value={itemValue}
             >
-              <span className="pointer-events-none absolute right-2 flex size-3.5 items-center justify-center">
+              <span className="pointer-events-none absolute right-2 flex size-3 items-center justify-center">
                 <DropdownMenuItemIndicator>
                   <CheckIcon />
                 </DropdownMenuItemIndicator>

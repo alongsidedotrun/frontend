@@ -65,8 +65,20 @@ export function ToolbarSeparator({
 }
 
 // From toggleVariants
+// text-sm -> text-xs, size-4 -> size-3.5 icons, and the "sm"/"default"
+// heights each stepped down 4px -- real bug, confirmed directly ("The
+// toolbar of plate needs to reduce the size of the icons and dropdowns
+// and text to match smaller screens, does that do by default?"): Plate's
+// own defaults are sized for a full document page, same class of problem
+// BlockNote's defaults had in this same narrow side panel before the
+// Plate migration -- it doesn't auto-scale down, so this app's own
+// compact scale (menu-item.tsx's own BaseMenuItem: text-xs labels,
+// size-3.5 icons) needs to be applied here explicitly, same as it was
+// for BlockNote. This file is Plate-only (no other part of the app
+// imports it), so these defaults apply everywhere they're used without
+// touching any other toolbar/menu in the app.
 const toolbarButtonVariants = cva(
-  "inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium text-sm outline-none transition-[color,box-shadow] hover:bg-muted hover:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-checked:bg-accent aria-checked:text-accent-foreground aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  "inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium text-xs outline-none transition-[color,box-shadow] hover:bg-muted hover:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-checked:bg-accent aria-checked:text-accent-foreground aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg:not([class*='size-'])]:size-3.5 [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     defaultVariants: {
       size: 'default',
@@ -74,9 +86,9 @@ const toolbarButtonVariants = cva(
     },
     variants: {
       size: {
-        default: 'h-9 min-w-9 px-2',
-        lg: 'h-10 min-w-10 px-2.5',
-        sm: 'h-8 min-w-8 px-1.5',
+        default: 'h-8 min-w-8 px-1.5',
+        lg: 'h-9 min-w-9 px-2',
+        sm: 'h-7 min-w-7 px-1',
       },
       variant: {
         default: 'bg-transparent',
@@ -89,7 +101,7 @@ const toolbarButtonVariants = cva(
 
 const dropdownArrowVariants = cva(
   cn(
-    'inline-flex items-center justify-center rounded-r-md font-medium text-foreground text-sm transition-colors disabled:pointer-events-none disabled:opacity-50'
+    'inline-flex items-center justify-center rounded-r-md font-medium text-foreground text-xs transition-colors disabled:pointer-events-none disabled:opacity-50'
   ),
   {
     defaultVariants: {
@@ -98,9 +110,9 @@ const dropdownArrowVariants = cva(
     },
     variants: {
       size: {
-        default: 'h-9 w-6',
-        lg: 'h-10 w-8',
-        sm: 'h-8 w-4',
+        default: 'h-8 w-6',
+        lg: 'h-9 w-8',
+        sm: 'h-7 w-4',
       },
       variant: {
         default:
