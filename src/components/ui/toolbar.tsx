@@ -333,24 +333,50 @@ export function ToolbarOverflow({ children }: { children: React.ReactNode }) {
   const widthsRef = React.useRef<number[]>([]);
   const moreRef = React.useRef<HTMLDivElement>(null);
   const [measured, setMeasured] = React.useState(false);
-  const [visibleCount, setVisibleCount] = React.useState(items.length);
+  const [visibleIndices, setVisibleIndices] = React.useState<Set<number>>(
+    () => new Set(items.map((_, index) => index))
+  );
 
+  // First-fit, not a strict prefix cutoff -- real bug, confirmed directly
+  // via screenshot ("There's a big gap between More and Highlight"): a
+  // plain "stop at the first group that doesn't fit" cutoff throws away
+  // every group after that one too, even when a later, narrower group
+  // (e.g. a single-icon group after a wide dropdown-heavy one) would
+  // still fit in the space that first wide group left unused. Checking
+  // every remaining group against the budget, not just the next one in
+  // line, fills that space instead of leaving it empty. Order in the
+  // visible row is still the original left-to-right order -- this only
+  // decides which groups show, never reorders them.
   const recalculate = React.useCallback(() => {
     const container = containerRef.current;
     if (!container || widthsRef.current.length < items.length) return;
     const containerWidth = container.clientWidth;
     const moreWidth = moreRef.current?.offsetWidth ?? 36;
+    const widths = widthsRef.current;
+    const visible = new Set<number>();
     let total = 0;
-    let fit = items.length;
+    let anyHidden = false;
     for (let i = 0; i < items.length; i++) {
-      total += widthsRef.current[i] ?? 0;
-      const stillHasMoreAfterThis = i < items.length - 1;
-      if (total > containerWidth - (stillHasMoreAfterThis ? moreWidth : 0)) {
-        fit = i;
-        break;
+      const width = widths[i] ?? 0;
+      if (total + width <= containerWidth) {
+        total += width;
+        visible.add(i);
+      } else {
+        anyHidden = true;
       }
     }
-    setVisibleCount(Math.max(0, fit));
+    if (anyHidden) {
+      // Make room for the "..." button itself, dropping the most
+      // recently added groups (in original order, from the end) until
+      // it fits.
+      for (let i = items.length - 1; i >= 0 && total + moreWidth > containerWidth; i--) {
+        if (visible.has(i)) {
+          total -= widths[i] ?? 0;
+          visible.delete(i);
+        }
+      }
+    }
+    setVisibleIndices(visible);
   }, [items.length]);
 
   // Runs before the browser paints this first render (unlike a plain
@@ -378,8 +404,13 @@ export function ToolbarOverflow({ children }: { children: React.ReactNode }) {
     return () => observer.disconnect();
   }, [recalculate]);
 
-  const visibleItems = measured ? items.slice(0, visibleCount) : items;
-  const hiddenItems = measured ? items.slice(visibleCount) : [];
+  const indexedItems = items.map((item, index) => [item, index] as const);
+  const visibleEntries = measured
+    ? indexedItems.filter(([, index]) => visibleIndices.has(index))
+    : indexedItems;
+  const hiddenEntries = measured
+    ? indexedItems.filter(([, index]) => !visibleIndices.has(index))
+    : [];
 
   return (
     // flex-1, not just min-w-0 -- real bug, confirmed directly via
@@ -402,7 +433,7 @@ export function ToolbarOverflow({ children }: { children: React.ReactNode }) {
     // fixed-toolbar-buttons.tsx is conditionally removed there instead,
     // so the two no longer compete for the same growth.
     <div ref={containerRef} className="flex min-w-0 flex-1 items-center overflow-hidden">
-      {visibleItems.map((item, index) => (
+      {visibleEntries.map(([item, index]) => (
         <div
           key={index}
           ref={(el) => {
@@ -413,7 +444,7 @@ export function ToolbarOverflow({ children }: { children: React.ReactNode }) {
           {item}
         </div>
       ))}
-      {hiddenItems.length > 0 && (
+      {hiddenEntries.length > 0 && (
         <div ref={moreRef} className="shrink-0">
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
@@ -422,7 +453,9 @@ export function ToolbarOverflow({ children }: { children: React.ReactNode }) {
               </ToolbarButton>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="flex w-auto min-w-0 flex-wrap gap-0.5 p-1">
-              {hiddenItems}
+              {hiddenEntries.map(([item, index]) => (
+                <React.Fragment key={index}>{item}</React.Fragment>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
