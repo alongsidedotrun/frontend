@@ -1328,16 +1328,32 @@ export function AppLayout() {
                 <button
                   type="button"
                   aria-label="Chat files"
-                  disabled={!sessionId}
+                  // !sessionId && !rightPanel, not just !sessionId -- real
+                  // bug, confirmed directly ("the collapse right sidebar
+                  // should be active only when we open a file so we can
+                  // close that sidebar again... right now it doesn't
+                  // work"): Library opens a file via openFile ->
+                  // navigateRightPanel directly, with no chat session at
+                  // all (sessionId is only ever set on a real chat route),
+                  // so the old !sessionId gate disabled this button
+                  // outright on Library, even with a file open -- there
+                  // was no way to close it again except navigating away.
+                  disabled={!sessionId && !rightPanel}
                   onClick={() => {
-                    if (!sessionId) return;
                     // Toggles closed when already open -- per explicit
                     // request ("when we click at the icon of the right
                     // sidebar when right is open, that should collapse
                     // the sidebar again"), same open/close pairing every
                     // other icon-toggled panel in this app already has.
-                    if (rightPanel) onRightPanelClose();
-                    else if (panelNav.history.length === 0) navigateRightPanel({ type: "list", chatId: sessionId });
+                    // Checked first, before the sessionId gate below: a
+                    // Library-opened file has no sessionId at all, but
+                    // should still be closable.
+                    if (rightPanel) {
+                      onRightPanelClose();
+                      return;
+                    }
+                    if (!sessionId) return;
+                    if (panelNav.history.length === 0) navigateRightPanel({ type: "list", chatId: sessionId });
                     else setPanelVisible(true);
                   }}
                   // disabled:hover:text-muted-foreground -- real bug,
@@ -1669,13 +1685,22 @@ export function AppLayout() {
         >
           {rightPanel && (
             <>
-              {!libraryFullPanel && (
-                <div
-                  onMouseDown={startRightPanelResize}
-                  className="w-px shrink-0 cursor-col-resize bg-border transition-colors hover:bg-focus-accent"
-                />
-              )}
-              <div style={{ width: libraryFullPanel ? "100%" : rightPanelWidth }} className="h-full shrink-0">
+              {/* Kept mounted (not removed) even in libraryFullPanel mode --
+                  real bug, confirmed directly ("we are missing the line
+                  divider at the top bar"): this 1px bg-border strip runs the
+                  panel's full height, including through both headers' own
+                  h-10 row, and was the only thing actually filling the exact
+                  seam pixel between the two adjacent header borders --
+                  dropping it entirely (a first attempt) left that one pixel
+                  showing background instead of border color, breaking what
+                  otherwise reads as one continuous horizontal line. Only the
+                  drag affordance is disabled here, not the strip itself --
+                  resizing makes no sense once the panel fills the whole row. */}
+              <div
+                onMouseDown={libraryFullPanel ? undefined : startRightPanelResize}
+                className={`w-px shrink-0 bg-border transition-colors ${libraryFullPanel ? "" : "cursor-col-resize hover:bg-focus-accent"}`}
+              />
+              <div style={{ width: libraryFullPanel ? "calc(100% - 1px)" : rightPanelWidth }} className="h-full shrink-0">
                 <RightPanel
                   state={rightPanel}
                   onClose={onRightPanelClose}
