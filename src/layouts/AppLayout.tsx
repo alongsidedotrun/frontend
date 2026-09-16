@@ -962,6 +962,11 @@ export function AppLayout() {
   const [panelNav, setPanelNav] = useState<{ history: RightPanelEntry[]; index: number }>({ history: [], index: -1 });
   const [panelVisible, setPanelVisible] = useState(false);
   const rightPanel = panelVisible ? (panelNav.history[panelNav.index] ?? null) : null;
+  // Drives the header's own right-panel toggle button visibility -- see
+  // that button's own comment for the full reasoning. Always true on a
+  // real chat (hasOpenChat); on Library (no chat, no sessionId) it's
+  // true only once a file is actually open.
+  const visibleRightPanelToggle = hasOpenChat || rightPanel !== null;
 
   useEffect(() => {
     setPanelNav({ history: [], index: -1 });
@@ -1520,17 +1525,33 @@ export function AppLayout() {
                 <button
                   type="button"
                   aria-label="Chat files"
-                  // !sessionId && !rightPanel, not just !sessionId -- real
-                  // bug, confirmed directly ("the collapse right sidebar
-                  // should be active only when we open a file so we can
-                  // close that sidebar again... right now it doesn't
+                  // hasOpenChat || rightPanel !== null, not just !sessionId
+                  // -- real bug, confirmed directly ("the collapse right
+                  // sidebar should be active only when we open a file so we
+                  // can close that sidebar again... right now it doesn't
                   // work"): Library opens a file via openFile ->
                   // navigateRightPanel directly, with no chat session at
                   // all (sessionId is only ever set on a real chat route),
                   // so the old !sessionId gate disabled this button
                   // outright on Library, even with a file open -- there
                   // was no way to close it again except navigating away.
-                  disabled={!sessionId && !rightPanel}
+                  //
+                  // A second, separate follow-up on the same button ("We
+                  // are showing inactive right sidebar at the library, it
+                  // should only fade in once we open the file to close
+                  // it"): with Library now showing this header at all
+                  // (showChatHeader's own /library branch), this button
+                  // started rendering permanently -- just disabled/dimmed
+                  // -- on every Library visit even with nothing open, since
+                  // disabled alone only blocks the click, not the button's
+                  // own visibility. On a real chat this button is still
+                  // always useful (clicking opens the file list from
+                  // scratch), so it stays visible there unconditionally;
+                  // on Library it only has one job -- closing an already-
+                  // open file -- so it now fades in only once a file
+                  // actually opens, and fades back out once it closes,
+                  // instead of sitting there inert the rest of the time.
+                  disabled={!visibleRightPanelToggle}
                   onClick={() => {
                     // Toggles closed when already open -- per explicit
                     // request ("when we click at the icon of the right
@@ -1567,7 +1588,7 @@ export function AppLayout() {
                   // icon in this app follows) -- this button was the one
                   // standalone header icon still resting dimmer, at
                   // text-muted-foreground, instead of matching it.
-                  className="flex size-7 shrink-0 items-center justify-center rounded-lg text-foreground transition-colors hover:bg-hover-2/50 disabled:text-muted-foreground disabled:opacity-40 disabled:hover:bg-transparent"
+                  className={`flex size-7 shrink-0 items-center justify-center rounded-lg text-foreground transition-[opacity,color,background-color] hover:bg-hover-2/50 disabled:text-muted-foreground disabled:hover:bg-transparent ${visibleRightPanelToggle ? "opacity-100" : "pointer-events-none opacity-0"}`}
                 >
                   <SidebarRightIcon className="size-3.5" />
                 </button>
