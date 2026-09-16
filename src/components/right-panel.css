@@ -23,6 +23,45 @@
   font-size: clamp(12px, 2.5cqi, 15px);
 }
 
+/* Headings still render disproportionately large next to the rest of
+   this now-compact scale -- real bug, confirmed directly ("all headings
+   are huge compared to the rest of sizes on my screen"). The fix above
+   only caps the *base* font-size; BlockNote's own heading sizes
+   (Block.css's own --level/--prev-level custom properties, read by
+   [data-content-type="heading"]'s own font-size: var(--level)) are `em`
+   multiples of that base -- 3em for H1, 2em for H2, 1.3em for H3 -- so
+   they still scale *up from* whatever the base is, just proportionally
+   smaller than before. 12-15px x 3 is still 36-45px, next to now-13px
+   body text that reads as oversized even though the multiplier itself
+   never changed. Overriding --level/--prev-level directly (what the
+   heading's own font-size actually reads) with absolute clamps instead
+   of relative multiples breaks that scaling relationship on purpose --
+   a heading in a ~400px side panel needs to read as "a heading" without
+   needing to be 3x the body text the way a full document page's own H1
+   does. H4-6 (1em/0.9em/0.8em of the base) are close enough to body
+   size already and left alone. --prev-level mirrors --level exactly
+   (Block.css's own [data-prev-level="N"] rules use identical values --
+   it sizes the block *after* a heading, e.g. this app's own
+   FileEditorPanel title/body split relies on that for spacing). */
+.bn-container [data-content-type="heading"] {
+  --level: clamp(18px, 4cqi, 22px) !important;
+}
+.bn-container [data-content-type="heading"][data-level="2"] {
+  --level: clamp(16px, 3.2cqi, 19px) !important;
+}
+.bn-container [data-content-type="heading"][data-level="3"] {
+  --level: clamp(14px, 2.8cqi, 17px) !important;
+}
+.bn-container [data-prev-level="1"] {
+  --prev-level: clamp(18px, 4cqi, 22px) !important;
+}
+.bn-container [data-prev-level="2"] {
+  --prev-level: clamp(16px, 3.2cqi, 19px) !important;
+}
+.bn-container [data-prev-level="3"] {
+  --prev-level: clamp(14px, 2.8cqi, 17px) !important;
+}
+
 /* padding-inline left at BlockNote's own default (54px) -- a first
    attempt shrank this to 12px alongside the font-size fix above, which
    was itself a real bug, confirmed directly via a follow-up screenshot
