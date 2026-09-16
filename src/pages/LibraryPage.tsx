@@ -5,7 +5,7 @@ import { hotkeysCoreFeature, syncDataLoaderFeature } from "@headless-tree/core";
 import { useTree } from "@headless-tree/react";
 import { Tree, TreeItem, TreeItemLabel } from "@/components/reui/tree";
 import { SidebarModelStack } from "@/components/sidebar-nav";
-import { FolderIcon, File02Icon, ChevronRightIcon } from "@/components/icons/untitled-ui";
+import { FolderIcon, ChevronRightIcon } from "@/components/icons/untitled-ui";
 import { FileExtensionBadge, stripExtension } from "@/components/file-extension-badge";
 import { spring } from "@/lib/springs";
 import { AlongsideLogo } from "@/components/icons/alongside-logo";
@@ -109,16 +109,8 @@ function LibraryTreeView({ files, onOpenFile }: { files: LibraryFile[]; onOpenFi
                 onClick={() => onOpenFile(file.filePath)}
                 className="flex min-w-0 flex-1 items-center gap-1.5 py-1 pr-2 text-xs text-foreground transition-colors hover:bg-hover-2/50"
               >
-                <File02Icon className="size-3.5 shrink-0 text-muted-foreground" />
-                {/* flex-1 on the wrapper, not the name span -- same real bug/fix
-                    right-panel.tsx's own identical row has the full reasoning
-                    for: a truncating span with flex-1 directly on it stretches
-                    to fill the row regardless of actual text length, pushing
-                    the badge to the row's far edge instead of beside the name. */}
-                <div className="flex min-w-0 flex-1 items-center gap-1">
-                  <span className="min-w-0 truncate">{stripExtension(data.name)}</span>
-                  <FileExtensionBadge name={data.name} />
-                </div>
+                <FileExtensionBadge name={data.name} />
+                <span className="min-w-0 flex-1 truncate">{stripExtension(data.name)}</span>
                 <span className="shrink-0 text-2xs text-muted-foreground">{formatRelativeTime(file.lastModified)}</span>
               </TreeItemLabel>
             ) : (
@@ -384,7 +376,7 @@ export function LibraryPage() {
                           <ChevronRightIcon className={`size-3 shrink-0 text-muted-foreground transition-transform ${expanded ? "rotate-90" : ""}`} />
                         </button>
                         {expanded && (
-                          <div className="flex flex-col gap-0.5 pl-7">
+                          <div className="flex flex-col gap-0.5">
                             {chat.files.map((file) => {
                               const leaf = file.filePath.split("/").filter(Boolean).pop() ?? file.filePath;
                               return (
@@ -392,13 +384,10 @@ export function LibraryPage() {
                                   key={file.filePath}
                                   type="button"
                                   onClick={() => openFile(file.filePath)}
-                                  className="flex items-center gap-1.5 rounded-[6px] py-1 pr-2 text-left text-xs text-foreground transition-colors hover:bg-hover-2/50"
+                                  className="flex items-center gap-1.5 rounded-[6px] px-2 py-1 text-left text-xs text-foreground transition-colors hover:bg-hover-2/50"
                                 >
-                                  <File02Icon className="size-3.5 shrink-0 text-muted-foreground" />
-                                  <div className="flex min-w-0 flex-1 items-center gap-1">
-                                    <span className="min-w-0 truncate">{stripExtension(leaf)}</span>
-                                    <FileExtensionBadge name={leaf} />
-                                  </div>
+                                  <FileExtensionBadge name={leaf} />
+                                  <span className="min-w-0 flex-1 truncate">{stripExtension(leaf)}</span>
                                   <span className="shrink-0 text-2xs text-muted-foreground">{formatRelativeTime(file.lastModified)}</span>
                                 </button>
                               );
