@@ -134,7 +134,7 @@ type ProjectGroup = { projectId: string; label: string; chats: ChatGroup[]; file
 // first. Grouped here client-side (same pattern InboxPage.tsx already uses
 // for its own search filtering) rather than needing a query param per view.
 export function LibraryPage() {
-  const { openFile } = useOutletContext<{ openFile: (path: string) => void }>();
+  const { openFile, rightPanelOpen } = useOutletContext<{ openFile: (path: string) => void; rightPanelOpen: boolean }>();
   const [files, setFiles] = useState<LibraryFile[]>([]);
   const [loaded, setLoaded] = useState(false);
   // A Projects section (each expanding into the real headless-tree file
@@ -323,7 +323,17 @@ export function LibraryPage() {
                 chats' worth of nested folders) and a Chats section (each
                 expanding into a flat file list -- a single chat's own
                 files don't need folder-nesting UI). */}
-            <div className="flex w-64 shrink-0 flex-col gap-3 overflow-y-auto border-r border-border px-2 pt-2 pb-4">
+            {/* border-r dropped whenever a file is open (rightPanelOpen) --
+                real bug, confirmed directly ("our right sidebar has a
+                thick border because the left panel inside library has a
+                right border already"): AppLayout.tsx's own right-panel
+                drawer always draws a full-height 1px seam strip right
+                alongside this column once a file is open, so keeping this
+                border-r too doubled the line. Kept only for the "no file
+                open" state, where that strip isn't rendered at all and
+                this is the only thing separating the sidebar from the
+                empty space past it. */}
+            <div className={`flex w-64 shrink-0 flex-col gap-3 overflow-y-auto px-2 pt-2 pb-4 ${rightPanelOpen ? "" : "border-r border-border"}`}>
               <div className="flex flex-col gap-0.5">
                 <div className="mb-0.5 flex h-5 items-center px-2 text-xs font-normal text-foreground select-none">
                   <span className="opacity-50">Projects</span>

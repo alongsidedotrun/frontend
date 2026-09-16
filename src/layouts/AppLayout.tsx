@@ -1732,21 +1732,22 @@ export function AppLayout() {
                 {/* Real bug, confirmed directly ("our right sidebar has a
                     thick border because the left panel inside library has a
                     right border already"): LibraryPage.tsx's own sidebar
-                    already draws its own border-r along the full height of
-                    its *body* (below the header), so stretching this strip
-                    the panel's full height too doubled up into a visibly
-                    thicker line wherever the two ran side by side. This
-                    strip's only real job on Library is filling the header
-                    row's own seam pixel (h-10) -- capped to that height
-                    (self-start h-10) instead of the panel's full height
-                    leaves the body portion to Library's own border-r alone,
-                    same single 1px line a real chat's body already gets
-                    from this same strip lower down (there, nothing else
-                    draws a competing border, so the full-height strip stays
-                    correct). */}
+                    used to always draw its own border-r, which doubled up
+                    against this always-present strip into a visibly
+                    thicker line whenever a file was open there. Capping
+                    just this strip's own height to the header row (tried
+                    first) left a real gap instead -- LibraryPage's border-r
+                    starts a hair below the exact pixel this strip's own
+                    capped height ended at, however that's actually
+                    computed. Fixed at the actual source instead:
+                    LibraryPage.tsx now drops its own border-r whenever the
+                    right panel is open (rightPanelOpen, from this same
+                    outlet context), leaving this one full-height strip as
+                    the only vertical line -- same as a real chat's body
+                    already gets from it, nothing competing. */}
                 <div
                   onMouseDown={libraryFullPanel ? undefined : startRightPanelResize}
-                  className={`w-px shrink-0 bg-border transition-colors ${libraryFullPanel ? "h-10 self-start" : "h-full cursor-col-resize hover:bg-focus-accent"}`}
+                  className={`w-px shrink-0 bg-border transition-colors ${libraryFullPanel ? "" : "cursor-col-resize hover:bg-focus-accent"}`}
                 />
                 <div style={{ width: rightPanelTargetWidth }} className="h-full shrink-0">
                   <RightPanel
