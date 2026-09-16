@@ -482,18 +482,13 @@ function ChatFileListPanel({
                 onClick={() => onSelectFile(file.filePath)}
                 className="flex items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-hover-2/50"
               >
-                <File02Icon className="size-3.5 shrink-0 text-muted-foreground" />
-                {/* flex-1 on the wrapper, not the name span -- real bug,
-                    confirmed directly ("add the badge to beside the file
-                    name and not at the far right"): flex-1 directly on a
-                    truncating span stretches it to fill the whole row
-                    regardless of the actual text length, pushing anything
-                    after it (the badge) to the row's own far edge instead
-                    of sitting right next to the visible text. */}
-                <div className="flex min-w-0 flex-1 items-center gap-1">
-                  <span className="min-w-0 truncate">{stripExtension(fileName(file.filePath))}</span>
-                  <FileExtensionBadge name={file.filePath} />
-                </div>
+                {/* FileExtensionBadge leading, not a generic File02Icon --
+                    per explicit request ("we should use the same
+                    component for the library page in this right
+                    sidebar... it shows the file badge instead of the
+                    icon"), matching LibraryPage.tsx's own file rows. */}
+                <FileExtensionBadge name={file.filePath} />
+                <span className="min-w-0 flex-1 truncate">{stripExtension(fileName(file.filePath))}</span>
               </button>
             ))}
           </div>

@@ -339,7 +339,7 @@ export function LibraryPage() {
                   <span className="opacity-50">Projects</span>
                 </div>
                 {projects.length === 0 ? (
-                  <p className="px-2 py-1 text-xs text-muted-foreground">No projects</p>
+                  <p className="flex h-7 items-center px-2 text-xs font-normal text-muted-foreground opacity-50">No projects</p>
                 ) : (
                   projects.map((project) => {
                     const expanded = expandedProjects.has(project.projectId);
@@ -370,7 +370,7 @@ export function LibraryPage() {
                   <span className="opacity-50">Chats</span>
                 </div>
                 {standaloneChats.length === 0 ? (
-                  <p className="px-2 py-1 text-xs text-muted-foreground">No chats</p>
+                  <p className="flex h-7 items-center px-2 text-xs font-normal text-muted-foreground opacity-50">No chats</p>
                 ) : (
                   standaloneChats.map((chat) => {
                     const expanded = expandedChats.has(chat.chatId);
