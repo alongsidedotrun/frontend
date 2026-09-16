@@ -14,7 +14,6 @@ import {
   SideMenuController,
   DragHandleButton,
   DragHandleMenu,
-  RemoveBlockItem,
   BlockColorsItem,
   TableRowHeaderItem,
   TableColumnHeaderItem,
@@ -275,6 +274,45 @@ function TransformItem({ children }: { children: ReactNode }) {
   );
 }
 
+// Custom Delete item, not BlockNote's own RemoveBlockItem -- per explicit
+// request ("the / is showing the option to delete even though we did not
+// type anything, delete should show only after something is typed"):
+// RemoveBlockItem has no such guard, and deleting an empty block is a
+// perfectly normal editor action everywhere else, so this is a deliberate
+// product choice for this app specifically, not a bug fix -- confirmed
+// directly before building it (asked whether this meant reordering only
+// or an actual behavior change). A block counts as empty when its own
+// content array has nothing in it, BlockNote's own representation for a
+// block with no text/inline content typed into it yet; non-text block
+// types (image, table, etc.) don't have a content array at all and are
+// always deletable regardless.
+function isBlockContentEmpty(block: { content?: unknown }): boolean {
+  return Array.isArray(block.content) && block.content.length === 0;
+}
+
+function DeleteBlockItem({ children }: { children: ReactNode }) {
+  const editor = useBlockNoteEditor();
+  const Components = useComponentsContext()!;
+  const block = useExtensionState(SideMenuExtension, {
+    selector: (state) => state?.block,
+  });
+
+  if (block === undefined || isBlockContentEmpty(block)) return null;
+
+  return (
+    <Components.Generic.Menu.Item
+      className="bn-menu-item"
+      onClick={() => {
+        const selectedBlocks = editor.getSelection()?.blocks;
+        const blocksToRemove = selectedBlocks?.some((b) => b.id === block.id) ? selectedBlocks : [block];
+        editor.removeBlocks(blocksToRemove);
+      }}
+    >
+      {children}
+    </Components.Generic.Menu.Item>
+  );
+}
+
 // A single gutter icon, not BlockNote's default separate "+"/drag-handle
 // pair -- per explicit request (referencing cydonia's own source directly:
 // bezel-editor's menu.rs `handle()` renders one "⠿" glyph that drags to
@@ -291,18 +329,21 @@ function TransformItem({ children }: { children: ReactNode }) {
 // ever renders RemoveBlockItem/BlockColorsItem/the two table-header
 // items -- there's no "turn into" item built in. TransformItem (above)
 // adds that; the table-header items are kept too, unchanged, so nothing
-// existing regresses.
+// existing regresses. Delete moved to last (below Colors), not first --
+// per a further explicit request ("delete should show... under colors as
+// well") -- and swapped for DeleteBlockItem (above), which hides itself
+// on an empty block instead of always being offered.
 function SingleHandleSideMenu(props: SideMenuProps) {
   const dict = useDictionary();
   return (
     <SideMenu {...props}>
       <DragHandleButton {...props}>
         <DragHandleMenu>
-          <RemoveBlockItem>{dict.drag_handle.delete_menuitem}</RemoveBlockItem>
           <TransformItem>Transform</TransformItem>
           <BlockColorsItem>{dict.drag_handle.colors_menuitem}</BlockColorsItem>
           <TableRowHeaderItem>{dict.drag_handle.header_row_menuitem}</TableRowHeaderItem>
           <TableColumnHeaderItem>{dict.drag_handle.header_column_menuitem}</TableColumnHeaderItem>
+          <DeleteBlockItem>{dict.drag_handle.delete_menuitem}</DeleteBlockItem>
         </DragHandleMenu>
       </DragHandleButton>
     </SideMenu>
@@ -726,8 +767,23 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
           both use container query units (cqi) scaled off *this* panel's
           own actual rendered width, not the viewport -- this panel
           resizes independently of the window (its own drag handle), so a
-          vw-based size would react to the wrong dimension. */}
-      <div className="min-h-0 flex-1 overflow-auto [container-type:inline-size]">
+          vw-based size would react to the wrong dimension.
+          overflow-x-hidden, not just overflow-auto -- real bug, confirmed
+          directly ("there's a horizontal scrollbar when the dropdown
+          opens"): BlockNote's own Mantine Menu (drag-handle menu,
+          Transform/Colors submenus) renders withinPortal={false} --
+          floating-ui positions it, but its DOM node still lives inside
+          this scrollable container rather than a portal at document.body.
+          A submenu wide enough to extend past this panel's own right edge
+          (Transform's own 13-item list, in particular) grows this
+          container's scrollWidth same as any other in-flow overflow would,
+          producing a real horizontal scrollbar for the whole editor over
+          something that's only ever a transient floating menu. Clipping
+          horizontal overflow here (this editor's own content never
+          legitimately needs horizontal scroll -- text wraps, code blocks
+          get their own scroll container) hides that overflow instead of
+          scrolling the whole panel for it. */}
+      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto [container-type:inline-size]">
         {error ? (
           <p className="p-3 text-[13px] text-muted-foreground">{error}</p>
         ) : content === null ? (
