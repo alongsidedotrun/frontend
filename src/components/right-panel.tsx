@@ -345,6 +345,7 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
   const isMarkdown = ["md", "markdown"].includes(path.split(".").pop()?.toLowerCase() ?? "");
   const [view, setView] = useState<"blocks" | "plaintext">("blocks");
   const [title, setTitle] = useState(() => fileName(path).replace(/\.(md|markdown)$/i, ""));
+  const titleInputRef = useRef<HTMLInputElement>(null);
   // Recreated per file (deps: [path]) -- a fresh editor/document per open
   // file rather than one long-lived instance reused across files, same
   // convention useCreateBlockNote's own [path] deps arg used.
@@ -525,6 +526,7 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
                     type:inline-size] comment above, scaled up since a
                     title reads larger than body text. */}
                 <input
+                  ref={titleInputRef}
                   type="text"
                   value={title}
                   onChange={(event) => {
@@ -542,7 +544,40 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
                   style={{ fontSize: "clamp(20px, 6cqi, 32px)" }}
                 />
                 <EditorContainer variant="default" className="h-auto overflow-visible">
-                  <Editor variant="none" className="px-[54px] py-2" />
+                  {/* onKeyDown: Backspace at the very start of the document
+                      -- real bug ("we should be able to fully delete the
+                      title even tho we are at next line"): the title is a
+                      plain input (see above), not part of the Plate
+                      document, so Backspace at the body's own first
+                      position had nothing before it to merge into and did
+                      nothing. Redirects that Backspace into the title
+                      itself (deleting its last character and moving focus
+                      there), matching how Backspace at the start of a
+                      block normally merges into whatever comes before it. */}
+                  <Editor
+                    variant="none"
+                    className="px-[54px] py-2"
+                    onKeyDown={(event) => {
+                      if (
+                        event.key === "Backspace" &&
+                        editor.api.isCollapsed() &&
+                        editor.selection &&
+                        editor.api.isStart(editor.selection.anchor, [])
+                      ) {
+                        event.preventDefault();
+                        const next = title.slice(0, -1);
+                        setTitle(next);
+                        setDirty(true);
+                        requestAnimationFrame(() => {
+                          const input = titleInputRef.current;
+                          if (input) {
+                            input.focus();
+                            input.setSelectionRange(next.length, next.length);
+                          }
+                        });
+                      }
+                    }}
+                  />
                 </EditorContainer>
               </Plate>
             ) : (
