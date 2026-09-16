@@ -408,7 +408,18 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
           const { title: t, body } = splitTitle(text, path);
           setTitle(t);
           hydratingRef.current = true;
-          editor.tf.setValue(body);
+          // editor.api.markdown.deserialize(body), not setValue(body)
+          // directly -- real bug, confirmed directly via screenshot
+          // ("the file is escaping the markdown"): setValue's own type
+          // signature (value?: V | string) treats a plain string as HTML
+          // to deserialize, not markdown -- confirmed directly by
+          // reproducing it headlessly (it calls deserializeHtml, which
+          // needs a real DOMParser). A markdown string with no actual
+          // HTML tags parses as one bare text node, flattening every
+          // heading/paragraph into a single block and leaving "##"/"###"
+          // markers as literal text. Passing the already-deserialized
+          // node array instead skips that ambiguous string path entirely.
+          editor.tf.setValue(editor.api.markdown.deserialize(body));
           hydratingRef.current = false;
         }
       })
@@ -432,7 +443,9 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
         const { title: t, body } = splitTitle(content, path, false);
         setTitle(t);
         hydratingRef.current = true;
-        editor.tf.setValue(body);
+        // See the initial-load effect's own identical comment above --
+        // same real bug, same fix.
+        editor.tf.setValue(editor.api.markdown.deserialize(body));
         hydratingRef.current = false;
       }
       setView("blocks");

@@ -40,33 +40,21 @@ function loadExpandedIds(key: string): Set<string> {
   }
 }
 
-// Root cause of "the rename is not working", found only once real console
-// logs (per explicit request) showed the actual request: it wasn't a
-// frontend bug at all -- every rename was correctly reaching
-// POST /files/rename and 404ing there, because Library's own /library/files
-// rows are built from each chat's historical Write/Edit tool-use events
-// (db.rs's own list_library_files), which never change once written. A
-// rename earlier in the very same session had already succeeded (renaming
-// the real file on disk), but reloading Library re-fetched that same
-// original, now-stale path from history and represented it as if nothing
-// had happened -- so trying to rename *that* 404'd, looking exactly like
-// the feature had never worked at all, when it had worked every time.
-// Persisted client-side (original historical path -> current real path),
-// same defensive load pattern as loadExpandedIds above, so a rename
-// survives a Library reload/app restart instead of reverting to a path
-// that no longer exists on disk.
-const RENAMED_PATHS_KEY = "alongside_library_renamed_paths";
-
-function loadRenamedPaths(): Record<string, string> {
-  try {
-    const raw = localStorage.getItem(RENAMED_PATHS_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-}
+// A prior fix for "the rename is not working" persisted a client-side
+// original-path -> current-path map here, to paper over /library/files
+// rows never updating once written (db.rs's own list_library_files, built
+// from historical Write/Edit tool-use events). Removed per explicit
+// request ("can we not hardcode anything please? these should reflect
+// real documents created at the chat") -- list_library_files now checks
+// each candidate file's real existence on disk directly (a genuine fix
+// for the actual complaint this raised, "I delete example a couple times
+// and still there"), so this page no longer needs its own client-side
+// patch layered on top of a stale server response. The trade-off: a
+// renamed file's row can briefly disappear from Library after a reload
+// until the chat that renamed it touches it again (its old path no longer
+// exists, and there's no history of the new one yet) -- accepted, same
+// as delete's own always-true limitation, rather than re-introduce a
+// client-side workaround for it.
 
 type LibraryFile = {
   filePath: string;
@@ -460,11 +448,6 @@ export function LibraryPage() {
   useEffect(() => {
     localStorage.setItem(EXPANDED_CHATS_KEY, JSON.stringify([...expandedChats]));
   }, [expandedChats]);
-  // See RENAMED_PATHS_KEY's own comment above for why this exists.
-  const [renamedPaths, setRenamedPaths] = useState<Record<string, string>>(() => loadRenamedPaths());
-  useEffect(() => {
-    localStorage.setItem(RENAMED_PATHS_KEY, JSON.stringify(renamedPaths));
-  }, [renamedPaths]);
   // Per-chat models, so a chat row can show the same model icon stack the
   // real sidebar/topbar show instead of a plain chat-bubble icon -- per
   // explicit request. GET /library/files itself has no model data (it's
@@ -518,12 +501,7 @@ export function LibraryPage() {
           setLoaded(true);
           setFiles(
             data.map((f) => ({
-              // renamedPaths[...] ?? -- applies any rename this session (or
-              // a past one) has already made to this file, since the
-              // history-derived path above never updates on its own. See
-              // RENAMED_PATHS_KEY's own comment for the real bug this
-              // fixes.
-              filePath: renamedPaths[f.file_path] ?? f.file_path,
+              filePath: f.file_path,
               chatId: f.chat_id,
               chatName: f.chat_name,
               projectId: f.project_id,
@@ -536,11 +514,6 @@ export function LibraryPage() {
     return () => {
       cancelled = true;
     };
-    // Deliberately just [] -- this only needs whatever renamedPaths held
-    // at the moment Library loaded; a rename made *during* this session
-    // updates `files` directly (renameFile's own setFiles call below),
-    // it doesn't need this fetch to re-run.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Two-level grouping -- projects (each with its own nested chats) and
@@ -610,16 +583,6 @@ export function LibraryPage() {
     const { path: newPath }: { path: string } = await res.json();
     setFiles((prev) => prev.map((f) => (f.filePath === filePath ? { ...f, filePath: newPath } : f)));
     renameOpenFile(filePath, newPath);
-    // Record it against whichever historical path this file was already
-    // known by -- if filePath is itself already a rename target (a prior
-    // rename this session or an earlier one), keep pointing the SAME
-    // original key at the newest path rather than adding a second,
-    // now-dangling entry for it. See RENAMED_PATHS_KEY's own comment for
-    // why this needs to persist at all.
-    setRenamedPaths((prev) => {
-      const originalKey = Object.keys(prev).find((key) => prev[key] === filePath) ?? filePath;
-      return { ...prev, [originalKey]: newPath };
-    });
   }
 
   function toggleProject(projectId: string) {
