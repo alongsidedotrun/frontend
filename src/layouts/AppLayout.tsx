@@ -972,9 +972,43 @@ export function AppLayout() {
   // keeping it visible alongside the file) lets the right panel absorb
   // everything past it, on this one route only -- a real open chat still
   // needs that middle column for its own conversation.
-  const libraryFullPanel = location.pathname === "/library" && rightPanel !== null;
+  const isLibraryRoute = location.pathname === "/library";
+  const libraryFullPanel = isLibraryRoute && rightPanel !== null;
   // Must match LibraryPage.tsx's own left column ("w-64").
   const LIBRARY_SIDEBAR_WIDTH = 256;
+
+  // Real bug, confirmed directly ("we need our transition again when
+  // opening the file, the right sidebar should transition like it does
+  // on chat"): mainContent/the right panel below normally transition
+  // between two explicit pixel widths (that's what actually makes the
+  // width change animatable at all -- see this file's own comments on
+  // the right panel's width style). On Library, mainContent's own two
+  // states are "flex-1" (an implicit, auto-computed width) and a literal
+  // 256px, and there's nothing to interpolate *from* a flex-1 box's
+  // width isn't a real authored value CSS can transition. Measuring the
+  // actual available row width (this row's own real pixel width, minus
+  // nothing else -- it already excludes the left sidebar just by being
+  // its flex sibling) turns that implicit state into a real number too,
+  // so both Library states become plain pixel-to-pixel transitions like
+  // every other width animation in this file already is.
+  const contentRowRef = useRef<HTMLDivElement>(null);
+  const [contentRowWidth, setContentRowWidth] = useState(0);
+  useEffect(() => {
+    const el = contentRowRef.current;
+    if (!el) return;
+    const update = () => setContentRowWidth(el.getBoundingClientRect().width);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  const rightPanelTargetWidth = isLibraryRoute
+    ? rightPanel
+      ? Math.max(0, contentRowWidth - LIBRARY_SIDEBAR_WIDTH)
+      : 0
+    : rightPanel
+      ? rightPanelWidth
+      : 0;
 
   function startRightPanelResize(event: React.MouseEvent) {
     event.preventDefault();
@@ -1653,12 +1687,22 @@ export function AppLayout() {
             is defined once and referenced from both the always-mounted
             main column and this drawer's sibling position, so neither
             duplicates the whole content column's own JSX. */}
-        <div
-          className={`flex min-h-0 min-w-0 flex-col overflow-hidden ${libraryFullPanel ? "flex-none" : "flex-1"}`}
-          style={libraryFullPanel ? { width: LIBRARY_SIDEBAR_WIDTH } : undefined}
-        >
-          {mainContent}
-        </div>
+        <div ref={contentRowRef} className="flex min-h-0 min-w-0 flex-1">
+          <div
+            className={`flex min-h-0 min-w-0 flex-col overflow-hidden ${isLibraryRoute ? "flex-none" : "flex-1"}`}
+            style={
+              isLibraryRoute
+                ? {
+                    width: libraryFullPanel ? LIBRARY_SIDEBAR_WIDTH : contentRowWidth,
+                    transitionProperty: "width",
+                    transitionDuration: `${SIDEBAR_MOTION_MS}ms`,
+                    transitionTimingFunction: SIDEBAR_EASING,
+                  }
+                : undefined
+            }
+          >
+            {mainContent}
+          </div>
         {/* relative z-10 -- real bug, confirmed directly ("Any of the
             buttons at the right sidebar is not working"): without an
             explicit position, this drawer was a plain in-flow element,
@@ -1674,45 +1718,50 @@ export function AppLayout() {
             react-resizable-panels Panel this replaced happened to apply
             position: relative internally, which is why this never
             surfaced before that swap. */}
-        <div
-          className={`relative z-10 flex h-full overflow-hidden ${libraryFullPanel ? "flex-1" : "shrink-0"}`}
-          style={{
-            width: libraryFullPanel ? undefined : rightPanel ? rightPanelWidth : 0,
-            transitionProperty: "width",
-            transitionDuration: isResizingRightPanel ? "0ms" : `${SIDEBAR_MOTION_MS}ms`,
-            transitionTimingFunction: SIDEBAR_EASING,
-          }}
-        >
-          {rightPanel && (
-            <>
-              {/* Kept mounted (not removed) even in libraryFullPanel mode --
-                  real bug, confirmed directly ("we are missing the line
-                  divider at the top bar"): this 1px bg-border strip runs the
-                  panel's full height, including through both headers' own
-                  h-10 row, and was the only thing actually filling the exact
-                  seam pixel between the two adjacent header borders --
-                  dropping it entirely (a first attempt) left that one pixel
-                  showing background instead of border color, breaking what
-                  otherwise reads as one continuous horizontal line. Only the
-                  drag affordance is disabled here, not the strip itself --
-                  resizing makes no sense once the panel fills the whole row. */}
-              <div
-                onMouseDown={libraryFullPanel ? undefined : startRightPanelResize}
-                className={`w-px shrink-0 bg-border transition-colors ${libraryFullPanel ? "" : "cursor-col-resize hover:bg-focus-accent"}`}
-              />
-              <div style={{ width: libraryFullPanel ? "calc(100% - 1px)" : rightPanelWidth }} className="h-full shrink-0">
-                <RightPanel
-                  state={rightPanel}
-                  onClose={onRightPanelClose}
-                  onSelectFile={(path) => navigateRightPanel({ type: "file", path })}
-                  onBack={rightPanelGoBack}
-                  onForward={rightPanelGoForward}
-                  canGoBack={panelNav.index > 0}
-                  canGoForward={panelNav.index < panelNav.history.length - 1}
+          <div
+            className={`relative z-10 flex h-full overflow-hidden ${isLibraryRoute ? "flex-none" : "shrink-0"}`}
+            style={{
+              width: rightPanelTargetWidth,
+              transitionProperty: "width",
+              transitionDuration: isResizingRightPanel ? "0ms" : `${SIDEBAR_MOTION_MS}ms`,
+              transitionTimingFunction: SIDEBAR_EASING,
+            }}
+          >
+            {rightPanel && (
+              <>
+                {/* Real bug, confirmed directly ("our right sidebar has a
+                    thick border because the left panel inside library has a
+                    right border already"): LibraryPage.tsx's own sidebar
+                    already draws its own border-r along the full height of
+                    its *body* (below the header), so stretching this strip
+                    the panel's full height too doubled up into a visibly
+                    thicker line wherever the two ran side by side. This
+                    strip's only real job on Library is filling the header
+                    row's own seam pixel (h-10) -- capped to that height
+                    (self-start h-10) instead of the panel's full height
+                    leaves the body portion to Library's own border-r alone,
+                    same single 1px line a real chat's body already gets
+                    from this same strip lower down (there, nothing else
+                    draws a competing border, so the full-height strip stays
+                    correct). */}
+                <div
+                  onMouseDown={libraryFullPanel ? undefined : startRightPanelResize}
+                  className={`w-px shrink-0 bg-border transition-colors ${libraryFullPanel ? "h-10 self-start" : "h-full cursor-col-resize hover:bg-focus-accent"}`}
                 />
-              </div>
-            </>
-          )}
+                <div style={{ width: rightPanelTargetWidth }} className="h-full shrink-0">
+                  <RightPanel
+                    state={rightPanel}
+                    onClose={onRightPanelClose}
+                    onSelectFile={(path) => navigateRightPanel({ type: "file", path })}
+                    onBack={rightPanelGoBack}
+                    onForward={rightPanelGoForward}
+                    canGoBack={panelNav.index > 0}
+                    canGoForward={panelNav.index < panelNav.history.length - 1}
+                  />
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
   );
