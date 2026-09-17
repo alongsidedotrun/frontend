@@ -1,24 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { hotkeysCoreFeature, syncDataLoaderFeature } from "@headless-tree/core";
 import { useTree } from "@headless-tree/react";
 import { Tree, TreeItem, TreeItemLabel } from "@/components/reui/tree";
 import { SidebarModelStack } from "@/components/sidebar-nav";
-import { FolderIcon, ChevronRightIcon, DeleteIcon, EditIcon } from "@/components/icons/untitled-ui";
-import { FileExtensionBadge, stripExtension, extensionOf } from "@/components/file-extension-badge";
+import { FolderIcon, ChevronRightIcon } from "@/components/icons/untitled-ui";
+import { LibraryFileNameCell } from "@/components/library-file-row";
+import { formatRelativeTime } from "@/lib/relative-time";
 import { spring } from "@/lib/springs";
 import { AlongsideLogo } from "@/components/icons/alongside-logo";
-import {
-  DropdownMenu as BaseDropdownMenu,
-  DropdownTrigger as BaseDropdownTrigger,
-  DropdownContent as BaseDropdownContent,
-  DropdownLabel as BaseDropdownLabel,
-} from "@/components/ui/dropdown";
-import { MenuItem as BaseMenuItem } from "@/components/ui/menu-item";
-import { MoreTrigger } from "@/components/ui/more-trigger";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 // Which project/chat rows are left expanded, persisted across visits --
 // per explicit request ("chats and projects in the library should open
@@ -65,25 +56,6 @@ type LibraryFile = {
   lastModified: string;
 };
 
-// Same relative-time formatter InboxPage.tsx uses for its own SQLite
-// datetime('now') timestamps -- kept local rather than shared since neither
-// page has a real shared utils module for it yet.
-function parseSqliteTimestamp(value: string): Date {
-  return new Date(`${value.replace(" ", "T")}Z`);
-}
-
-function formatRelativeTime(value: string): string {
-  const date = parseSqliteTimestamp(value);
-  const seconds = Math.max(0, (Date.now() - date.getTime()) / 1000);
-  if (seconds < 60) return "Just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
-  const days = Math.floor(hours / 24);
-  return `${days} day${days === 1 ? "" : "s"} ago`;
-}
-
 // A file's own path split into folders + a leaf name, so files sharing a
 // directory nest together the same way a real file tree would -- issue
 // #286's own "use monocode's file tree pattern" direction, without pulling
@@ -119,218 +91,6 @@ function buildTreeItems(files: LibraryFile[]): Record<string, LibraryTreeItem> {
     items[parentId].children!.push(fileId);
   }
   return items;
-}
-
-// Shared "..." > Rename file / Delete file menu for a Library file row --
-// per explicit request ("we should have a three dots for a more dropdown
-// like we do in most other three dots... Delete file"), and a follow-up
-// ("rename is missing... on top of delete file"). Same confirm-swaps-the-
-// dropdown-content-in-place pattern as sidebar-nav.tsx's own ChatRow/
-// ProjectRow for Delete; Rename instead just closes the menu and hands
-// off to the row's own inline rename input (LibraryFileNameCell, below),
-// matching ProjectRow's own "swap the label for an input" rename UI
-// rather than a rename dialog.
-function LibraryFileMoreMenu({
-  fileName,
-  onRenameRequest,
-  onDelete,
-}: {
-  fileName: string;
-  onRenameRequest: () => void;
-  onDelete: () => void;
-}) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const menuTriggerRef = useRef<HTMLButtonElement>(null);
-  // Same reblur fix sidebar-nav.tsx's own ChatRow/ProjectRow triggers use
-  // -- real bug, confirmed directly ("the rename file is not working...
-  // I press enter to save and never saves"): Base UI returns real DOM
-  // focus to this trigger a beat after the menu closes, which stole focus
-  // straight back off Rename's own inline input (autoFocus only fires
-  // once, on mount, so it never gets a second chance to reclaim focus
-  // once Base UI's delayed refocus wins) -- keystrokes, Enter included,
-  // were landing on this button instead of the input the whole time.
-  function handleMenuOpenChange(open: boolean) {
-    setMenuOpen(open);
-    // Reset to the plain menu, not the confirm prompt, same as
-    // ChatRow/ProjectRow's own identical reset.
-    if (!open) setConfirmingDelete(false);
-    if (open) return;
-    const button = menuTriggerRef.current;
-    if (!button) return;
-    const reblur = () => button.blur();
-    button.addEventListener("focus", reblur, { once: true });
-    setTimeout(() => button.removeEventListener("focus", reblur), 1000);
-  }
-
-  return (
-    <BaseDropdownMenu open={menuOpen} onOpenChange={handleMenuOpenChange}>
-      <BaseDropdownTrigger
-        render={
-          <MoreTrigger
-            ref={menuTriggerRef}
-            aria-label={`More options for ${fileName}`}
-            onClick={(event) => event.stopPropagation()}
-            active={menuOpen}
-          />
-        }
-      />
-      <BaseDropdownContent align="start" side="right" className="w-40 overflow-hidden">
-        <AnimatePresence mode="wait" initial={false}>
-          {confirmingDelete ? (
-            <motion.div
-              key="confirm"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.12 }}
-            >
-              <BaseDropdownLabel>Delete</BaseDropdownLabel>
-              <div className="px-2 pb-2 text-[11px] font-normal text-foreground">Would you like to delete this file?</div>
-              <div className="flex gap-1.5 px-2 pb-1.5">
-                <Button
-                  variant="outline"
-                  className="h-7 flex-1 text-[11px]"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setConfirmingDelete(false);
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  className="h-7 flex-1 bg-red-600 text-[11px] text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onDelete();
-                    setMenuOpen(false);
-                  }}
-                >
-                  Delete
-                </Button>
-              </div>
-            </motion.div>
-          ) : (
-            <motion.div key="menu" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.12 }}>
-              <BaseDropdownLabel>More</BaseDropdownLabel>
-              <BaseMenuItem
-                index={0}
-                icon={EditIcon}
-                label="Rename file"
-                className="gap-[7px]"
-                onSelect={onRenameRequest}
-              />
-              <BaseMenuItem
-                index={1}
-                icon={DeleteIcon}
-                label="Delete file"
-                destructive
-                closeOnClick={false}
-                className="gap-[7px]"
-                onSelect={() => setConfirmingDelete(true)}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </BaseDropdownContent>
-    </BaseDropdownMenu>
-  );
-}
-
-// Icon + name (or, mid-rename, an inline input) + the "..." menu above --
-// shared between the Projects tree view and the flat Chats list so
-// neither has to duplicate the rename-input/extension-preserving logic.
-// Renaming only ever edits the base name; the real file's extension
-// (leaf's own, via extensionOf) is reattached on commit rather than left
-// editable, since FileExtensionBadge already renders it separately and a
-// changed extension would silently change how this same file opens.
-function LibraryFileNameCell({ leaf, onRename, onDelete }: { leaf: string; onRename: (newLeaf: string) => void; onDelete: () => void }) {
-  const [renaming, setRenaming] = useState(false);
-  const [draft, setDraft] = useState(() => stripExtension(leaf));
-  const ext = extensionOf(leaf);
-  const inputRef = useRef<HTMLInputElement>(null);
-  // autoFocus alone lost every time to the "..." dropdown's own closing
-  // popup: Base UI keeps focus trapped inside a Menu.Popup until it's
-  // actually done closing (its exit animation, not just visually faded),
-  // so autoFocus's one and only attempt -- firing the instant this input
-  // mounts, well before that trap releases -- was simply overridden. Real
-  // bug, confirmed directly ("I press enter to save and never saves"),
-  // still not resolved by a single delayed re-focus attempt (Base UI's
-  // own exact release timing isn't a fixed, reliably-outrunnable number).
-  // Polls every animation frame instead, for up to 1s, re-asserting focus
-  // on every frame it isn't already there -- outlasts the trap regardless
-  // of its actual duration, and stops the moment focus genuinely sticks
-  // (checked via document.activeElement, not just "did .focus() throw").
-  useEffect(() => {
-    if (!renaming) return;
-    let frame = 0;
-    const start = performance.now();
-    const tick = () => {
-      const input = inputRef.current;
-      if (!input) return;
-      if (document.activeElement !== input) {
-        input.focus();
-        input.select();
-      } else {
-        return;
-      }
-      if (performance.now() - start < 1000) frame = requestAnimationFrame(tick);
-    };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [renaming]);
-
-  function commitRename() {
-    const trimmed = draft.trim();
-    const base = stripExtension(leaf);
-    if (trimmed && trimmed !== base) onRename(ext ? `${trimmed}.${ext}` : trimmed);
-    setRenaming(false);
-  }
-
-  return (
-    <>
-      <FileExtensionBadge name={leaf} />
-      {renaming ? (
-        <Input
-          ref={inputRef}
-          autoFocus
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onFocus={(event) => event.target.select()}
-          onBlur={commitRename}
-          onKeyDown={(event) => {
-            // stopPropagation -- the flat Chats list's own row (below)
-            // listens for Enter/Space at the row level to open the file
-            // (role="button" there, not a real <button>); without this,
-            // committing a rename with Enter would also bubble up and
-            // open the file right after.
-            event.stopPropagation();
-            if (event.key === "Enter") {
-              event.preventDefault();
-              commitRename();
-            } else if (event.key === "Escape") {
-              event.preventDefault();
-              setDraft(stripExtension(leaf));
-              setRenaming(false);
-            }
-          }}
-          onClick={(event) => event.stopPropagation()}
-          onPointerDown={(event) => event.stopPropagation()}
-          className="h-5 min-w-0 flex-1 border-none bg-transparent px-1 text-xs focus-visible:ring-0"
-        />
-      ) : (
-        <span className="min-w-0 flex-1 truncate">{stripExtension(leaf)}</span>
-      )}
-      <LibraryFileMoreMenu
-        fileName={leaf}
-        onRenameRequest={() => {
-          setDraft(stripExtension(leaf));
-          setRenaming(true);
-        }}
-        onDelete={onDelete}
-      />
-    </>
-  );
 }
 
 function LibraryTreeView({
