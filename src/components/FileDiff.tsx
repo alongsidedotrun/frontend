@@ -103,8 +103,19 @@ function DiffLines({ rows }: { rows: DiffRow[] }) {
       <div className={styles.diffLines}>
         {rows.map((r, i) => (
           <div key={i} className={`${styles.diffRow} ${styles[r.type]}`}>
-            <span className={`${styles.ln} ${styles.old}`}>{r.old ?? ""}</span>
-            <span className={`${styles.ln} ${styles.new}`}>{r.cur ?? ""}</span>
+            {/* Real bug, confirmed directly ("there's a gap in between the
+                numbers and the left border" / "between the left and the
+                number of the lines") -- narrowing the old/new columns
+                (an earlier fix) only shrank the gap, it didn't remove it:
+                a pure add or delete (the only kind this app's own diffs
+                have ever shown -- a brand-new file, or a full-content
+                rewrite) leaves the OTHER side's own column genuinely
+                empty on every single row, and that empty column sits
+                leftmost, ahead of the real number. One column instead,
+                showing whichever side actually has a number for this
+                row -- real GitHub-style side-by-side old+new numbers were
+                never actually in use here. */}
+            <span className={styles.ln}>{r.cur ?? r.old ?? ""}</span>
             <span className={styles.sign}>{r.type === "add" ? "+" : r.type === "del" ? "-" : ""}</span>
             <code>{r.text}</code>
           </div>
