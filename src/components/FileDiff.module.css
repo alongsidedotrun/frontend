@@ -44,7 +44,13 @@
 .diffBody {
   position: relative;
   margin: 0 -16px -16px; overflow: hidden;
-  padding: 4px 0; font-size: 12.5px; line-height: 20px;
+  /* Real bug, confirmed directly via screenshot ("It's the gap from the
+     green/red entire div to the bg of the editor") -- the colored add/del
+     background spans the full diff block with barely any room above it
+     (right against the header's own divider) or below it (right against
+     the card's own bottom edge). This is that outer gap, not per-row
+     spacing (a separate, wrong guess already reverted, above). */
+  padding: 10px 0; font-size: 12.5px; line-height: 20px;
 }
 /* width: 100%, not max-content -- real bug, confirmed directly via
    screenshot ("file diff still exiting the content width"): max-content
