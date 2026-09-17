@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { suppressAutoScroll } from "@/lib/chat-scroll-suppress";
 import { useTextSwap } from "@/lib/use-text-swap";
 import styles from "./thinking-reasoning.module.css";
 
@@ -254,7 +255,21 @@ function ToolDetailRow({ label, detail }: { label: string; detail: string }) {
   const noun = TOOL_NOUNS[label];
   return (
     <div className={styles.trRunGroup}>
-      <button type="button" className={styles.trRunToggle} onClick={() => setOpen((prev) => !prev)} aria-expanded={open}>
+      <button
+        type="button"
+        className={styles.trRunToggle}
+        onClick={() => {
+          // Real bug, confirmed directly ("the run command is snapping the
+          // same way the parent was doing before") -- this nested toggle
+          // grows/shrinks the content column exactly the way the parent
+          // "Worked" disclosure's own toggle does; chat-scroll-suppress.ts's
+          // own comment has the full reasoning for why this needs arming
+          // here too, not just there.
+          suppressAutoScroll();
+          setOpen((prev) => !prev);
+        }}
+        aria-expanded={open}
+      >
         <span className={styles.trToolLabel}>{label}</span>
         {noun && <span className={styles.trToolDetail}>{noun}</span>}
         <svg

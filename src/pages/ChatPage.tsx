@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { useOutletContext, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { spring } from "@/lib/springs";
+import { isAutoScrollSuppressed, suppressAutoScroll } from "@/lib/chat-scroll-suppress";
 import { getUserDisplayName } from "@/lib/user";
 import { ComposeBox, toImageInputs, type ImageAttachment } from "@/components/compose-box";
 import { FileDiffGroup, diffToRows, type DiffRow } from "@/components/FileDiff";
@@ -164,28 +165,6 @@ function summarizeToolInput(input: unknown): string | null {
   return null;
 }
 
-// Real bug, confirmed directly ("When i expand the worked to see what has
-// been done that pushes content of the chat down which snaps back in place
-// tthenworked expands to the top to fit to the screen"): the ResizeObserver
-// further down (chatContentRef's own comment has the full reasoning for why
-// it exists at all -- following a streaming reply's own growing height)
-// fires scrollToBottomIfNear on ANY height change of the content column,
-// with no way to tell *why* it grew. A user manually expanding a settled
-// "Worked for Ns" disclosure grows that same column exactly the way new
-// streamed content would, so it was indistinguishable from the real case
-// this observer exists for -- if the view happened to already be near the
-// bottom (the common case, right after a reply just finished), expanding
-// the disclosure triggered an unwanted auto-scroll, snapping the page to
-// the new bottom and leaving the card the user just opened stranded at the
-// very top of the viewport instead of just growing in place. Module-level,
-// not component state -- TurnWorkDisclosure (a separate top-level
-// component, below) and the observer's own callback (inside the main
-// ChatPage function) need to share this without prop-drilling a callback
-// through several layers for what's really one page-wide behavior.
-// Cleared automatically once the disclosure's own CSS transition
-// (thinking-reasoning.module.css's own .trCollapsible, 320ms) has had time
-// to finish, not on a timer tied to anything else.
-let suppressAutoScrollUntil = 0;
 
 // Maps a provider-specific tool name onto the name this file's own rendering
 // already knows how to treat specially, so a tool row reads the same
@@ -730,13 +709,17 @@ export function ChatPage() {
   useEffect(() => {
     const el = chatContentRef.current;
     if (!el) return;
-    // suppressAutoScrollUntil's own comment (above) has the full reasoning
-    // -- only skipped HERE, not inside scrollToBottomIfNear itself: every
-    // other caller of that function (a freshly sent message, a new row)
-    // is a genuine "follow the new content" case that should still scroll
-    // even if a disclosure happens to be mid-transition at the same moment.
+    // chat-scroll-suppress.ts's own comment has the full reasoning -- a
+    // shared module, not a local variable, since a nested disclosure
+    // (thinking-reasoning.tsx's own ToolDetailRow) needs to arm this same
+    // suppression too, confirmed as a real gap directly ("the run command
+    // is snapping the same way the parent was doing before"). Only
+    // skipped HERE, not inside scrollToBottomIfNear itself: every other
+    // caller of that function (a freshly sent message, a new row) is a
+    // genuine "follow the new content" case that should still scroll even
+    // if a disclosure happens to be mid-transition at the same moment.
     const observer = new ResizeObserver(() => {
-      if (Date.now() < suppressAutoScrollUntil) return;
+      if (isAutoScrollSuppressed()) return;
       scrollToBottomIfNear();
     });
     observer.observe(el);
@@ -3059,13 +3042,8 @@ function TurnWorkDisclosure({
         live={!!live}
         open={open}
         onToggleOpen={() => {
-          // suppressAutoScrollUntil's own comment (above) has the full
-          // reasoning -- 400ms covers the disclosure's own 320ms CSS
-          // transition (thinking-reasoning.module.css's own
-          // .trCollapsible) plus a small margin for the ResizeObserver's
-          // own last callback to land after the animation genuinely
-          // settles.
-          suppressAutoScrollUntil = Date.now() + 400;
+          // chat-scroll-suppress.ts's own comment has the full reasoning.
+          suppressAutoScroll();
           setOpen((prev) => !prev);
         }}
       />
