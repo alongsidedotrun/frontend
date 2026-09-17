@@ -1,5 +1,7 @@
 import { useEffect, useState, type MouseEvent } from "react";
 import { diffLines } from "diff";
+import { FileExtensionBadge, stripExtension } from "@/components/file-extension-badge";
+import { FilePlusIcon } from "@/components/icons/untitled-ui";
 import styles from "./FileDiff.module.css";
 
 // Saved from aicss.dev's file-diff component (npx shadcn@latest add
@@ -154,8 +156,8 @@ export function FileDiff({
           style={{ cursor: onExpand ? "pointer" : "default" }}
         >
           <span className={styles.diffFileWrap}>
-            <DiffIcon />
-            <span className={styles.diffFile}>{file}</span>
+            <FileExtensionBadge name={file} />
+            <span className={styles.diffFile}>{stripExtension(file)}</span>
           </span>
         </button>
         <span className={styles.diffStat}>
@@ -230,6 +232,7 @@ function useDiskDiffRows(path: string): DiffRow[] | null {
 function ResolvedFile({
   file,
   nested,
+  isLast,
   // Whether this file's own row/body should actually render -- kept
   // separate from resolving its rows (below), which needs to run
   // regardless of whether the *group's* own header is currently
@@ -247,6 +250,11 @@ function ResolvedFile({
   // case's header does (that one effectively becomes the whole card's own
   // top, styles.diffHead's own negative-margin trick).
   nested?: boolean;
+  // True only for the actual last file in a multi-file group -- used, with
+  // `open` below, to cancel the outer card's own bottom padding when this
+  // file is both last AND rendering no body (diffLastCollapsed's own
+  // comment has the full reasoning).
+  isLast?: boolean;
   visible: boolean;
   onExpand?: () => void;
   // Reports this file's own real +/- counts up once resolved, so
@@ -288,8 +296,11 @@ function ResolvedFile({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file.path, added, removed, !!rows]);
   if (!rows || !visible) return null;
+  const wrapperClass = nested
+    ? `${styles.diffNestedFile}${isLast && !open ? ` ${styles.diffLastCollapsed}` : ""}`
+    : undefined;
   return (
-    <div className={nested ? styles.diffNestedFile : undefined}>
+    <div className={wrapperClass}>
       <div className={nested ? styles.diffSubHead : styles.diffHead}>
         <button
           type="button"
@@ -299,8 +310,8 @@ function ResolvedFile({
           style={{ cursor: onExpand ? "pointer" : "default" }}
         >
           <span className={styles.diffFileWrap}>
-            <DiffIcon />
-            <span className={styles.diffFile}>{file.name}</span>
+            <FileExtensionBadge name={file.name} />
+            <span className={styles.diffFile}>{stripExtension(file.name)}</span>
           </span>
         </button>
         <span className={styles.diffStat}>
@@ -385,8 +396,14 @@ export function FileDiffGroup({
       <div className={styles.diffHead}>
         <button type="button" className={styles.diffHeadMain} onClick={() => setOpen((prev) => !prev)}>
           <span className={styles.diffFileWrap}>
-            <DiffIcon />
-            <span className={styles.diffFile}>{`${kind} ${files.length} files`}</span>
+            {/* FilePlusIcon + "Created N new files" for a New group only,
+                per explicit request ("for the New 3 files that should be
+                file-plus-2 icon and Created 3 new files") -- Edited keeps
+                its own existing icon/label, not part of that ask. */}
+            {kind === "New" ? <FilePlusIcon className={styles.diffIcon} /> : <DiffIcon />}
+            <span className={styles.diffFile}>
+              {kind === "New" ? `Created ${files.length} new files` : `Edited ${files.length} files`}
+            </span>
           </span>
         </button>
         <span className={styles.diffStat}>
@@ -406,11 +423,12 @@ export function FileDiffGroup({
           header's own aggregate total above is accurate even while
           collapsed; `visible` (not conditional mounting) controls
           whether a file actually renders its own row/body. */}
-      {files.map((f) => (
+      {files.map((f, index) => (
         <ResolvedFile
           key={f.path}
           file={f}
           nested
+          isLast={index === files.length - 1}
           visible={open}
           onExpand={onExpandFile ? () => onExpandFile(f.path) : undefined}
           onResolved={onResolved}

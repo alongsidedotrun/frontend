@@ -21,6 +21,7 @@ import {
   File01,
   File02,
   File03,
+  FilePlus02,
   FileSearch01,
   User01,
   Settings02,
@@ -112,6 +113,8 @@ export {
   Upload01 as ArrowUp03Icon,
   // AppLayout.tsx's own chat-header Memory icon button.
   File02 as File02Icon,
+  // FileDiff.tsx's own multi-file group header ("Created N new files").
+  FilePlus02 as FilePlusIcon,
   User01 as UserIcon,
   Settings02 as SettingsIcon,
   // SettingsOverlay's own "Danger zone" section row.

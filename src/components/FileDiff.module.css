@@ -26,6 +26,21 @@
 }
 .diffNestedFile { border-top: 0.5px solid #e6e8ec; }
 .diffNestedFile:first-of-type { border-top: 0; }
+/* Real bug, confirmed directly via screenshot ("there's a bigger bottom
+   gap/padding/margin than the others, remove that"): .diff's own base
+   padding-bottom (16px) is meant to be canceled by a real diff body's own
+   negative margin (.diffBody, below) once content actually renders flush
+   to the card's true edge -- a COLLAPSED nested file (the common case;
+   it shows only its own header, no body at all) never renders that
+   canceling element, so the outer 16px padding showed through underneath
+   the last file specifically, on top of that header's own natural 8px --
+   nearly 3x the spacing between every OTHER pair of files. Driven from
+   ResolvedFile's own render (a `lastCollapsed` class, only applied when
+   this really is the last file AND it's genuinely rendering no body),
+   not a CSS-only :has() heuristic -- that would have also fired for a
+   last file that's actually expanded, double-canceling real diff content
+   flush against .diffBody's own already-correct negative margin. */
+.diffLastCollapsed { margin-bottom: -16px; }
 .diffHeadMain {
   display: inline-flex;
   align-items: center;
