@@ -1149,17 +1149,18 @@ export function ChatPage() {
 
       // Real event now (backend's own claude_direct.rs control-protocol handling)
       // -- the CLI is genuinely blocked on stdin waiting for this exact answer.
-      // Real bug, confirmed directly ("Waiting disappears once we get the
-      // prompt for an answer but should stay there as it's waiting on my
-      // answer"): this used to clear the shimmer entirely on the theory that
-      // the visible permission card already says enough -- but the turn is
-      // still genuinely waiting, now on a human answer instead of the model,
-      // which is exactly what the existing "waiting" phase already means.
-      // Left alone here (not forced to "waiting") since a Claude turn that's
-      // mid-"working" (a thinking block already landed) when this fires is
-      // still accurately "working" too -- whichever phase was already
-      // showing keeps showing, underneath the real card asking the question.
+      // Real bug, confirmed directly, through two corrections: first "Waiting
+      // disappears once we get the prompt for an answer but should stay there
+      // as it's waiting on my answer" (fixed by no longer clearing the phase
+      // entirely), then "Working should change to waiting when waiting for
+      // the user to answer" -- leaving whichever phase was already active
+      // (often "working", since a tool call's own start is what triggers a
+      // permission request in the first place) was misleading: the MODEL
+      // isn't doing anything right now, a human is being asked to. Forced to
+      // "waiting" here instead, the same phase a turn starts in -- accurate
+      // either way, since the model is genuinely idle until this resolves.
       if (type === "permission_request") {
+        setWaitingPhase("waiting");
         pushRow({
           kind: "permission",
           id: nextRowId(),
