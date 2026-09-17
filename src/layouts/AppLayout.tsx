@@ -809,6 +809,17 @@ export function AppLayout() {
   // instant sessionId cleared, mid-fade, well before Home (which never
   // shows this header at all) was actually what the user was looking at.
   if (sessionId !== lastSessionIdRef.current) {
+    // TEMP diagnostic (real bug, "the chat name at the top bar goes to
+    // untitled as I re ran the first message but should stick to the same
+    // name given at the first time, the name at the sidebar stays the
+    // same") -- remove once found.
+    console.log("[chatname-debug] sessionId changed", {
+      from: lastSessionIdRef.current,
+      to: sessionId,
+      recentsCount: recents.length,
+      foundInRecents: recents.find((r) => r.id === sessionId)?.label,
+      chatNameBefore: chatName,
+    });
     lastSessionIdRef.current = sessionId;
     if (sessionId) {
       const known = recents.find((r) => r.id === sessionId)?.label ?? "Untitled chat";
@@ -838,6 +849,8 @@ export function AppLayout() {
   // document.activeElement check guards against a live edit in progress
   // here getting clobbered by a same-tick echo of the *previous* value.
   function receiveChatNameFromServer(name: string) {
+    // TEMP diagnostic, same bug as above -- remove once found.
+    console.log("[chatname-debug] receiveChatNameFromServer", { name });
     lastSavedChatNameRef.current = name;
     setChatName((current) => (document.activeElement?.id === "chatNameInput" ? current : name));
     void refreshSidebarLists();

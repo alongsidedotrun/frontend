@@ -2019,6 +2019,23 @@ export function ChatPage() {
             const isPendingEditInactive = pendingEditBoundaryIndex !== -1 && index > pendingEditBoundaryIndex;
             const deferredGroup = deferredGroups.get(row.id);
             const deferredCard = deferredGroup ? renderFileDiffGroupCard(deferredGroup, openFile) : null;
+            // Real bug, confirmed directly via screenshot ("The state moved
+            // instead of staying at the first message of the model"): the
+            // LIVE Waiting/Working shimmer used to always render as its own
+            // separate block at the very bottom of the whole rows list
+            // (below), so once real content (a diff card, a permission
+            // request) landed underneath the first reply this same turn,
+            // the live indicator visibly drifted further down the page --
+            // then, once the turn actually settled, "Worked for Ns" jumped
+            // back up to attach to that first reply instead (firstAgentRowIdRef's
+            // own fix). Rendered here instead, inline, in the exact same slot
+            // the settled version will occupy (ChatRowView's own agent
+            // branch, its own comment has that reasoning) -- the bottom
+            // block (below) now only ever shows before any reply exists yet.
+            const liveWorking =
+              row.kind === "agent" && row.id === firstAgentRowIdRef.current && waitingPhase && !row.durationLabel
+                ? { label: waitingPhaseLabel, detailText: liveReasoningText ?? undefined }
+                : undefined;
             return (
             <Fragment key={row.id}>
               <div
@@ -2039,6 +2056,7 @@ export function ChatPage() {
                   onSwitchBranch={switchBranch}
                   onOpenFile={openFile}
                   toolGroup={groupStarts.get(row.id)}
+                  liveWorking={liveWorking}
                 />
               </div>
               {deferredCard && <div className={rowClassName}>{deferredCard}</div>}
@@ -2046,7 +2064,17 @@ export function ChatPage() {
             );
           });
           })()}
-          {waitingPhase && (
+          {/* Real bug, confirmed directly via screenshot ("The state moved
+              instead of staying at the first message of the model"): this
+              used to always render here regardless of whether a reply
+              already existed, so it visibly drifted down the page as more
+              content (a diff card, a permission request) landed below that
+              first reply, then jumped back up once the turn settled
+              (ChatRowView's own liveWorking prop, above, is the fix -- it
+              takes over, inline, the moment a first reply exists). This
+              block now only ever covers the gap before any reply exists yet
+              -- real Waiting/Thinking with nothing to attach to. */}
+          {waitingPhase && !firstAgentRowIdRef.current && (
             // No circle/orb any more -- per explicit request ("make sure
             // that we don't have any circle or placeholder for icons"):
             // the shimmering text on its own is the whole indicator now,
@@ -2263,6 +2291,7 @@ function ChatRowView({
   onSwitchBranch,
   onOpenFile,
   toolGroup,
+  liveWorking,
 }: {
   row: ChatRow;
   isPendingEdit: boolean;
@@ -2279,6 +2308,12 @@ function ChatRowView({
   // separate rows. Every other row in that run isn't rendered at all
   // (rows.map's own grouping pass, further down).
   toolGroup?: Extract<ChatRow, { kind: "tool" }>[];
+  // Only ever set on the turn's own first agent row, while that turn is
+  // still genuinely in progress (rows.map's own comment, above, has the
+  // full reasoning) -- rendered in the exact slot row.durationLabel's own
+  // settled disclosure will occupy once the turn finishes, so nothing
+  // visibly jumps between the live and settled states.
+  liveWorking?: { label: string; detailText?: string };
 }) {
   // Gates the actions row + disclaimer (agent branch, further down) until
   // the reply's own StreamingText reveal genuinely finishes -- per explicit
@@ -2597,16 +2632,20 @@ function ChatRowView({
   return (
     <div className={`flex flex-col items-start gap-1 ${iconLoaded ? "" : "invisible"}`}>
       {/* Unified Waiting/Thinking/Working/Worked disclosure (alongsidedotrun/
-          private#53), same control the live indicator below the rows list uses
-          while awaiting this reply -- per explicit request ("that should be in
-          the same area where Waiting was... when opening the dropdown, thinking
-          and worked can be seen"), and above the model name row, not below
-          (explicit follow-up). Only once durationLabel exists (the matching
-          "result" event has landed) -- the brief gap between this row's own text
-          arriving and that happening shows nothing here, same trade-off Synara's
-          own settled-vs-live split has. */}
-      {row.durationLabel && (
+          private#53) -- per explicit request ("that should be in the same
+          area where Waiting was... when opening the dropdown, thinking and
+          worked can be seen"), and above the model name row, not below
+          (explicit follow-up). Settled (row.durationLabel, once the matching
+          "result" event has landed) takes priority; liveWorking (this row's
+          own comment has the full reasoning) renders in that exact same slot
+          while the turn's still genuinely in progress, so nothing visibly
+          jumps between the two. Neither yet -- the brief gap between this
+          row's own text arriving and either landing -- shows nothing here,
+          same trade-off Synara's own settled-vs-live split has. */}
+      {row.durationLabel ? (
         <TurnWorkDisclosure label={row.durationLabel} detailText={row.reasoningText} toolLines={row.toolCallLines} />
+      ) : (
+        liveWorking && <TurnWorkDisclosure label={liveWorking.label} detailText={liveWorking.detailText} live />
       )}
       <div className="flex items-center gap-1.5 px-1">
         {/* size-5 (20px), not size-6 -- per explicit request ("make sure
