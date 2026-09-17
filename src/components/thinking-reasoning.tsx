@@ -72,6 +72,8 @@ export function ThinkingReasoning({
   // grew), not on every re-render/toggle -- reopening an already-settled
   // reasoning block shouldn't replay the entrance animation.
   useEffect(() => {
+    // TEMP diagnostic (real bug, "still not showing") -- remove once found.
+    console.log("[phase-debug] ThinkingReasoning effect: sentences=", sentences, "toolLines=", toolLines, "text=", JSON.stringify(text));
     if (sentencesKey === revealedKeyRef.current) return;
     revealedKeyRef.current = sentencesKey;
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
@@ -91,6 +93,8 @@ export function ThinkingReasoning({
 
   const expanded = live || open;
   const visibleSentences = sentences.slice(0, revealedCount);
+  // TEMP diagnostic (real bug, "still not showing") -- remove once found.
+  console.log("[phase-debug] ThinkingReasoning render: live=", live, "open=", open, "expanded=", expanded, "revealedCount=", revealedCount, "visibleSentences=", visibleSentences);
 
   const onScroll = () => {
     const el = viewportRef.current;

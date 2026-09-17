@@ -1338,6 +1338,10 @@ export function ChatPage() {
                 reasoningText: liveReasoningTextRef.current ?? undefined,
                 toolCallLines: liveToolCallLinesRef.current.length > 0 ? liveToolCallLinesRef.current : undefined,
               });
+              // TEMP diagnostic (real bug, "still not showing" -- Codex's
+              // GPT-5.6 Terra reply, arrow present, expands to nothing) --
+              // remove once the actual cause is found.
+              console.log("[phase-debug] agent row toolCallLines:", liveToolCallLinesRef.current, "reasoningText:", liveReasoningTextRef.current);
               updateLiveReasoningText(null);
               liveToolCallLinesRef.current = [];
             } else if (block.type === "tool_use" && block.name === "WebSearch") {
