@@ -229,7 +229,7 @@ function useDiskDiffRows(path: string): DiffRow[] | null {
 // (onExpand, same "issue #288, phase 1" contract FileDiff already had).
 function ResolvedFile({
   file,
-  bare,
+  nested,
   // Whether this file's own row/body should actually render -- kept
   // separate from resolving its rows (below), which needs to run
   // regardless of whether the *group's* own header is currently
@@ -241,10 +241,12 @@ function ResolvedFile({
   onResolved,
 }: {
   file: FileDiffGroupFile;
-  // No header row at all when this is the only file in its group -- the
-  // group's own header already shows this exact filename (FileDiffGroup's
-  // own comment has the reasoning), so this would just repeat it.
-  bare: boolean;
+  // True for a file that's one of SEVERAL in its group -- its own header
+  // sits inset in the group's body (a lighter style, no negative margins)
+  // instead of spanning edge-to-edge the way the single-file delegated
+  // case's header does (that one effectively becomes the whole card's own
+  // top, styles.diffHead's own negative-margin trick).
+  nested?: boolean;
   visible: boolean;
   onExpand?: () => void;
   // Reports this file's own real +/- counts up once resolved, so
@@ -256,12 +258,18 @@ function ResolvedFile({
   const rows = file.syncRows ?? diskRows;
   const added = rows?.filter((r) => r.type === "add").length ?? 0;
   const removed = rows?.filter((r) => r.type === "del").length ?? 0;
-  // Only meaningful when !bare (a single-file group delegates its whole
-  // header, chevron included, to this component instead of rendering its
-  // own -- see FileDiffGroup's own comment); a bare row (part of a
-  // multi-file group) always shows its own full body once visible --
-  // per-file snippeting there is a scope this hasn't been extended to,
-  // only the group-level show/hide toggle applies.
+  // Real bug, confirmed directly via screenshot ("New 3 files... gave me
+  // one with the same but broken", a real Antigravity Plan-mode turn that
+  // wrote three genuinely different files, each shown in full with no way
+  // to tell them apart): this used to skip both its own header (a `bare`
+  // prop, now removed entirely) AND the snippet limit for any file inside
+  // a MULTI-file group -- only a single-file group's own delegated
+  // ResolvedFile got a real header/chevron/snippet. Not a provider-
+  // specific gap (this code has no provider branches at all) -- Claude or
+  // Codex writing more than one file in a turn hit the exact same thing,
+  // it just hadn't been reported yet. Every file in a group now gets its
+  // own real header (name + stat) and its own independent snippet/expand,
+  // whether it's the only file in its group or one of several.
   const [open, setOpen] = useState(false);
   const hasMore = (rows?.length ?? 0) > SNIPPET_LINES;
   useEffect(() => {
@@ -272,37 +280,35 @@ function ResolvedFile({
   }, [file.path, added, removed, !!rows]);
   if (!rows || !visible) return null;
   return (
-    <div>
-      {!bare && (
-        <div className={styles.diffHead}>
-          <button
-            type="button"
-            className={styles.diffHeadMain}
-            onClick={onExpand}
-            disabled={!onExpand}
-            style={{ cursor: onExpand ? "pointer" : "default" }}
-          >
-            <span className={styles.diffFileWrap}>
-              <DiffIcon />
-              <span className={styles.diffFile}>{file.name}</span>
-            </span>
-          </button>
-          <span className={styles.diffStat}>
-            <span className={styles.add}>+{added}</span>
-            <span className={styles.del}>-{removed}</span>
+    <div className={nested ? styles.diffNestedFile : undefined}>
+      <div className={nested ? styles.diffSubHead : styles.diffHead}>
+        <button
+          type="button"
+          className={styles.diffHeadMain}
+          onClick={onExpand}
+          disabled={!onExpand}
+          style={{ cursor: onExpand ? "pointer" : "default" }}
+        >
+          <span className={styles.diffFileWrap}>
+            <DiffIcon />
+            <span className={styles.diffFile}>{file.name}</span>
           </span>
-          {hasMore && (
-            <DiffChevron
-              open={open}
-              onClick={(e) => {
-                e.stopPropagation();
-                setOpen((prev) => !prev);
-              }}
-            />
-          )}
-        </div>
-      )}
-      <DiffLines rows={bare || open ? rows : rows.slice(0, SNIPPET_LINES)} />
+        </button>
+        <span className={styles.diffStat}>
+          <span className={styles.add}>+{added}</span>
+          <span className={styles.del}>-{removed}</span>
+        </span>
+        {hasMore && (
+          <DiffChevron
+            open={open}
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen((prev) => !prev);
+            }}
+          />
+        )}
+      </div>
+      <DiffLines rows={open ? rows : rows.slice(0, SNIPPET_LINES)} />
     </div>
   );
 }
@@ -354,7 +360,6 @@ export function FileDiffGroup({
       <div className={styles.diff}>
         <ResolvedFile
           file={files[0]}
-          bare={false}
           visible
           onExpand={onExpandFile ? () => onExpandFile(files[0].path) : undefined}
           onResolved={onResolved}
@@ -396,7 +401,7 @@ export function FileDiffGroup({
         <ResolvedFile
           key={f.path}
           file={f}
-          bare={true}
+          nested
           visible={open}
           onExpand={onExpandFile ? () => onExpandFile(f.path) : undefined}
           onResolved={onResolved}
