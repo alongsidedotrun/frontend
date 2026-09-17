@@ -820,6 +820,31 @@ export function ChatPage() {
         return;
       }
 
+      // Real, provider-agnostic "a tool call just started" signal (backend/src/
+      // antigravity.rs and codex.rs) -- both providers' own tool-lifecycle
+      // events forward a real ToolUse row only once the call is already
+      // finished (unlike Claude, which shows it immediately), so without this
+      // a long Codex/Antigravity tool call showed nothing at all until it was
+      // done. No row of its own -- just lights up the same "working" phase
+      // Claude's own tool_use branch above sets, unconditionally (this can
+      // arrive before or after awaitingReplyRef flips, and either way a tool
+      // is now genuinely running).
+      if (type === "tool_started") {
+        setWaitingPhase("working");
+        return;
+      }
+
+      // Real, provider-agnostic "reasoning has genuinely started" signal
+      // (backend/src/codex.rs) -- Codex's own app-server emits a real
+      // "reasoning"-typed item every turn (live-confirmed), same phase
+      // Claude's own thinking-block branch above already shows, but Codex's
+      // own item/started fires before any of its real text (if any ever
+      // arrives -- often it does not) is known.
+      if (type === "thinking_started") {
+        if (awaitingReplyRef.current) setWaitingPhase("thinking");
+        return;
+      }
+
       // Real bug, confirmed via a real transcript (a raw {"type":"user",...}
       // tool_result blob showing up as visible chat text): the Claude Agent
       // SDK's own "user" message type echoes a completed tool call's own
@@ -1259,7 +1284,14 @@ export function ChatPage() {
               // file's own, above) reads the block's own real input fields; input
               // itself is kept on the row too so ChatRowView can show the full raw
               // arguments on expand, matching dray's own ToolCall.tsx.
-              setWaitingPhase(null);
+              // "working", not null -- real bug, confirmed directly ("everything
+              // falls in between Waiting, Worked"): this used to clear the phase
+              // indicator the instant a tool_use block was merely seen, so a
+              // long-running tool call showed nothing at all until the model's
+              // own next block arrived. A tool call in flight is real, ongoing
+              // work the same way a thinking block above is -- it settles back to
+              // null the same way, once a text block (the actual reply) lands.
+              setWaitingPhase("working");
               const toolName = normalizeToolName(block.name);
               pushRow({
                 kind: "tool",
