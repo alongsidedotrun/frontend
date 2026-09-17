@@ -383,13 +383,18 @@ function ChatFileListPanel({
               <div
                 key={file.filePath}
                 onClick={() => onSelectFile(file.filePath)}
-                className="flex cursor-pointer items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-hover-2/50"
+                className="group flex cursor-pointer items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-hover-2/50"
               >
                 {/* LibraryFileNameCell, not a bare FileExtensionBadge +
                     name -- per explicit request ("the three dots to
                     rename or delete the file is missing too"), the same
                     real component (badge, inline rename, "..." menu)
-                    LibraryPage.tsx's own file rows already use. */}
+                    LibraryPage.tsx's own file rows already use. Real bug,
+                    confirmed directly ("hover over it, the three dots is
+                    not showing"): this row was missing the "group"
+                    className MoreTrigger's own opacity-0 group-hover:
+                    opacity-100 styling requires -- LibraryPage.tsx's own
+                    working row already has it. */}
                 <LibraryFileNameCell
                   leaf={fileName(file.filePath)}
                   onRename={(newLeaf) => renameFile(file.filePath, newLeaf)}
