@@ -69,8 +69,16 @@
 }
 .diffFileWrap { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
 .diffIcon { display: block; width: 15px; height: 15px; color: #a1a1a1; flex: none; }
-.diffFile { overflow: hidden; color: #1a1a1a; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
-.diffStat { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; font-size: 12px; line-height: 1; }
+/* line-height: 18px, not 1 -- real bug, confirmed directly via screenshot
+   ("numbers of add and delete and arrows do not match the title
+   vertically"): line-height: 1 computes to a different real pixel height
+   per font (.diffFile's own sans-serif name vs .diffStat's own monospace
+   digits, .diff's own font-family), so their line-boxes centered to
+   different heights even under the same align-items: center -- a fixed
+   18px for both instead matches DiffChevron's own real 18px box exactly,
+   so all three sit on the same center line regardless of font metrics. */
+.diffFile { overflow: hidden; color: #1a1a1a; line-height: 18px; text-overflow: ellipsis; white-space: nowrap; }
+.diffStat { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; font-size: 12px; line-height: 18px; }
 .diffStat .add { color: #15a06a; }
 .diffStat .del { color: #dc2626; }
 .diffChevron {
