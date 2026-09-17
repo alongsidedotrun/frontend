@@ -71,12 +71,23 @@ export function ThinkingReasoning({
   // Re-staggers only when genuinely new content has arrived (the text
   // grew), not on every re-render/toggle -- reopening an already-settled
   // reasoning block shouldn't replay the entrance animation.
+  //
+  // Real bug, confirmed directly via console output ("Still not showing"):
+  // the staggered setTimeout-based reveal below is fragile against a row
+  // being unmounted/remounted (this app's own viewport-visibility logic
+  // mounts/unmounts off-screen rows) between scheduling a timer and it
+  // firing -- diagnostic logging showed the effect running with the
+  // correct real sentences/toolLines every time, yet revealedCount stuck
+  // at 0 forever regardless. Staggering only ever mattered for genuinely
+  // LIVE streaming content in the first place; a settled, already-fully-
+  // known disclosure (the common case -- every historical reply, and any
+  // live one with no further updates coming) has no reason to animate a
+  // reveal at all, so it skips the timers entirely and shows everything
+  // immediately, removing this whole class of timing bug for that case.
   useEffect(() => {
-    // TEMP diagnostic (real bug, "still not showing") -- remove once found.
-    console.log("[phase-debug] ThinkingReasoning effect: sentences=", sentences, "toolLines=", toolLines, "text=", JSON.stringify(text));
     if (sentencesKey === revealedKeyRef.current) return;
     revealedKeyRef.current = sentencesKey;
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+    if (!live || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
       setRevealedCount(sentences.length);
       return;
     }
@@ -87,14 +98,12 @@ export function ThinkingReasoning({
     });
     return () => timers.forEach(clearTimeout);
     // sentences is derived from sentencesKey every render -- only
-    // sentencesKey itself (checked above) should re-trigger this.
+    // sentencesKey/live (checked above) should re-trigger this.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sentencesKey]);
+  }, [sentencesKey, live]);
 
   const expanded = live || open;
   const visibleSentences = sentences.slice(0, revealedCount);
-  // TEMP diagnostic (real bug, "still not showing") -- remove once found.
-  console.log("[phase-debug] ThinkingReasoning render: live=", live, "open=", open, "expanded=", expanded, "revealedCount=", revealedCount, "visibleSentences=", visibleSentences);
 
   const onScroll = () => {
     const el = viewportRef.current;
