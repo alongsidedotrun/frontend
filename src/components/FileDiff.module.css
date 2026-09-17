@@ -4,12 +4,35 @@
   margin: -12px -16px 0; padding: 10px 12px 10px 16px;
   background: transparent; border-bottom: 0.5px solid #e6e8ec; font-size: 12.5px;
 }
-.diffFileWrap { display: inline-flex; align-items: center; gap: 7px; }
+.diffHeadMain {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+}
+.diffFileWrap { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
 .diffIcon { display: block; width: 15px; height: 15px; color: #a1a1a1; flex: none; }
-.diffFile { color: #1a1a1a; line-height: 1; }
+.diffFile { overflow: hidden; color: #1a1a1a; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
 .diffStat { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; font-size: 12px; line-height: 1; }
 .diffStat .add { color: #15a06a; }
 .diffStat .del { color: #dc2626; }
+.diffChevron {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 4px;
+  color: #a1a1a1;
+  background: transparent;
+}
+.diffChevron:hover { color: #1a1a1a; background: rgba(0, 0, 0, 0.05); }
 .diffBody {
   position: relative;
   margin: 0 -16px -16px; overflow-x: auto; overflow-y: hidden;
@@ -17,20 +40,6 @@
   scrollbar-width: none; -ms-overflow-style: none;
 }
 .diffBody::-webkit-scrollbar { display: none; }
-.diffShowMore {
-  position: sticky;
-  left: 0;
-  display: block;
-  width: 100%;
-  padding: 8px 16px;
-  border-top: 0.5px solid #e6e8ec;
-  color: #6b7280;
-  font-size: 12px;
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
-  text-align: left;
-  background: transparent;
-}
-.diffShowMore:hover { color: #1a1a1a; background: rgba(0, 0, 0, 0.02); }
 .diffLines { position: relative; width: max-content; min-width: 100%; }
 /* full-height gutter divider at the line-number edge (32px + 32px).
    Lives on the inner track so it stays aligned while the body scrolls. */
@@ -72,6 +81,6 @@
   .diffRow.del::before { background: repeating-linear-gradient(45deg, #f87171 0, #f87171 1.5px, transparent 1.5px, transparent 3px); }
   .diffRow.del .sign, .diffRow.del .old { color: #f87171; }
   .diffRow.del code { color: #f5f5f5; }
-  .diffShowMore { border-top-color: #303030; color: #9ca3af; background: #1a1a1a; }
-  .diffShowMore:hover { color: #f5f5f5; background: #232323; }
+  .diffChevron { color: #9ca3af; }
+  .diffChevron:hover { color: #f5f5f5; background: rgba(255, 255, 255, 0.08); }
 }

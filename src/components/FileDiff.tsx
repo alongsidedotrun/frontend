@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import { diffLines } from "diff";
 import styles from "./FileDiff.module.css";
 
@@ -66,26 +66,40 @@ function DiffIcon() {
 }
 
 // Real bug, confirmed directly via screenshot ("Claude now do a huge file
-// diff we should do a small one where we can expand it like a drawer"): a
-// large real diff (the screenshot's own +52/-0 Founders.md) used to render
-// every single row inline with no cap at all -- fine for a small edit, a
-// wall of scroll for a genuinely large file. Collapsed by default past
-// COLLAPSE_THRESHOLD real rows, with a real "Show N more lines" button
-// (not a fixed-height clip -- an explicit count of what's actually hidden)
-// that reveals the rest inline. Deliberately independent of the card's own
-// header click (which still opens the real editor, issue #288 phase 1's
-// own contract, unchanged) -- this is a second, separate expand affordance
-// for the diff body itself.
+// diff we should do a small one where we can expand it like a drawer" ->
+// then corrected, "we should not do show more lines at the bottom we should
+// do a collapse and expand arrow at the top right after the lines"): a real
+// diff (the screenshot's own +52/-0 Founders.md) used to render every
+// single row inline with no way to collapse it at all. A chevron next to
+// the +/- stat (DiffChevron, below) toggles the whole body -- collapsed by
+// default past COLLAPSE_THRESHOLD real rows, expanded by default at or
+// under it -- separate from the header's own click-to-open-real-editor
+// area (issue #288 phase 1's own contract, unchanged).
 const COLLAPSE_THRESHOLD = 12;
 
+function DiffChevron({ open, onClick }: { open: boolean; onClick: (e: MouseEvent) => void }) {
+  return (
+    <button type="button" className={styles.diffChevron} onClick={onClick} aria-expanded={open} aria-label="Toggle diff">
+      <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
+        <path
+          d="m6 9 6 6 6-6"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ transform: open ? "rotate(0deg)" : "rotate(-90deg)", transformOrigin: "center", transition: "transform 180ms ease-out" }}
+        />
+      </svg>
+    </button>
+  );
+}
+
 function DiffLines({ rows }: { rows: DiffRow[] }) {
-  const [expanded, setExpanded] = useState(rows.length <= COLLAPSE_THRESHOLD);
-  const visibleRows = expanded ? rows : rows.slice(0, COLLAPSE_THRESHOLD);
-  const hiddenCount = rows.length - visibleRows.length;
   return (
     <div className={styles.diffBody}>
       <div className={styles.diffLines}>
-        {visibleRows.map((r, i) => (
+        {rows.map((r, i) => (
           <div key={i} className={`${styles.diffRow} ${styles[r.type]}`}>
             <span className={`${styles.ln} ${styles.old}`}>{r.old ?? ""}</span>
             <span className={`${styles.ln} ${styles.new}`}>{r.cur ?? ""}</span>
@@ -94,11 +108,6 @@ function DiffLines({ rows }: { rows: DiffRow[] }) {
           </div>
         ))}
       </div>
-      {hiddenCount > 0 && (
-        <button type="button" className={styles.diffShowMore} onClick={() => setExpanded(true)}>
-          Show {hiddenCount} more line{hiddenCount === 1 ? "" : "s"}
-        </button>
-      )}
     </div>
   );
 }
@@ -119,25 +128,35 @@ export function FileDiff({
 }) {
   const added = rows.filter((r) => r.type === "add").length;
   const removed = rows.filter((r) => r.type === "del").length;
+  const [open, setOpen] = useState(rows.length <= COLLAPSE_THRESHOLD);
   return (
     <div className={styles.diff}>
-      <button
-        type="button"
-        className={styles.diffHead}
-        onClick={onExpand}
-        disabled={!onExpand}
-        style={{ width: "100%", border: 0, background: "transparent", cursor: onExpand ? "pointer" : "default" }}
-      >
-        <span className={styles.diffFileWrap}>
-          <DiffIcon />
-          <span className={styles.diffFile}>{file}</span>
-        </span>
+      <div className={styles.diffHead}>
+        <button
+          type="button"
+          className={styles.diffHeadMain}
+          onClick={onExpand}
+          disabled={!onExpand}
+          style={{ cursor: onExpand ? "pointer" : "default" }}
+        >
+          <span className={styles.diffFileWrap}>
+            <DiffIcon />
+            <span className={styles.diffFile}>{file}</span>
+          </span>
+        </button>
         <span className={styles.diffStat}>
           <span className={styles.add}>+{added}</span>
           <span className={styles.del}>-{removed}</span>
         </span>
-      </button>
-      <DiffLines rows={rows} />
+        <DiffChevron
+          open={open}
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpen((prev) => !prev);
+          }}
+        />
+      </div>
+      {open && <DiffLines rows={rows} />}
     </div>
   );
 }
@@ -221,6 +240,13 @@ function ResolvedFile({
   const rows = file.syncRows ?? diskRows;
   const added = rows?.filter((r) => r.type === "add").length ?? 0;
   const removed = rows?.filter((r) => r.type === "del").length ?? 0;
+  // Only meaningful when !bare (a single-file group delegates its whole
+  // header, chevron included, to this component instead of rendering its
+  // own -- see FileDiffGroup's own comment); a bare row's own body
+  // visibility is controlled entirely by the group's `visible` prop
+  // instead, unchanged.
+  const [openOverride, setOpenOverride] = useState<boolean | null>(null);
+  const open = openOverride ?? (rows?.length ?? 0) <= COLLAPSE_THRESHOLD;
   useEffect(() => {
     if (rows) onResolved(file.path, added, removed);
     // onResolved is a fresh closure every FileDiffGroup render -- only
@@ -231,24 +257,33 @@ function ResolvedFile({
   return (
     <div>
       {!bare && (
-        <button
-          type="button"
-          className={styles.diffHead}
-          onClick={onExpand}
-          disabled={!onExpand}
-          style={{ width: "100%", border: 0, background: "transparent", cursor: onExpand ? "pointer" : "default" }}
-        >
-          <span className={styles.diffFileWrap}>
-            <DiffIcon />
-            <span className={styles.diffFile}>{file.name}</span>
-          </span>
+        <div className={styles.diffHead}>
+          <button
+            type="button"
+            className={styles.diffHeadMain}
+            onClick={onExpand}
+            disabled={!onExpand}
+            style={{ cursor: onExpand ? "pointer" : "default" }}
+          >
+            <span className={styles.diffFileWrap}>
+              <DiffIcon />
+              <span className={styles.diffFile}>{file.name}</span>
+            </span>
+          </button>
           <span className={styles.diffStat}>
             <span className={styles.add}>+{added}</span>
             <span className={styles.del}>-{removed}</span>
           </span>
-        </button>
+          <DiffChevron
+            open={open}
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpenOverride(!open);
+            }}
+          />
+        </div>
       )}
-      <DiffLines rows={rows} />
+      {(bare || open) && <DiffLines rows={rows} />}
     </div>
   );
 }
@@ -279,40 +314,60 @@ export function FileDiffGroup({
   onExpandFile?: (path: string) => void;
 }) {
   const single = files.length === 1;
-  const [open, setOpen] = useState(single);
+  const [open, setOpen] = useState(true);
   // Keyed by path, not summed inline -- a file's own count can arrive
   // (or change, if its rows resolve later than another's) independently,
   // and this needs the *latest* value per file, not an accumulating sum
   // that would double-count on re-resolution.
   const [resolvedCounts, setResolvedCounts] = useState<Record<string, { added: number; removed: number }>>({});
+  const onResolved = (path: string, added: number, removed: number) =>
+    setResolvedCounts((prev) =>
+      prev[path]?.added === added && prev[path]?.removed === removed ? prev : { ...prev, [path]: { added, removed } }
+    );
+  // A single file delegates its ENTIRE header -- including its own real
+  // per-file collapse/expand chevron (ResolvedFile's own comment has the
+  // full reasoning, added per explicit follow-up: "we should do a collapse
+  // and expand arrow at the top right after the lines", not a bottom
+  // "show more" button) -- to ResolvedFile itself instead of this
+  // component rendering a second, redundant header for the same one file.
+  if (single) {
+    return (
+      <div className={styles.diff}>
+        <ResolvedFile
+          file={files[0]}
+          bare={false}
+          visible
+          onExpand={onExpandFile ? () => onExpandFile(files[0].path) : undefined}
+          onResolved={onResolved}
+        />
+      </div>
+    );
+  }
   const totals = Object.values(resolvedCounts).reduce(
     (acc, c) => ({ added: acc.added + c.added, removed: acc.removed + c.removed }),
     { added: 0, removed: 0 }
   );
-  const headerLabel = single ? files[0].name : `${kind} ${files.length} files`;
-  // A single file has nothing to expand/collapse (its diff is always
-  // shown, matching FileDiff's own original behavior) -- the header
-  // itself is this one file's own onExpand trigger instead. A real group
-  // header toggles the group open/closed.
-  const headerOnClick = single ? (onExpandFile ? () => onExpandFile(files[0].path) : undefined) : () => setOpen((prev) => !prev);
   return (
     <div className={styles.diff}>
-      <button
-        type="button"
-        className={styles.diffHead}
-        onClick={headerOnClick}
-        disabled={single && !onExpandFile}
-        style={{ width: "100%", border: 0, background: "transparent", cursor: headerOnClick ? "pointer" : "default" }}
-      >
-        <span className={styles.diffFileWrap}>
-          <DiffIcon />
-          <span className={styles.diffFile}>{headerLabel}</span>
-        </span>
+      <div className={styles.diffHead}>
+        <button type="button" className={styles.diffHeadMain} onClick={() => setOpen((prev) => !prev)}>
+          <span className={styles.diffFileWrap}>
+            <DiffIcon />
+            <span className={styles.diffFile}>{`${kind} ${files.length} files`}</span>
+          </span>
+        </button>
         <span className={styles.diffStat}>
           <span className={styles.add}>+{totals.added}</span>
           <span className={styles.del}>-{totals.removed}</span>
         </span>
-      </button>
+        <DiffChevron
+          open={open}
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpen((prev) => !prev);
+          }}
+        />
+      </div>
       {/* Always mounted, regardless of `open` -- each file's own diff
           still needs to resolve (real content or a disk fetch) so the
           header's own aggregate total above is accurate even while
@@ -322,14 +377,10 @@ export function FileDiffGroup({
         <ResolvedFile
           key={f.path}
           file={f}
-          bare={single}
+          bare={true}
           visible={open}
           onExpand={onExpandFile ? () => onExpandFile(f.path) : undefined}
-          onResolved={(path, added, removed) =>
-            setResolvedCounts((prev) =>
-              prev[path]?.added === added && prev[path]?.removed === removed ? prev : { ...prev, [path]: { added, removed } }
-            )
-          }
+          onResolved={onResolved}
         />
       ))}
     </div>
