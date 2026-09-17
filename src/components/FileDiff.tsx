@@ -77,7 +77,7 @@ function DiffIcon() {
 // that reveals the rest -- only rendered at all when there's more than the
 // snippet to reveal. Separate from the header's own click-to-open-real-
 // editor area (issue #288 phase 1's own contract, unchanged).
-const SNIPPET_LINES = 10;
+const SNIPPET_LINES = 3;
 
 function DiffChevron({ open, onClick }: { open: boolean; onClick: (e: MouseEvent) => void }) {
   return (
