@@ -270,7 +270,16 @@ function PageBreadcrumb({
           {models && models.length > 0 && (
             <HoverCard openDelay={150} closeDelay={0}>
               <HoverCardTrigger asChild>
-                <span className="mr-1 flex shrink-0 -space-x-1 align-middle">
+                {/* No mr-1 here -- real bug, confirmed directly via
+                    screenshot ("There's a big space at the topbar icon and
+                    chat name, that should be the same gap like the
+                    sidebar"): BreadcrumbItem (ui/breadcrumb.tsx) already
+                    applies its own gap-1 (4px) between its children, so
+                    this span's own mr-1 (also 4px) doubled it to 8px.
+                    Removing it leaves BreadcrumbItem's own 4px alone,
+                    which already matches SidebarModelStack's own mr-1
+                    (4px, no competing parent gap there) exactly. */}
+                <span className="flex shrink-0 -space-x-1 align-middle">
                   {(models.length > 4 ? models.slice(0, 3) : models.slice(0, 4)).map((entry, index) => {
                     const found = QUICK_CHAT_MODELS.find((m) => m.value === entry.model);
                     if (!found) return null;
