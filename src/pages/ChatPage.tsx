@@ -2750,10 +2750,23 @@ function ChatRowView({
           jumps between the two. Neither yet -- the brief gap between this
           row's own text arriving and either landing -- shows nothing here,
           same trade-off Synara's own settled-vs-live split has. */}
-      {row.durationLabel ? (
-        <TurnWorkDisclosure label={row.durationLabel} detailText={row.reasoningText} toolLines={row.toolCallLines} />
-      ) : (
-        liveWorking && <TurnWorkDisclosure label={liveWorking.label} detailText={liveWorking.detailText} live />
+      {/* mb-2 on the wrapper, not the outer flex column's own gap-1 --
+          real bug, confirmed directly via screenshot ("Increase the
+          bottom space/margin/space between worked and other states to
+          the message of the AI"): gap-1 applies uniformly to every child
+          in this column, so widening it would have also pushed the model-
+          name row away from the reply text below it, not just this one
+          gap. Only rendered when the disclosure itself renders something
+          -- an empty wrapper would still add its own margin with nothing
+          inside to justify it. */}
+      {(row.durationLabel || liveWorking) && (
+        <div className="mb-2">
+          {row.durationLabel ? (
+            <TurnWorkDisclosure label={row.durationLabel} detailText={row.reasoningText} toolLines={row.toolCallLines} />
+          ) : (
+            liveWorking && <TurnWorkDisclosure label={liveWorking.label} detailText={liveWorking.detailText} live />
+          )}
+        </div>
       )}
       <div className="flex items-center gap-1.5 px-1">
         {/* size-5 (20px), not size-6 -- per explicit request ("make sure
