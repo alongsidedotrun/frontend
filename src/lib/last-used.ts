@@ -16,7 +16,10 @@
 // background to persist it.
 import type { EffortLevel } from "@/lib/effort";
 
-export type PermissionMode = "manual" | "ask" | "auto";
+// "plan" -- Antigravity-only (compose-box.tsx's own ANTIGRAVITY_MODES has
+// the real reasoning: agy's own CLI has no ask/manual equivalent, only
+// --mode plan and --dangerously-skip-permissions).
+export type PermissionMode = "manual" | "ask" | "auto" | "plan";
 
 interface LastUsedCache {
   model: string | null;
@@ -63,7 +66,7 @@ function isEffortLevel(value: string | null): value is EffortLevel {
 }
 
 function isPermissionMode(value: string | null): value is PermissionMode {
-  return value === "manual" || value === "ask" || value === "auto";
+  return value === "manual" || value === "ask" || value === "auto" || value === "plan";
 }
 
 // No `max` any more -- real bug, confirmed directly ("remove the silent

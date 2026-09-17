@@ -93,11 +93,15 @@ function modelSelectionLabel(selected: typeof QUICK_CHAT_MODELS) {
 }
 
 // How the agent asks before acting -- beside the model trigger, per
-// explicit request. Not wired to any real approval behavior yet (same
-// placeholder status as AT_ROWS/SLASH_ROWS above) -- this only tracks
-// which stance is selected. "Manual" first/default: it's the safest
-// stance (asks before every action), so it's what a session should open
-// on rather than something more permissive.
+// explicit request. Real for Codex and Antigravity today (server.rs's own
+// spawn_agent_session comment on last_permission_mode/issue #265 Phase 3
+// for Codex; antigravity.rs's own comment on this same setting for
+// Antigravity's --mode plan), Claude's own mapping still pending -- per
+// explicit follow-up ("It should reflect each provider capability, after
+// antigravity is done then move to claude and chatgpt permissions based
+// on their capability"). "Manual" first/default: it's the safest stance
+// (asks before every action), so it's what a session should open on
+// rather than something more permissive.
 // "Ask", not "Plan" -- per explicit request. description -- per explicit
 // request ("do a quick description like Synara's one does but without the
 // icon"): Synara's own RuntimeUsageControls (a real reference app cloned
@@ -106,9 +110,24 @@ function modelSelectionLabel(selected: typeof QUICK_CHAT_MODELS) {
 // here, own copy (this app has no real permission-scoping system to
 // describe yet, so this states each stance's own actual behavior instead
 // of Synara's file/internet-access-specific wording).
-const MODES: { value: "manual" | "ask" | "auto"; label: string; description: string }[] = [
+type PermissionModeOption = { value: "manual" | "ask" | "auto" | "plan"; label: string; description: string };
+
+const MODES: PermissionModeOption[] = [
   { value: "manual", label: "Manual", description: "Always ask before making changes" },
   { value: "ask", label: "Ask", description: "Only ask when something looks risky" },
+  { value: "auto", label: "Auto", description: "Act freely without asking" },
+];
+
+// Antigravity has no real per-action approval prompt at all (agy's own
+// --help lists only two headless modes: --dangerously-skip-permissions
+// and --mode plan -- confirmed directly, no ask/manual equivalent exists
+// to map "Manual"/"Ask" onto), so those two are replaced with the one
+// real stance it does have instead of showing choices that don't
+// correspond to anything the CLI can actually do. Per explicit request
+// ("change permissions from the standard to Plan instead of Manual,
+// Remove Ask, and Keep Auto").
+const ANTIGRAVITY_MODES: PermissionModeOption[] = [
+  { value: "plan", label: "Plan", description: "Propose changes without writing files" },
   { value: "auto", label: "Auto", description: "Act freely without asking" },
 ];
 
@@ -876,7 +895,22 @@ export function ComposeBox({
   // three should have a last_effort, last_permission, last_context saved
   // as well for loading purposes"): was a bare hardcoded "manual" with no
   // memory of what was actually last chosen anywhere in the app.
-  const [mode, setMode] = useState<(typeof MODES)[number]["value"]>(() => loadLastPermissionMode() ?? "manual");
+  const [mode, setMode] = useState<PermissionModeOption["value"]>(() => loadLastPermissionMode() ?? "manual");
+  // Antigravity's own real-capability set (ANTIGRAVITY_MODES's own comment
+  // has the reasoning) instead of the standard Manual/Ask/Auto once an
+  // Antigravity model is the current pick.
+  const modes = selectedModels[0]?.provider === "Antigravity" ? ANTIGRAVITY_MODES : MODES;
+  // Keeps the persisted mode valid for whichever list is now showing --
+  // "manual"/"ask" mean nothing to Antigravity (no such capability), and
+  // "plan" means nothing to every other provider, so switching models
+  // must not leave the trigger showing a choice that isn't even in its
+  // own dropdown any more.
+  useEffect(() => {
+    if (modes.some((m) => m.value === mode)) return;
+    const fallback = modes[0].value;
+    setMode(fallback);
+    saveLastPermissionMode(fallback);
+  }, [modes, mode]);
   // Real default now (settings-overlay.tsx's own "Default effort" control,
   // lib/effort.ts's own defaultEffortFor) -- was a bare hardcoded "medium",
   // still the fallback inside defaultEffortFor itself when nothing's been
@@ -1991,7 +2025,7 @@ export function ComposeBox({
                 size="sm"
                 className="h-[28px] px-1.5 text-xs font-normal text-foreground hover:bg-hover-2/50 aria-expanded:bg-hover-2/50"
               >
-                {MODES.find((m) => m.value === mode)?.label}
+                {modes.find((m) => m.value === mode)?.label}
                 <ChevronDownIcon className="size-3.5 shrink-0" />
               </Button>
             }
@@ -2020,7 +2054,7 @@ export function ComposeBox({
                 (--permission-mode), the primary provider here, so that term
                 over Synara's own "runtime mode" naming. */}
             <BaseDropdownLabel>Permission</BaseDropdownLabel>
-            {MODES.map((m) => (
+            {modes.map((m) => (
               <DropdownSubItem
                 key={m.value}
                 // bg-hover-2/50 when selected, not a trailing checkmark --
