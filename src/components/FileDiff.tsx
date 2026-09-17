@@ -65,17 +65,19 @@ function DiffIcon() {
   );
 }
 
-// Real bug, confirmed directly via screenshot ("Claude now do a huge file
-// diff we should do a small one where we can expand it like a drawer" ->
-// then corrected, "we should not do show more lines at the bottom we should
-// do a collapse and expand arrow at the top right after the lines"): a real
-// diff (the screenshot's own +52/-0 Founders.md) used to render every
-// single row inline with no way to collapse it at all. A chevron next to
-// the +/- stat (DiffChevron, below) toggles the whole body -- collapsed by
-// default past COLLAPSE_THRESHOLD real rows, expanded by default at or
-// under it -- separate from the header's own click-to-open-real-editor
-// area (issue #288 phase 1's own contract, unchanged).
-const COLLAPSE_THRESHOLD = 12;
+// Real bug, confirmed directly via screenshot, through two corrections:
+// "Claude now do a huge file diff we should do a small one where we can
+// expand it like a drawer" -> "we should not do show more lines at the
+// bottom we should do a collapse and expand arrow at the top right after
+// the lines" -> "we should a snip like 10 lines of the code diff as well".
+// A real diff (the screenshot's own +52/-0 Founders.md) used to render
+// every single row inline with no way to collapse it at all. Every diff
+// body now shows at most SNIPPET_LINES rows by default (a real preview, not
+// a placeholder), with a chevron next to the +/- stat (DiffChevron, below)
+// that reveals the rest -- only rendered at all when there's more than the
+// snippet to reveal. Separate from the header's own click-to-open-real-
+// editor area (issue #288 phase 1's own contract, unchanged).
+const SNIPPET_LINES = 10;
 
 function DiffChevron({ open, onClick }: { open: boolean; onClick: (e: MouseEvent) => void }) {
   return (
@@ -128,7 +130,8 @@ export function FileDiff({
 }) {
   const added = rows.filter((r) => r.type === "add").length;
   const removed = rows.filter((r) => r.type === "del").length;
-  const [open, setOpen] = useState(rows.length <= COLLAPSE_THRESHOLD);
+  const [open, setOpen] = useState(false);
+  const hasMore = rows.length > SNIPPET_LINES;
   return (
     <div className={styles.diff}>
       <div className={styles.diffHead}>
@@ -148,15 +151,17 @@ export function FileDiff({
           <span className={styles.add}>+{added}</span>
           <span className={styles.del}>-{removed}</span>
         </span>
-        <DiffChevron
-          open={open}
-          onClick={(e) => {
-            e.stopPropagation();
-            setOpen((prev) => !prev);
-          }}
-        />
+        {hasMore && (
+          <DiffChevron
+            open={open}
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen((prev) => !prev);
+            }}
+          />
+        )}
       </div>
-      {open && <DiffLines rows={rows} />}
+      <DiffLines rows={open ? rows : rows.slice(0, SNIPPET_LINES)} />
     </div>
   );
 }
@@ -242,11 +247,12 @@ function ResolvedFile({
   const removed = rows?.filter((r) => r.type === "del").length ?? 0;
   // Only meaningful when !bare (a single-file group delegates its whole
   // header, chevron included, to this component instead of rendering its
-  // own -- see FileDiffGroup's own comment); a bare row's own body
-  // visibility is controlled entirely by the group's `visible` prop
-  // instead, unchanged.
-  const [openOverride, setOpenOverride] = useState<boolean | null>(null);
-  const open = openOverride ?? (rows?.length ?? 0) <= COLLAPSE_THRESHOLD;
+  // own -- see FileDiffGroup's own comment); a bare row (part of a
+  // multi-file group) always shows its own full body once visible --
+  // per-file snippeting there is a scope this hasn't been extended to,
+  // only the group-level show/hide toggle applies.
+  const [open, setOpen] = useState(false);
+  const hasMore = (rows?.length ?? 0) > SNIPPET_LINES;
   useEffect(() => {
     if (rows) onResolved(file.path, added, removed);
     // onResolved is a fresh closure every FileDiffGroup render -- only
@@ -274,16 +280,18 @@ function ResolvedFile({
             <span className={styles.add}>+{added}</span>
             <span className={styles.del}>-{removed}</span>
           </span>
-          <DiffChevron
-            open={open}
-            onClick={(e) => {
-              e.stopPropagation();
-              setOpenOverride(!open);
-            }}
-          />
+          {hasMore && (
+            <DiffChevron
+              open={open}
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen((prev) => !prev);
+              }}
+            />
+          )}
         </div>
       )}
-      {(bare || open) && <DiffLines rows={rows} />}
+      <DiffLines rows={bare || open ? rows : rows.slice(0, SNIPPET_LINES)} />
     </div>
   );
 }

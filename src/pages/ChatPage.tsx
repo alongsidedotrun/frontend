@@ -553,11 +553,20 @@ export function ChatPage() {
   // Antigravity both self-report one, Codex doesn't, so a provider-duration-based
   // approach would silently leave Codex without one. turnStartedAtRef holds the
   // real server-recorded created_at (backend/src/lib.rs's own attach_created_at) off
-  // the human_message that opened the current turn; lastAgentRowIdRef is which
-  // "agent" row to patch with the final "Worked for Xs" label once the matching
-  // "result" event (this turn's end) arrives.
+  // the human_message that opened the current turn.
+  //
+  // Real bug, confirmed directly via screenshot ("We working should be at the
+  // first message"): a turn that announces its own intent first ("I'll delete
+  // the existing file...") before actually doing the work reads oddly with the
+  // final "Worked for Ns" label attached to a LATER closing summary instead --
+  // the reader sees a plain, label-less reply, then the real diff, then only
+  // *then* a second reply that finally explains what happened. Patching the
+  // FIRST agent row of the turn instead (firstAgentRowIdRef) puts "Worked for
+  // Ns" right where the actual work started, which is also where a reader's
+  // eye already is; a later closing summary this same turn produces still
+  // renders as its own plain reply, just without a second (redundant) label.
   const turnStartedAtRef = useRef<number | null>(null);
-  const lastAgentRowIdRef = useRef<string | null>(null);
+  const firstAgentRowIdRef = useRef<string | null>(null);
   const [liveElapsedSec, setLiveElapsedSec] = useState<number | null>(null);
   // Same stale-closure reasoning as the refs above, for a real bug this one
   // caused directly: a chat's own auto-rename (chat_name_updated) and its
@@ -835,6 +844,12 @@ export function ChatPage() {
         // participant's message.
         const createdAt = event.created_at as string | undefined;
         turnStartedAtRef.current = createdAt ? parseServerTimestampMs(createdAt) : null;
+        // Reset here, not just at "result" -- a turn that never cleanly
+        // reaches "result" (a timeout, an error) would otherwise leave this
+        // pointed at some earlier turn's row forever, since the "set only if
+        // still null" logic below (firstAgentRowIdRef's own comment) never
+        // gets a chance to update it again once it's non-null.
+        firstAgentRowIdRef.current = null;
         // Real per-message value now (server.rs's own human_message event,
         // that file's own comment has the full reasoning) -- not a
         // client-side "whatever this tab most recently sent" ref, which
@@ -1197,22 +1212,24 @@ export function ChatPage() {
         setLiveElapsedSec(null);
         // Turn-duration feature (alongsidedotrun/private#53) -- this "result" is
         // this turn's own end, turnStartedAtRef (the preceding human_message) is
-        // its start; patches the reply row a few lines above set lastAgentRowIdRef
-        // to. Real server timestamps on both ends (backend/src/lib.rs's own
-        // attach_created_at), not client-side receive-time guesses, so a replayed
-        // history shows the same duration every time, not however long this
-        // particular tab took to receive each event.
+        // its start; patches the reply row a few lines above set
+        // firstAgentRowIdRef to (that ref's own comment has the reasoning for
+        // why the FIRST reply, not the last). Real server timestamps on both
+        // ends (backend/src/lib.rs's own attach_created_at), not client-side
+        // receive-time guesses, so a replayed history shows the same duration
+        // every time, not however long this particular tab took to receive
+        // each event.
         const resultCreatedAt = event.created_at as string | undefined;
         if (resultCreatedAt && turnStartedAtRef.current !== null) {
           const durationSec = (parseServerTimestampMs(resultCreatedAt) - turnStartedAtRef.current) / 1000;
           const durationLabel = `Worked for ${formatWorkedDuration(durationSec)}`;
-          const rowId = lastAgentRowIdRef.current;
+          const rowId = firstAgentRowIdRef.current;
           if (rowId) {
             setRows((prev) => prev.map((row) => (row.id === rowId && row.kind === "agent" ? { ...row, durationLabel } : row)));
           }
         }
         turnStartedAtRef.current = null;
-        lastAgentRowIdRef.current = null;
+        firstAgentRowIdRef.current = null;
         // Settings > General > Notifications ("Notify when a chat turn
         // completes", alongsidedotrun/private#207) -- this is the real
         // turn-completion point (the Claude Agent SDK's own "result"
@@ -1359,10 +1376,11 @@ export function ChatPage() {
               const agentRowId = nextRowId();
               // Turn-duration feature (alongsidedotrun/private#53) -- this turn's
               // own "result" event (below) patches this exact row with the final
-              // "Worked for Xs" label once it lands. A turn with more than one
-              // text block (rare, but possible) just keeps overwriting this to the
-              // latest one, which is also the one "result" should be labeling.
-              lastAgentRowIdRef.current = agentRowId;
+              // "Worked for Xs" label once it lands. Only the FIRST text block
+              // this turn sets it (firstAgentRowIdRef's own comment has the
+              // reasoning) -- a turn with a later closing summary just renders
+              // that as its own plain reply, no second label.
+              if (!firstAgentRowIdRef.current) firstAgentRowIdRef.current = agentRowId;
               pushRow({
                 kind: "agent",
                 id: agentRowId,
