@@ -746,7 +746,16 @@ export function ChatPage() {
     // other tool call already folds into the same drawer). requestId is
     // real and stable, but resolvedToolName only gets set synchronously
     // above if a matching row still exists.
-    if (resolvedToolName && status !== "pending") {
+    // Real bug, confirmed directly ("Claude now says Write Allowed instead
+    // of Write Founders.md"): Write/Edit permission requests hit this same
+    // path, but those tool calls already get their own real diff card
+    // (FileDiffGroup, via the generic tool_use branch's own isFileWrite
+    // check) with the actual file name -- adding a second "Write: Allowed"
+    // trace here doesn't just duplicate that, it's strictly worse (loses
+    // the real file name entirely). Skipped here the same way the generic
+    // branch already skips them.
+    const isFileWrite = resolvedToolName === "Write" || resolvedToolName === "Edit";
+    if (resolvedToolName && !isFileWrite && status !== "pending") {
       const label =
         status === "allow" ? "Allowed" : status === "cancelled" ? "Withdrawn" : status === "timed_out" ? "Denied (timed out)" : "Denied";
       addLiveToolCallLine(toolDisplayLabel(resolvedToolName), label);
