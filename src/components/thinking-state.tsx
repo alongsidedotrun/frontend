@@ -1,3 +1,4 @@
+import { useTextSwap } from "@/lib/use-text-swap";
 import styles from "./thinking-state.module.css";
 
 // Installed via `npx shadcn@latest add https://www.aicss.dev/r/thinking-state.json`
@@ -10,6 +11,13 @@ import styles from "./thinking-state.module.css";
 // light/dark mode the same way the rest of the app does (same reasoning
 // index.css's own .t-shimmer -- a different shimmer treatment, still used
 // for the chat-title placeholder in AppLayout.tsx -- already documented).
+// useTextSwap (a second reference pasted directly, per explicit request --
+// "the switch between working and waiting should be [this]") animates a
+// changing `text` (Waiting -> Working, a running seconds count updating)
+// instead of jumping instantly -- module CSS's own comment has the full
+// transition reasoning.
 export function ThinkingState({ text = "Thinking" }: { text?: string }) {
-  return <span className={styles.shimmer}>{text}</span>;
+  const { displayText, phase } = useTextSwap(text);
+  const phaseClass = phase === "exit" ? styles.isExit : phase === "enter-start" ? styles.isEnterStart : "";
+  return <span className={`${styles.shimmer} ${phaseClass}`}>{displayText}</span>;
 }

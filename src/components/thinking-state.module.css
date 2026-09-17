@@ -1,4 +1,5 @@
 .shimmer {
+  display: inline-block;
   font-size: 13px;
   line-height: 18px;
   font-weight: 500;
@@ -14,11 +15,35 @@
   -webkit-background-clip: text;
   background-clip: text;
   animation: thinking-state-shine 2.25s cubic-bezier(0.25, 0.1, 0.25, 1) infinite;
+  /* Text-swap transition (Transitions.dev's own recipe, pasted directly per
+     explicit request -- "the switch between working and waiting should be
+     [this]"), driven by useTextSwap (src/lib/use-text-swap.ts): a phase
+     transition (Waiting -> Working, a running seconds count changing) slides
+     + blurs + fades the old text out, swaps it, then slides + blurs + fades
+     the new text back in, instead of jumping instantly. Runs alongside the
+     shimmer's own background-position animation on the same element --
+     different properties, no conflict. */
+  transform: translateY(0);
+  filter: blur(0);
+  opacity: 1;
+  transition: transform 150ms ease-in-out, filter 150ms ease-in-out, opacity 150ms ease-in-out;
+  will-change: transform, filter, opacity;
+}
+.shimmer.isExit {
+  transform: translateY(-4px);
+  filter: blur(2px);
+  opacity: 0;
+}
+.shimmer.isEnterStart {
+  transform: translateY(4px);
+  filter: blur(2px);
+  opacity: 0;
+  transition: none;
 }
 @keyframes thinking-state-shine {
   0%, 18% { background-position: 100% 0; }
   82%, 100% { background-position: 0% 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .shimmer { animation: none; }
+  .shimmer { animation: none; transition: none !important; }
 }

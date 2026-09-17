@@ -208,6 +208,23 @@ function toolDisplayLabel(name: string): string {
   return TOOL_DISPLAY_LABELS[name] ?? name;
 }
 
+// Real bug, confirmed directly ("it should be showing Run bash command and
+// not like Run /bin/bash because that is the exact command, the commands
+// should stay like synara's"): Codex's own real commandExecution command
+// string is always wrapped in a literal shell invocation --
+// `/bin/bash -lc "pwd && rg --files -g 'CEOs.md' -g 'CEOs'"` -- confirmed
+// directly from a real transcript. That wrapper is real, but it's Codex's
+// own internal plumbing for running a command at all, not something the
+// model chose to say -- showing it verbatim buried the actual command a
+// reader cares about behind boilerplate. Strips the wrapper down to the
+// real inner command when it matches that exact shape; anything else
+// (Claude's own Bash tool already gives the bare command with no wrapper)
+// passes through unchanged.
+function cleanRunCommand(command: string): string {
+  const match = command.match(/^\/bin\/bash -lc "(.*)"$/s);
+  return match ? match[1] : command;
+}
+
 function normalizeToolName(name: string): string {
   return TOOL_NAME_ALIASES[name] ?? name;
 }
@@ -775,9 +792,14 @@ export function ChatPage() {
     // the real file name entirely). Skipped here the same way the generic
     // branch already skips them.
     const isFileWrite = resolvedToolName === "Write" || resolvedToolName === "Edit";
-    if (resolvedToolName && !isFileWrite && status !== "pending") {
-      const label =
-        status === "allow" ? "Allowed" : status === "cancelled" ? "Withdrawn" : status === "timed_out" ? "Denied (timed out)" : "Denied";
+    // Real bug, confirmed directly ("Run Allowed should be not showing"):
+    // an ALLOWED call already gets its own real entry the moment it
+    // actually runs (the generic tool_use branch, below) -- "Run: Allowed"
+    // was pure duplicate noise on top of that, unlike a genuine denial/
+    // cancellation/timeout, which is the ONLY record that request ever
+    // happened at all (the command never runs, so nothing else logs it).
+    if (resolvedToolName && !isFileWrite && status !== "pending" && status !== "allow") {
+      const label = status === "cancelled" ? "Withdrawn" : status === "timed_out" ? "Denied (timed out)" : "Denied";
       addLiveToolCallLine(toolDisplayLabel(resolvedToolName), label);
     }
   }
@@ -1523,7 +1545,9 @@ export function ChatPage() {
                 // folded into the settled agent row's own toolCallLines
                 // once this turn's text block arrives (above), revealed
                 // only through that row's own "Worked for Ns" expand arrow.
-                addLiveToolCallLine(toolDisplayLabel(toolName), summarizeToolInput(block.input) ?? undefined);
+                const displayLabel = toolDisplayLabel(toolName);
+                const detail = summarizeToolInput(block.input);
+                addLiveToolCallLine(displayLabel, detail && displayLabel === "Run" ? cleanRunCommand(detail) : (detail ?? undefined));
               }
             }
           }
@@ -1948,8 +1972,12 @@ export function ChatPage() {
     // Turn-duration feature (alongsidedotrun/private#53), live half -- Synara's
     // own "Working..." counter appends the same way, alongside whichever more
     // specific phase (Reasoning/Searching/etc.) is already known, rather than
-    // replacing it.
-    (liveElapsedSec !== null ? ` ${formatWorkedDuration(liveElapsedSec)}` : "");
+    // replacing it. Real bug, confirmed directly ("remove the seconds at
+    // waiting, that should only show at working"): a bare "Waiting" has no
+    // real work happening yet to time (the model hasn't started, or a human
+    // is being asked something) -- only "working" is genuine elapsed
+    // work time worth surfacing a running counter for.
+    (waitingPhase === "working" && liveElapsedSec !== null ? ` ${formatWorkedDuration(liveElapsedSec)}` : "");
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTextSwap } from "@/lib/use-text-swap";
 import styles from "./thinking-reasoning.module.css";
 
 // Installed via `npx shadcn@latest add
@@ -67,6 +68,14 @@ export function ThinkingReasoning({
     ...splitSentences(text).map((s): ReasoningItem => ({ kind: "sentence", text: s })),
     ...(toolLines ?? []).map((t): ReasoningItem => ({ kind: "tool", label: t.label, detail: t.detail })),
   ];
+  // useTextSwap (this file's own thinking-state.tsx sibling has the full
+  // reasoning, a second reference pasted directly per explicit request --
+  // "the switch between working and waiting should be [this]") -- label
+  // changes as the live phase changes (Waiting -> Working, a running
+  // seconds count updating), so this animates that swap instead of an
+  // instant jump. Only meaningful while `live`; the settled label (below)
+  // never changes after it's set, so it renders plain.
+  const { displayText: labelSwapText, phase: labelSwapPhase } = useTextSwap(label);
   const [revealedCount, setRevealedCount] = useState(0);
   // Real bug, confirmed directly ("the arrow is expanded but there's
   // nothing there"): this used to key off `text` alone, initialized to "".
@@ -138,7 +147,13 @@ export function ThinkingReasoning({
         onClick={!live ? onToggleOpen : undefined}
       >
         {live ? (
-          <span className={styles.trLabel + " " + styles.trShimmer}>{label}</span>
+          <span
+            className={
+              styles.trLabel + " " + styles.trShimmer + " " + (labelSwapPhase === "exit" ? styles.isExit : labelSwapPhase === "enter-start" ? styles.isEnterStart : "")
+            }
+          >
+            {labelSwapText}
+          </span>
         ) : (
           <span className={styles.trLabel}>{label}</span>
         )}

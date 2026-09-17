@@ -106,6 +106,7 @@
    this app's real --muted-foreground/--foreground tokens instead of
    hardcoded grays). */
 .trShimmer {
+  display: inline-block;
   color: transparent;
   -webkit-text-fill-color: transparent;
   background: linear-gradient(
@@ -118,11 +119,31 @@
   -webkit-background-clip: text;
   background-clip: text;
   animation: tr-shine 2.25s cubic-bezier(0.25, 0.1, 0.25, 1) infinite;
+  /* Text-swap transition (Transitions.dev's own recipe, pasted directly per
+     explicit request -- "the switch between working and waiting should be
+     [this]"), driven by useTextSwap: thinking-state.module.css's own
+     .shimmer carries the identical block and full reasoning. */
+  transform: translateY(0);
+  filter: blur(0);
+  opacity: 1;
+  transition: transform 150ms ease-in-out, filter 150ms ease-in-out, opacity 150ms ease-in-out;
+  will-change: transform, filter, opacity;
+}
+.trShimmer.isExit {
+  transform: translateY(-4px);
+  filter: blur(2px);
+  opacity: 0;
+}
+.trShimmer.isEnterStart {
+  transform: translateY(4px);
+  filter: blur(2px);
+  opacity: 0;
+  transition: none;
 }
 @keyframes tr-shine {
   0%, 18% { background-position: 100% 0; }
   82%, 100% { background-position: 0% 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .trShimmer { animation: none; }
+  .trShimmer { animation: none; transition: none !important; }
 }
