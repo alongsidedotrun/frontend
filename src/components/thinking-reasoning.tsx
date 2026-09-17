@@ -194,18 +194,120 @@ export function ThinkingReasoning({
                     {item.text}
                   </p>
                 ) : (
-                  // Coding variant's own row shape (label + monospace
-                  // detail, no icon -- this app has no per-tool icon set)
-                  // -- a real tool call this turn made, not prose.
-                  <div key={i} className={styles.trToolRow}>
-                    <span className={styles.trToolLabel}>{item.label}</span>
-                    {item.detail && <span className={styles.trToolDetail}>{item.detail}</span>}
-                  </div>
+                  // One shared row for every tool kind (ToolDetailRow,
+                  // below) -- per explicit follow-up ("it should be the
+                  // same to other states like Read file > or Write file >
+                  // or Delete file >"), checked directly against Synara's
+                  // own real source (git pull + a direct read of
+                  // TimelineWorkEntryRow.tsx/ToolCallDetailsDialog.tsx):
+                  // Synara renders every tool kind through one generic row
+                  // + detail-dialog pair, branching only on which fields a
+                  // given call actually has, not a bespoke component per
+                  // tool. Same idea here -- ToolDetailRow handles Read/
+                  // WebSearch/etc. the same way it handles Run, only the
+                  // expanded body's own shape differs (a real code-snippet
+                  // card for a command, plain monospace text otherwise).
+                  item.detail ? (
+                    <ToolDetailRow key={i} label={item.label} detail={item.detail} />
+                  ) : (
+                    <div key={i} className={styles.trToolRow}>
+                      <span className={styles.trToolLabel}>{item.label}</span>
+                    </div>
+                  )
                 )
               )}
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Generic noun for a tool's own collapsed label ("Run command", "Read
+// file", "Search the web") -- real display-only vocabulary, same spirit as
+// ChatPage.tsx's own TOOL_DISPLAY_LABELS (Read/Write/Edit/Run), not
+// something Synara's own source dictated verbatim (its real labels come
+// from upstream verb+target templates, e.g. "Read file app.ts", not a
+// generic noun) -- kept here because collapsing to a truly generic label
+// (no raw path/command shown until expanded) was the explicit, repeated
+// ask this session, not just matching Synara's own choice of words.
+const TOOL_NOUNS: Record<string, string> = {
+  Run: "command",
+  Read: "file",
+  WebSearch: "the web",
+};
+
+// One shared row for every tool kind (this file's own render loop, above,
+// has the full reasoning -- confirmed directly against Synara's real
+// source, one generic row + detail-dialog pair for every tool kind, not a
+// bespoke component per type). Collapses to a generic "{Label} {noun}"
+// label (falls back to just the label alone when no noun is mapped) with
+// its own expand arrow; expanding reveals the real detail -- a proper code
+// snippet (language label, copy button, a real shell prompt) for a Run
+// command specifically, matching a real reference screenshot pasted
+// directly ("Sorry this is the correct code snippet"), or the plain detail
+// text (a path, a query) for everything else, no fabricated card for data
+// that's just a single string.
+function ToolDetailRow({ label, detail }: { label: string; detail: string }) {
+  const [open, setOpen] = useState(false);
+  const noun = TOOL_NOUNS[label];
+  return (
+    <div className={styles.trRunGroup}>
+      <button type="button" className={styles.trRunToggle} onClick={() => setOpen((prev) => !prev)} aria-expanded={open}>
+        <span className={styles.trToolLabel}>{label}</span>
+        {noun && <span className={styles.trToolDetail}>{noun}</span>}
+        <svg
+          className={styles.trChevron}
+          viewBox="0 0 24 24"
+          width="12"
+          height="12"
+          aria-hidden="true"
+          style={{ transform: open ? "rotate(0deg)" : "rotate(-90deg)" }}
+        >
+          <path
+            d="m4.5 15.75 7.5-7.5 7.5 7.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+      {open && (label === "Run" ? <CommandSnippet command={detail} /> : <div className={styles.trToolDetailBody}>{detail}</div>)}
+    </div>
+  );
+}
+
+function CommandSnippet({ command }: { command: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard?.writeText(command).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    });
+  };
+  return (
+    <div className={styles.snippet}>
+      <div className={styles.snippetHead}>
+        <span className={styles.snippetLang}>bash</span>
+        <button type="button" className={styles.snippetIconButton} onClick={copy} aria-label="Copy command">
+          {copied ? (
+            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+              <path d="M20 6 9 17l-5-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+              <rect x="9" y="9" width="12" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="1.8" />
+              <path d="M5 15V5a2 2 0 0 1 2-2h10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          )}
+        </button>
+      </div>
+      <div className={styles.snippetBody}>
+        <span className={styles.snippetPrompt}>$</span>
+        <span className={styles.snippetCommand}>{command}</span>
       </div>
     </div>
   );

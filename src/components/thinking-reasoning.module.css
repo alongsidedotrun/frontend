@@ -94,6 +94,18 @@
   font-size: 12px;
   color: var(--muted-foreground);
 }
+/* Expanded detail for any tool that isn't Run (ToolDetailRow's own comment
+   has the full reasoning) -- just the real path/query text, no fabricated
+   code-snippet card for data that's a single string, not a real shell
+   session. */
+.trToolDetailBody {
+  overflow-wrap: anywhere;
+  padding: 2px 0 2px 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  white-space: pre-wrap;
+}
 @keyframes tr-sentence-in {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -147,3 +159,75 @@
 @media (prefers-reduced-motion: reduce) {
   .trShimmer { animation: none; transition: none !important; }
 }
+
+/* Run tool call -- per explicit request, with a real reference screenshot
+   pasted directly ("Sorry this is the correct code snippet"): collapses to
+   a plain "Run command" label with its own chevron (trRunToggle), min-h
+   matching .trToolRow's own so it doesn't jump when collapsed vs. plain
+   rows around it; the real command only reveals inside .snippet below, a
+   proper code-snippet card (language label + copy button + a real shell
+   prompt), not the raw command inline the way it used to render. */
+.trRunGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.trRunToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 22px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+}
+.trRunToggle .trChevron { flex-shrink: 0; transform: rotate(-90deg); }
+.trRunToggle[aria-expanded="true"] .trChevron { transform: rotate(0deg); }
+.snippet {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--foreground) 4%, transparent);
+}
+.snippetHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.snippetLang {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+.snippetIconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 5px;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+.snippetIconButton:hover { color: var(--foreground); background: color-mix(in srgb, var(--foreground) 8%, transparent); }
+.snippetBody {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  line-height: 20px;
+}
+.snippetPrompt { flex-shrink: 0; color: var(--muted-foreground); }
+/* var(--focus-accent) -- this app's own real, fixed (non-theme-varying)
+   brand blue, confirmed in index.css. NOT var(--accent): that token is a
+   near-transparent hover-background overlay in this app (rgba(0,0,0,0.04)),
+   not a real color meant for text -- would have rendered almost invisible. */
+.snippetCommand { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; color: var(--focus-accent, #0169cc); }
