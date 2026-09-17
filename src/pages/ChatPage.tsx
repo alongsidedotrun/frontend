@@ -33,6 +33,7 @@ import { ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
 import { lastUsedReady, loadLastContext, loadLastModel, saveLastContext, saveLastModel } from "@/lib/last-used";
 import { StreamingText } from "@/components/streaming-text";
 import { ThinkingState } from "@/components/thinking-state";
+import { ThinkingReasoning } from "@/components/thinking-reasoning";
 
 // A real agent reply now shows its own provider's mark (ProviderIcon, same as every
 // other place in this app a model icon renders), not always AlongsideLogo -- per
@@ -2633,7 +2634,6 @@ function SourceLink({ source }: { source: { label: string; href: string } }) {
 function TurnWorkDisclosure({ label, detailText, live }: { label: string; detailText?: string; live?: boolean }) {
   const [open, setOpen] = useState(false);
   const trimmedDetail = detailText?.trim();
-  const labelEl = live ? <ThinkingState text={label} /> : <span className="text-xs text-muted-foreground">{label}</span>;
   // No expand affordance at all when there's nothing real to show -- per
   // explicit follow-up ("hide the expand arrow entirely for these replies"):
   // Codex/Antigravity never emit a thinking block at all, so every one of
@@ -2642,15 +2642,18 @@ function TurnWorkDisclosure({ label, detailText, live }: { label: string; detail
   // Plain, non-interactive label instead, exactly like Claude's own replies
   // that genuinely didn't use extended thinking this turn.
   if (!trimmedDetail) {
+    const labelEl = live ? <ThinkingState text={label} /> : <span className="text-xs text-muted-foreground">{label}</span>;
     return <div className="px-1">{labelEl}</div>;
   }
+  // ThinkingReasoning (per explicit request, adopted from
+  // https://www.aicss.dev/r/thinking-reasoning.json -- that file's own
+  // comment has the full adaptation reasoning) owns the reveal animation
+  // and collapsed/expanded rendering; this app's own "Worked for Ns"
+  // label (not the reference's own "Thought for Ns") passes straight
+  // through unchanged, per explicit decision.
   return (
     <div className="px-1">
-      <button type="button" onClick={() => setOpen((prev) => !prev)} className="flex items-center gap-1.5">
-        {labelEl}
-        <ChevronRightIcon className={`size-3 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`} />
-      </button>
-      {open && <p className="mt-1 max-w-[95%] text-xs whitespace-pre-wrap text-muted-foreground italic">{trimmedDetail}</p>}
+      <ThinkingReasoning label={label} text={trimmedDetail} live={!!live} open={open} onToggleOpen={() => setOpen((prev) => !prev)} />
     </div>
   );
 }
