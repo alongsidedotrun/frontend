@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { useOutletContext, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { spring } from "@/lib/springs";
@@ -1934,12 +1934,30 @@ export function ChatPage() {
             // first row id to the rows it stands in for; skipIds are
             // every other row in that run, rendered as nothing at all
             // (their own visual identity is now the group card).
+            //
+            // Real bug, confirmed directly via screenshot ("the filediff is
+            // before the worked"): a Write/Edit run always happens BEFORE
+            // the model's own final text block (the tool has to run before
+            // the model can describe what it did), so it always rendered
+            // above that reply -- read as backwards, since the natural
+            // reading order is "here's what I did" then "here's the
+            // change". A run immediately followed by an agent row (no
+            // provider-specific check needed, every provider's own
+            // tool_use/text ordering is identical) is deferred instead:
+            // skipped at its own natural position (deferredAnchorIds) and
+            // rendered again, via the same renderFileDiffGroupCard, right
+            // after that agent row (deferredGroups, read in the render
+            // loop below). A run with nothing after it, or followed by
+            // anything other than an agent row (rare -- a turn that ends
+            // mid-tool-call, or another tool group), still renders at its
+            // own natural position, unchanged.
             const groupStarts = new Map<string, Extract<ChatRow, { kind: "tool" }>[]>();
+            const deferredGroups = new Map<string, Extract<ChatRow, { kind: "tool" }>[]>();
             const skipIds = new Set<string>();
             for (let i = 0; i < rows.length; i++) {
               const r = rows[i];
               if (r.kind !== "tool" || (r.name !== "Write" && r.name !== "Edit")) continue;
-              if (skipIds.has(r.id) || groupStarts.has(r.id)) continue;
+              if (skipIds.has(r.id) || groupStarts.has(r.id) || deferredGroups.has(r.id)) continue;
               const run: Extract<ChatRow, { kind: "tool" }>[] = [r];
               let j = i + 1;
               while (j < rows.length) {
@@ -1949,7 +1967,13 @@ export function ChatPage() {
                 skipIds.add(next.id);
                 j++;
               }
-              groupStarts.set(r.id, run);
+              const followingRow = rows[j];
+              if (followingRow?.kind === "agent") {
+                deferredGroups.set(followingRow.id, run);
+                skipIds.add(r.id);
+              } else {
+                groupStarts.set(r.id, run);
+              }
             }
             return rows.map((row, index) => {
             if (skipIds.has(row.id)) return null;
@@ -1969,28 +1993,32 @@ export function ChatPage() {
             // deleted on send) dim/disable; the edited row stays fully
             // interactive.
             const isPendingEditInactive = pendingEditBoundaryIndex !== -1 && index > pendingEditBoundaryIndex;
+            const deferredGroup = deferredGroups.get(row.id);
+            const deferredCard = deferredGroup ? renderFileDiffGroupCard(deferredGroup, openFile) : null;
             return (
-            <div
-              key={row.id}
-              ref={(node) => {
-                if (node) rowElsRef.current.set(row.id, node);
-                else rowElsRef.current.delete(row.id);
-              }}
-              className={`${rowClassName} ${isPendingEditInactive ? "pointer-events-none opacity-40" : ""}`}
-            >
-              <ChatRowView
-                row={row}
-                isPendingEdit={row.kind === "human" && row.eventId === pendingEditEventId}
-                onCancelEdit={cancelEdit}
-                onRetry={retryLastMessage}
-                onRetryFailedMessage={retryFailedMessage}
-                onResendMessage={resendMessage}
-                onEditMessage={editMessage}
-                onSwitchBranch={switchBranch}
-                onOpenFile={openFile}
-                toolGroup={groupStarts.get(row.id)}
-              />
-            </div>
+            <Fragment key={row.id}>
+              <div
+                ref={(node) => {
+                  if (node) rowElsRef.current.set(row.id, node);
+                  else rowElsRef.current.delete(row.id);
+                }}
+                className={`${rowClassName} ${isPendingEditInactive ? "pointer-events-none opacity-40" : ""}`}
+              >
+                <ChatRowView
+                  row={row}
+                  isPendingEdit={row.kind === "human" && row.eventId === pendingEditEventId}
+                  onCancelEdit={cancelEdit}
+                  onRetry={retryLastMessage}
+                  onRetryFailedMessage={retryFailedMessage}
+                  onResendMessage={resendMessage}
+                  onEditMessage={editMessage}
+                  onSwitchBranch={switchBranch}
+                  onOpenFile={openFile}
+                  toolGroup={groupStarts.get(row.id)}
+                />
+              </div>
+              {deferredCard && <div className={rowClassName}>{deferredCard}</div>}
+            </Fragment>
             );
           });
           })()}
@@ -2275,16 +2303,8 @@ function ChatRowView({
     // no syncRows, and FileDiffGroup's own ResolvedFile fetches the real
     // file content off disk instead -- same card either way.
     if (toolGroup && (row.name === "Write" || row.name === "Edit")) {
-      const files = toolGroup
-        .map((r) => {
-          const path = summarizeToolInput(r.input);
-          if (!path) return null;
-          return { name: path.split("/").filter(Boolean).pop() ?? path, path, syncRows: buildFileDiffRows(r.name, r.input) };
-        })
-        .filter((f): f is NonNullable<typeof f> => f !== null);
-      if (files.length > 0) {
-        return <FileDiffGroup kind={row.name === "Write" ? "New" : "Edited"} files={files} onExpandFile={onOpenFile} />;
-      }
+      const card = renderFileDiffGroupCard(toolGroup, onOpenFile);
+      if (card) return card;
     }
     return <ToolRow name={row.name} summary={row.summary} input={row.input} />;
   }
@@ -2644,6 +2664,27 @@ function buildFileDiffRows(name: string, input: unknown): DiffRow[] | null {
   }
   if (oldText === null || newText === null) return null;
   return diffToRows(oldText, newText);
+}
+
+// Shared by ChatRowView's own "tool" branch (a group not immediately
+// followed by the model's own text reply) and the render loop's own
+// deferred-group handling further up (a group immediately followed by the
+// reply, moved to render after it instead -- see that loop's own comment) --
+// one real FileDiffGroup-building path, not two copies that could drift.
+function renderFileDiffGroupCard(
+  toolGroup: Extract<ChatRow, { kind: "tool" }>[],
+  onOpenFile: (path: string) => void
+): ReactNode {
+  const name = toolGroup[0].name;
+  const files = toolGroup
+    .map((r) => {
+      const path = summarizeToolInput(r.input);
+      if (!path) return null;
+      return { name: path.split("/").filter(Boolean).pop() ?? path, path, syncRows: buildFileDiffRows(r.name, r.input) };
+    })
+    .filter((f): f is NonNullable<typeof f> => f !== null);
+  if (files.length === 0) return null;
+  return <FileDiffGroup kind={name === "Write" ? "New" : "Edited"} files={files} onExpandFile={onOpenFile} />;
 }
 
 function ToolRow({ name, summary, input }: { name: string; summary: string | null; input: unknown }) {
