@@ -47,10 +47,17 @@
   pointer-events: none;
 }
 .trInner { min-height: 0; overflow: hidden; }
+/* Real bug, confirmed directly via screenshot ("the second command is
+   being cropped and not showing... keep expanding so i can see
+   everything"): max-height: 180px clipped real content (now often more
+   than fits in that box, with structured Run-command snippets instead of
+   just a few lines of prose) with its own scrollbar hidden entirely
+   (isScroll, below) -- nothing ever showed the reader there was more to
+   see. Grows to fit its real content instead now; the outer chat log
+   already scrolls the whole page, an internal scroll box here was never
+   load-bearing. */
 .trViewport {
   margin-top: 4px;
-  overflow: hidden;
-  max-height: 180px;
 }
 .trViewport.isScroll {
   overflow-y: auto;
