@@ -22,10 +22,26 @@
    top border rather than spanning edge-to-edge. */
 .diffSubHead {
   display: flex; align-items: center; gap: 8px;
-  padding: 8px 0; font-size: 12.5px;
+  padding: 8px 16px; font-size: 12.5px;
 }
-.diffNestedFile { border-top: 0.5px solid #e6e8ec; }
-.diffNestedFile:first-of-type { border-top: 0; }
+/* margin/padding, not the card's own inherited 16px side padding -- real
+   bug, confirmed directly via screenshot ("some indentions to each file
+   row... the divider lines as well got the indention but should be full
+   width"): a nested file used to sit inside .diff's own side padding, so
+   both its own row content and its own divider line stopped short of the
+   card's true edges, unlike .diffHead (above), which already spans
+   edge-to-edge via the same negative-margin trick used here now. */
+.diffNestedFile { margin: 0 -16px; }
+/* Real bug, confirmed directly via screenshot ("two lines divider at the
+   bottom of the title and at the top of the first row... keep only the
+   title bottom line"): :first-of-type matches the first <div> among ALL
+   siblings regardless of class -- that's .diffHead itself (also a plain
+   div, always first), never the first actual file row, so this border
+   never got suppressed on any real file and doubled up with .diffHead's
+   own border-bottom. The adjacent-sibling form only matches a file that
+   directly follows ANOTHER file, which correctly excludes the one
+   following .diffHead without needing a first-child exception at all. */
+.diffNestedFile + .diffNestedFile { border-top: 0.5px solid #e6e8ec; }
 /* Real bug, confirmed directly via screenshot ("there's a bigger bottom
    gap/padding/margin than the others, remove that"): .diff's own base
    padding-bottom (16px) is meant to be canceled by a real diff body's own
