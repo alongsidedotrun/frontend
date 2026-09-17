@@ -668,9 +668,27 @@ export function ChatPage() {
   // edited after the fact. Matched by requestId, not the row's own local id --
   // the backend only ever knows its own request_id, never this tab's id.
   function updatePermissionRow(requestId: string, status: Extract<ChatRow, { kind: "permission" }>["status"]) {
+    let resolvedToolName: string | null = null;
     setRows((prev) =>
-      prev.map((row) => (row.kind === "permission" && row.requestId === requestId ? { ...row, status } : row))
+      prev.map((row) => {
+        if (row.kind !== "permission" || row.requestId !== requestId) return row;
+        resolvedToolName = row.toolName;
+        return { ...row, status };
+      })
     );
+    // Same hidden-drawer treatment as every other tool call, per explicit
+    // follow-up ("still showing Bash: Allowed... as a message and not under
+    // Working") -- a resolved permission's own compact trace used to stay
+    // inline forever (this row's own render branch, below, has the "that's
+    // real chat history" reasoning that no longer applies now that every
+    // other tool call already folds into the same drawer). requestId is
+    // real and stable, but resolvedToolName only gets set synchronously
+    // above if a matching row still exists.
+    if (resolvedToolName && status !== "pending") {
+      const label =
+        status === "allow" ? "Allowed" : status === "cancelled" ? "Withdrawn" : status === "timed_out" ? "Denied (timed out)" : "Denied";
+      setLiveToolCallLines((prev) => [...prev, `${resolvedToolName}: ${label}`]);
+    }
   }
 
   function pushMarker(text: string) {
@@ -1899,7 +1917,6 @@ export function ChatPage() {
                 onResendMessage={resendMessage}
                 onEditMessage={editMessage}
                 onSwitchBranch={switchBranch}
-                sessionId={sessionId}
                 onOpenFile={openFile}
                 toolGroup={groupStarts.get(row.id)}
               />
@@ -2122,7 +2139,6 @@ function ChatRowView({
   onResendMessage,
   onEditMessage,
   onSwitchBranch,
-  sessionId,
   onOpenFile,
   toolGroup,
 }: {
@@ -2134,7 +2150,6 @@ function ChatRowView({
   onResendMessage: (row: Extract<ChatRow, { kind: "human" }>) => void;
   onEditMessage: (row: Extract<ChatRow, { kind: "human" }>) => void;
   onSwitchBranch: (group: string, index: number) => void;
-  sessionId: string | undefined;
   onOpenFile: (path: string) => void;
   // Set only on the first row of a run of consecutive same-kind Write/Edit
   // tool rows (computeToolGroups, below) -- the full run this one row
@@ -2209,24 +2224,13 @@ function ChatRowView({
     // near <ComposeBox>) -- per explicit correction ("that actually should
     // be similar to codex/claude where the action opens at the top of the
     // compose box and be full length of the compose box"), not shown
-    // inline as a chat message. A resolved one (allow/deny/cancelled/
-    // timed_out) still leaves the same compact one-line trace here it
-    // always has -- that's real chat history, not an in-progress prompt.
-    if (row.status === "pending") return null;
-    // onStopTurn is unreachable here -- PermissionCard's own early return
-    // for a non-pending status (right above the header/X button) means
-    // this callback never actually gets called for a resolved row.
-    return (
-      <PermissionCard
-        sessionId={sessionId}
-        requestId={row.requestId}
-        toolName={row.toolName}
-        input={row.input}
-        status={row.status}
-        hasProject={false}
-        onStopTurn={() => {}}
-      />
-    );
+    // inline as a chat message. A resolved one used to leave its own
+    // compact one-line trace here permanently ("Bash: Allowed") -- per
+    // explicit follow-up, that's the same clutter every other tool call
+    // already folds away: updatePermissionRow (above) already pushes this
+    // same trace into liveToolCallLines the moment it resolves, so nothing
+    // renders inline for it at all anymore, resolved or pending.
+    return null;
   }
 
   if (row.kind === "human") {
