@@ -567,6 +567,17 @@ export function ChatPage() {
   // renders as its own plain reply, just without a second (redundant) label.
   const turnStartedAtRef = useRef<number | null>(null);
   const firstAgentRowIdRef = useRef<string | null>(null);
+  // Real bug, confirmed directly ("waiting for an answer should stop the
+  // timer"): both the live counter and the final "Worked for Ns" used to
+  // count straight through a pending permission request -- genuinely idle
+  // time (the model can't do anything until a human answers) inflating a
+  // number meant to represent how long the model actually worked.
+  // pausedAtRef is when the CURRENT pause began (null while not paused);
+  // pausedTotalMsRef accumulates every pause's own real duration across the
+  // whole turn (a turn can hit more than one permission request). Both
+  // subtracted from elapsed time everywhere it's computed, below.
+  const pausedAtRef = useRef<number | null>(null);
+  const pausedTotalMsRef = useRef(0);
   const [liveElapsedSec, setLiveElapsedSec] = useState<number | null>(null);
   // Same stale-closure reasoning as the refs above, for a real bug this one
   // caused directly: a chat's own auto-rename (chat_name_updated) and its
@@ -856,6 +867,8 @@ export function ChatPage() {
         firstAgentRowIdRef.current = null;
         updateLiveReasoningText(null);
         liveToolCallLinesRef.current = [];
+        pausedAtRef.current = null;
+        pausedTotalMsRef.current = 0;
         // Real per-message value now (server.rs's own human_message event,
         // that file's own comment has the full reasoning) -- not a
         // client-side "whatever this tab most recently sent" ref, which
@@ -1161,6 +1174,11 @@ export function ChatPage() {
       // either way, since the model is genuinely idle until this resolves.
       if (type === "permission_request") {
         setWaitingPhase("waiting");
+        // Real bug, confirmed directly ("waiting for an answer should stop
+        // the timer") -- pausedAtRef/pausedTotalMsRef's own comment, above,
+        // has the full reasoning. Guarded on already-null: this fires once
+        // per real request, never twice for the same pause.
+        if (pausedAtRef.current === null) pausedAtRef.current = Date.now();
         pushRow({
           kind: "permission",
           id: nextRowId(),
@@ -1176,6 +1194,12 @@ export function ChatPage() {
         const behavior = event.behavior as string;
         const status = behavior === "allow" ? "allow" : behavior === "cancelled" ? "cancelled" : "deny";
         updatePermissionRow(event.request_id as string, status);
+        // Same pause tracking as permission_request, above -- this pause is
+        // over, fold its real duration into the running total.
+        if (pausedAtRef.current !== null) {
+          pausedTotalMsRef.current += Date.now() - pausedAtRef.current;
+          pausedAtRef.current = null;
+        }
         // The turn is still genuinely in flight after an allow (the tool call the
         // question was about hasn't run yet) or a deny (the model still has to
         // react to being told no) -- back to a generic waiting state, same as
@@ -1234,7 +1258,13 @@ export function ChatPage() {
         // each event.
         const resultCreatedAt = event.created_at as string | undefined;
         if (resultCreatedAt && turnStartedAtRef.current !== null) {
-          const durationSec = (parseServerTimestampMs(resultCreatedAt) - turnStartedAtRef.current) / 1000;
+          // Real time spent genuinely paused (pausedAtRef/pausedTotalMsRef's
+          // own comment, above, has the full reasoning) subtracted out --
+          // "Worked for Ns" should reflect the model's own real working
+          // time, not however long a human happened to take answering a
+          // permission prompt in the middle of it.
+          const pausedMs = pausedTotalMsRef.current + (pausedAtRef.current !== null ? Date.now() - pausedAtRef.current : 0);
+          const durationSec = (parseServerTimestampMs(resultCreatedAt) - turnStartedAtRef.current - pausedMs) / 1000;
           const durationLabel = `Worked for ${formatWorkedDuration(durationSec)}`;
           const rowId = firstAgentRowIdRef.current;
           if (rowId) {
@@ -1256,6 +1286,8 @@ export function ChatPage() {
         firstAgentRowIdRef.current = null;
         updateLiveReasoningText(null);
         liveToolCallLinesRef.current = [];
+        pausedAtRef.current = null;
+        pausedTotalMsRef.current = 0;
         // Settings > General > Notifications ("Notify when a chat turn
         // completes", alongsidedotrun/private#207) -- this is the real
         // turn-completion point (the Claude Agent SDK's own "result"
@@ -1665,7 +1697,14 @@ export function ChatPage() {
     if (waitingPhase === null) return;
     const tick = () => {
       if (turnStartedAtRef.current === null) return;
-      setLiveElapsedSec(Math.floor((Date.now() - turnStartedAtRef.current) / 1000));
+      // pausedAtRef/pausedTotalMsRef's own comment, above, has the full
+      // reasoning -- ticking straight through a pending permission request
+      // still runs every second while paused, but subtracting the
+      // in-progress pause's own growing duration each time keeps the
+      // displayed number frozen at whatever it was when the pause began,
+      // exactly like the counter actually stopping.
+      const pausedMs = pausedTotalMsRef.current + (pausedAtRef.current !== null ? Date.now() - pausedAtRef.current : 0);
+      setLiveElapsedSec(Math.floor((Date.now() - turnStartedAtRef.current - pausedMs) / 1000));
     };
     tick();
     const interval = window.setInterval(tick, 1000);
