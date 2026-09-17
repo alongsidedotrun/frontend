@@ -69,6 +69,15 @@
   white-space: pre-wrap;
   animation: tr-sentence-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+/* Real tool-call lines (ChatPage.tsx's own toolCallLines/thinking-reasoning.tsx
+   comments have the full reasoning) -- literal commands/paths, not prose, so
+   they read the same monospace way the old standalone Bash/Write row did. */
+.trToolLine {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  letter-spacing: 0;
+  word-break: break-all;
+}
 @keyframes tr-sentence-in {
   from { opacity: 0; }
   to { opacity: 1; }

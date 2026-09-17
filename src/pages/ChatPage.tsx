@@ -102,6 +102,20 @@ type ChatRow =
       // ChatRow this used to be pushed as its own separate row (removed -- folded
       // into the unified TurnWorkDisclosure this row itself now renders instead).
       reasoningText?: string;
+      // One line per non-file-writing tool call this turn actually made (real
+      // ContentBlock::ToolUse blocks, same provider-agnostic pipeline every
+      // other tool_use branch already shares) -- "Bash: sed -n '1,160p'
+      // Internet.md", "WebSearch: some query". Per explicit request: these
+      // used to render as their own separate ToolRow in the middle of the
+      // transcript, cluttering it with every intermediate command a turn
+      // happened to run. Now collected silently while the turn is "Working"
+      // (liveToolCallLines, below) and only surfaced here, inside the same
+      // expand arrow "Worked for Ns" already offers -- undefined when a turn
+      // made no such calls, same as reasoningText. Write/Edit calls are
+      // deliberately excluded -- those still render their own real diff card
+      // (FileDiffGroup), not a hidden line, since that's a dedicated feature
+      // in its own right, not incidental plumbing.
+      toolCallLines?: string[];
     }
   | { kind: "command"; id: string; text: string; time: string }
   // name/summary/input real, not fabricated -- name and input are the tool_use
@@ -334,6 +348,14 @@ export function ChatPage() {
   // once the turn settles (folded into the agent row's own reasoningText field
   // instead, ChatRowView's "agent" branch).
   const [liveReasoningText, setLiveReasoningText] = useState<string | null>(null);
+  // Same idea as liveReasoningText, above, but for non-file-writing tool
+  // calls (ChatRow's own toolCallLines comment has the full reasoning) --
+  // accumulated silently while the turn runs, folded into the settled agent
+  // row once the turn's own text block arrives, never shown in the LIVE
+  // "Working" shimmer itself (that call site deliberately doesn't read this
+  // state) -- per explicit request, these stay genuinely hidden until
+  // "Worked" and its own expand arrow exist to reveal them.
+  const [liveToolCallLines, setLiveToolCallLines] = useState<string[]>([]);
   const searchQueryRef = useRef<string | null>(null);
   const [prompt, setPrompt] = useState("");
   // Non-destructive Edit -- per explicit follow-up ("the resend should
@@ -1270,15 +1292,23 @@ export function ChatPage() {
                 // for Codex/Antigravity (they never emit a thinking block at all)
                 // and for a Claude turn with no thinking this time either.
                 reasoningText: liveReasoningText ?? undefined,
+                toolCallLines: liveToolCallLines.length > 0 ? liveToolCallLines : undefined,
               });
               setLiveReasoningText(null);
+              setLiveToolCallLines([]);
             } else if (block.type === "tool_use" && block.name === "WebSearch") {
               // No "tool" row for this one -- shown as the shimmer "Searching"
               // phase instead (waitingPhaseLabel, below), same treatment as
               // "thinking"/"reasoning". Settles the same way those do, once the
               // next text/tool_use block arrives.
-              searchQueryRef.current = (block.input?.query as string | undefined) ?? null;
+              const query = (block.input?.query as string | undefined) ?? null;
+              searchQueryRef.current = query;
               setWaitingPhase("searching");
+              // Same treatment as the generic tool-call branch below -- the
+              // query itself used to vanish the moment the turn settled
+              // (searchQueryRef only ever backs the live shimmer); now it
+              // survives in the same hidden, expandable list.
+              if (query) setLiveToolCallLines((prev) => [...prev, `WebSearch: ${query}`]);
             } else if (block.type === "tool_use" && block.name) {
               // summary/input real, not fabricated -- summarizeToolInput (this
               // file's own, above) reads the block's own real input fields; input
@@ -1293,20 +1323,37 @@ export function ChatPage() {
               // null the same way, once a text block (the actual reply) lands.
               setWaitingPhase("working");
               const toolName = normalizeToolName(block.name);
-              pushRow({
-                kind: "tool",
-                id: nextRowId(),
-                name: toolName,
-                summary: summarizeToolInput(block.input),
-                input: block.input,
-              });
-              // Real bug, confirmed directly ("the files at the right
-              // sidebar and library are not updating in real time so i
-              // have to refresh"): right-panel.tsx's own ChatFileListPanel
-              // only fetches once per chat, with nothing telling it a new
-              // file just landed here. Write/Edit is exactly the moment
-              // that becomes true.
-              if (toolName === "Write" || toolName === "Edit") notifyFilesTouched();
+              const isFileWrite = toolName === "Write" || toolName === "Edit";
+              if (isFileWrite) {
+                // Only Write/Edit still render inline, as their own real
+                // diff card (FileDiffGroup, via the render-time grouping
+                // pass below) -- a dedicated feature in its own right, not
+                // incidental plumbing a reader needs to dig for.
+                pushRow({
+                  kind: "tool",
+                  id: nextRowId(),
+                  name: toolName,
+                  summary: summarizeToolInput(block.input),
+                  input: block.input,
+                });
+                // Real bug, confirmed directly ("the files at the right
+                // sidebar and library are not updating in real time so i
+                // have to refresh"): right-panel.tsx's own ChatFileListPanel
+                // only fetches once per chat, with nothing telling it a new
+                // file just landed here. Write/Edit is exactly the moment
+                // that becomes true.
+                notifyFilesTouched();
+              } else {
+                // Every other tool call (Bash, Read, Grep, run_command,
+                // etc. -- any provider, same ContentBlock::ToolUse shape)
+                // per explicit request: no longer its own visible row
+                // cluttering the transcript. Collected silently instead,
+                // folded into the settled agent row's own toolCallLines
+                // once this turn's text block arrives (above), revealed
+                // only through that row's own "Worked for Ns" expand arrow.
+                const summary = summarizeToolInput(block.input);
+                setLiveToolCallLines((prev) => [...prev, summary ? `${toolName}: ${summary}` : toolName]);
+              }
             }
           }
         }
@@ -2441,7 +2488,7 @@ function ChatRowView({
           arriving and that happening shows nothing here, same trade-off Synara's
           own settled-vs-live split has. */}
       {row.durationLabel && (
-        <TurnWorkDisclosure label={row.durationLabel} detailText={row.reasoningText} />
+        <TurnWorkDisclosure label={row.durationLabel} detailText={row.reasoningText} toolLines={row.toolCallLines} />
       )}
       <div className="flex items-center gap-1.5 px-1">
         {/* size-5 (20px), not size-6 -- per explicit request ("make sure
@@ -2663,9 +2710,26 @@ function SourceLink({ source }: { source: { label: string; href: string } }) {
 // time still get the same expand affordance per explicit request ("be expandable
 // as well"), just with an honest "nothing to show" line rather than fabricated
 // content.
-function TurnWorkDisclosure({ label, detailText, live }: { label: string; detailText?: string; live?: boolean }) {
+function TurnWorkDisclosure({
+  label,
+  detailText,
+  toolLines,
+  live,
+}: {
+  label: string;
+  detailText?: string;
+  // Real tool calls this turn made (ChatRow's own toolCallLines comment has
+  // the full reasoning) -- per explicit request ("that should have an arrow
+  // to open the drawer so we can see the hidden commands"). Never passed by
+  // the LIVE call site (ChatPage.tsx's own waitingPhase-driven indicator,
+  // below) -- these stay genuinely hidden while "Working", only surfacing
+  // once the turn settles and this same expand arrow already exists.
+  toolLines?: string[];
+  live?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const trimmedDetail = detailText?.trim();
+  const hasToolLines = !!toolLines && toolLines.length > 0;
   // No expand affordance at all when there's nothing real to show -- per
   // explicit follow-up ("hide the expand arrow entirely for these replies"):
   // Codex/Antigravity never emit a thinking block at all, so every one of
@@ -2673,7 +2737,7 @@ function TurnWorkDisclosure({ label, detailText, live }: { label: string; detail
   // honest but useless "No additional detail for this reply." placeholder.
   // Plain, non-interactive label instead, exactly like Claude's own replies
   // that genuinely didn't use extended thinking this turn.
-  if (!trimmedDetail) {
+  if (!trimmedDetail && !hasToolLines) {
     const labelEl = live ? <ThinkingState text={label} /> : <span className="text-xs text-muted-foreground">{label}</span>;
     return <div className="px-1">{labelEl}</div>;
   }
@@ -2685,7 +2749,14 @@ function TurnWorkDisclosure({ label, detailText, live }: { label: string; detail
   // through unchanged, per explicit decision.
   return (
     <div className="px-1">
-      <ThinkingReasoning label={label} text={trimmedDetail} live={!!live} open={open} onToggleOpen={() => setOpen((prev) => !prev)} />
+      <ThinkingReasoning
+        label={label}
+        text={trimmedDetail ?? ""}
+        toolLines={toolLines}
+        live={!!live}
+        open={open}
+        onToggleOpen={() => setOpen((prev) => !prev)}
+      />
     </div>
   );
 }

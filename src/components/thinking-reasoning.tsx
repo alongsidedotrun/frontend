@@ -31,12 +31,19 @@ const SENTENCE_STAGGER_MS = 70;
 export function ThinkingReasoning({
   label,
   text,
+  toolLines,
   live,
   open,
   onToggleOpen,
 }: {
   label: string;
   text: string;
+  // Real tool-call one-liners for this turn ("Bash: sed -n '1,160p'
+  // Internet.md"), ChatPage.tsx's own toolCallLines comment has the full
+  // reasoning. Rendered as literal lines, appended after text's own
+  // sentences -- never re-split, since a path like "Internet.md" isn't a
+  // sentence boundary the way splitSentences means it.
+  toolLines?: string[];
   // Still receiving live updates this turn -- the reasoning stays open
   // and unclickable (same as the reference's own "while thinking the
   // reasoning is always open"), folding into a clickable summary once
@@ -45,7 +52,7 @@ export function ThinkingReasoning({
   open: boolean;
   onToggleOpen: () => void;
 }) {
-  const sentences = splitSentences(text);
+  const sentences = [...splitSentences(text), ...(toolLines ?? [])];
   const [revealedCount, setRevealedCount] = useState(0);
   const revealedTextRef = useRef("");
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -130,7 +137,17 @@ export function ThinkingReasoning({
           >
             <div className={styles.trStream}>
               {visibleSentences.map((line, i) => (
-                <p key={i} className={styles.trSentence}>
+                <p
+                  key={i}
+                  className={
+                    // Tool-call lines (appended after any real prose
+                    // sentences, see `sentences` above) render monospace --
+                    // they're literal commands/paths, not prose, and should
+                    // read the way a Bash row already did before this was
+                    // folded into the same drawer.
+                    styles.trSentence + (toolLines && i >= sentences.length - toolLines.length ? " " + styles.trToolLine : "")
+                  }
+                >
                   {line}
                 </p>
               ))}
