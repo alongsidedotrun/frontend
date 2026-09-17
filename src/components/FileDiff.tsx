@@ -271,7 +271,16 @@ function ResolvedFile({
   // own real header (name + stat) and its own independent snippet/expand,
   // whether it's the only file in its group or one of several.
   const [open, setOpen] = useState(false);
-  const hasMore = (rows?.length ?? 0) > SNIPPET_LINES;
+  // Real bug, confirmed directly ("when we have multiple files, we should
+  // not show the 3 quick snippets, it should be fully collapsed"): a
+  // nested file (one of several in a group) now shows NOTHING at all by
+  // default, not a 3-line preview -- the group's own header already gives
+  // an aggregate sense of what changed; a single-file group still shows
+  // its real 3-line snippet, unaffected. hasMore reflects that: a nested
+  // file needs its own chevron the moment it has ANY rows to reveal
+  // (there's nothing showing to already account for), not just past
+  // SNIPPET_LINES.
+  const hasMore = nested ? (rows?.length ?? 0) > 0 : (rows?.length ?? 0) > SNIPPET_LINES;
   useEffect(() => {
     if (rows) onResolved(file.path, added, removed);
     // onResolved is a fresh closure every FileDiffGroup render -- only
@@ -308,7 +317,7 @@ function ResolvedFile({
           />
         )}
       </div>
-      <DiffLines rows={open ? rows : rows.slice(0, SNIPPET_LINES)} />
+      {open ? <DiffLines rows={rows} /> : !nested && <DiffLines rows={rows.slice(0, SNIPPET_LINES)} />}
     </div>
   );
 }
