@@ -93,15 +93,17 @@ function modelSelectionLabel(selected: typeof QUICK_CHAT_MODELS) {
 }
 
 // How the agent asks before acting -- beside the model trigger, per
-// explicit request. Real for Codex and Antigravity today (server.rs's own
-// spawn_agent_session comment on last_permission_mode/issue #265 Phase 3
-// for Codex; antigravity.rs's own comment on this same setting for
-// Antigravity's --mode plan), Claude's own mapping still pending -- per
-// explicit follow-up ("It should reflect each provider capability, after
-// antigravity is done then move to claude and chatgpt permissions based
-// on their capability"). "Manual" first/default: it's the safest stance
-// (asks before every action), so it's what a session should open on
-// rather than something more permissive.
+// explicit request. Real for all three providers now: Codex
+// (server.rs's own spawn_agent_session comment on last_permission_mode/
+// issue #265 Phase 3), Antigravity (antigravity.rs's own comment on this
+// same setting, --mode plan), and Claude (claude_direct.rs's own
+// permission_mode comment -- manual/acceptEdits/bypassPermissions,
+// confirmed live via `claude --help` and real tool-call runs under each).
+// Per explicit follow-up ("It should reflect each provider capability,
+// after antigravity is done then move to claude and chatgpt permissions
+// based on their capability"). "Manual" first/default: it's the safest
+// stance (asks before every action), so it's what a session should open
+// on rather than something more permissive.
 // "Ask", not "Plan" -- per explicit request. description -- per explicit
 // request ("do a quick description like Synara's one does but without the
 // icon"): Synara's own RuntimeUsageControls (a real reference app cloned
