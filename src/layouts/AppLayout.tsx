@@ -995,6 +995,21 @@ export function AppLayout() {
     // exactly this same spot, not reset to the chat's own file list.
     setPanelVisible(false);
   }
+  // Real bug, confirmed directly ("the close at the right sidebar when we
+  // have a file open is not to close the sidebar but to close the file to
+  // go back to library"): RightPanel's own FileEditorPanel used to reuse
+  // onRightPanelClose (the header toggle's own "collapse the whole
+  // sidebar" action) for its in-panel Close button too -- a distinct real
+  // action, going back to this chat's own file list, not hiding the panel
+  // outright. Falls back to actually closing only for the one case a
+  // "list" entry can't apply to at all (a file opened from the global
+  // Library page, no sessionId/chat context -- that same edge case is
+  // already called out just above, at the header toggle's own click
+  // handler).
+  function closeFileToLibrary() {
+    if (sessionId) navigateRightPanel({ type: "list", chatId: sessionId });
+    else onRightPanelClose();
+  }
   // Real bug, confirmed directly ("I renamed example file in the library
   // and the right sidebar still showing the not updated file name"):
   // Library's own rename patches its own file list, but has no way to
@@ -1940,7 +1955,7 @@ export function AppLayout() {
                 <div style={{ width: rightPanelTargetWidth }} className="h-full shrink-0">
                   <RightPanel
                     state={rightPanel}
-                    onClose={onRightPanelClose}
+                    onCloseFile={closeFileToLibrary}
                     onSelectFile={(path) => navigateRightPanel({ type: "file", path })}
                     onBack={rightPanelGoBack}
                     onForward={rightPanelGoForward}

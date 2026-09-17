@@ -15,7 +15,8 @@ import { FixedToolbar } from "@/components/ui/fixed-toolbar";
 import { FixedToolbarButtons } from "@/components/ui/fixed-toolbar-buttons";
 import { XIcon, File02Icon, ChevronLeftIcon, ChevronRightIcon, FolderIcon, TerminalIcon, DotsVerticalIcon } from "@/components/icons/untitled-ui";
 import { Button } from "@/components/ui/button";
-import { FileExtensionBadge, stripExtension } from "@/components/file-extension-badge";
+import { LibraryFileNameCell } from "@/components/library-file-row";
+import { formatRelativeTime } from "@/lib/relative-time";
 import {
   DropdownMenu as BaseDropdownMenu,
   DropdownTrigger as BaseDropdownTrigger,
@@ -182,7 +183,7 @@ export type RightPanelState = { type: "list"; chatId: string } | { type: "file";
 // per-chat file list, and the existing single-file editor.
 export function RightPanel({
   state,
-  onClose,
+  onCloseFile,
   onSelectFile,
   onBack,
   onForward,
@@ -191,7 +192,15 @@ export function RightPanel({
   filesTouchedTick,
 }: {
   state: RightPanelState;
-  onClose: () => void;
+  // Real bug, confirmed directly ("the close at the right sidebar when we
+  // have a file open is not to close the sidebar but to close the file to
+  // go back to library"): FileEditorPanel's own in-panel Close used to be
+  // wired to the same `onClose` the header's own toggle uses, so closing a
+  // FILE collapsed the entire sidebar instead of just returning to the
+  // file list -- a real, distinct action (AppLayout.tsx's own
+  // navigateRightPanel to a "list" entry), not another way to hide the
+  // panel outright.
+  onCloseFile: () => void;
   onSelectFile: (path: string) => void;
   onBack: () => void;
   onForward: () => void;
@@ -208,7 +217,7 @@ export function RightPanel({
       <ChatFileListPanel chatId={state.chatId} onSelectFile={onSelectFile} navButtons={navButtons} refreshSignal={filesTouchedTick} />
     );
   }
-  return <FileEditorPanel path={state.path} onClose={onClose} navButtons={navButtons} />;
+  return <FileEditorPanel path={state.path} onClose={onCloseFile} navButtons={navButtons} />;
 }
 
 // This chat's own files -- the same real GET /library data the Library
@@ -271,6 +280,30 @@ function ChatFileListPanel({
       cancelled = true;
     };
   }, [chatId, refreshSignal]);
+
+  // Real bug, confirmed directly ("The right sidebar at the chat is
+  // missing... the three dots to rename or delete the file is missing
+  // too"): this panel's own file rows never got LibraryPage.tsx's real
+  // rename/delete wiring at all, only its own read-only click-to-open.
+  // Same real endpoints, same "patch local state on success" pattern --
+  // library-file-row.tsx's own comment has the full reasoning for why
+  // these two components (LibraryFileMoreMenu/LibraryFileNameCell) are
+  // shared, not reimplemented, between Library and this panel.
+  async function deleteFile(filePath: string) {
+    await fetch(`/files?path=${encodeURIComponent(filePath)}`, { method: "DELETE" });
+    setFiles((prev) => (prev ? prev.filter((f) => f.filePath !== filePath) : prev));
+  }
+
+  async function renameFile(filePath: string, newLeaf: string) {
+    const res = await fetch("/files/rename", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: filePath, new_name: newLeaf }),
+    });
+    if (!res.ok) return;
+    const { path: newPath }: { path: string } = await res.json();
+    setFiles((prev) => (prev ? prev.map((f) => (f.filePath === filePath ? { ...f, filePath: newPath } : f)) : prev));
+  }
 
   return (
     // No border-l here -- real bug, confirmed directly ("the border...
@@ -341,20 +374,31 @@ function ChatFileListPanel({
         ) : (
           <div className="flex flex-col gap-0.5">
             {files.map((file) => (
-              <button
+              // div, not a real <button> -- LibraryFileNameCell's own "..."
+              // menu is a real button, and a button can't nest inside
+              // another one (same real constraint LibraryPage.tsx's own
+              // tree row comment already documents). onClick still opens
+              // the file the same way; the menu/rename input each stop
+              // their own propagation already.
+              <div
                 key={file.filePath}
-                type="button"
                 onClick={() => onSelectFile(file.filePath)}
-                className="flex items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-hover-2/50"
+                className="flex cursor-pointer items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-hover-2/50"
               >
-                {/* FileExtensionBadge leading, not a generic File02Icon --
-                    per explicit request ("we should use the same
-                    component for the library page in this right
-                    sidebar... it shows the file badge instead of the
-                    icon"), matching LibraryPage.tsx's own file rows. */}
-                <FileExtensionBadge name={file.filePath} />
-                <span className="min-w-0 flex-1 truncate">{stripExtension(fileName(file.filePath))}</span>
-              </button>
+                {/* LibraryFileNameCell, not a bare FileExtensionBadge +
+                    name -- per explicit request ("the three dots to
+                    rename or delete the file is missing too"), the same
+                    real component (badge, inline rename, "..." menu)
+                    LibraryPage.tsx's own file rows already use. */}
+                <LibraryFileNameCell
+                  leaf={fileName(file.filePath)}
+                  onRename={(newLeaf) => renameFile(file.filePath, newLeaf)}
+                  onDelete={() => deleteFile(file.filePath)}
+                />
+                {/* Per explicit request ("missing the 1 day ago as an
+                    example of when the file was created"). */}
+                <span className="shrink-0 text-2xs text-muted-foreground">{formatRelativeTime(file.lastModified)}</span>
+              </div>
             ))}
           </div>
         )}
