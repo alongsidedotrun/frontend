@@ -176,6 +176,38 @@ const TOOL_NAME_ALIASES: Record<string, string> = {
   write_to_file: "Write",
 };
 
+// Display-only rename for the hidden-tool-call drawer specifically (this
+// file's own toolCallLines/addLiveToolCallLine), collapsing every provider's
+// own real tool names onto one shared "main states" vocabulary per explicit
+// request: Read/Write/Edit/Run. Write/Edit never actually reach this map --
+// isFileWrite (below) routes those straight to their own FileDiffGroup card
+// instead -- so in practice this only ever needs to cover Read and Run, but
+// the mapping itself makes no assumption about that.
+//
+// Every key here is a REAL, live-confirmed tool name, not a guess:
+// - "Bash" -- Claude's own real tool name, and what backend/src/codex.rs
+//   explicitly renames commandExecution to.
+// - "run_command" -- Antigravity's own real tool name for a shell command
+//   (confirmed earlier this session, `agy --output-format stream-json`).
+// - "view_file" -- Antigravity's own real tool name for reading a file
+//   (confirmed live just now, the same way: `agy --print "Read the file
+//   ..." --output-format stream-json` reported tool_name "view_file").
+// Claude's own "Read" and Codex's own "Edit" (fileChange always maps to
+// "Edit" in codex.rs, never "Write") already match this vocabulary exactly
+// and need no entry here. Codex has no distinct read-file tool at all --
+// it reads files via shell commands (`sed`, `cat`), which already fall
+// under "Run" through the "Bash" mapping above; not fabricated as its own
+// bucket since no such real tool exists.
+const TOOL_DISPLAY_LABELS: Record<string, string> = {
+  Bash: "Run",
+  run_command: "Run",
+  view_file: "Read",
+};
+
+function toolDisplayLabel(name: string): string {
+  return TOOL_DISPLAY_LABELS[name] ?? name;
+}
+
 function normalizeToolName(name: string): string {
   return TOOL_NAME_ALIASES[name] ?? name;
 }
@@ -717,7 +749,7 @@ export function ChatPage() {
     if (resolvedToolName && status !== "pending") {
       const label =
         status === "allow" ? "Allowed" : status === "cancelled" ? "Withdrawn" : status === "timed_out" ? "Denied (timed out)" : "Denied";
-      addLiveToolCallLine(resolvedToolName, label);
+      addLiveToolCallLine(toolDisplayLabel(resolvedToolName), label);
     }
   }
 
@@ -1399,7 +1431,7 @@ export function ChatPage() {
                 // folded into the settled agent row's own toolCallLines
                 // once this turn's text block arrives (above), revealed
                 // only through that row's own "Worked for Ns" expand arrow.
-                addLiveToolCallLine(toolName, summarizeToolInput(block.input) ?? undefined);
+                addLiveToolCallLine(toolDisplayLabel(toolName), summarizeToolInput(block.input) ?? undefined);
               }
             }
           }
