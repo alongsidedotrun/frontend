@@ -102,20 +102,24 @@ type ChatRow =
       // ChatRow this used to be pushed as its own separate row (removed -- folded
       // into the unified TurnWorkDisclosure this row itself now renders instead).
       reasoningText?: string;
-      // One line per non-file-writing tool call this turn actually made (real
-      // ContentBlock::ToolUse blocks, same provider-agnostic pipeline every
-      // other tool_use branch already shares) -- "Bash: sed -n '1,160p'
-      // Internet.md", "WebSearch: some query". Per explicit request: these
-      // used to render as their own separate ToolRow in the middle of the
-      // transcript, cluttering it with every intermediate command a turn
-      // happened to run. Now collected silently while the turn is "Working"
+      // One entry per non-file-writing tool call this turn actually made
+      // (real ContentBlock::ToolUse blocks, same provider-agnostic pipeline
+      // every other tool_use branch already shares) -- {label:"Bash",
+      // detail:"sed -n '1,160p' Internet.md"}, {label:"WebSearch",
+      // detail:"some query"}. Per explicit request: these used to render as
+      // their own separate ToolRow in the middle of the transcript,
+      // cluttering it with every intermediate command a turn happened to
+      // run. Now collected silently while the turn is "Working"
       // (liveToolCallLines, below) and only surfaced here, inside the same
       // expand arrow "Worked for Ns" already offers -- undefined when a turn
       // made no such calls, same as reasoningText. Write/Edit calls are
       // deliberately excluded -- those still render their own real diff card
       // (FileDiffGroup), not a hidden line, since that's a dedicated feature
-      // in its own right, not incidental plumbing.
-      toolCallLines?: string[];
+      // in its own right, not incidental plumbing. Structured (label+detail),
+      // not a single formatted string, so ThinkingReasoning can render each
+      // the same way a real editor's own tool-call trace does -- bold label,
+      // muted monospace detail -- rather than one plain sentence.
+      toolCallLines?: { label: string; detail?: string }[];
     }
   | { kind: "command"; id: string; text: string; time: string }
   // name/summary/input real, not fabricated -- name and input are the tool_use
@@ -370,7 +374,7 @@ export function ChatPage() {
   // Plain ref, no matching useState needed at all (unlike liveReasoningText):
   // nothing ever renders this live, it only ever gets read once, when the
   // turn settles.
-  const liveToolCallLinesRef = useRef<string[]>([]);
+  const liveToolCallLinesRef = useRef<{ label: string; detail?: string }[]>([]);
   // Keeps liveReasoningTextRef in sync -- call this instead of the raw
   // setLiveReasoningText anywhere inside handleEvent (its own comment,
   // above, has the full reasoning for why the ref is the one that matters
@@ -379,8 +383,8 @@ export function ChatPage() {
     liveReasoningTextRef.current = value;
     setLiveReasoningText(value);
   }
-  function addLiveToolCallLine(line: string) {
-    liveToolCallLinesRef.current = [...liveToolCallLinesRef.current, line];
+  function addLiveToolCallLine(label: string, detail?: string) {
+    liveToolCallLinesRef.current = [...liveToolCallLinesRef.current, { label, detail }];
   }
   const searchQueryRef = useRef<string | null>(null);
   const [prompt, setPrompt] = useState("");
@@ -713,7 +717,7 @@ export function ChatPage() {
     if (resolvedToolName && status !== "pending") {
       const label =
         status === "allow" ? "Allowed" : status === "cancelled" ? "Withdrawn" : status === "timed_out" ? "Denied (timed out)" : "Denied";
-      addLiveToolCallLine(`${resolvedToolName}: ${label}`);
+      addLiveToolCallLine(resolvedToolName, label);
     }
   }
 
@@ -1352,7 +1356,7 @@ export function ChatPage() {
               // query itself used to vanish the moment the turn settled
               // (searchQueryRef only ever backs the live shimmer); now it
               // survives in the same hidden, expandable list.
-              if (query) addLiveToolCallLine(`WebSearch: ${query}`);
+              if (query) addLiveToolCallLine("WebSearch", query);
             } else if (block.type === "tool_use" && block.name) {
               // summary/input real, not fabricated -- summarizeToolInput (this
               // file's own, above) reads the block's own real input fields; input
@@ -1395,8 +1399,7 @@ export function ChatPage() {
                 // folded into the settled agent row's own toolCallLines
                 // once this turn's text block arrives (above), revealed
                 // only through that row's own "Worked for Ns" expand arrow.
-                const summary = summarizeToolInput(block.input);
-                addLiveToolCallLine(summary ? `${toolName}: ${summary}` : toolName);
+                addLiveToolCallLine(toolName, summarizeToolInput(block.input) ?? undefined);
               }
             }
           }
@@ -2754,7 +2757,7 @@ function TurnWorkDisclosure({
   // the LIVE call site (ChatPage.tsx's own waitingPhase-driven indicator,
   // below) -- these stay genuinely hidden while "Working", only surfacing
   // once the turn settles and this same expand arrow already exists.
-  toolLines?: string[];
+  toolLines?: { label: string; detail?: string }[];
   live?: boolean;
 }) {
   const [open, setOpen] = useState(false);

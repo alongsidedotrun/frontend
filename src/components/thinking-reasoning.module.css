@@ -2,7 +2,6 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 360px;
 }
 .trHeader {
   display: inline-flex;
@@ -69,14 +68,30 @@
   white-space: pre-wrap;
   animation: tr-sentence-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
-/* Real tool-call lines (ChatPage.tsx's own toolCallLines/thinking-reasoning.tsx
-   comments have the full reasoning) -- literal commands/paths, not prose, so
-   they read the same monospace way the old standalone Bash/Write row did. */
-.trToolLine {
+/* Real tool-call rows (ChatPage.tsx's own toolCallLines/thinking-reasoning.tsx
+   comments have the full reasoning) -- the Coding variant's own row shape
+   from the second reference component pasted directly ("It should be using
+   this"): a bold label ("Bash", "Read", "WebSearch") plus a muted monospace
+   detail (the command/path/query), not a single plain sentence. */
+.trToolRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.trToolLabel {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--foreground);
+  letter-spacing: -0.005em;
+}
+.trToolDetail {
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
-  letter-spacing: 0;
-  word-break: break-all;
+  color: var(--muted-foreground);
 }
 @keyframes tr-sentence-in {
   from { opacity: 0; }
