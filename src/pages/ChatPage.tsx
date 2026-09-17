@@ -4,8 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { spring } from "@/lib/springs";
 import { getUserDisplayName } from "@/lib/user";
 import { ComposeBox, toImageInputs, type ImageAttachment } from "@/components/compose-box";
-import { FileDiff, type DiffRow } from "@/components/FileDiff";
-import { diffLines } from "diff";
+import { FileDiffGroup, diffToRows, type DiffRow } from "@/components/FileDiff";
 import type { SettingsSection } from "@/components/settings-overlay";
 import { EFFORT_LABELS, type EffortLevel } from "@/lib/effort";
 import { isMonthFirstDateOrder, loadLanguage } from "@/lib/language";
@@ -1758,7 +1757,34 @@ export function ChatPage() {
               pendingEditEventId === null
                 ? -1
                 : rows.findIndex((r) => r.kind === "human" && r.eventId === pendingEditEventId);
+            // Groups consecutive same-kind Write/Edit tool rows into one
+            // FileDiffGroup card (per explicit request, "we should be
+            // using the same component for all") -- a pure render-time
+            // pass, not a change to `rows` itself/how it's pushed, so
+            // history replay and live streaming both group the exact same
+            // way with no separate logic. groupStarts maps a group's
+            // first row id to the rows it stands in for; skipIds are
+            // every other row in that run, rendered as nothing at all
+            // (their own visual identity is now the group card).
+            const groupStarts = new Map<string, Extract<ChatRow, { kind: "tool" }>[]>();
+            const skipIds = new Set<string>();
+            for (let i = 0; i < rows.length; i++) {
+              const r = rows[i];
+              if (r.kind !== "tool" || (r.name !== "Write" && r.name !== "Edit")) continue;
+              if (skipIds.has(r.id) || groupStarts.has(r.id)) continue;
+              const run: Extract<ChatRow, { kind: "tool" }>[] = [r];
+              let j = i + 1;
+              while (j < rows.length) {
+                const next = rows[j];
+                if (next.kind !== "tool" || next.name !== r.name) break;
+                run.push(next);
+                skipIds.add(next.id);
+                j++;
+              }
+              groupStarts.set(r.id, run);
+            }
             return rows.map((row, index) => {
+            if (skipIds.has(row.id)) return null;
             const isHistorical = historicalRowIdsRef.current.has(row.id);
             const rowClassName = !isHistorical
               ? "t-row-in"
@@ -1795,6 +1821,7 @@ export function ChatPage() {
                 onSwitchBranch={switchBranch}
                 sessionId={sessionId}
                 onOpenFile={openFile}
+                toolGroup={groupStarts.get(row.id)}
               />
             </div>
             );
@@ -2017,6 +2044,7 @@ function ChatRowView({
   onSwitchBranch,
   sessionId,
   onOpenFile,
+  toolGroup,
 }: {
   row: ChatRow;
   isPendingEdit: boolean;
@@ -2028,6 +2056,12 @@ function ChatRowView({
   onSwitchBranch: (group: string, index: number) => void;
   sessionId: string | undefined;
   onOpenFile: (path: string) => void;
+  // Set only on the first row of a run of consecutive same-kind Write/Edit
+  // tool rows (computeToolGroups, below) -- the full run this one row
+  // stands in for, rendered as a single FileDiffGroup card instead of N
+  // separate rows. Every other row in that run isn't rendered at all
+  // (rows.map's own grouping pass, further down).
+  toolGroup?: Extract<ChatRow, { kind: "tool" }>[];
 }) {
   // Gates the actions row + disclaimer (agent branch, further down) until
   // the reply's own StreamingText reveal genuinely finishes -- per explicit
@@ -2065,14 +2099,26 @@ function ChatRowView({
   }
 
   if (row.kind === "tool") {
-    // Real Write/Edit -> FileDiff (issue #288, phase 1), manual-expand-only
-    // per that issue's own explicit direction -- everything else keeps the
-    // existing generic ToolRow treatment.
-    if (row.name === "Write" || row.name === "Edit") {
-      const diffRows = buildFileDiffRows(row.name, row.input);
-      const filePath = summarizeToolInput(row.input);
-      if (diffRows && filePath) {
-        return <FileDiff file={filePath} rows={diffRows} onExpand={() => onOpenFile(filePath)} />;
+    // Real Write/Edit -> FileDiffGroup (issue #288, phase 1, extended per
+    // explicit request "we should be using the same component for all"),
+    // manual-expand-only per that issue's own explicit direction --
+    // everything else keeps the existing generic ToolRow treatment.
+    // toolGroup (set only on a group's first row, computeToolGroups below)
+    // covers every provider uniformly: Claude/Codex's real content
+    // resolves synchronously via buildFileDiffRows; Antigravity's
+    // write_to_file (no content in its own tool_use, only the path) has
+    // no syncRows, and FileDiffGroup's own ResolvedFile fetches the real
+    // file content off disk instead -- same card either way.
+    if (toolGroup && (row.name === "Write" || row.name === "Edit")) {
+      const files = toolGroup
+        .map((r) => {
+          const path = summarizeToolInput(r.input);
+          if (!path) return null;
+          return { name: path.split("/").filter(Boolean).pop() ?? path, path, syncRows: buildFileDiffRows(r.name, r.input) };
+        })
+        .filter((f): f is NonNullable<typeof f> => f !== null);
+      if (files.length > 0) {
+        return <FileDiffGroup kind={row.name === "Write" ? "New" : "Edited"} files={files} onExpandFile={onOpenFile} />;
       }
     }
     return <ToolRow name={row.name} summary={row.summary} input={row.input} />;
@@ -2443,24 +2489,7 @@ function buildFileDiffRows(name: string, input: unknown): DiffRow[] | null {
     newText = record.new_string;
   }
   if (oldText === null || newText === null) return null;
-
-  const rows: DiffRow[] = [];
-  let oldLine = 1;
-  let newLine = 1;
-  for (const part of diffLines(oldText, newText)) {
-    const lines = part.value.split("\n");
-    if (lines[lines.length - 1] === "") lines.pop();
-    for (const text of lines) {
-      if (part.added) {
-        rows.push({ old: null, cur: newLine++, type: "add", text });
-      } else if (part.removed) {
-        rows.push({ old: oldLine++, cur: null, type: "del", text });
-      } else {
-        rows.push({ old: oldLine++, cur: newLine++, type: "ctx", text });
-      }
-    }
-  }
-  return rows;
+  return diffToRows(oldText, newText);
 }
 
 function ToolRow({ name, summary, input }: { name: string; summary: string | null; input: unknown }) {
