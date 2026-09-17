@@ -1107,6 +1107,7 @@ export function AppLayout() {
   // so both Library states become plain pixel-to-pixel transitions like
   // every other width animation in this file already is.
   const contentRowRef = useRef<HTMLDivElement>(null);
+  const mainContentRef = useRef<HTMLDivElement>(null);
   const [contentRowWidth, setContentRowWidth] = useState(0);
   useEffect(() => {
     const el = contentRowRef.current;
@@ -1124,6 +1125,23 @@ export function AppLayout() {
     : rightPanel
       ? rightPanelWidth
       : 0;
+  // Temporary diagnostic -- per explicit report ("the right sidebar still
+  // going over the chat when opened and not reducing the chat width like
+  // before"), the code here looks structurally correct (a real flex row,
+  // mainContent as flex-1/min-w-0, the panel as a fixed-width shrink-0
+  // sibling), so logging the actual computed numbers rather than guessing
+  // at CSS blind again. Remove once the real cause is found.
+  useEffect(() => {
+    console.log("[right-panel-layout]", {
+      isLibraryRoute,
+      rightPanelOpen: !!rightPanel,
+      contentRowWidth,
+      rightPanelWidth,
+      rightPanelTargetWidth,
+      mainContentEl: mainContentRef.current?.getBoundingClientRect(),
+      contentRowEl: contentRowRef.current?.getBoundingClientRect(),
+    });
+  }, [isLibraryRoute, rightPanel, contentRowWidth, rightPanelWidth, rightPanelTargetWidth]);
 
   function startRightPanelResize(event: React.MouseEvent) {
     event.preventDefault();
@@ -1836,6 +1854,7 @@ export function AppLayout() {
             duplicates the whole content column's own JSX. */}
         <div ref={contentRowRef} className="flex min-h-0 min-w-0 flex-1">
           <div
+            ref={mainContentRef}
             className={`flex min-h-0 min-w-0 flex-col overflow-hidden ${isLibraryRoute ? "flex-none" : "flex-1"}`}
             style={
               isLibraryRoute
