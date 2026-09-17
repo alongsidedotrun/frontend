@@ -50,7 +50,7 @@
      (right against the header's own divider) or below it (right against
      the card's own bottom edge). This is that outer gap, not per-row
      spacing (a separate, wrong guess already reverted, above). */
-  padding: 10px 0; font-size: 12.5px; line-height: 20px;
+  padding: 20px 0; font-size: 12.5px; line-height: 20px;
 }
 /* width: 100%, not max-content -- real bug, confirmed directly via
    screenshot ("file diff still exiting the content width"): max-content
