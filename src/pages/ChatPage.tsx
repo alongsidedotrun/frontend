@@ -348,14 +348,40 @@ export function ChatPage() {
   // once the turn settles (folded into the agent row's own reasoningText field
   // instead, ChatRowView's "agent" branch).
   const [liveReasoningText, setLiveReasoningText] = useState<string | null>(null);
+  // Real bug, confirmed directly ("There's no arrow to expand the worked to
+  // see bash allowed"): handleEvent (the WS effect's own onmessage handler,
+  // below) is defined once per session -- its own useEffect deps only ever
+  // include [sessionId] -- so any state variable it reads directly, not
+  // through a ref, is frozen at whatever that state held the one time this
+  // effect actually ran, forever, regardless of later setState calls
+  // elsewhere. liveReasoningTextRef/liveToolCallLinesRef exist purely so
+  // handleEvent can read the CURRENT value instead of that permanently
+  // stale one; the matching useState above/below still drives the actual
+  // live re-render (TurnWorkDisclosure's own live call site, further down,
+  // reads the state directly from JSX -- a normal render, not handleEvent's
+  // stale closure, so that one was never affected).
+  const liveReasoningTextRef = useRef<string | null>(null);
   // Same idea as liveReasoningText, above, but for non-file-writing tool
   // calls (ChatRow's own toolCallLines comment has the full reasoning) --
   // accumulated silently while the turn runs, folded into the settled agent
   // row once the turn's own text block arrives, never shown in the LIVE
-  // "Working" shimmer itself (that call site deliberately doesn't read this
-  // state) -- per explicit request, these stay genuinely hidden until
-  // "Worked" and its own expand arrow exist to reveal them.
-  const [liveToolCallLines, setLiveToolCallLines] = useState<string[]>([]);
+  // "Working" shimmer itself -- per explicit request, these stay genuinely
+  // hidden until "Worked" and its own expand arrow exist to reveal them.
+  // Plain ref, no matching useState needed at all (unlike liveReasoningText):
+  // nothing ever renders this live, it only ever gets read once, when the
+  // turn settles.
+  const liveToolCallLinesRef = useRef<string[]>([]);
+  // Keeps liveReasoningTextRef in sync -- call this instead of the raw
+  // setLiveReasoningText anywhere inside handleEvent (its own comment,
+  // above, has the full reasoning for why the ref is the one that matters
+  // there).
+  function updateLiveReasoningText(value: string | null) {
+    liveReasoningTextRef.current = value;
+    setLiveReasoningText(value);
+  }
+  function addLiveToolCallLine(line: string) {
+    liveToolCallLinesRef.current = [...liveToolCallLinesRef.current, line];
+  }
   const searchQueryRef = useRef<string | null>(null);
   const [prompt, setPrompt] = useState("");
   // Non-destructive Edit -- per explicit follow-up ("the resend should
@@ -687,7 +713,7 @@ export function ChatPage() {
     if (resolvedToolName && status !== "pending") {
       const label =
         status === "allow" ? "Allowed" : status === "cancelled" ? "Withdrawn" : status === "timed_out" ? "Denied (timed out)" : "Denied";
-      setLiveToolCallLines((prev) => [...prev, `${resolvedToolName}: ${label}`]);
+      addLiveToolCallLine(`${resolvedToolName}: ${label}`);
     }
   }
 
@@ -1262,7 +1288,7 @@ export function ChatPage() {
               // liveReasoningText carries over to the settled agent row's own
               // reasoningText field once the final text block below arrives.
               setWaitingPhase("working");
-              setLiveReasoningText(block.thinking);
+              updateLiveReasoningText(block.thinking);
             } else if (block.type === "text" && block.text) {
               setWaitingPhase(null);
               // event.model -- the real model that actually produced *this*
@@ -1309,11 +1335,11 @@ export function ChatPage() {
                 // Carried over from the live "working" phase above -- undefined
                 // for Codex/Antigravity (they never emit a thinking block at all)
                 // and for a Claude turn with no thinking this time either.
-                reasoningText: liveReasoningText ?? undefined,
-                toolCallLines: liveToolCallLines.length > 0 ? liveToolCallLines : undefined,
+                reasoningText: liveReasoningTextRef.current ?? undefined,
+                toolCallLines: liveToolCallLinesRef.current.length > 0 ? liveToolCallLinesRef.current : undefined,
               });
-              setLiveReasoningText(null);
-              setLiveToolCallLines([]);
+              updateLiveReasoningText(null);
+              liveToolCallLinesRef.current = [];
             } else if (block.type === "tool_use" && block.name === "WebSearch") {
               // No "tool" row for this one -- shown as the shimmer "Searching"
               // phase instead (waitingPhaseLabel, below), same treatment as
@@ -1326,7 +1352,7 @@ export function ChatPage() {
               // query itself used to vanish the moment the turn settled
               // (searchQueryRef only ever backs the live shimmer); now it
               // survives in the same hidden, expandable list.
-              if (query) setLiveToolCallLines((prev) => [...prev, `WebSearch: ${query}`]);
+              if (query) addLiveToolCallLine(`WebSearch: ${query}`);
             } else if (block.type === "tool_use" && block.name) {
               // summary/input real, not fabricated -- summarizeToolInput (this
               // file's own, above) reads the block's own real input fields; input
@@ -1370,7 +1396,7 @@ export function ChatPage() {
                 // once this turn's text block arrives (above), revealed
                 // only through that row's own "Worked for Ns" expand arrow.
                 const summary = summarizeToolInput(block.input);
-                setLiveToolCallLines((prev) => [...prev, summary ? `${toolName}: ${summary}` : toolName]);
+                addLiveToolCallLine(summary ? `${toolName}: ${summary}` : toolName);
               }
             }
           }
