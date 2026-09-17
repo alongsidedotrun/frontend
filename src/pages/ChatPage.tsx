@@ -848,8 +848,14 @@ export function ChatPage() {
         // reaches "result" (a timeout, an error) would otherwise leave this
         // pointed at some earlier turn's row forever, since the "set only if
         // still null" logic below (firstAgentRowIdRef's own comment) never
-        // gets a chance to update it again once it's non-null.
+        // gets a chance to update it again once it's non-null. Same reasoning
+        // for the two accumulators below -- a turn that never reaches
+        // "result" (the only other place these reset, now that they
+        // accumulate for the whole turn instead of resetting per text block)
+        // would otherwise leak stray reasoning/tool-call data into the next.
         firstAgentRowIdRef.current = null;
+        updateLiveReasoningText(null);
+        liveToolCallLinesRef.current = [];
         // Real per-message value now (server.rs's own human_message event,
         // that file's own comment has the full reasoning) -- not a
         // client-side "whatever this tab most recently sent" ref, which
@@ -1231,11 +1237,24 @@ export function ChatPage() {
           const durationLabel = `Worked for ${formatWorkedDuration(durationSec)}`;
           const rowId = firstAgentRowIdRef.current;
           if (rowId) {
-            setRows((prev) => prev.map((row) => (row.id === rowId && row.kind === "agent" ? { ...row, durationLabel } : row)));
+            // reasoningText/toolCallLines patched here too, not at each text
+            // block's own push -- real bug, confirmed directly ("The arrow
+            // to expand and collapse is missing"): only the first reply ever
+            // gets a durationLabel now, so it's the only row whose disclosure
+            // can ever show anything; the *push-time* code's own comment has
+            // the full reasoning. This is the whole turn's real accumulated
+            // total, not just whatever happened before the first reply.
+            const reasoningText = liveReasoningTextRef.current ?? undefined;
+            const toolCallLines = liveToolCallLinesRef.current.length > 0 ? liveToolCallLinesRef.current : undefined;
+            setRows((prev) =>
+              prev.map((row) => (row.id === rowId && row.kind === "agent" ? { ...row, durationLabel, reasoningText, toolCallLines } : row))
+            );
           }
         }
         turnStartedAtRef.current = null;
         firstAgentRowIdRef.current = null;
+        updateLiveReasoningText(null);
+        liveToolCallLinesRef.current = [];
         // Settings > General > Notifications ("Notify when a chat turn
         // completes", alongsidedotrun/private#207) -- this is the real
         // turn-completion point (the Claude Agent SDK's own "result"
@@ -1401,14 +1420,21 @@ export function ChatPage() {
                 // replayed at instead of when it actually arrived.
                 time: typeof event.created_at === "string" ? formatMessageTimestamp(parseServerTimestampMs(event.created_at)) : messageTime(),
                 effort: sentEffortRef.current,
-                // Carried over from the live "working" phase above -- undefined
-                // for Codex/Antigravity (they never emit a thinking block at all)
-                // and for a Claude turn with no thinking this time either.
-                reasoningText: liveReasoningTextRef.current ?? undefined,
-                toolCallLines: liveToolCallLinesRef.current.length > 0 ? liveToolCallLinesRef.current : undefined,
+                // Real bug, confirmed directly via screenshot ("The arrow to
+                // expand and collapse is missing to see all the states that
+                // were ran"): this used to attach + reset liveReasoningTextRef/
+                // liveToolCallLinesRef right here, on EVERY text block -- but
+                // "Worked for Ns" (and its own expand arrow) only ever shows
+                // on the turn's first reply now (firstAgentRowIdRef's own
+                // comment). Any tool call that happened between a first reply
+                // ("I'll verify...") and a later closing summary ("Created
+                // Founders.md...") got attached to that SECOND row instead,
+                // which never gets a durationLabel and so never renders its
+                // own disclosure at all -- the data was real, just silently
+                // orphaned. Left unset here; the "result" handler (below)
+                // patches the actual first row with everything accumulated
+                // across the WHOLE turn, once it's actually over.
               });
-              updateLiveReasoningText(null);
-              liveToolCallLinesRef.current = [];
             } else if (block.type === "tool_use" && block.name === "WebSearch") {
               // No "tool" row for this one -- shown as the shimmer "Searching"
               // phase instead (waitingPhaseLabel, below), same treatment as
