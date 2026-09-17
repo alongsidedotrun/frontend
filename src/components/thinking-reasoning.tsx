@@ -263,7 +263,13 @@ function ToolDetailRow({ label, detail }: { label: string; detail: string }) {
           width="12"
           height="12"
           aria-hidden="true"
-          style={{ transform: open ? "rotate(0deg)" : "rotate(-90deg)" }}
+          // Real bug, confirmed directly ("The run command arrows are
+          // inverted, should be facing/mirror the other way like > and
+          // not <"): the base path is an up-caret; -90deg turned it left
+          // ("<"), not right (">"). 90deg (collapsed, points right) ->
+          // 180deg (expanded, points down) matches the standard disclosure
+          // convention this app's own outer "Worked" chevron uses (below).
+          style={{ transform: open ? "rotate(180deg)" : "rotate(90deg)" }}
         >
           <path
             d="m4.5 15.75 7.5-7.5 7.5 7.5"

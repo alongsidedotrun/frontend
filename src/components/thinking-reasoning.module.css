@@ -25,10 +25,14 @@
 .trChevron {
   color: var(--muted-foreground);
   transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
-  /* base path is an up caret; collapsed summary points down */
-  transform: rotate(180deg);
+  /* Real bug, confirmed directly ("that is an up and down arrow instead
+     of > and down arrow"): base path is an up caret -- this used to
+     rotate collapsed/expanded between 180deg (down) and 0deg (up), an
+     up/down toggle. 90deg (collapsed, points right ">") -> 180deg
+     (expanded, points down) is the real standard disclosure convention. */
+  transform: rotate(90deg);
 }
-.trHeader[aria-expanded="true"] .trChevron { transform: rotate(0deg); }
+.trHeader[aria-expanded="true"] .trChevron { transform: rotate(180deg); }
 .trHeader.isClickable:hover .trChevron { color: var(--foreground); }
 .trCollapsible {
   display: grid;
@@ -184,8 +188,8 @@
   font: inherit;
   color: inherit;
 }
-.trRunToggle .trChevron { flex-shrink: 0; transform: rotate(-90deg); }
-.trRunToggle[aria-expanded="true"] .trChevron { transform: rotate(0deg); }
+.trRunToggle .trChevron { flex-shrink: 0; transform: rotate(90deg); }
+.trRunToggle[aria-expanded="true"] .trChevron { transform: rotate(180deg); }
 .snippet {
   overflow: hidden;
   border: 1px solid var(--border);
