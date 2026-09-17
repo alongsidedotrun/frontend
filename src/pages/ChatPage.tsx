@@ -2099,7 +2099,21 @@ export function ChatPage() {
                 skipIds.add(next.id);
                 j++;
               }
-              const followingRow = rows[j];
+              // Real bug, confirmed directly ("the claude provider does not
+              // follow the same format we fixed"): this used to check
+              // `rows[j]` directly, requiring literal index-adjacency --
+              // Claude's own Write calls almost always have a real
+              // "permission" row sitting between the tool run and the
+              // model's own text reply (its permission_resolved trace
+              // renders nothing at all, per ChatRowView's own "permission"
+              // branch, but the ROW still exists in this array), which
+              // broke the adjacency check even though there's genuinely
+              // nothing visible in between. Skips forward past any row
+              // that never renders anything of its own (today, only
+              // "permission") to find the real next visible row instead.
+              let k = j;
+              while (k < rows.length && rows[k].kind === "permission") k++;
+              const followingRow = rows[k];
               if (followingRow?.kind === "agent") {
                 deferredGroups.set(followingRow.id, run);
                 skipIds.add(r.id);
