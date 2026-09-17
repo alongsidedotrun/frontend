@@ -281,7 +281,18 @@ function ToolDetailRow({ label, detail }: { label: string; detail: string }) {
           />
         </svg>
       </button>
-      {open && (label === "Run" ? <CommandSnippet command={detail} /> : <div className={styles.trToolDetailBody}>{detail}</div>)}
+      {/* Real bug, confirmed directly ("the run command subfolder collapse
+          or expand is snapping and does not have the same transition as
+          the father component"): `{open && ...}` mounted/unmounted the
+          detail outright, with no transition at all -- the parent
+          disclosure's own .trCollapsible (a grid-template-rows 1fr/0fr
+          trick, further up) is what actually animates there. Same
+          mechanism here instead of a second, snapping one. */}
+      <div className={styles.trCollapsible + (open ? "" : " " + styles.isCollapsed)}>
+        <div className={styles.trInner}>
+          {label === "Run" ? <CommandSnippet command={detail} /> : <div className={styles.trToolDetailBody}>{detail}</div>}
+        </div>
+      </div>
     </div>
   );
 }
