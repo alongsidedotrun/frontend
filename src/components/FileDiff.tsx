@@ -65,11 +65,27 @@ function DiffIcon() {
   );
 }
 
+// Real bug, confirmed directly via screenshot ("Claude now do a huge file
+// diff we should do a small one where we can expand it like a drawer"): a
+// large real diff (the screenshot's own +52/-0 Founders.md) used to render
+// every single row inline with no cap at all -- fine for a small edit, a
+// wall of scroll for a genuinely large file. Collapsed by default past
+// COLLAPSE_THRESHOLD real rows, with a real "Show N more lines" button
+// (not a fixed-height clip -- an explicit count of what's actually hidden)
+// that reveals the rest inline. Deliberately independent of the card's own
+// header click (which still opens the real editor, issue #288 phase 1's
+// own contract, unchanged) -- this is a second, separate expand affordance
+// for the diff body itself.
+const COLLAPSE_THRESHOLD = 12;
+
 function DiffLines({ rows }: { rows: DiffRow[] }) {
+  const [expanded, setExpanded] = useState(rows.length <= COLLAPSE_THRESHOLD);
+  const visibleRows = expanded ? rows : rows.slice(0, COLLAPSE_THRESHOLD);
+  const hiddenCount = rows.length - visibleRows.length;
   return (
     <div className={styles.diffBody}>
       <div className={styles.diffLines}>
-        {rows.map((r, i) => (
+        {visibleRows.map((r, i) => (
           <div key={i} className={`${styles.diffRow} ${styles[r.type]}`}>
             <span className={`${styles.ln} ${styles.old}`}>{r.old ?? ""}</span>
             <span className={`${styles.ln} ${styles.new}`}>{r.cur ?? ""}</span>
@@ -78,6 +94,11 @@ function DiffLines({ rows }: { rows: DiffRow[] }) {
           </div>
         ))}
       </div>
+      {hiddenCount > 0 && (
+        <button type="button" className={styles.diffShowMore} onClick={() => setExpanded(true)}>
+          Show {hiddenCount} more line{hiddenCount === 1 ? "" : "s"}
+        </button>
+      )}
     </div>
   );
 }

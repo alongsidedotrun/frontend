@@ -17,6 +17,20 @@
   scrollbar-width: none; -ms-overflow-style: none;
 }
 .diffBody::-webkit-scrollbar { display: none; }
+.diffShowMore {
+  position: sticky;
+  left: 0;
+  display: block;
+  width: 100%;
+  padding: 8px 16px;
+  border-top: 0.5px solid #e6e8ec;
+  color: #6b7280;
+  font-size: 12px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  text-align: left;
+  background: transparent;
+}
+.diffShowMore:hover { color: #1a1a1a; background: rgba(0, 0, 0, 0.02); }
 .diffLines { position: relative; width: max-content; min-width: 100%; }
 /* full-height gutter divider at the line-number edge (32px + 32px).
    Lives on the inner track so it stays aligned while the body scrolls. */
@@ -58,4 +72,6 @@
   .diffRow.del::before { background: repeating-linear-gradient(45deg, #f87171 0, #f87171 1.5px, transparent 1.5px, transparent 3px); }
   .diffRow.del .sign, .diffRow.del .old { color: #f87171; }
   .diffRow.del code { color: #f5f5f5; }
+  .diffShowMore { border-top-color: #303030; color: #9ca3af; background: #1a1a1a; }
+  .diffShowMore:hover { color: #f5f5f5; background: #232323; }
 }
