@@ -7,7 +7,7 @@ import { getUserDisplayName } from "@/lib/user";
 import { ComposeBox, toImageInputs, type ImageAttachment } from "@/components/compose-box";
 import { FileDiffGroup, diffToRows, type DiffRow } from "@/components/FileDiff";
 import type { SettingsSection } from "@/components/settings-overlay";
-import { EFFORT_LABELS, type EffortLevel } from "@/lib/effort";
+import { effortLabel, type EffortLevel } from "@/lib/effort";
 import { isMonthFirstDateOrder, loadLanguage } from "@/lib/language";
 import { loadNotifyTurnComplete, notifyTurnComplete } from "@/lib/notify-turn-complete";
 import { pushTurnNotification } from "@/lib/turn-notifications";
@@ -3462,7 +3462,7 @@ function AgentMessageActions({
           having a graph that we can only see when we hover bc is not
           clear"): the graph on its own read as decorative until you
           hovered it, unlike every other real value on this row. */}
-      <span className="px-1 text-xs text-muted-foreground">{EFFORT_LABELS[effort]} effort</span>
+      <span className="px-1 text-xs text-muted-foreground">{effortLabel(effort)} effort</span>
       {/* Sources -- same row as every other action, after effort, per explicit
           request (was its own separate block below the row before). A real
           dropdown trigger now, not a hover tooltip -- per explicit request:

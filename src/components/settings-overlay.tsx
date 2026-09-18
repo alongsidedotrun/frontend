@@ -17,7 +17,7 @@ import {
 } from "@/hooks/use-appearance-settings";
 import { spring } from "@/lib/springs";
 import { modelDisplayName, PROVIDER_DISPLAY, ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
-import { EFFORT_LABELS, EFFORT_LEVELS, loadDefaultEffort, saveDefaultEffort, type EffortLevel } from "@/lib/effort";
+import { effortLabel, EFFORT_LEVELS, loadDefaultEffort, saveDefaultEffort, type EffortLevel } from "@/lib/effort";
 import { LANGUAGE_OPTIONS, loadLanguage, saveLanguage, uiLocaleFor, type LanguageValue } from "@/lib/language";
 import { Trans, useTranslation } from "react-i18next";
 import i18n from "@/i18n";
@@ -197,16 +197,20 @@ function SettingsRow({
 // INBOX_ITEM icons), per explicit request ("match our sidebar row sizes
 // items and gaps and text and icon spacing") now that these rows render
 // through that same RailButton component.
-const SECTIONS: { key: SettingsSection; label: string; icon: ReactNode }[] = [
-  { key: "profile", label: "Profile", icon: <UserIcon className="size-[14px]" /> },
-  { key: "general", label: "General", icon: <SettingsIcon className="size-[14px]" /> },
-  { key: "appearance", label: "Appearance", icon: <PaletteIcon className="size-[14px]" /> },
-  { key: "chat", label: "Chat", icon: <BubbleChatIcon className="size-[14px]" /> },
-  { key: "provider", label: "Provider", icon: <ProvidersIcon className="size-[14px]" /> },
+// `label` stays the fixed English name -- used only internally by
+// rankSettingsSearch's own substring matching (that function's own comment
+// has the "why not translated" reasoning), never rendered directly.
+// `labelKey` is what every real display site below calls t() with.
+const SECTIONS: { key: SettingsSection; label: string; labelKey: string; icon: ReactNode }[] = [
+  { key: "profile", label: "Profile", labelKey: "settings.nav.profile", icon: <UserIcon className="size-[14px]" /> },
+  { key: "general", label: "General", labelKey: "settings.nav.general", icon: <SettingsIcon className="size-[14px]" /> },
+  { key: "appearance", label: "Appearance", labelKey: "settings.nav.appearance", icon: <PaletteIcon className="size-[14px]" /> },
+  { key: "chat", label: "Chat", labelKey: "settings.nav.chat", icon: <BubbleChatIcon className="size-[14px]" /> },
+  { key: "provider", label: "Provider", labelKey: "settings.nav.provider", icon: <ProvidersIcon className="size-[14px]" /> },
   // Its own top-level section now, not a drill-in under Provider -- per
   // explicit correction ("Still inside providers its meant to be settings
   // > apps and not settings > providers > apps").
-  { key: "apps", label: "Apps", icon: <IntegrationsIcon className="size-[14px]" /> },
+  { key: "apps", label: "Apps", labelKey: "settings.nav.apps", icon: <IntegrationsIcon className="size-[14px]" /> },
 ];
 
 // Group describers -- per explicit request ("we need to add section
@@ -224,20 +228,20 @@ const SECTIONS: { key: SettingsSection; label: string; icon: ReactNode }[] = [
 // "Restore defaults" button at the end of their own page, which made the
 // Danger zone's one global "Reset all settings" purely redundant, not a
 // second real capability.
-const SETTINGS_NAV_GROUPS: { label: string; keys: SettingsSection[] }[] = [
+const SETTINGS_NAV_GROUPS: { labelKey: string; keys: SettingsSection[] }[] = [
   // General first, then the rest alphabetical (Appearance, Chat, Profile)
   // -- per explicit request.
-  { label: "Application", keys: ["general", "appearance", "chat", "profile"] },
-  { label: "Connections", keys: ["provider", "apps"] },
+  { labelKey: "settings.nav.group.application", keys: ["general", "appearance", "chat", "profile"] },
+  { labelKey: "settings.nav.group.connections", keys: ["provider", "apps"] },
 ];
 
-const SECTION_SUBTITLE: Record<SettingsSection, string> = {
-  profile: "Update your profile picture and see your subscription type.",
-  general: "Show or hide tips, and manage notifications.",
-  appearance: "Pick a theme, adjust fonts, and set how wide chats appear.",
-  chat: "Set the default model and effort for new chats, and check the local usage of storage for the chats you have started.",
-  provider: "Sign in to Claude, ChatGPT, Gemini, or Grok, and see how much each is used.",
-  apps: "Connect GitHub, Gmail, and other apps to use in your chats.",
+const SECTION_SUBTITLE_KEY: Record<SettingsSection, string> = {
+  profile: "settings.nav.subtitle.profile",
+  general: "settings.nav.subtitle.general",
+  appearance: "settings.nav.subtitle.appearance",
+  chat: "settings.nav.subtitle.chat",
+  provider: "settings.nav.subtitle.provider",
+  apps: "settings.nav.subtitle.apps",
 };
 
 // Search -- per explicit request ("Also build search + reset-to-default +
@@ -1847,6 +1851,7 @@ function GeneralSection() {
 // explicit request ("we should get an appearance menu at the sidebar as
 // well as palette icon and move from general").
 function AppearanceSection() {
+  const { t } = useTranslation();
   const { theme, setTheme } = useTheme();
   const isMac = useIsMac();
   const isWindows = useIsWindows();
@@ -1907,15 +1912,15 @@ function AppearanceSection() {
   // (nav-user.tsx's own Settings/Docs/Help rows, compose-box.tsx's own
   // Plus row) already passes the bare component this same way.
   const themeOptions: { value: typeof theme; label: string; icon: IconComponent }[] = [
-    { value: "system", label: "System", icon: SystemIcon },
-    { value: "light", label: "Light", icon: SunIcon },
-    { value: "dark", label: "Dark", icon: MoonIcon },
+    { value: "system", label: t("settings.appearance.theme.system"), icon: SystemIcon },
+    { value: "light", label: t("settings.appearance.theme.light"), icon: SunIcon },
+    { value: "dark", label: t("settings.appearance.theme.dark"), icon: MoonIcon },
   ];
   const currentTheme = themeOptions.find((o) => o.value === theme) ?? themeOptions[0];
 
   const chatWidthOptions: { value: ChatWidth; label: string; icon: IconComponent }[] = [
-    { value: "standard", label: "Standard", icon: ChevronsInwardHorizontalIcon },
-    { value: "expanded", label: "Expanded", icon: ExpandedWidthIcon },
+    { value: "standard", label: t("settings.appearance.chatWidth.standard"), icon: ChevronsInwardHorizontalIcon },
+    { value: "expanded", label: t("settings.appearance.chatWidth.expanded"), icon: ExpandedWidthIcon },
   ];
   const currentChatWidth = chatWidthOptions.find((o) => o.value === chatWidth) ?? chatWidthOptions[0];
 
@@ -1942,8 +1947,8 @@ function AppearanceSection() {
           (Use system UI font applies everywhere); Layout groups the
           window/column-shape rows, including transparency (macOS-only,
           same gate as before). */}
-      <SettingsSection title="Theme">
-        <SettingsRow id="setting-theme" title="Theme" description="Switch between light and dark, or follow the system.">
+      <SettingsSection title={t("settings.appearance.theme")}>
+        <SettingsRow id="setting-theme" title={t("settings.appearance.theme")} description={t("settings.appearance.theme.description")}>
           <BaseDropdownMenu size="compact">
             <BaseDropdownTrigger
               render={
@@ -1983,25 +1988,33 @@ function AppearanceSection() {
         </SettingsRow>
       </SettingsSection>
 
-      <SettingsSection title="Fonts">
+      <SettingsSection title={t("settings.appearance.fonts")}>
         <SettingsRow
           id="setting-system-ui-font"
-          title="Use system UI font"
-          description="Ignore the theme's font and render the interface with the native system font."
+          title={t("settings.appearance.systemUiFont.title")}
+          description={t("settings.appearance.systemUiFont.description")}
         >
           <Switch checked={systemUiFont} onToggle={() => setSystemUiFont(!systemUiFont)} aria-label="Use system UI font" />
         </SettingsRow>
         {/* macOS only, hidden (not shown-and-disabled) everywhere else,
             per the confirmed story text ("Only visible when using macOS"). */}
         {isMac && (
-          <SettingsRow id="setting-font-smoothing" title="Font smoothing" description="Lighter, crisper text rendering.">
+          <SettingsRow
+            id="setting-font-smoothing"
+            title={t("settings.appearance.fontSmoothing.title")}
+            description={t("settings.appearance.fontSmoothing.description")}
+          >
             <Switch checked={fontSmoothing} onToggle={() => setFontSmoothing(!fontSmoothing)} aria-label="Font smoothing" />
           </SettingsRow>
         )}
       </SettingsSection>
 
-      <SettingsSection title="Layout">
-        <SettingsRow id="setting-chat-width" title="Chat width" description="Control how wide the chat column grows.">
+      <SettingsSection title={t("settings.appearance.layout")}>
+        <SettingsRow
+          id="setting-chat-width"
+          title={t("settings.appearance.chatWidth.title")}
+          description={t("settings.appearance.chatWidth.description")}
+        >
           {/* A dropdown now, not a segmented control -- per explicit
               request ("Chat width... should use a dropdown like [Theme's
               own dropdown]"), matching that row's own BaseDropdownMenu/
@@ -2036,17 +2049,21 @@ function AppearanceSection() {
         {/* macOS only, hidden (not shown-and-disabled) everywhere else,
             per the confirmed story text ("Only visible when using macOS"). */}
         {transparencySupported && (
-          <SettingsRow id="setting-transparency" title="Enable transparency" description="Native window transparency.">
+          <SettingsRow
+            id="setting-transparency"
+            title={t("settings.appearance.transparency.title")}
+            description={t("settings.appearance.transparency.description")}
+          >
             <Switch checked={transparencyEnabled} onToggle={() => updateTransparency(!transparencyEnabled)} aria-label="Enable transparency" />
           </SettingsRow>
         )}
       </SettingsSection>
 
-      <SettingsSection title="Caution">
-        <SettingsRow title="Default appearance settings" description="Reset every setting on this page back to its default.">
+      <SettingsSection title={t("settings.appearance.caution")}>
+        <SettingsRow title={t("settings.appearance.resetDefaults.title")} description={t("settings.appearance.resetDefaults.description")}>
           <button type="button" className={SETTINGS_ACTION_BUTTON_CLASS} disabled={!anyChanged} onClick={restoreDefaults}>
             <RotateCcwIcon className="size-3.5" />
-            Reset
+            {t("settings.general.resetDefaults.button")}
           </button>
         </SettingsRow>
       </SettingsSection>
@@ -2251,6 +2268,7 @@ function LanguageRow() {
 }
 
 function TimezoneRow() {
+  const { t } = useTranslation();
   const [timezone, setTimezoneState] = useState(loadTimezone);
   const groups = useMemo(listTimezoneGroups, []);
   const flatValues = useMemo(() => groups.flatMap((g) => g.zones.map((z) => z.value)), [groups]);
@@ -2295,7 +2313,7 @@ function TimezoneRow() {
   }
 
   return (
-    <SettingsRow id="setting-timezone" title="Timezone" description="Auto detects from your device. Change to your preference.">
+    <SettingsRow id="setting-timezone" title={t("settings.general.timezone.title")} description={t("settings.general.language.description")}>
       <BaseDropdownMenu size="compact">
         <BaseDropdownTrigger
           render={
@@ -2387,6 +2405,7 @@ function TimezoneRow() {
 // action so either surface changing it is immediately reflected in the
 // other the next time each is opened.
 function DefaultModelRow() {
+  const { t } = useTranslation();
   const [defaultModel, setDefaultModel] = useState<string | null>(null);
 
   useEffect(() => {
@@ -2415,8 +2434,8 @@ function DefaultModelRow() {
   return (
     <SettingsRow
       id="setting-default-provider"
-      title="Default provider"
-      description="The default model for all new chats."
+      title={t("settings.chat.defaultProvider.title")}
+      description={t("settings.chat.defaultProvider.description")}
     >
       <BaseDropdownMenu size="compact">
         <BaseDropdownTrigger
@@ -2428,7 +2447,7 @@ function DefaultModelRow() {
               {/* size-3.5 (14px), not size-4 (16px) -- per an app-wide
                   compact-scale audit. */}
               {entry && <ProviderIcon model={entry} className="size-3.5" />}
-              {entry ? modelDisplayName(entry) : "None"}
+              {entry ? modelDisplayName(entry) : t("common.none")}
               <ChevronDownIcon className="size-3.5 text-muted-foreground" />
             </button>
           }
@@ -2448,7 +2467,7 @@ function DefaultModelRow() {
         <BaseDropdownContent align="end" className="max-h-72 overflow-y-auto" checkedIndex={defaultModel == null ? 0 : QUICK_CHAT_MODELS.filter((m) => m.configured).findIndex((m) => m.value === defaultModel) + 1}>
           <BaseMenuItem
             index={0}
-            label="None"
+            label={t("common.none")}
             checked={defaultModel == null}
             onSelect={() => void updateDefaultModel(null)}
           />
@@ -2478,6 +2497,7 @@ function DefaultModelRow() {
 // real use yet. Read by compose-box.tsx's own defaultEffortFor
 // (lib/effort.ts) -- every compose box's own Effort dropdown starts here.
 function DefaultEffortRow() {
+  const { t } = useTranslation();
   const [defaultEffort, setDefaultEffort] = useState<EffortLevel | null>(() => loadDefaultEffort());
 
   function update(level: EffortLevel | null) {
@@ -2488,8 +2508,8 @@ function DefaultEffortRow() {
   return (
     <SettingsRow
       id="setting-default-effort"
-      title="Default effort"
-      description="How much effort a new chat starts with."
+      title={t("settings.chat.defaultEffort.title")}
+      description={t("settings.chat.defaultEffort.description")}
     >
       <BaseDropdownMenu size="compact">
         <BaseDropdownTrigger
@@ -2498,7 +2518,7 @@ function DefaultEffortRow() {
               type="button"
               className={`flex items-center gap-1.5 border border-border px-2.5 py-1.5 text-[12px] text-foreground hover:bg-muted/30 ${SETTINGS_CONTROL_RADIUS}`}
             >
-              {defaultEffort ? EFFORT_LABELS[defaultEffort] : "None"}
+              {defaultEffort ? effortLabel(defaultEffort) : t("common.none")}
               <ChevronDownIcon className="size-3.5 text-muted-foreground" />
             </button>
           }
@@ -2506,7 +2526,7 @@ function DefaultEffortRow() {
         <BaseDropdownContent align="end" checkedIndex={defaultEffort == null ? 0 : EFFORT_LEVELS.indexOf(defaultEffort) + 1}>
           <BaseMenuItem
             index={0}
-            label="None"
+            label={t("common.none")}
             checked={defaultEffort == null}
             onSelect={() => update(null)}
           />
@@ -2515,7 +2535,7 @@ function DefaultEffortRow() {
             <BaseMenuItem
               key={level}
               index={i + 1}
-              label={EFFORT_LABELS[level]}
+              label={effortLabel(level)}
               checked={defaultEffort === level}
               onSelect={() => update(level)}
             />
@@ -2536,6 +2556,7 @@ function DefaultEffortRow() {
 // ContextDropdown, via ChatPage.tsx's chat_defaults handling of this same stored
 // value) -- "Context per chat"/"Context per project".
 function CompactScopeRows() {
+  const { t } = useTranslation();
   // Three independent flags, not one enum -- server.rs's own set_autocompact_scope
   // comment has the full resolution/invariant rules (chat > project > global,
   // disabling chat alone enables global without touching project, enabling global
@@ -2566,22 +2587,22 @@ function CompactScopeRows() {
     <>
       <SettingsRow
         id="setting-compact-per-chat"
-        title="Context per chat"
-        description="Context is set per chat."
+        title={t("settings.chat.compactPerChat.title")}
+        description={t("settings.chat.compactPerChat.description")}
       >
         <Switch checked={flags.chat} onToggle={() => void update("chat", !flags.chat)} aria-label="Context per chat" />
       </SettingsRow>
       <SettingsRow
         id="setting-compact-per-project"
-        title="Context per project"
-        description="Context is set to all chats under a project."
+        title={t("settings.chat.compactPerProject.title")}
+        description={t("settings.chat.compactPerProject.description")}
       >
         <Switch checked={flags.project} onToggle={() => void update("project", !flags.project)} aria-label="Context per project" />
       </SettingsRow>
       <SettingsRow
         id="setting-compact-global"
-        title="Global context"
-        description="Apply a global context to all chats, excluded when project context is enabled."
+        title={t("settings.chat.compactGlobal.title")}
+        description={t("settings.chat.compactGlobal.description")}
       >
         <Switch checked={flags.global} onToggle={() => void update("global", !flags.global)} aria-label="Global context" />
       </SettingsRow>
@@ -2590,6 +2611,7 @@ function CompactScopeRows() {
 }
 
 function ChatSection() {
+  const { t } = useTranslation();
   const [defaultModel, setDefaultModel] = useState<string | null | undefined>(undefined);
   const [defaultEffort, setDefaultEffort] = useState<EffortLevel | null>(() => loadDefaultEffort());
   // Moved here from General's own Usage section -- per explicit request
@@ -2637,21 +2659,21 @@ function ChatSection() {
 
   return (
     <div className="flex flex-col">
-      <SettingsSection title="Chat">
+      <SettingsSection title={t("settings.chat.title")}>
         <DefaultModelRow key={resetCount} />
         <DefaultEffortRow key={resetCount} />
       </SettingsSection>
 
-      <SettingsSection title="Compact">
+      <SettingsSection title={t("settings.chat.compact.title")}>
         <CompactScopeRows />
       </SettingsSection>
 
-      <SettingsSection title="Usage">
+      <SettingsSection title={t("settings.chat.usage")}>
         <SettingsRow
           id="setting-chat-usage"
-          title="Chat usage"
-          description="How much local storage your chats are taking up."
-          status={usageError ? "No connection to the application, make sure the application is running, then try again. (ALS-002)" : undefined}
+          title={t("settings.chat.usage.title")}
+          description={t("settings.chat.usage.description")}
+          status={usageError ? t("settings.providers.noConnection") : undefined}
         >
           <span className="text-[12px] font-medium text-foreground">
             {usage ? formatStorageBytes(usage.storage_bytes) : usageError ? "--" : "..."}
@@ -2664,11 +2686,11 @@ function ChatSection() {
           request ("chat should have the same as general, caution section
           with default chat settings option"), replacing the bespoke
           RestoreDefaultsButton row this used to end on. */}
-      <SettingsSection title="Caution">
-        <SettingsRow title="Default chat settings" description="Reset every setting on this page back to its default.">
+      <SettingsSection title={t("settings.chat.caution")}>
+        <SettingsRow title={t("settings.chat.resetDefaults.title")} description={t("settings.chat.resetDefaults.description")}>
           <button type="button" className={SETTINGS_ACTION_BUTTON_CLASS} disabled={!anyChanged} onClick={() => void restoreDefaults()}>
             <RotateCcwIcon className="size-3.5" />
-            Reset
+            {t("settings.general.resetDefaults.button")}
           </button>
         </SettingsRow>
       </SettingsSection>
@@ -2769,6 +2791,7 @@ function useSettingsHistory() {
 }
 
 export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const isMac = useIsMac();
@@ -2845,7 +2868,7 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
     // sidebar and <> add Return to app"), reversing the earlier collapse/
     // back-forward toggle row for a single dedicated row instead.
     <aside
-      aria-label="Settings navigation"
+      aria-label={t("settings.nav.ariaLabel")}
       className="relative flex h-full shrink-0 flex-col overflow-hidden border-r border-border bg-sidebar"
       style={{ width: SIDEBAR_WIDTH }}
     >
@@ -2896,7 +2919,7 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
               type="button"
               onClick={goBackInSettings}
               disabled={settingsHistory.index <= 0}
-              aria-label="Go back"
+              aria-label={t("nav.goBack.ariaLabel")}
               className="flex size-5 shrink-0 items-center justify-center rounded-[6px] text-muted-foreground transition-colors hover:bg-hover-2/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
             >
               <ChevronLeftIcon className="size-[14px]" />
@@ -2905,7 +2928,7 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
               type="button"
               onClick={goForwardInSettings}
               disabled={settingsHistory.index >= settingsHistory.stack.length - 1}
-              aria-label="Go forward"
+              aria-label={t("nav.goForward.ariaLabel")}
               className="flex size-5 shrink-0 items-center justify-center rounded-[6px] text-muted-foreground transition-colors hover:bg-hover-2/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
             >
               <ChevronRightIcon className="size-[14px]" />
@@ -2940,7 +2963,7 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
                 goToResult(results[0]);
               }
             }}
-            placeholder="Search settings"
+            placeholder={t("settings.search.placeholder")}
             className="h-7 rounded-[var(--row-radius-sm)] border border-border bg-transparent pl-[30px] text-xs font-normal text-foreground placeholder:text-foreground placeholder:opacity-100 placeholder:transition-opacity placeholder:duration-200 focus:placeholder:opacity-0 focus-visible:border-focus-accent md:text-xs"
           />
           {!query && (
@@ -2969,7 +2992,7 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
           // custom row shape.
           <div className="mx-2 flex flex-col gap-0.5">
             {results.length === 0 && (
-              <p className="px-2 py-2 text-[11px] font-normal text-muted-foreground">No results for "{query}"</p>
+              <p className="px-2 py-2 text-[11px] font-normal text-muted-foreground">{t("settings.search.noResults", { query })}</p>
             )}
             {results.map((entry) => {
               const s = SECTIONS.find((sec) => sec.key === entry.section)!;
@@ -2982,7 +3005,7 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
                 >
                   <span className="flex items-center gap-1.5 text-[10px] font-normal text-muted-foreground">
                     {s.icon}
-                    {s.label}
+                    {t(s.labelKey)}
                   </span>
                   <span className="pl-[22px] text-[12px] text-foreground">{entry.title}</span>
                 </button>
@@ -2992,13 +3015,13 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
         ) : (
           <GlideGroup>
             {SETTINGS_NAV_GROUPS.map((group) => (
-              <div key={group.label} className="flex flex-col not-first:mt-3">
+              <div key={group.labelKey} className="flex flex-col not-first:mt-3">
                 {/* Group describer -- per explicit request ("we need to add
                     section describers like synara does"), same "Projects"/
                     "Chats" label treatment the real sidebar uses
                     (sidebar-nav.tsx) literal-for-literal. */}
                 <div className="mx-2 mt-1 mb-0.5 flex h-5 items-center px-2 text-xs font-normal text-foreground select-none">
-                  <span className="opacity-50">{group.label}</span>
+                  <span className="opacity-50">{t(group.labelKey)}</span>
                 </div>
                 {group.keys.map((key) => {
                   const s = SECTIONS.find((sec) => sec.key === key)!;
@@ -3006,7 +3029,7 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
                     <RailButton
                       key={key}
                       icon={s.icon}
-                      label={s.label}
+                      label={t(s.labelKey)}
                       active={section === key}
                       // replace: true -- confirmed directly as a real bug
                       // ("Return to app is returning to the previous page
@@ -3061,7 +3084,7 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
             // edge in its viewBox with no internal margin, so 14px reads
             // visibly heavier than every other row icon at the same box).
             icon={<AlongsideLogo className="size-[13px]" />}
-            label="Return to Alongside"
+            label={t("settings.returnToAlongside")}
             onClick={() => navigate("/new-chat")}
           />
         </GlideGroup>
@@ -3082,7 +3105,7 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
                 <button
                   ref={accountTriggerRef}
                   type="button"
-                  aria-label="Account menu"
+                  aria-label={t("nav.account.ariaLabel")}
                   className="flex h-7 flex-1 min-w-0 shrink-0 transform-gpu items-center gap-2 rounded-[var(--row-radius)] px-1.5 text-left transition-[background-color] duration-150 hover:bg-hover-2/50"
                 >
                   {/* DefaultAvatar (ui/avatar.tsx), not a hand-rolled flat
@@ -3143,7 +3166,7 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
                 <button
                   ref={helpTriggerRef}
                   type="button"
-                  aria-label="Help menu"
+                  aria-label={t("nav.help.ariaLabel")}
                   // text-foreground -- same fix as sidebar-nav.tsx's own
                   // identical Help trigger (that one's own comment has the
                   // full reasoning).
@@ -3170,6 +3193,7 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
 // active section straight off the URL (/settings/:section) rather than a
 // prop threaded down from a modal's own open/section state.
 export function SettingsSectionContent({ section }: { section: SettingsSection }) {
+  const { t } = useTranslation();
   const contentRef = useRef<HTMLDivElement>(null);
 
   // Deep-link scroll -- a search result (SettingsSidebarNav's own
@@ -3220,8 +3244,13 @@ export function SettingsSectionContent({ section }: { section: SettingsSection }
             divider under the heading and subheading of each page on
             settings, remove that"). */}
         <PageContent maxWidth="var(--chat-max-width)">
-          <h2 className="text-[16px] font-semibold text-foreground">{SECTIONS.find((s) => s.key === section)?.label}</h2>
-          <p className="mt-0.5 text-[13px] font-normal text-muted-foreground">{SECTION_SUBTITLE[section]}</p>
+          <h2 className="text-[16px] font-semibold text-foreground">
+            {(() => {
+              const labelKey = SECTIONS.find((s) => s.key === section)?.labelKey;
+              return labelKey ? t(labelKey) : null;
+            })()}
+          </h2>
+          <p className="mt-0.5 text-[13px] font-normal text-muted-foreground">{t(SECTION_SUBTITLE_KEY[section])}</p>
         </PageContent>
         <PageContent maxWidth="var(--chat-max-width)">
           {section === "profile" && <ProfileSection />}

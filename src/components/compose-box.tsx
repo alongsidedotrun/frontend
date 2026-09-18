@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { PROVIDER_DISPLAY, ProviderIcon, QUICK_CHAT_MODELS, modelDisplayName } from "@/lib/quick-chat-models";
-import { defaultEffortFor, EFFORT_LABELS, EFFORT_LEVELS, type EffortLevel } from "@/lib/effort";
+import { defaultEffortFor, effortLabel, EFFORT_LEVELS, type EffortLevel } from "@/lib/effort";
 import { loadLastEffort, loadLastPermissionMode, saveLastEffort, saveLastPermissionMode } from "@/lib/last-used";
 import { cn } from "@/lib/utils";
 import { getUserDisplayName } from "@/lib/user";
@@ -548,7 +548,7 @@ function EffortSliderPanel({
         {/* No trailing chevron any more -- per explicit request. This value
             isn't a nested nav target (nothing expands from clicking it), so
             the arrow was implying an affordance that didn't exist. */}
-        <span className="text-[13px] font-medium text-[var(--send-button-bg)]">{EFFORT_LABELS[effort]}</span>
+        <span className="text-[13px] font-medium text-[var(--send-button-bg)]">{effortLabel(effort)}</span>
       </div>
       {/* Real bug, confirmed directly ("the effort slider is not working",
           then "i have to click at the dots instead of dragging"): this was
@@ -2121,7 +2121,7 @@ export function ComposeBox({
                 {/* Shows the current choice (e.g. "Low"), not a static
                     "Effort" label -- per explicit request ("it should
                     update from effort to the choice we did"). */}
-                {EFFORT_LABELS[effort]}
+                {effortLabel(effort)}
                 <ChevronDownIcon className="size-3.5 shrink-0" />
               </Button>
             }
