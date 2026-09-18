@@ -19,7 +19,7 @@ import { spring } from "@/lib/springs";
 import { modelDisplayName, PROVIDER_DISPLAY, ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
 import { EFFORT_LABELS, EFFORT_LEVELS, loadDefaultEffort, saveDefaultEffort, type EffortLevel } from "@/lib/effort";
 import { LANGUAGE_OPTIONS, loadLanguage, saveLanguage, uiLocaleFor, type LanguageValue } from "@/lib/language";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { loadNotifyTurnComplete, requestNotificationPermission, saveNotifyTurnComplete } from "@/lib/notify-turn-complete";
 import { formatStorageBytes, useUsageStats } from "@/lib/use-usage";
@@ -526,6 +526,7 @@ type ConnectionState = "connected" | "not-installed" | "not-signed-in" | "error"
 // that immediately gets replaced reads as more noise than silence does for
 // something this fast.
 function ConnectionBadge({ state }: { state: ConnectionState | undefined }) {
+  const { t } = useTranslation();
   const [shown, setShown] = useState(state);
   const [visible, setVisible] = useState(true);
 
@@ -540,11 +541,11 @@ function ConnectionBadge({ state }: { state: ConnectionState | undefined }) {
       return;
     }
     setVisible(false);
-    const t = setTimeout(() => {
+    const timeout = setTimeout(() => {
       setShown(state);
       setVisible(true);
     }, 150);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timeout);
   }, [state, shown]);
 
   if (shown === undefined) return null;
@@ -558,14 +559,14 @@ function ConnectionBadge({ state }: { state: ConnectionState | undefined }) {
   const isError = shown === "error";
   const label =
     shown === "waiting"
-      ? "Waiting for sign-in..."
+      ? t("settings.providers.waitingForSignIn")
       : isError
         ? "(ALS-002)"
         : shown === "connected"
-          ? "Connected"
+          ? t("common.connected")
           : shown === "not-signed-in"
-            ? "Not signed in (ALS-004)"
-            : "Not installed (ALS-003)";
+            ? t("settings.providers.notSignedIn")
+            : t("settings.providers.notInstalled");
   const tone =
     shown === "connected"
       ? "rounded-full px-2 py-0.5 text-[9px] font-medium bg-green-500/10 text-green-600 dark:text-green-400"
@@ -586,6 +587,7 @@ function ConnectionBadge({ state }: { state: ConnectionState | undefined }) {
 // connections are disabled and hidden (this component's own comment
 // further down has the full reasoning).
 function ProviderConnectionView({ provider }: { provider: Provider }) {
+  const { t } = useTranslation();
   // Guessed, not looked up anywhere real -- per explicit request to check "all
   // providers", not just Claude/Codex (the two with a confirmed real binary name and
   // login-status check, backend/src/server.rs's own cli_available). This may report
@@ -629,7 +631,7 @@ function ProviderConnectionView({ provider }: { provider: Provider }) {
       // really missing. Surfacing that distinction inline instead of the
       // missing-CLI dialog avoids telling the user to (re)install something that's
       // already installed.
-      setLoggedInMessage("No connection to the application, make sure the application is running, then try again. (ALS-002)");
+      setLoggedInMessage(t("settings.providers.noConnection"));
     } else if (installed) {
       // Straight to the real login flow, no overlay -- per explicit request
       // ("when we click sign in we should do what the setup now does and
@@ -656,10 +658,10 @@ function ProviderConnectionView({ provider }: { provider: Provider }) {
       if (res.ok) {
         await refetchAvailability();
       } else {
-        setLoggedInMessage("Could not disconnect. Try again.");
+        setLoggedInMessage(t("settings.providers.couldNotDisconnect"));
       }
     } catch {
-      setLoggedInMessage("No connection to the application, make sure the application is running, then try again. (ALS-002)");
+      setLoggedInMessage(t("settings.providers.noConnection"));
     } finally {
       setLoggingOut(false);
     }
@@ -754,7 +756,7 @@ function ProviderConnectionView({ provider }: { provider: Provider }) {
           that's new work built from scratch, not a tab re-added here. */}
       <div className="mt-5">
         <div className={`${SETTINGS_CARD_RADIUS} border border-border p-4`}>
-          <p className="text-[12px] font-medium text-foreground">Use your own {provider.displayName} account</p>
+          <p className="text-[12px] font-medium text-foreground">{t("settings.providers.useOwnAccount", { provider: provider.displayName })}</p>
           {/* Two variants, not one fixed sentence -- per explicit request
               ("needs to be consistent around all providers"): the same
               wording applies to every provider (no provider name in
@@ -764,9 +766,7 @@ function ProviderConnectionView({ provider }: { provider: Provider }) {
               step (download it first) than ALS-004/already-connected
               (just sign in, or check on an existing sign-in). */}
           <p className="mt-1 text-[13px] font-normal text-muted-foreground">
-            {installed
-              ? "Once this provider is available via terminal, Alongside reuses that login."
-              : "This provider needs to be downloaded from its official page and made available via terminal, as Alongside reuses that login."}
+            {installed ? t("settings.providers.reusesLoginInstalled") : t("settings.providers.reusesLoginNotInstalled")}
           </p>
           <Button
             variant="outline"
@@ -783,7 +783,13 @@ function ProviderConnectionView({ provider }: { provider: Provider }) {
             // request, logging in isn't the fix for "can't reach Alongside".
             disabled={cliCheckError || available === undefined || loggingOut}
           >
-            {available ? (loggingOut ? "Disconnecting..." : "Disconnect") : installed ? "Sign in" : "Set up"}
+            {available
+              ? loggingOut
+                ? t("settings.providers.disconnecting")
+                : t("common.disconnect")
+              : installed
+                ? t("settings.providers.signIn")
+                : t("settings.providers.setUp")}
           </Button>
           {loggedInMessage && (
             <p className="mt-2 text-[10px] font-normal text-green-600 dark:text-green-400"><ErrorText message={loggedInMessage} /></p>
@@ -811,13 +817,17 @@ function ProviderConnectionView({ provider }: { provider: Provider }) {
                 "via Antigravity" for Gemini, "via Claude Code" for Claude,
                 "via Codex" for Codex), so this reads correctly for every
                 provider without hardcoding one. */}
-            <DialogTitle>{installed ? `Sign in to ${provider.displayName} is required` : "Not installed"}</DialogTitle>
+            <DialogTitle>
+              {installed ? t("settings.providers.signInRequired", { provider: provider.displayName }) : t("settings.providers.notInstalledTitle")}
+            </DialogTitle>
             <DialogDescription>
               <ErrorText
                 message={
                   installed
-                    ? `You are trying to use ${provider.displayName}${provider.displayCaption ? ` ${provider.displayCaption}` : ""} and sign in is required. (ALS-004)`
-                    : `Alongside could not find a "${cliBinary}" command on your PATH. (ALS-003)`
+                    ? t("settings.providers.tryingToUse", {
+                        name: `${provider.displayName}${provider.displayCaption ? ` ${provider.displayCaption}` : ""}`,
+                      })
+                    : t("settings.providers.commandNotFound", { binary: cliBinary })
                 }
               />
             </DialogDescription>
@@ -838,7 +848,7 @@ function ProviderConnectionView({ provider }: { provider: Provider }) {
                 if (url) window.open(url, "_blank", "noopener,noreferrer");
               }}
             >
-              Visit provider documentation
+              {t("settings.providers.visitDocs")}
             </Button>
             {installed && (
               // type="button" -- per explicit request/bug report ("I
@@ -853,7 +863,7 @@ function ProviderConnectionView({ provider }: { provider: Provider }) {
               // by this button directly -- this only has to stop being a
               // stray form submit.
               <Button type="button" onClick={handleSetupNow} disabled={loggingIn} className="h-8 text-[11px]">
-                {loggingIn ? "Opening..." : "Setup now"}
+                {loggingIn ? t("settings.providers.opening") : t("settings.providers.setupNow")}
               </Button>
             )}
           </DialogFooter>
@@ -877,6 +887,7 @@ function ProviderConnectionView({ provider }: { provider: Provider }) {
 // icon+name portion is its own button and the right-hand action is a sibling, both
 // inside a plain (non-interactive) row div.
 function ProviderCard({ provider, onClick }: { provider: Provider; onClick: () => void }) {
+  const { t } = useTranslation();
   const cliBinary = provider.name.toLowerCase();
   const { available, installed, error: cliCheckError } = useCliAvailability(cliBinary);
   // Every caller of this component now only ever passes an
@@ -900,14 +911,14 @@ function ProviderCard({ provider, onClick }: { provider: Provider; onClick: () =
     // Same coded message as ConnectionBadge's own "error" state -- per
     // explicit request, a clear error instead of a vague "can't check"
     // (that badge's own comment has the full ALS-002 reasoning).
-    ? "No connection to the application, make sure the application is running, then try again. (ALS-002)"
+    ? t("settings.providers.noConnection")
     : checking
-      ? "Checking..."
+      ? t("settings.providers.checking")
       : isConnected
-        ? "Connected"
+        ? t("common.connected")
         : installed
-          ? "Not signed in"
-          : "Not installed";
+          ? t("settings.providers.notSignedInPlain")
+          : t("settings.providers.notInstalledPlain");
   const docsUrl = PROVIDER_DOCS_URLS[cliBinary];
   // Same shrink-0/text sizing as before, just no hover of its own any more
   // (see the outer row's own comment below).
@@ -971,7 +982,7 @@ function ProviderCard({ provider, onClick }: { provider: Provider; onClick: () =
           // now. Inside the same button as the chevron above (not a
           // sibling span) so it shares that full-card hover instead of
           // sitting outside it looking inert.
-          <span className="shrink-0 text-[11px] font-normal text-muted-foreground">No connection</span>
+          <span className="shrink-0 text-[11px] font-normal text-muted-foreground">{t("settings.providers.noConnectionPlain")}</span>
         )}
       </button>
       {isFullCardButton ? null : installed ? (
@@ -980,7 +991,7 @@ function ProviderCard({ provider, onClick }: { provider: Provider; onClick: () =
         // already has the real "Log in"/"Setup now" flow wired up
         // (ProviderConnectionView's own handleLogIn/handleSetupNow).
         <button type="button" onClick={onClick} className={actionButtonClassName}>
-          Log in
+          {t("settings.providers.logIn")}
         </button>
       ) : docsUrl ? (
         // Not installed -- straight to the provider's own install docs,
@@ -994,13 +1005,13 @@ function ProviderCard({ provider, onClick }: { provider: Provider; onClick: () =
           }}
           className={actionButtonClassName}
         >
-          Install
+          {t("settings.providers.install")}
         </button>
       ) : (
         // No confirmed docs URL for this provider (PROVIDER_DOCS_URLS'
         // own comment) -- falls back to the detail view, same as before.
         <button type="button" onClick={onClick} className={actionButtonClassName}>
-          Set up
+          {t("settings.providers.setUp")}
         </button>
       )}
     </div>
@@ -1029,6 +1040,7 @@ function ProviderCard({ provider, onClick }: { provider: Provider; onClick: () =
 // reasoning -- the sidebar's own back chevron needs a real history entry
 // to walk back to), not a second, differently-built navigation pattern.
 function AppsSection() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedApp = searchParams.get("app");
@@ -1055,13 +1067,13 @@ function AppsSection() {
           exit={{ opacity: 0, transition: spring.slow.exit }}
         >
           <div className="mt-4 mb-2 text-xs font-normal text-foreground select-none">
-            <span className="opacity-50">Available</span>
+            <span className="opacity-50">{t("settings.apps.available")}</span>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <GithubIntegrationCard onClick={() => openApp("github")} />
           </div>
           <div className="mt-4 mb-2 text-xs font-normal text-foreground select-none">
-            <span className="opacity-50">Coming soon</span>
+            <span className="opacity-50">{t("settings.apps.comingSoon")}</span>
           </div>
           <div className="grid grid-cols-2 gap-2">
             {/* Same row shape/reasoning as ProvidersSection's own "Request a
@@ -1077,9 +1089,9 @@ function AppsSection() {
                 <AlongsideLogo className="size-5 text-black dark:text-white" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[12px] font-medium text-foreground">Request an app</span>
+                <span className="block truncate text-[12px] font-medium text-foreground">{t("settings.apps.requestApp.title")}</span>
                 <span className="line-clamp-2 text-[10px] font-normal text-muted-foreground">
-                  We listen to our community and bring their requested apps.
+                  {t("settings.apps.requestApp.description")}
                 </span>
               </span>
             </button>
@@ -1091,6 +1103,7 @@ function AppsSection() {
 }
 
 function GithubIntegrationCard({ onClick }: { onClick: () => void }) {
+  const { t } = useTranslation();
   const [connectedUsername, setConnectedUsername] = useState<string | null>(null);
 
   useEffect(() => {
@@ -1126,7 +1139,7 @@ function GithubIntegrationCard({ onClick }: { onClick: () => void }) {
             separate "Checking..." transient state (per a later explicit
             follow-up, "remove checking..."). */}
         <span className="line-clamp-2 text-[10px] font-normal text-muted-foreground">
-          {isConnected ? "Connected" : "Disconnected"}
+          {isConnected ? t("common.connected") : t("common.disconnected")}
         </span>
       </span>
       {/* Per explicit request ("we are missing the arrow > at github like
@@ -1149,6 +1162,7 @@ function GithubIntegrationCard({ onClick }: { onClick: () => void }) {
 // page (this component), not a Dialog -- per explicit correction, same
 // "icon+name header, content below" shape ProviderConnectionView uses.
 function GithubAppConnectionView({ onBack }: { onBack: () => void }) {
+  const { t } = useTranslation();
   const [connectedUsername, setConnectedUsername] = useState<string | null>(null);
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
@@ -1199,50 +1213,45 @@ function GithubAppConnectionView({ onBack }: { onBack: () => void }) {
         <div className="min-w-0 flex-1">
           <div className="truncate text-[13px] font-medium text-foreground">GitHub</div>
           <div className="truncate text-[13px] font-normal text-muted-foreground">
-            {connectedUsername ? `Connected as ${connectedUsername}` : "Not connected"}
+            {connectedUsername ? t("settings.apps.github.connectedAs", { username: connectedUsername }) : t("settings.apps.github.notConnected")}
           </div>
         </div>
       </div>
       {connectedUsername ? (
         <div className="mt-5 flex flex-col gap-3">
           <p className="text-[13px] text-muted-foreground">
-            Use it in any chat by mentioning <span className="font-mono">@github</span>.
+            <Trans i18nKey="settings.apps.github.useInChat" components={[<span className="font-mono" key="0" />]} />
           </p>
           <Button variant="outline" className="w-fit" onClick={() => void disconnect()}>
-            Disconnect
+            {t("common.disconnect")}
           </Button>
         </div>
       ) : (
         <div className="mt-5 flex flex-col gap-5">
           <div className="flex flex-col gap-1">
-            <p className="text-[13px] font-medium text-foreground">1. Create a GitHub OAuth App</p>
-            <p className="text-[12px] text-muted-foreground">
-              Go to GitHub → Settings → Developer settings → OAuth Apps → New OAuth App. Set the Authorization callback URL to:
-            </p>
+            <p className="text-[13px] font-medium text-foreground">{t("settings.apps.github.step1.title")}</p>
+            <p className="text-[12px] text-muted-foreground">{t("settings.apps.github.step1.description")}</p>
             <code className="rounded-lg bg-muted px-2.5 py-1.5 text-[11px] break-all text-foreground">{callbackUrl}</code>
           </div>
           <div className="flex flex-col gap-2">
-            <p className="text-[13px] font-medium text-foreground">2. Paste its Client ID and Client Secret</p>
-            <Input placeholder="Client ID" value={clientId} onChange={(event) => setClientId(event.target.value)} />
+            <p className="text-[13px] font-medium text-foreground">{t("settings.apps.github.step2.title")}</p>
+            <Input placeholder={t("settings.apps.github.clientId.placeholder")} value={clientId} onChange={(event) => setClientId(event.target.value)} />
             <Input
               type="password"
-              placeholder="Client Secret"
+              placeholder={t("settings.apps.github.clientSecret.placeholder")}
               value={clientSecret}
               onChange={(event) => setClientSecret(event.target.value)}
             />
-            <p className="text-[11px] text-muted-foreground">
-              The secret will be saved as sensitive -- make sure to save it somewhere safe, as it's not recoverable once you leave this
-              screen.
-            </p>
+            <p className="text-[11px] text-muted-foreground">{t("settings.apps.github.secretWarning")}</p>
           </div>
           <div className="flex flex-col gap-1">
-            <p className="text-[13px] font-medium text-foreground">3. Use it in your chats</p>
+            <p className="text-[13px] font-medium text-foreground">{t("settings.apps.github.step3.title")}</p>
             <p className="text-[12px] text-muted-foreground">
-              Once connected, mention <span className="font-mono">@github</span> in any chat.
+              <Trans i18nKey="settings.apps.github.step3.description" components={[<span className="font-mono" key="0" />]} />
             </p>
           </div>
           <Button className="w-fit" disabled={!clientId.trim() || !clientSecret.trim() || submitting} onClick={() => void connect()}>
-            Connect
+            {t("common.connect")}
           </Button>
         </div>
       )}
@@ -1260,6 +1269,7 @@ function ProvidersSection() {
   // walk back to. Routing this through the URL means selecting a provider
   // is a real navigate(), which the existing stack already picks up for
   // free.
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedProviderName = searchParams.get("provider");
@@ -1317,7 +1327,7 @@ function ProvidersSection() {
           {activeProviders.length > 0 && (
             <>
               <div className="mt-4 mb-2 text-xs font-normal text-foreground select-none">
-                <span className="opacity-50">Available</span>
+                <span className="opacity-50">{t("settings.apps.available")}</span>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 {activeProviders.map((provider) => (
@@ -1338,7 +1348,7 @@ function ProvidersSection() {
               !ACTIVE_PROVIDERS) are gone from this section entirely for
               launch, not just visually de-emphasized. */}
           <div className="mt-4 mb-2 text-xs font-normal text-foreground select-none">
-            <span className="opacity-50">Coming soon</span>
+            <span className="opacity-50">{t("settings.apps.comingSoon")}</span>
           </div>
           <div className="grid grid-cols-2 gap-2">
             {/* Request provider -- per explicit request, its own row using
@@ -1370,7 +1380,7 @@ function ProvidersSection() {
                 <AlongsideLogo className="size-5 text-black dark:text-white" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[12px] font-medium text-foreground">Request a provider</span>
+                <span className="block truncate text-[12px] font-medium text-foreground">{t("settings.providers.requestProvider.title")}</span>
                 {/* line-clamp-2, not truncate -- per explicit request
                     ("make the requested providers description suit into
                     two or more lines/rows, we will need to allow this to
@@ -1379,7 +1389,7 @@ function ProvidersSection() {
                     description (now shown there for every Coming soon
                     row too) can run just as long as this one. */}
                 <span className="line-clamp-2 text-[10px] font-normal text-muted-foreground">
-                  We listen to our community and bring their requested providers.
+                  {t("settings.providers.requestProvider.description")}
                 </span>
               </span>
             </button>
@@ -1392,7 +1402,7 @@ function ProvidersSection() {
               grid-cols-2 half-width) since it's the only item in this
               section. */}
           <div className="mt-4 mb-2 text-xs font-normal text-foreground select-none">
-            <span className="opacity-50">Usage</span>
+            <span className="opacity-50">{t("settings.providers.usage")}</span>
           </div>
           <button
             type="button"
@@ -1403,9 +1413,9 @@ function ProvidersSection() {
               <ProviderUsageIcon className="size-5 text-muted-foreground" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[12px] font-medium text-foreground">Provider usage</span>
+              <span className="block truncate text-[12px] font-medium text-foreground">{t("settings.providers.usage.title")}</span>
               <span className="line-clamp-2 text-[10px] font-normal text-muted-foreground">
-                See usage broken down by provider.
+                {t("settings.providers.usage.description")}
               </span>
             </span>
             <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
