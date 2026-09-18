@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FocusEvent, type MouseEvent, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { useIsMobile } from "@/hooks/use-media-query";
@@ -269,6 +270,7 @@ function SidebarSearch({
   collapsed: boolean;
   onExpandSidebar: () => void;
 }) {
+  const { t } = useTranslation();
   const isMac = useIsMac();
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -311,7 +313,7 @@ function SidebarSearch({
     return (
       <button
         type="button"
-        aria-label="Search"
+        aria-label={t("nav.search.ariaLabel")}
         onClick={onExpandSidebar}
         // h-7 (28px), not h-8 -- was h-8 while every real nav row
         // (RailButton) stays a fixed h-7 in both collapsed and expanded
@@ -335,12 +337,12 @@ function SidebarSearch({
   return (
     <div className="relative min-w-0 flex-1">
       <Label htmlFor="sidebar-search" className="sr-only">
-        Search
+        {t("nav.search.ariaLabel")}
       </Label>
       <Input
         ref={searchRef}
         id="sidebar-search"
-        placeholder="Search"
+        placeholder={t("nav.search.ariaLabel")}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         // Escape clears, same as Settings' own search (settings-overlay.tsx)
@@ -460,7 +462,7 @@ function SidebarSearch({
           <motion.button
             key="clear"
             type="button"
-            aria-label="Clear search"
+            aria-label={t("nav.search.clearAriaLabel")}
             onClick={() => {
               onChange("");
               searchRef.current?.focus();
@@ -476,7 +478,7 @@ function SidebarSearch({
           <motion.button
             key="kbd"
             type="button"
-            aria-label="Find"
+            aria-label={t("nav.search.findAriaLabel")}
             tabIndex={-1}
             onClick={() => searchRef.current?.focus()}
             initial={{ y: -8, opacity: 0 }}
@@ -631,6 +633,7 @@ function ProjectRow({
   onRename: (name: string) => void;
   onDeleteRequest: () => void;
 }) {
+  const { t } = useTranslation();
   // Inline rename -- per explicit request ("the three dots to rename or
   // delete project"). Same compact input+check+x shape the "New project"
   // popover already uses, swapped in over the row's own label instead of a
@@ -829,7 +832,7 @@ function ProjectRow({
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.12 }}
               >
-                <BaseDropdownLabel>Delete</BaseDropdownLabel>
+                <BaseDropdownLabel>{t("common.delete")}</BaseDropdownLabel>
                 {/* text-foreground, not text-muted-foreground -- per explicit
                     request ("would you like to delete font color is not the
                     same font color as new chat or rename, is looks like is
@@ -876,21 +879,21 @@ function ProjectRow({
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.12 }}
               >
-                <BaseDropdownLabel>More</BaseDropdownLabel>
+                <BaseDropdownLabel>{t("common.more")}</BaseDropdownLabel>
                 {/* Moved in from its own standalone "+" beside the chevron --
                     per explicit request ("add the create chat inside more and
                     not beside >"). */}
                 <BaseMenuItem
                   index={0}
                   icon={PlusIcon}
-                  label="New chat"
+                  label={t("common.newChat")}
                   className="gap-[7px]"
                   onSelect={onNewChat}
                 />
                 <BaseMenuItem
                   index={1}
                   icon={EditIcon}
-                  label="Rename"
+                  label={t("common.rename")}
                   className="gap-[7px]"
                   onSelect={() => {
                     setDraft(item.label);
@@ -905,7 +908,7 @@ function ProjectRow({
                 <BaseMenuItem
                   index={2}
                   icon={DeleteIcon}
-                  label="Delete"
+                  label={t("common.delete")}
                   destructive
                   closeOnClick={false}
                   className="gap-[7px]"
@@ -1008,6 +1011,7 @@ function ChatRow({
   // runtime value; a Tailwind class can't interpolate one.
   rowWidth: number;
 }) {
+  const { t } = useTranslation();
   // Same reblur fix as ProjectRow's own "..." trigger (that row's own
   // comment has the full bug report).
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
@@ -1125,7 +1129,7 @@ function ChatRow({
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.12 }}
               >
-                <BaseDropdownLabel>Delete</BaseDropdownLabel>
+                <BaseDropdownLabel>{t("common.delete")}</BaseDropdownLabel>
                 {/* text-foreground, not text-muted-foreground -- see
                     ProjectRow's own identical fix/comment. */}
                 <div className="px-2 pb-2 text-[11px] font-normal text-foreground">
@@ -1167,7 +1171,7 @@ function ChatRow({
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.12 }}
               >
-                <BaseDropdownLabel>More</BaseDropdownLabel>
+                <BaseDropdownLabel>{t("common.more")}</BaseDropdownLabel>
                 {/* A chat already inside a project shows a plain "Remove from
                     project" -- no submenu, no list of other projects to move to
                     -- per explicit follow-up ("remove the third menu and flip add
@@ -1177,13 +1181,13 @@ function ChatRow({
                   <BaseMenuItem
                     index={0}
                     icon={FolderIcon}
-                    label="Remove from project"
+                    label={t("nav.chat.removeFromProject")}
                     className="gap-[7px]"
                     onSelect={() => onAssignToProject(null)}
                   />
                 ) : projects.length > 0 ? (
-                  <DropdownSubMenuItem index={0} icon={FolderIcon} label="Add to project" className="gap-[7px] text-[12px]">
-                    <BaseDropdownLabel>Projects</BaseDropdownLabel>
+                  <DropdownSubMenuItem index={0} icon={FolderIcon} label={t("nav.chat.addToProject")} className="gap-[7px] text-[12px]">
+                    <BaseDropdownLabel>{t("nav.projects")}</BaseDropdownLabel>
                     {projects.map((project) => (
                       <DropdownSubItem
                         key={project.id}
@@ -1202,17 +1206,17 @@ function ChatRow({
                   // projects dropdown as empty"): a submenu that always opens onto
                   // an empty "Projects" panel read as broken, not as "no projects
                   // yet."
-                  <BaseMenuItem index={0} icon={FolderIcon} label="Add to project" className="gap-[7px]" disabled />
+                  <BaseMenuItem index={0} icon={FolderIcon} label={t("nav.chat.addToProject")} className="gap-[7px]" disabled />
                 )}
                 <DropdownSeparator />
-                <BaseMenuItem index={1} icon={ArchiveIcon} label="Archive" className="gap-[7px]" onSelect={onArchive} />
+                <BaseMenuItem index={1} icon={ArchiveIcon} label={t("common.archive")} className="gap-[7px]" onSelect={onArchive} />
                 {/* closeOnClick={false} -- see ProjectRow's own identical
                     Delete row for the full reasoning (swaps this menu's own
                     content in place instead of closing it). */}
                 <BaseMenuItem
                   index={2}
                   icon={DeleteIcon}
-                  label="Delete"
+                  label={t("common.delete")}
                   destructive
                   closeOnClick={false}
                   className="gap-[7px]"
@@ -1401,6 +1405,7 @@ export default function SidebarNav({
   onOpenSettings,
   placeholderNav = false,
 }: SidebarNavProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const displayName = useUserDisplayName();
@@ -1881,7 +1886,7 @@ export default function SidebarNav({
         symptom this fixes on desktop already having one continuous line,
         mobile now matches. */}
     <aside
-      aria-label="Workspace navigation"
+      aria-label={t("nav.workspace.ariaLabel")}
       // bg-sidebar (== bg-background, index.css's own --sidebar: var(
       // --background)) -- opaque, so on mobile (position: fixed, above)
       // this reliably hides whatever content sits behind it via z-index
@@ -2080,7 +2085,7 @@ export default function SidebarNav({
           >
             <button
               type="button"
-              aria-label="Go back"
+              aria-label={t("nav.goBack.ariaLabel")}
               disabled={!canGoBack}
               onClick={goBack}
               className="flex size-5 shrink-0 transform-gpu items-center justify-center rounded-[6px] text-foreground transition-[background-color,color] duration-150 hover:bg-hover-2/50 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-30"
@@ -2089,7 +2094,7 @@ export default function SidebarNav({
             </button>
             <button
               type="button"
-              aria-label="Go forward"
+              aria-label={t("nav.goForward.ariaLabel")}
               disabled={!canGoForward}
               onClick={goForward}
               className="flex size-5 shrink-0 transform-gpu items-center justify-center rounded-[6px] text-foreground transition-[background-color,color] duration-150 hover:bg-hover-2/50 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-30"
@@ -2132,7 +2137,7 @@ export default function SidebarNav({
               collapsed={collapsed}
               rowWidth={rowWidth}
               icon={placeholderNav ? <BlankPageIcon className="size-[14px]" /> : WELCOME_ITEM.icon}
-              label={placeholderNav ? "Placeholder" : WELCOME_ITEM.label}
+              label={placeholderNav ? t("common.placeholder") : t("nav.welcome")}
               url={WELCOME_ITEM.url}
               active={activeNav === WELCOME_ITEM.key}
               onClick={() => navigateAndClose(() => onNavigate?.(WELCOME_ITEM.key))}
@@ -2142,7 +2147,7 @@ export default function SidebarNav({
             collapsed={collapsed}
             rowWidth={rowWidth}
             icon={placeholderNav ? <BlankPageIcon className="size-[14px]" /> : INBOX_ITEM.icon}
-            label={placeholderNav ? "Placeholder" : INBOX_ITEM.label}
+            label={placeholderNav ? t("common.placeholder") : t("nav.inbox")}
             url={INBOX_ITEM.url}
             active={activeNav === INBOX_ITEM.key}
             onClick={() => navigateAndClose(() => onNavigate?.(INBOX_ITEM.key))}
@@ -2151,7 +2156,7 @@ export default function SidebarNav({
             collapsed={collapsed}
             rowWidth={rowWidth}
             icon={placeholderNav ? <BlankPageIcon className="size-[14px]" /> : LIBRARY_ITEM.icon}
-            label={placeholderNav ? "Placeholder" : LIBRARY_ITEM.label}
+            label={placeholderNav ? t("common.placeholder") : t("nav.library")}
             url={LIBRARY_ITEM.url}
             active={activeNav === LIBRARY_ITEM.key}
             onClick={() => navigateAndClose(() => onNavigate?.(LIBRARY_ITEM.key))}
@@ -2174,7 +2179,7 @@ export default function SidebarNav({
             collapsed={collapsed}
             rowWidth={rowWidth}
             icon={<PlusIcon className="size-[14px]" />}
-            label="New chat"
+            label={t("common.newChat")}
             active={activeNav === "home"}
             onClick={() => navigateAndClose(() => onNewChat?.())}
           />
@@ -2326,7 +2331,7 @@ export default function SidebarNav({
                 and that should only be my pointer"): this label reads as
                 a section header, not real selectable body copy. */}
             {/* "Projects", not "Recent projects" -- per explicit request. */}
-            <span className="opacity-50">Projects</span>
+            <span className="opacity-50">{t("nav.projects")}</span>
             <div className="flex items-center gap-0.5">
               {/* Popover, not navigate("/projects") -- confirmed directly as
                   a real gap ("we are redirecting when trying to create a
@@ -2357,7 +2362,7 @@ export default function SidebarNav({
                   render={
                     <button
                       type="button"
-                      aria-label="New project"
+                      aria-label={t("nav.newProject.ariaLabel")}
                       // opacity-0, not visible by default -- confirmed directly as
                       // a real gap ("when we scroll over that should show the +
                       // icon and not active by default"): only reveal on hover of
@@ -2377,7 +2382,7 @@ export default function SidebarNav({
                     the field to enter the name and then either cancel or
                     create"), replacing the old inline X/check-icon design. */}
                 <BaseDropdownContent align="start" className="w-40">
-                  <BaseDropdownLabel>Create</BaseDropdownLabel>
+                  <BaseDropdownLabel>{t("common.create")}</BaseDropdownLabel>
                   <div className="px-2 pb-2">
                     <Input
                       autoFocus
@@ -2387,7 +2392,7 @@ export default function SidebarNav({
                         if (event.key === "Enter") void handleCreateProject();
                         if (event.key === "Escape") handleDismissProject();
                       }}
-                      placeholder="Project name"
+                      placeholder={t("nav.projectName.placeholder")}
                       // md:text-2xs, not just text-2xs -- the shared Input
                       // component (ui/input.tsx) bakes in its own
                       // md:text-sm, which otherwise wins over a plain
@@ -2423,7 +2428,7 @@ export default function SidebarNav({
                 state instead of a blank gap that could pass for a loading
                 glitch. */}
             {projects.length === 0 && (
-              <div className="mx-2 flex h-7 items-center px-2 text-xs font-normal text-muted-foreground opacity-50">No projects</div>
+              <div className="mx-2 flex h-7 items-center px-2 text-xs font-normal text-muted-foreground opacity-50">{t("nav.projects.empty")}</div>
             )}
             {projects.map((item) => {
                 const projectChats = chatsForProject(item.id);
@@ -2534,11 +2539,11 @@ export default function SidebarNav({
                   verbatim here). */}
               <div className="group mx-2 mt-3 mb-0.5 flex h-5 items-center justify-between px-2 text-xs font-normal text-foreground select-none">
                 {/* "Chats", not "Recent chats" -- per explicit request. */}
-                <span className="opacity-50">Chats</span>
+                <span className="opacity-50">{t("nav.chats")}</span>
                 <div className="flex items-center gap-0.5">
                   <button
                     type="button"
-                    aria-label="New chat"
+                    aria-label={t("common.newChat")}
                     onClick={() => navigateAndClose(() => onNewChat?.())}
                     className="flex size-4 shrink-0 items-center justify-center rounded-[4px] text-foreground opacity-0 transition-[color,opacity] duration-150 group-hover:opacity-50 hover:text-ink hover:opacity-100"
                   >
@@ -2552,7 +2557,7 @@ export default function SidebarNav({
                     above -- see that block's own comment for the full
                     reasoning. */}
                 {rootChats.length === 0 && (
-                  <div className="mx-2 flex h-7 items-center px-2 text-xs font-normal text-muted-foreground opacity-50">No chats</div>
+                  <div className="mx-2 flex h-7 items-center px-2 text-xs font-normal text-muted-foreground opacity-50">{t("nav.chats.empty")}</div>
                 )}
                 {rootChats.map((item) => (
                   <ChatRow
@@ -2619,7 +2624,7 @@ export default function SidebarNav({
               collapsed={collapsed}
               rowWidth={rowWidth}
               icon={<SettingsIcon className="size-[14px]" />}
-              label="Settings"
+              label={t("nav.settings")}
               onClick={() => (onOpenSettings ? onOpenSettings() : navigate("/settings"))}
             />
           </GlideGroup>
@@ -2672,7 +2677,7 @@ export default function SidebarNav({
                 <button
                   ref={accountTriggerRef}
                   type="button"
-                  aria-label="Account menu"
+                  aria-label={t("nav.account.ariaLabel")}
                   // px-1.5 (6px), not px-0.5 (2px) -- per explicit request
                   // ("verify the avatar... especially the size and
                   // location"): the reference sidebar's own footer row
@@ -2818,7 +2823,7 @@ export default function SidebarNav({
                   <button
                     ref={helpTriggerRef}
                     type="button"
-                    aria-label="Help menu"
+                    aria-label={t("nav.help.ariaLabel")}
                     // No hover/active background -- same fix as the "..."
                     // menus' own triggers (sidebar-nav.tsx's own comment on
                     // those has the full bug report): color-only, via
