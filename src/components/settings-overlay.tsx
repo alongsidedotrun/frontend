@@ -1469,6 +1469,7 @@ function resizeImageFile(file: File, maxSize = 256, quality = 0.85): Promise<str
 // down from General's own former Caution section (that section's own
 // comment has the pointer).
 function ProfileSection() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const isSignedIn = useIsSignedIn();
@@ -1497,14 +1498,14 @@ function ProfileSection() {
     if (!file) return;
     setError(null);
     if (file.type !== "image/jpeg" && file.type !== "image/png") {
-      setError("Please choose a JPEG or PNG file.");
+      setError(t("settings.profile.avatar.invalidFile"));
       return;
     }
     try {
       const dataUrl = await resizeImageFile(file);
       setPendingImage(dataUrl);
     } catch {
-      setError("That image could not be used. Please try a different file.");
+      setError(t("settings.profile.avatar.unusable"));
     }
   }
 
@@ -1534,15 +1535,15 @@ function ProfileSection() {
 
   return (
     <div className="flex flex-col">
-      <SettingsSection title="Personal">
+      <SettingsSection title={t("settings.profile.personal")}>
         {/* Not gated on isSignedIn -- unlike Manage photo below, a display
             name is meaningful for a solo, signed-out local user too (it's
             what "Me" attribution and chat messages already show, per
             lib/user.ts's own getUserDisplayName). */}
         <SettingsRow
           id="setting-name"
-          title="Name"
-          description="Your display name for chats."
+          title={t("settings.profile.name.title")}
+          description={t("settings.profile.name.description")}
         >
           <div className="flex items-center gap-1.5">
             <Input
@@ -1559,13 +1560,13 @@ function ProfileSection() {
               disabled={!nameDraft.trim() || nameDraft.trim() === currentName}
               onClick={handleSaveName}
             >
-              Save
+              {t("common.save")}
             </button>
           </div>
         </SettingsRow>
         <SettingsRow
           id="setting-avatar"
-          title="Profile picture"
+          title={t("settings.profile.avatar.title")}
           // No (i) tooltip any more -- per explicit request, after
           // confirming directly against the real upload code: there's no
           // actual size requirement (resizeImageFile below auto-resizes
@@ -1575,7 +1576,7 @@ function ProfileSection() {
           // upload handler both reject anything else) -- kept visible in
           // plain text instead of behind an icon, since it's the one part
           // of the old copy that was actually true.
-          description="Your profile picture for chats."
+          description={t("settings.profile.avatar.description")}
           status={error ?? undefined}
         >
           {/* disabled when signed out -- per explicit request ("profile
@@ -1591,7 +1592,7 @@ function ProfileSection() {
             disabled={!isSignedIn}
             onClick={() => setManageOpen(true)}
           >
-            Manage photo
+            {t("settings.profile.avatar.managePhoto")}
           </button>
           <input
             ref={fileInputRef}
@@ -1621,13 +1622,13 @@ function ProfileSection() {
         >
           <DialogContent>
             <DialogHeader>
-              <DialogTitle className="text-sm font-semibold">Manage your profile picture</DialogTitle>
+              <DialogTitle className="text-sm font-semibold">{t("settings.profile.avatar.dialogTitle")}</DialogTitle>
               {/* Format note lives here now, not the Settings row's own
                   description -- per explicit request. */}
               <DialogDescription className="text-[13px] font-normal">
                 {avatarImage
-                  ? "Download or remove your current profile picture, or upload a new one. JPEG or PNG only."
-                  : "Add a picture to your profile for other users to see. JPEG or PNG only."}
+                  ? t("settings.profile.avatar.dialogDescription.withPhoto")
+                  : t("settings.profile.avatar.dialogDescription.noPhoto")}
               </DialogDescription>
             </DialogHeader>
             {/* Photo on the left, name on the right -- per explicit
@@ -1653,7 +1654,7 @@ function ProfileSection() {
               {avatarImage && !pendingImage && (
                 <Button variant="outline" className="h-8 gap-1.5 text-[11px]" onClick={handleDownload}>
                   <DownloadIcon className="size-3.5" />
-                  Download
+                  {t("common.download")}
                 </Button>
               )}
               {/* Same red as the chat delete-confirmation dialog's own
@@ -1663,7 +1664,7 @@ function ProfileSection() {
                   className="h-8 bg-red-600 text-[11px] text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
                   onClick={() => clearUserAvatarImage()}
                 >
-                  Remove
+                  {t("common.remove")}
                 </Button>
               )}
               {/* Flips to Confirm once a file has been picked -- per
@@ -1672,11 +1673,11 @@ function ProfileSection() {
                   setUserAvatarImage now. */}
               {pendingImage ? (
                 <Button className="h-8 text-[11px]" onClick={handleConfirmUpload}>
-                  Confirm
+                  {t("common.confirm")}
                 </Button>
               ) : (
                 <Button className="h-8 text-[11px]" onClick={() => fileInputRef.current?.click()}>
-                  Add
+                  {t("common.add")}
                 </Button>
               )}
             </DialogFooter>
@@ -1689,8 +1690,8 @@ function ProfileSection() {
             this states that plainly rather than fabricating a Pro/
             Enterprise upgrade flow that doesn't exist. Revisit once a real
             subscription system exists. */}
-        <SettingsRow title="Subscription" description="Your current plan on this device.">
-          <span className="text-[12px] font-medium text-foreground">Free</span>
+        <SettingsRow title={t("settings.profile.subscription.title")} description={t("settings.profile.subscription.description")}>
+          <span className="text-[12px] font-medium text-foreground">{t("settings.profile.subscription.free")}</span>
         </SettingsRow>
       </SettingsSection>
 
@@ -1711,11 +1712,11 @@ function ProfileSection() {
           since that one genuinely needs the real sign-in form. state:
           { from } lets AuthPage return here (not always Getting started)
           once signed back in. */}
-      <SettingsSection title="Caution">
+      <SettingsSection title={t("settings.profile.caution")}>
         <SettingsRow
           id="setting-log-out"
-          title={isSignedIn ? "Log out" : "Sign in"}
-          description={isSignedIn ? "Sign out of your account on this device." : "Sign in to share chats with other people."}
+          title={isSignedIn ? t("common.logOut") : t("common.signIn")}
+          description={isSignedIn ? t("settings.profile.logOut.description") : t("settings.profile.signIn.description")}
         >
           <button
             type="button"
@@ -1729,7 +1730,7 @@ function ProfileSection() {
             }}
           >
             <LogOutIcon className="size-3.5" />
-            {isSignedIn ? "Log out" : "Sign in"}
+            {isSignedIn ? t("common.logOut") : t("common.signIn")}
           </button>
         </SettingsRow>
       </SettingsSection>
