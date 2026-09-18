@@ -6,18 +6,25 @@
 // (a second, real consumer that needs the exact same SQLite-timestamp
 // formatting) had no way to reuse it and just never got a timestamp at
 // all. Extracted verbatim, not reimplemented.
+import i18n from "@/i18n";
+
 export function parseSqliteTimestamp(value: string): Date {
   return new Date(`${value.replace(" ", "T")}Z`);
 }
 
+// i18n singleton (not useTranslation()) -- this is a plain function, not a
+// component/hook, called from render code that has no hook context of its
+// own; i18next.t works standalone and reflects the current language the
+// same way useTranslation()'s own t does, since both read from the same
+// i18next instance src/i18n/index.ts initializes.
 export function formatRelativeTime(value: string): string {
   const date = parseSqliteTimestamp(value);
   const seconds = Math.max(0, (Date.now() - date.getTime()) / 1000);
-  if (seconds < 60) return "Just now";
+  if (seconds < 60) return i18n.t("common.relativeTime.justNow");
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  if (minutes < 60) return i18n.t("common.relativeTime.minutesAgo", { count: minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  if (hours < 24) return i18n.t("common.relativeTime.hoursAgo", { count: hours });
   const days = Math.floor(hours / 24);
-  return `${days} day${days === 1 ? "" : "s"} ago`;
+  return i18n.t("common.relativeTime.daysAgo", { count: days });
 }

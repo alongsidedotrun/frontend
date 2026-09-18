@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
@@ -37,28 +39,35 @@ function parseSqliteTimestamp(value: string): Date {
 }
 
 // No date-fns/dayjs in this app yet -- one small relative-time formatter is
-// simpler than adding a dependency for it.
+// simpler than adding a dependency for it. Own local copy, not
+// src/lib/relative-time.ts's shared one -- that one caps at days (its own
+// real consumers, Library/right-panel, never need months/years for a
+// recently-touched file); merging the two would change Library's own
+// output, an unrelated behavior change. i18n.t (singleton, not
+// useTranslation()'s own t) since this is a plain function, not a
+// component -- same reasoning as relative-time.ts's own identical comment.
 function formatRelativeTime(value: string): string {
   const date = parseSqliteTimestamp(value);
   const seconds = Math.max(0, (Date.now() - date.getTime()) / 1000);
-  if (seconds < 60) return "Just now";
+  if (seconds < 60) return i18n.t("common.relativeTime.justNow");
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  if (minutes < 60) return i18n.t("common.relativeTime.minutesAgo", { count: minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  if (hours < 24) return i18n.t("common.relativeTime.hoursAgo", { count: hours });
   const days = Math.floor(hours / 24);
-  if (days < 30) return `${days} day${days === 1 ? "" : "s"} ago`;
+  if (days < 30) return i18n.t("common.relativeTime.daysAgo", { count: days });
   const months = Math.floor(days / 30);
-  if (months < 12) return `${months} month${months === 1 ? "" : "s"} ago`;
+  if (months < 12) return i18n.t("common.relativeTime.monthsAgo", { count: months });
   const years = Math.floor(months / 12);
-  return `${years} year${years === 1 ? "" : "s"} ago`;
+  return i18n.t("common.relativeTime.yearsAgo", { count: years });
 }
 
 function SearchBar({ query, onChange }: { query: string; onChange: (value: string) => void }) {
+  const { t } = useTranslation();
   return (
     <div className="relative">
       <Label htmlFor="inbox-search" className="sr-only">
-        Search conversations
+        {t("inbox.searchPlaceholder")}
       </Label>
       {/* h-7/text-xs/size-[14px] icon/rounded-[var(--row-radius-sm)] --
           matches the sidebar's own search input exactly (sidebar-nav.tsx),
@@ -71,7 +80,7 @@ function SearchBar({ query, onChange }: { query: string; onChange: (value: strin
       <SearchIcon className="pointer-events-none absolute top-1/2 left-[9px] size-[14px] -translate-y-1/2 text-muted-foreground" />
       <Input
         id="inbox-search"
-        placeholder="Search conversations"
+        placeholder={t("inbox.searchPlaceholder")}
         value={query}
         onChange={(event) => onChange(event.target.value)}
         // focus-visible:border-focus-accent -- matches the sidebar's own
@@ -91,6 +100,7 @@ function SearchBar({ query, onChange }: { query: string; onChange: (value: strin
 // beside the name, and a snippet of the last message underneath -- backed
 // by GET /inbox-items (backend/src/db.rs's own list_inbox).
 export function InboxPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [items, setItems] = useState<InboxItem[]>([]);
   // Gates the empty state below -- without this, `items` starting at []
@@ -100,8 +110,8 @@ export function InboxPage() {
   const [query, setQuery] = useState("");
 
   useEffect(() => {
-    document.title = "Inbox";
-  }, []);
+    document.title = t("inbox.title");
+  }, [t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -226,10 +236,8 @@ export function InboxPage() {
               <AlongsideLogo className="size-[32px] text-black dark:text-white" />
             </div>
             <div className="absolute left-1/2 w-full max-w-[22rem] -translate-x-1/2 text-center" style={{ top: "calc(50% + 16px + 12px)" }}>
-              <h1 className="text-[18px] font-normal text-foreground">See your chats activity</h1>
-              <p className="mt-2 text-[13px] font-normal text-muted-foreground">
-                At inbox you are able to see your most recent chats activity before entering the entire chat
-              </p>
+              <h1 className="text-[18px] font-normal text-foreground">{t("inbox.empty.heading")}</h1>
+              <p className="mt-2 text-[13px] font-normal text-muted-foreground">{t("inbox.empty.subheading")}</p>
             </div>
           </motion.div>
         ) : (
