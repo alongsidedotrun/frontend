@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "motion/react";
 import { FileExtensionBadge, extensionOf, stripExtension } from "@/components/file-extension-badge";
 import { DeleteIcon, EditIcon } from "@/components/icons/untitled-ui";
@@ -41,6 +42,7 @@ export function LibraryFileMoreMenu({
   onRenameRequest: () => void;
   onDelete: () => void;
 }) {
+  const { t } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
@@ -87,8 +89,8 @@ export function LibraryFileMoreMenu({
               exit={{ opacity: 0 }}
               transition={{ duration: 0.12 }}
             >
-              <BaseDropdownLabel>Delete</BaseDropdownLabel>
-              <div className="px-2 pb-2 text-[11px] font-normal text-foreground">Would you like to delete this file?</div>
+              <BaseDropdownLabel>{t("common.delete")}</BaseDropdownLabel>
+              <div className="px-2 pb-2 text-[11px] font-normal text-foreground">{t("library.deleteConfirm.question")}</div>
               <div className="flex gap-1.5 px-2 pb-1.5">
                 <Button
                   variant="outline"
@@ -98,7 +100,7 @@ export function LibraryFileMoreMenu({
                     setConfirmingDelete(false);
                   }}
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
                 <Button
                   className="h-7 flex-1 bg-red-600 text-[11px] text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
@@ -108,24 +110,24 @@ export function LibraryFileMoreMenu({
                     setMenuOpen(false);
                   }}
                 >
-                  Delete
+                  {t("common.delete")}
                 </Button>
               </div>
             </motion.div>
           ) : (
             <motion.div key="menu" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.12 }}>
-              <BaseDropdownLabel>More</BaseDropdownLabel>
+              <BaseDropdownLabel>{t("common.more")}</BaseDropdownLabel>
               <BaseMenuItem
                 index={0}
                 icon={EditIcon}
-                label="Rename file"
+                label={t("library.renameFile")}
                 className="gap-[7px]"
                 onSelect={onRenameRequest}
               />
               <BaseMenuItem
                 index={1}
                 icon={DeleteIcon}
-                label="Delete file"
+                label={t("library.deleteFile")}
                 destructive
                 closeOnClick={false}
                 className="gap-[7px]"

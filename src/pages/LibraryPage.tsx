@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useOutletContext } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { hotkeysCoreFeature, syncDataLoaderFeature } from "@headless-tree/core";
@@ -182,6 +183,7 @@ type ProjectGroup = { projectId: string; label: string; chats: ChatGroup[]; file
 // first. Grouped here client-side (same pattern InboxPage.tsx already uses
 // for its own search filtering) rather than needing a query param per view.
 export function LibraryPage() {
+  const { t } = useTranslation();
   const { openFile, rightPanelOpen, renameOpenFile } = useOutletContext<{
     openFile: (path: string) => void;
     rightPanelOpen: boolean;
@@ -217,8 +219,8 @@ export function LibraryPage() {
   const [chatModels, setChatModels] = useState<Record<string, { provider: string; model: string }[]>>({});
 
   useEffect(() => {
-    document.title = "Library";
-  }, []);
+    document.title = t("library.title");
+  }, [t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -378,10 +380,8 @@ export function LibraryPage() {
               <AlongsideLogo className="size-[32px] text-black dark:text-white" />
             </div>
             <div className="absolute left-1/2 w-full max-w-[22rem] -translate-x-1/2 text-center" style={{ top: "calc(50% + 16px + 12px)" }}>
-              <h1 className="text-[18px] font-normal text-foreground">No files yet</h1>
-              <p className="mt-2 text-[13px] font-normal text-muted-foreground">
-                Files an agent creates or edits across your chats will show up here.
-              </p>
+              <h1 className="text-[18px] font-normal text-foreground">{t("library.empty.heading")}</h1>
+              <p className="mt-2 text-[13px] font-normal text-muted-foreground">{t("library.empty.subheading")}</p>
             </div>
           </motion.div>
         ) : (
@@ -425,10 +425,10 @@ export function LibraryPage() {
             <div className={`flex w-64 shrink-0 flex-col gap-3 overflow-y-auto px-2 pt-2 pb-4 ${rightPanelOpen ? "" : "border-r border-border"}`}>
               <div className="flex flex-col gap-0.5">
                 <div className="mb-0.5 flex h-5 items-center px-2 text-xs font-normal text-foreground select-none">
-                  <span className="opacity-50">Projects</span>
+                  <span className="opacity-50">{t("nav.projects")}</span>
                 </div>
                 {projects.length === 0 ? (
-                  <p className="flex h-7 items-center px-2 text-xs font-normal text-muted-foreground opacity-50">No projects</p>
+                  <p className="flex h-7 items-center px-2 text-xs font-normal text-muted-foreground opacity-50">{t("nav.projects.empty")}</p>
                 ) : (
                   projects.map((project) => {
                     const expanded = expandedProjects.has(project.projectId);
@@ -456,10 +456,10 @@ export function LibraryPage() {
               </div>
               <div className="flex flex-col gap-0.5">
                 <div className="mb-0.5 flex h-5 items-center px-2 text-xs font-normal text-foreground select-none">
-                  <span className="opacity-50">Chats</span>
+                  <span className="opacity-50">{t("nav.chats")}</span>
                 </div>
                 {standaloneChats.length === 0 ? (
-                  <p className="flex h-7 items-center px-2 text-xs font-normal text-muted-foreground opacity-50">No chats</p>
+                  <p className="flex h-7 items-center px-2 text-xs font-normal text-muted-foreground opacity-50">{t("nav.chats.empty")}</p>
                 ) : (
                   standaloneChats.map((chat) => {
                     const expanded = expandedChats.has(chat.chatId);

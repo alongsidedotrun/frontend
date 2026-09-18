@@ -576,6 +576,74 @@ export const translations = {
     ja: "{{count}} 年前",
   },
 
+  "common.cancel": {
+    en: "Cancel",
+    "pt-BR": "Cancelar",
+    es: "Cancelar",
+    fr: "Annuler",
+    de: "Abbrechen",
+    zh: "取消",
+    ja: "キャンセル",
+  },
+
+  // -- library-file-row.tsx --
+  "library.deleteConfirm.question": {
+    en: "Would you like to delete this file?",
+    "pt-BR": "Deseja excluir este arquivo?",
+    es: "¿Deseas eliminar este archivo?",
+    fr: "Voulez-vous supprimer ce fichier ?",
+    de: "Möchtest du diese Datei löschen?",
+    zh: "确定要删除此文件吗？",
+    ja: "このファイルを削除しますか？",
+  },
+  "library.renameFile": {
+    en: "Rename file",
+    "pt-BR": "Renomear arquivo",
+    es: "Cambiar nombre del archivo",
+    fr: "Renommer le fichier",
+    de: "Datei umbenennen",
+    zh: "重命名文件",
+    ja: "ファイル名を変更",
+  },
+  "library.deleteFile": {
+    en: "Delete file",
+    "pt-BR": "Excluir arquivo",
+    es: "Eliminar archivo",
+    fr: "Supprimer le fichier",
+    de: "Datei löschen",
+    zh: "删除文件",
+    ja: "ファイルを削除",
+  },
+
+  // -- LibraryPage.tsx --
+  "library.title": {
+    en: "Library",
+    "pt-BR": "Biblioteca",
+    es: "Biblioteca",
+    fr: "Bibliothèque",
+    de: "Bibliothek",
+    zh: "资料库",
+    ja: "ライブラリ",
+  },
+  "library.empty.heading": {
+    en: "No files yet",
+    "pt-BR": "Ainda não há arquivos",
+    es: "Aún no hay archivos",
+    fr: "Aucun fichier pour l'instant",
+    de: "Noch keine Dateien",
+    zh: "暂无文件",
+    ja: "まだファイルがありません",
+  },
+  "library.empty.subheading": {
+    en: "Files an agent creates or edits across your chats will show up here.",
+    "pt-BR": "Os arquivos que um agente cria ou edita em suas conversas aparecerão aqui.",
+    es: "Los archivos que un agente crea o edita en tus chats aparecerán aquí.",
+    fr: "Les fichiers qu'un agent crée ou modifie dans vos discussions apparaîtront ici.",
+    de: "Dateien, die ein Agent in deinen Chats erstellt oder bearbeitet, erscheinen hier.",
+    zh: "代理在您的对话中创建或编辑的文件将显示在此处。",
+    ja: "エージェントがチャット内で作成または編集したファイルはここに表示されます。",
+  },
+
   // -- InboxPage.tsx --
   "inbox.title": {
     en: "Inbox",
