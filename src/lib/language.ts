@@ -8,25 +8,54 @@
 // localStorage, not a backend setting -- same reasoning as theme/transparency
 // (settings-overlay.tsx's own TRANSPARENCY_STORAGE_KEY comment): a per-device
 // display preference, not something a Hosted/Enterprise account needs synced
-// across machines yet. Only three real options today, per explicit request --
-// "More languages" (Settings' own Language row) is the honest placeholder for
-// the rest.
+// across machines yet. One shared setting drives both the UI language
+// (src/i18n/index.ts's own i18next.changeLanguage call, issue #307) and the
+// AI's own reply language (spelling_language below, issue #306) -- per
+// explicit confirmation ("one shared setting") rather than two separate
+// controls.
 const LANGUAGE_STORAGE_KEY = "alongside_language";
 export const LANGUAGE_OPTIONS = [
   { value: "en-US", label: "English (US)" },
   { value: "en-IE", label: "English (IE)" },
   { value: "en-GB", label: "English (UK)" },
+  { value: "pt-BR", label: "Português (Brasil)" },
+  { value: "es-ES", label: "Español" },
+  { value: "fr-FR", label: "Français" },
+  { value: "de-DE", label: "Deutsch" },
+  { value: "zh-CN", label: "中文" },
+  { value: "ja-JP", label: "日本語" },
 ] as const;
 export type LanguageValue = (typeof LANGUAGE_OPTIONS)[number]["value"];
 
+// The UI-translation key each LanguageValue resolves to (src/i18n's own
+// translations.ts) -- the three English variants share one UI translation
+// (there's no US/UK-specific interface text, only date order/spelling below
+// differ), so they collapse to a single "en" column instead of three
+// identical copies of the same strings.
+export function uiLocaleFor(language: LanguageValue): "en" | "pt-BR" | "es" | "fr" | "de" | "zh" | "ja" {
+  switch (language) {
+    case "pt-BR":
+      return "pt-BR";
+    case "es-ES":
+      return "es";
+    case "fr-FR":
+      return "fr";
+    case "de-DE":
+      return "de";
+    case "zh-CN":
+      return "zh";
+    case "ja-JP":
+      return "ja";
+    default:
+      return "en";
+  }
+}
+
 // Real detection, not a guess -- navigator.languages is the browser/OS's own
-// ordered preference list; matched against this app's own three real options
-// by exact tag first, then bare language ("en" alone, e.g. a machine set to
-// "en" with no region), falling back to English (US) only once neither
-// matches anything this app actually offers yet -- confirmed directly: a
-// device set to Portuguese, French, or any other non-English language falls
-// through both passes and lands on English (US), never a wrong non-English
-// guess.
+// ordered preference list; matched against this app's own real options by
+// exact tag first, then bare language ("pt" alone, e.g. a machine set to
+// "pt" with no region), falling back to English (US) only once neither
+// matches anything this app actually offers.
 export function detectLanguage(): LanguageValue {
   const available = new Set<string>(LANGUAGE_OPTIONS.map((l) => l.value));
   for (const tag of navigator.languages ?? [navigator.language]) {

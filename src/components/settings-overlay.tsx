@@ -18,7 +18,9 @@ import {
 import { spring } from "@/lib/springs";
 import { modelDisplayName, PROVIDER_DISPLAY, ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
 import { EFFORT_LABELS, EFFORT_LEVELS, loadDefaultEffort, saveDefaultEffort, type EffortLevel } from "@/lib/effort";
-import { LANGUAGE_OPTIONS, loadLanguage, saveLanguage, type LanguageValue } from "@/lib/language";
+import { LANGUAGE_OPTIONS, loadLanguage, saveLanguage, uiLocaleFor, type LanguageValue } from "@/lib/language";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { loadNotifyTurnComplete, requestNotificationPermission, saveNotifyTurnComplete } from "@/lib/notify-turn-complete";
 import { formatStorageBytes, useUsageStats } from "@/lib/use-usage";
 import { ErrorText } from "@/lib/error-code";
@@ -1735,6 +1737,7 @@ function ProfileSection() {
 // (alongsidedotrun/private#207). Appearance used to be a fourth
 // sub-section here too; it now lives in its own AppearanceSection, below.
 function GeneralSection() {
+  const { t } = useTranslation();
   const { show: showGettingStarted, setShow: setShowGettingStarted } = useGettingStarted();
   const [notifyEnabled, setNotifyEnabledState] = useState(loadNotifyTurnComplete);
 
@@ -1770,22 +1773,22 @@ function GeneralSection() {
 
   return (
     <div className="flex flex-col">
-      <SettingsSection title="Tips">
+      <SettingsSection title={t("settings.general.tips")}>
         <SettingsRow
           id="setting-getting-started"
-          title="Getting started"
-          description="Show the Getting started page and its sidebar entry."
+          title={t("settings.general.gettingStarted.title")}
+          description={t("settings.general.gettingStarted.description")}
         >
           <Switch checked={showGettingStarted} onToggle={() => setShowGettingStarted(!showGettingStarted)} aria-label="Getting started" />
         </SettingsRow>
       </SettingsSection>
 
-      <SettingsSection title="Language & Timezone">
+      <SettingsSection title={t("settings.general.languageAndTimezone")}>
         <LanguageRow />
         <TimezoneRow />
       </SettingsSection>
 
-      <SettingsSection title="Notifications">
+      <SettingsSection title={t("settings.general.notifications")}>
         {/* Copy per explicit request/follow-up, with the two disputed
             claims in the original wording resolved for real rather than
             just dropped: "human or provider turn" narrowed to "provider
@@ -1798,8 +1801,8 @@ function GeneralSection() {
             (chat-notifications.ts) that notifyTurnComplete also checks. */}
         <SettingsRow
           id="setting-notify-turn-complete"
-          title="Receive a notification from every chat when a turn completes"
-          description="Every chat delivers a notification when a provider turn finishes while the app is not focused. If disabled, notifications can still be enabled for individual chats."
+          title={t("settings.general.notifyTurnComplete.title")}
+          description={t("settings.general.notifyTurnComplete.description")}
         >
           <Switch
             checked={notifyEnabled}
@@ -1817,11 +1820,11 @@ function GeneralSection() {
           heading is just calling it out as worth a second thought. Log
           out moved to its own new Profile section -- per explicit request
           ("logout to go inside there instead of general"). */}
-      <SettingsSection title="Caution">
-        <SettingsRow title="Default general settings" description="Reset every setting on this page back to its default.">
+      <SettingsSection title={t("settings.general.caution")}>
+        <SettingsRow title={t("settings.general.resetDefaults.title")} description={t("settings.general.resetDefaults.description")}>
           <button type="button" className={SETTINGS_ACTION_BUTTON_CLASS} disabled={!anyChanged} onClick={restoreDefaults}>
             <RotateCcwIcon className="size-3.5" />
-            Reset
+            {t("settings.general.resetDefaults.button")}
           </button>
         </SettingsRow>
       </SettingsSection>
@@ -2196,18 +2199,27 @@ function listTimezoneGroups(): TimezoneGroup[] {
     });
 }
 
+// One shared LanguageValue now drives both this dropdown's own choice and,
+// via i18n.changeLanguage (issue #307) + spelling_language (issue #306),
+// the UI language and the AI's own reply language -- per explicit
+// confirmation ("one shared setting"), not two separate controls. The
+// former "More languages... Soon" placeholder is gone now that
+// LANGUAGE_OPTIONS (language.ts) actually lists six real, translated
+// languages alongside the three English variants.
 function LanguageRow() {
+  const { t } = useTranslation();
   const [language, setLanguageState] = useState(loadLanguage);
 
   function setLanguage(value: LanguageValue) {
     setLanguageState(value);
     saveLanguage(value);
+    void i18n.changeLanguage(uiLocaleFor(value));
   }
 
   const entry = LANGUAGE_OPTIONS.find((l) => l.value === language) ?? LANGUAGE_OPTIONS[0];
 
   return (
-    <SettingsRow id="setting-language" title="Language" description="Auto detects from your device. Change to your preference.">
+    <SettingsRow id="setting-language" title={t("settings.general.language.title")} description={t("settings.general.language.description")}>
       <BaseDropdownMenu size="compact">
         <BaseDropdownTrigger
           render={
@@ -2221,20 +2233,6 @@ function LanguageRow() {
           {LANGUAGE_OPTIONS.map((l, i) => (
             <BaseMenuItem key={l.value} index={i} label={l.label} checked={language === l.value} onSelect={() => setLanguage(l.value)} />
           ))}
-          <DropdownSeparator />
-          {/* Decorative, per explicit request -- MenuItem's own built-in `badge`
-              prop already covers this exact "coming soon" pill convention
-              (its own comment: "e.g. 'Coming soon' on a disabled row"). */}
-          <BaseMenuItem
-            index={LANGUAGE_OPTIONS.length}
-            label="More languages"
-            disabled
-            badge={
-              <span className="ml-1.5 shrink-0 rounded-[4px] bg-hover-2 px-1 py-0.5 text-[10px] font-normal text-muted-foreground">
-                Soon
-              </span>
-            }
-          />
         </BaseDropdownContent>
       </BaseDropdownMenu>
     </SettingsRow>

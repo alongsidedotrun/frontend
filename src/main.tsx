@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import * as Sentry from "@sentry/react";
 import { App } from "@/App";
 import { isTauri } from "@/hooks/use-tauri";
+import "@/i18n";
 import "@/index.css";
 
 // No right-click "Inspect Element"/"Reload" menu for real users -- per explicit request
