@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { EditorView } from "@codemirror/view";
@@ -150,11 +152,12 @@ const transparentBackground = Prec.highest(
 // come back") -- same shape a browser's own back/forward pair has, backed
 // by AppLayout.tsx's own panelNav history stack.
 function NavButtons({ canGoBack, canGoForward, onBack, onForward }: { canGoBack: boolean; canGoForward: boolean; onBack: () => void; onForward: () => void }) {
+  const { t } = useTranslation();
   return (
     <div className="flex shrink-0 items-center gap-0.5">
       <button
         type="button"
-        aria-label="Back"
+        aria-label={t("nav.goBack.ariaLabel")}
         disabled={!canGoBack}
         onClick={onBack}
         className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-hover-2/50 hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
@@ -163,7 +166,7 @@ function NavButtons({ canGoBack, canGoForward, onBack, onForward }: { canGoBack:
       </button>
       <button
         type="button"
-        aria-label="Forward"
+        aria-label={t("nav.goForward.ariaLabel")}
         disabled={!canGoForward}
         onClick={onForward}
         className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-hover-2/50 hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
@@ -239,6 +242,7 @@ function ChatFileListPanel({
   // telling it a new file just landed for the chat it's already showing.
   refreshSignal: number;
 }) {
+  const { t } = useTranslation();
   const [files, setFiles] = useState<{ filePath: string; lastModified: string }[] | null>(null);
   // Real bug, confirmed directly ("the sidebar is stuck at loading... and
   // its not showing us our library"): this fetch had no .catch at all, so
@@ -266,7 +270,7 @@ function ChatFileListPanel({
     // route registration comment has the full reasoning).
     fetch("/library/files")
       .then((res) => {
-        if (!res.ok) throw new Error(`Failed to load files (status ${res.status}).`);
+        if (!res.ok) throw new Error(i18n.t("rightPanel.loadFilesFailed", { status: res.status }));
         return res.json();
       })
       .then((rows: { file_path: string; chat_id: string; last_modified: string }[]) => {
@@ -342,15 +346,15 @@ function ChatFileListPanel({
         <div className="flex min-w-0 flex-1 items-center gap-1">
           <span className="flex items-center gap-1 truncate rounded-md bg-hover-2/50 px-2 py-1 text-[11px] font-medium text-foreground">
             <FolderIcon className="size-3.5 shrink-0" />
-            Library
+            {t("library.title")}
           </span>
           <span
             aria-disabled
-            title="Terminal is not available yet"
+            title={t("rightPanel.terminalUnavailable")}
             className="flex cursor-not-allowed items-center gap-1 truncate rounded-md px-2 py-1 text-[11px] text-muted-foreground opacity-50"
           >
             <TerminalIcon className="size-3.5 shrink-0" />
-            Terminal
+            {t("rightPanel.terminal")}
           </span>
         </div>
         {navButtons}
@@ -368,9 +372,9 @@ function ChatFileListPanel({
         {error ? (
           <p className="p-2 text-[13px] text-muted-foreground">{error}</p>
         ) : files === null ? (
-          <p className="p-2 text-[13px] text-muted-foreground">Loading...</p>
+          <p className="p-2 text-[13px] text-muted-foreground">{t("rightPanel.loading")}</p>
         ) : files.length === 0 ? (
-          <p className="p-2 text-[13px] text-muted-foreground">No files touched in this chat yet.</p>
+          <p className="p-2 text-[13px] text-muted-foreground">{t("rightPanel.noFiles")}</p>
         ) : (
           <div className="flex flex-col gap-0.5">
             {files.map((file) => (
@@ -413,6 +417,7 @@ function ChatFileListPanel({
 }
 
 function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose: () => void; navButtons: ReactNode }) {
+  const { t } = useTranslation();
   const [content, setContent] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -446,8 +451,8 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
     setView("blocks");
     fetch(`/files?path=${encodeURIComponent(path)}`)
       .then((res) => {
-        if (res.status === 404) throw new Error("This file no longer exists.");
-        if (!res.ok) throw new Error(`Failed to load file (status ${res.status}).`);
+        if (res.status === 404) throw new Error(i18n.t("rightPanel.fileGone"));
+        if (!res.ok) throw new Error(i18n.t("rightPanel.loadFileFailed", { status: res.status }));
         return res.text();
       })
       .then((text) => {
@@ -542,7 +547,7 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
             noticeably larger next to them. */}
         {dirty && (
           <Button size="xs" disabled={saving} onClick={() => void save()}>
-            Save
+            {t("common.save")}
           </Button>
         )}
         {/* Vertical "..." dropdown, not a standalone pen icon + a plain
@@ -553,18 +558,18 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
             way to close the panel. size="sm" (size-5), not "md" -- this
             row's own other icon buttons are all size-6 already. */}
         <BaseDropdownMenu size="compact">
-          <BaseDropdownTrigger render={<MoreTrigger orientation="vertical" size="sm" bg autoHide={false} aria-label="More" />} />
+          <BaseDropdownTrigger render={<MoreTrigger orientation="vertical" size="sm" bg autoHide={false} aria-label={t("common.more")} />} />
           <BaseDropdownContent align="end" className="w-40">
             {isMarkdown && (
               <BaseMenuItem
                 index={0}
                 icon={File02Icon}
-                label={view === "blocks" ? "Plain text" : "Show blocks"}
+                label={view === "blocks" ? t("rightPanel.plainText") : t("rightPanel.showBlocks")}
                 className="gap-[7px]"
                 onSelect={togglePlainText}
               />
             )}
-            <BaseMenuItem index={isMarkdown ? 1 : 0} icon={XIcon} label="Close" className="gap-[7px]" onSelect={onClose} />
+            <BaseMenuItem index={isMarkdown ? 1 : 0} icon={XIcon} label={t("common.close")} className="gap-[7px]" onSelect={onClose} />
           </BaseDropdownContent>
         </BaseDropdownMenu>
       </div>
@@ -642,7 +647,7 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
                       editor.tf.focus({ edge: "startEditor" });
                     }
                   }}
-                  placeholder="Untitled"
+                  placeholder={t("rightPanel.untitled")}
                   className="w-full border-0 bg-transparent px-[54px] pt-8 pb-1 font-bold text-foreground outline-none placeholder:text-muted-foreground/60"
                   style={{ fontSize: "clamp(20px, 6cqi, 32px)" }}
                 />
