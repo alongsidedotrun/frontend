@@ -1,3 +1,4 @@
+import { Trans, useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
@@ -16,12 +17,13 @@ import { ErrorText } from "@/lib/error-code";
 // than login-02's default (form left, image right), since that's the
 // design already shipped in the product today.
 export function AuthPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    document.title = "Sign in";
-  }, []);
+    document.title = t("auth.title");
+  }, [t]);
 
   // "Continue with email" (Story #239) is a real, staged flow now, not a
   // placeholder: email first, then branch on whether backend/src/db.rs's
@@ -50,7 +52,7 @@ export function AuthPage() {
   // profiles can carry different identities to verify multiplayer
   // attribution -- kept for continuity during the migration, not new scope.
   function continueWithPlaceholder() {
-    const name = window.prompt("What's your name?");
+    const name = window.prompt(t("auth.namePrompt"));
     setSignedIn(name ?? undefined);
     goToApp();
   }
@@ -73,7 +75,7 @@ export function AuthPage() {
       // connectivity problem, so this gets its own message instead of the
       // generic "could not reach the server" one.
       if (!response.ok) {
-        setError("Something went wrong checking your email. Try again. (ALS-014)");
+        setError(t("auth.errors.checkEmail"));
         return;
       }
       const { exists } = (await response.json()) as { exists: boolean };
@@ -84,7 +86,7 @@ export function AuthPage() {
       // provider or account problem. Reusing the exact message/code instead
       // of minting an auth-specific one, per project/ERRORS.md's own
       // precedent of one code covering every site that hits this condition.
-      setError("No connection to the application, make sure the application is running, then try again. (ALS-002)");
+      setError(t("settings.providers.noConnection"));
     } finally {
       setLoading(false);
     }
@@ -101,7 +103,7 @@ export function AuthPage() {
         body: JSON.stringify({ email: email.trim(), password }),
       });
       if (!response.ok) {
-        setError("Incorrect email or password. (ALS-015)");
+        setError(t("auth.errors.badCredentials"));
         return;
       }
       const account = (await response.json()) as { id: string; name: string; email: string };
@@ -113,7 +115,7 @@ export function AuthPage() {
       // provider or account problem. Reusing the exact message/code instead
       // of minting an auth-specific one, per project/ERRORS.md's own
       // precedent of one code covering every site that hits this condition.
-      setError("No connection to the application, make sure the application is running, then try again. (ALS-002)");
+      setError(t("settings.providers.noConnection"));
     } finally {
       setLoading(false);
     }
@@ -123,15 +125,15 @@ export function AuthPage() {
     event.preventDefault();
     setError(null);
     if (!fullName.trim()) {
-      setError("Enter your full name.");
+      setError(t("auth.errors.fullName"));
       return;
     }
     if (password.length < 8) {
-      setError("Password must be at least 8 characters long.");
+      setError(t("auth.errors.passwordLength"));
       return;
     }
     if (password !== confirmPassword) {
-      setError("Passwords do not match.");
+      setError(t("auth.errors.passwordMismatch"));
       return;
     }
     setLoading(true);
@@ -142,7 +144,7 @@ export function AuthPage() {
         body: JSON.stringify({ full_name: fullName.trim(), email: email.trim(), password }),
       });
       if (!response.ok) {
-        setError("Could not create your account. Try again. (ALS-016)");
+        setError(t("auth.errors.createAccount"));
         return;
       }
       const account = (await response.json()) as { id: string; name: string; email: string };
@@ -166,7 +168,7 @@ export function AuthPage() {
       // provider or account problem. Reusing the exact message/code instead
       // of minting an auth-specific one, per project/ERRORS.md's own
       // precedent of one code covering every site that hits this condition.
-      setError("No connection to the application, make sure the application is running, then try again. (ALS-002)");
+      setError(t("settings.providers.noConnection"));
     } finally {
       setLoading(false);
     }
@@ -221,7 +223,7 @@ export function AuthPage() {
             one line"), instead of wrapping across two lines at this panel's
             own width. */}
         <p className="font-sans text-sm leading-relaxed whitespace-nowrap opacity-50">
-          Multiplayer AI, for everyone.
+          {t("auth.tagline")}
         </p>
       </div>
 
@@ -238,7 +240,7 @@ export function AuthPage() {
           onClick={goToApp}
           className="absolute top-4 right-4 sm:top-6 sm:right-6 text-xs font-normal text-muted-foreground opacity-50 transition-opacity hover:opacity-100"
         >
-          Return to Alongside
+          {t("settings.returnToAlongside")}
         </button>
         <div className="w-full max-w-sm">
           <FieldGroup>
@@ -266,7 +268,7 @@ export function AuthPage() {
             {step === "start" && (
               <form onSubmit={submitEmail}>
                 <FieldGroup>
-                  <h1 className="font-sans font-semibold text-2xl text-center">Sign In</h1>
+                  <h1 className="font-sans font-semibold text-2xl text-center">{t("auth.signInHeading")}</h1>
 
                   <Field>
                     {/* border-border/bg-background + dark:border-[#282828]/
@@ -301,7 +303,7 @@ export function AuthPage() {
                           explicit request, instead of this page's own
                           one-off inline <svg>. */}
                       <img src="/icons/providers/google.svg" alt="" width={16} height={16} />
-                      Continue with Google
+                      {t("auth.continueGoogle")}
                     </Button>
                   </Field>
 
@@ -326,11 +328,11 @@ export function AuthPage() {
                           mark. Scaled down here instead, since this page has
                           no shared iconScale mechanism of its own to reuse. */}
                       <img src="/icons/providers/apple.svg" alt="" width={13} height={13} className="invert dark:invert-0" />
-                      Continue with Apple
+                      {t("auth.continueApple")}
                     </Button>
                   </Field>
 
-                  <FieldSeparator>Or continue with</FieldSeparator>
+                  <FieldSeparator>{t("auth.orContinueWith")}</FieldSeparator>
 
                   {/* Email typed right here on the same screen, not behind
                       its own separate "Continue with email" click-through --
@@ -340,7 +342,7 @@ export function AuthPage() {
                       a first click on a plain "Continue with email" button
                       with no field of its own. */}
                   <Field>
-                    <FieldLabel htmlFor="auth-email">Email</FieldLabel>
+                    <FieldLabel htmlFor="auth-email">{t("auth.email")}</FieldLabel>
                     {/* focus-visible:border-focus-accent -- the same blue
                         focus border compose-box.tsx's own textarea and the
                         sidebar/inbox search inputs use (sidebar-nav.tsx),
@@ -375,13 +377,15 @@ export function AuthPage() {
                       disabled={loading}
                       className="bg-[var(--send-button-bg)] text-white hover:bg-[var(--send-button-bg-hover)] active:bg-[var(--send-button-bg-active)] disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
                     >
-                      {loading ? "Checking" : "Continue with email"}
+                      {loading ? t("auth.checking") : t("auth.continueEmail")}
                     </Button>
                   </Field>
 
                   <FieldDescription className="text-center text-xs">
-                    By clicking continue, you agree to our <a href="#" className="underline">Terms of Service</a> and{" "}
-                    <a href="#" className="underline">Privacy Policy</a>.
+                    <Trans
+                      i18nKey="auth.terms"
+                      components={[<a href="#" className="underline" key="0" />, <a href="#" className="underline" key="1" />]}
+                    />
                   </FieldDescription>
                 </FieldGroup>
               </form>
@@ -390,13 +394,13 @@ export function AuthPage() {
             {step === "login" && (
               <form onSubmit={submitLogin}>
                 <FieldGroup>
-                  <h1 className="font-sans font-semibold text-2xl text-center">Welcome back</h1>
+                  <h1 className="font-sans font-semibold text-2xl text-center">{t("auth.welcomeBack")}</h1>
                   <Field>
-                    <FieldLabel htmlFor="auth-login-email">Email</FieldLabel>
+                    <FieldLabel htmlFor="auth-login-email">{t("auth.email")}</FieldLabel>
                     <Input id="auth-login-email" type="email" value={email} disabled />
                   </Field>
                   <Field>
-                    <FieldLabel htmlFor="auth-login-password">Password</FieldLabel>
+                    <FieldLabel htmlFor="auth-login-password">{t("auth.password")}</FieldLabel>
                     <Input
                       id="auth-login-password"
                       type="password"
@@ -410,7 +414,7 @@ export function AuthPage() {
                   {error && <p className="text-sm text-destructive"><ErrorText message={error} /></p>}
                   <Field>
                     <Button type="submit" disabled={loading}>
-                      {loading ? "Signing in..." : "Sign in"}
+                      {loading ? t("auth.signingIn") : t("common.signIn")}
                     </Button>
                   </Field>
                   <FieldDescription className="text-center">
@@ -424,7 +428,7 @@ export function AuthPage() {
                       className="text-muted-foreground underline transition-colors hover:text-foreground"
                       onClick={backToStart}
                     >
-                      Back
+                      {t("auth.back")}
                     </button>
                   </FieldDescription>
                 </FieldGroup>
@@ -435,13 +439,13 @@ export function AuthPage() {
               <form onSubmit={submitSignup}>
                 <FieldGroup>
                   <div className="flex flex-col items-center gap-2 text-center">
-                    <h1 className="font-sans font-semibold text-2xl">Create your account</h1>
+                    <h1 className="font-sans font-semibold text-2xl">{t("auth.createHeading")}</h1>
                     <p className="text-sm text-balance text-muted-foreground">
-                      This email is new to Alongside. Set up your account to continue.
+                      {t("auth.newEmail")}
                     </p>
                   </div>
                   <Field>
-                    <FieldLabel htmlFor="auth-full-name">Full name</FieldLabel>
+                    <FieldLabel htmlFor="auth-full-name">{t("auth.fullName")}</FieldLabel>
                     <Input
                       id="auth-full-name"
                       autoFocus
@@ -450,10 +454,10 @@ export function AuthPage() {
                       onChange={(event) => setFullName(event.target.value)}
                       className="focus-visible:border-focus-accent"
                     />
-                    <FieldDescription>This is how you will show up to other people in a chat.</FieldDescription>
+                    <FieldDescription>{t("auth.fullNameHint")}</FieldDescription>
                   </Field>
                   <Field>
-                    <FieldLabel htmlFor="auth-signup-email">Email</FieldLabel>
+                    <FieldLabel htmlFor="auth-signup-email">{t("auth.email")}</FieldLabel>
                     <Input
                       id="auth-signup-email"
                       type="email"
@@ -466,7 +470,7 @@ export function AuthPage() {
                   <Field>
                     <Field className="grid grid-cols-2 gap-4">
                       <Field>
-                        <FieldLabel htmlFor="auth-signup-password">Password</FieldLabel>
+                        <FieldLabel htmlFor="auth-signup-password">{t("auth.password")}</FieldLabel>
                         <Input
                           id="auth-signup-password"
                           type="password"
@@ -477,7 +481,7 @@ export function AuthPage() {
                         />
                       </Field>
                       <Field>
-                        <FieldLabel htmlFor="auth-confirm-password">Confirm password</FieldLabel>
+                        <FieldLabel htmlFor="auth-confirm-password">{t("auth.confirmPassword")}</FieldLabel>
                         <Input
                           id="auth-confirm-password"
                           type="password"
@@ -488,12 +492,12 @@ export function AuthPage() {
                         />
                       </Field>
                     </Field>
-                    <FieldDescription>Must be at least 8 characters long.</FieldDescription>
+                    <FieldDescription>{t("auth.passwordHint")}</FieldDescription>
                   </Field>
                   {error && <p className="text-sm text-destructive"><ErrorText message={error} /></p>}
                   <Field>
                     <Button type="submit" disabled={loading}>
-                      {loading ? "Creating account" : "Create account"}
+                      {loading ? t("auth.creating") : t("auth.createAccount")}
                     </Button>
                   </Field>
                   <FieldDescription className="text-center">
@@ -507,7 +511,7 @@ export function AuthPage() {
                       className="text-muted-foreground underline transition-colors hover:text-foreground"
                       onClick={backToStart}
                     >
-                      Back
+                      {t("auth.back")}
                     </button>
                   </FieldDescription>
                 </FieldGroup>
