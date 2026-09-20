@@ -2257,7 +2257,7 @@ function LanguageRow() {
             </button>
           }
         />
-        <BaseDropdownContent align="end" checkedIndex={LANGUAGE_OPTIONS.findIndex((l) => l.value === language)}>
+        <BaseDropdownContent align="end" className="min-w-52 whitespace-nowrap" checkedIndex={LANGUAGE_OPTIONS.findIndex((l) => l.value === language)}>
           {LANGUAGE_OPTIONS.map((l, i) => (
             <BaseMenuItem key={l.value} index={i} label={l.label} checked={language === l.value} onSelect={() => setLanguage(l.value)} />
           ))}
