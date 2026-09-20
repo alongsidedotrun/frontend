@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import { isPermissionGranted, requestPermission, sendNotification } from "@tauri-apps/plugin-notification";
 import { isChatNotificationsEnabled } from "@/lib/chat-notifications";
 import { isTauri } from "@/hooks/use-tauri";
@@ -60,6 +61,6 @@ export function notifyTurnComplete(chatName: string, chatId: string) {
   if (document.hasFocus()) return;
   isPermissionGranted().then((granted) => {
     if (!granted) return;
-    sendNotification({ title: chatName, body: "Turn complete" });
+    sendNotification({ title: chatName, body: i18n.t("notify.turnComplete") });
   });
 }

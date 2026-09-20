@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate, useOutlet, useLocation, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
@@ -152,6 +153,7 @@ function PageBreadcrumb({
   // spacing needs).
   models?: { provider: string; model: string }[];
 }) {
+  const { t } = useTranslation();
   const location = useLocation();
   const { sessionId } = useParams();
   // Click-to-edit, not a permanently-live input -- per explicit request
@@ -190,7 +192,7 @@ function PageBreadcrumb({
             own default text-sm (14px). */}
         <BreadcrumbList className="text-[13px]">
           <BreadcrumbItem>
-            <BreadcrumbPage>Home</BreadcrumbPage>
+            <BreadcrumbPage>{t("breadcrumb.home")}</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
@@ -218,7 +220,7 @@ function PageBreadcrumb({
             header's own 8px. */}
         <BreadcrumbList className="pl-2 text-[11px]">
           <BreadcrumbItem>
-            <BreadcrumbPage>Library</BreadcrumbPage>
+            <BreadcrumbPage>{t("library.title")}</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
@@ -384,7 +386,7 @@ function PageBreadcrumb({
                 />
                 <button
                   type="button"
-                  aria-label="Confirm chat name"
+                  aria-label={t("chatHeader.confirmName")}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={confirm}
                   className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground outline-hidden hover:bg-hover-2/50 hover:text-foreground"
@@ -393,7 +395,7 @@ function PageBreadcrumb({
                 </button>
                 <button
                   type="button"
-                  aria-label="Cancel editing chat name"
+                  aria-label={t("chatHeader.cancelName")}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={cancel}
                   className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground outline-hidden hover:bg-hover-2/50 hover:text-foreground"
@@ -491,6 +493,7 @@ const SIDEBAR_HIDDEN_ROUTES = ["/docs", "/help"];
 const SETTINGS_NAV_SECTIONS: SettingsSection[] = ["profile", "general", "appearance", "chat", "provider", "apps"];
 
 export function AppLayout() {
+  const { t } = useTranslation();
   // Quick chat/Memory/Share/members only make sense once there's an actual
   // chat open -- they're all chat-scoped concepts (which model this chat
   // uses, this chat's memory, sharing *this* chat, who's *in* this chat),
@@ -1380,7 +1383,7 @@ export function AppLayout() {
                     (Home, Library, etc.). */}
                 <button
                   type="button"
-                  aria-label="Chat files"
+                  aria-label={t("chatHeader.chatFiles")}
                   // hasOpenChat || rightPanel !== null, not just !sessionId
                   // -- real bug, confirmed directly ("the collapse right
                   // sidebar should be active only when we open a file so we
@@ -1484,11 +1487,11 @@ export function AppLayout() {
                   <BaseDropdownMenu size="compact">
                     <BaseDropdownTrigger
                       render={
-                        <MoreTrigger orientation="vertical" size="md" bg autoHide={false} aria-label="Chat options" />
+                        <MoreTrigger orientation="vertical" size="md" bg autoHide={false} aria-label={t("chatHeader.chatOptions")} />
                       }
                     />
                     <BaseDropdownContent align="end" className="w-40">
-                      <BaseDropdownLabel>More</BaseDropdownLabel>
+                      <BaseDropdownLabel>{t("common.more")}</BaseDropdownLabel>
                       {/* Enable/Disable notification first -- per explicit
                           follow-up ("remove the allowed commands option and
                           move Enable notifications to the top as that's the
@@ -1499,7 +1502,7 @@ export function AppLayout() {
                       <BaseMenuItem
                         index={0}
                         icon={BellIcon}
-                        label={chatNotifyEnabled ? "Disable notification" : "Enable notification"}
+                        label={chatNotifyEnabled ? t("chatHeader.disableNotification") : t("chatHeader.enableNotification")}
                         className="gap-[7px]"
                         onSelect={() => {
                           setChatNotificationsEnabled(sessionId, !chatNotifyEnabled);
@@ -1525,7 +1528,7 @@ export function AppLayout() {
                       <BaseMenuItem
                         index={1}
                         icon={ShareIcon}
-                        label="Share chat"
+                        label={t("chatHeader.shareChat")}
                         disabled={!isSignedIn}
                         className="gap-[7px]"
                         badge={
@@ -1548,7 +1551,7 @@ export function AppLayout() {
                                   so it stays correct if this tooltip pattern
                                   ever gets reused inside a deeper nested
                                   menu. */}
-                              <TooltipContent className="z-[9999]">The share feature is only available when signed in.</TooltipContent>
+                              <TooltipContent className="z-[9999]">{t("chatHeader.shareSignedIn")}</TooltipContent>
                             </Tooltip>
                           )
                         }
@@ -1579,13 +1582,13 @@ export function AppLayout() {
                         <BaseMenuItem
                           index={2}
                           icon={FolderIcon}
-                          label="Remove from project"
+                          label={t("nav.chat.removeFromProject")}
                           className="gap-[7px]"
                           onSelect={() => void assignChatToProject(null)}
                         />
                       ) : sidebarProjects.length > 0 ? (
-                        <DropdownSubMenuItem index={2} icon={FolderIcon} label="Add to project" className="gap-[7px] text-[12px]">
-                          <BaseDropdownLabel>Projects</BaseDropdownLabel>
+                        <DropdownSubMenuItem index={2} icon={FolderIcon} label={t("nav.chat.addToProject")} className="gap-[7px] text-[12px]">
+                          <BaseDropdownLabel>{t("nav.projects")}</BaseDropdownLabel>
                           {sidebarProjects.map((project) => (
                             <DropdownSubItem
                               key={project.id}
@@ -1600,7 +1603,7 @@ export function AppLayout() {
                         // Plain, disabled row, not a submenu -- same fix as
                         // sidebar-nav.tsx's own ChatRow (that file's own
                         // comment has the full reasoning/screenshot).
-                        <BaseMenuItem index={2} icon={FolderIcon} label="Add to project" className="gap-[7px]" disabled />
+                        <BaseMenuItem index={2} icon={FolderIcon} label={t("nav.chat.addToProject")} className="gap-[7px]" disabled />
                       )}
                     </BaseDropdownContent>
                   </BaseDropdownMenu>
@@ -1836,7 +1839,7 @@ export function AppLayout() {
             {sidebarFullyCollapsed && (
               <button
                 type="button"
-                aria-label="Expand sidebar"
+                aria-label={t("chatHeader.expandSidebar")}
                 onClick={() => setSidebarExpandSignal((n) => n + 1)}
                 className={`fixed top-2 ${trafficLightsVisible ? "left-[74px]" : "left-2"} z-20 flex size-5 shrink-0 items-center justify-center rounded-[6px] text-muted-foreground transition-colors duration-150 hover:bg-hover-2/50 hover:text-foreground active:scale-[0.98]`}
               >

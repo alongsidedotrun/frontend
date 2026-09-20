@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next"
 import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { cn } from "@/lib/utils"
@@ -85,6 +86,7 @@ export function NavUserProfileHeader({
 // menu instead (see that component's own comment), and both call sites
 // provide their own DropdownMenuContent.
 export function NavUserMenuItems({ onOpenSettings }: { onOpenSettings?: () => void } = {}) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const usagePercents = useProviderUsagePercents()
 
@@ -116,18 +118,18 @@ export function NavUserMenuItems({ onOpenSettings }: { onOpenSettings?: () => vo
       <BaseMenuItem
         index={0}
         icon={SettingsIcon}
-        label="Settings"
+        label={t("nav.settings")}
         className="gap-[7px]"
         onSelect={() => (onOpenSettings ? onOpenSettings() : navigate("/settings"))}
       />
-      <BaseMenuItem index={1} icon={DocsIcon} label="Docs" className="gap-[7px]" onSelect={() => navigate("/docs")} />
-      <BaseMenuItem index={2} icon={HelpCircleIcon} label="Help" className="gap-[7px]" onSelect={() => navigate("/help")} />
+      <BaseMenuItem index={1} icon={DocsIcon} label={t("nav.docs")} className="gap-[7px]" onSelect={() => navigate("/docs")} />
+      <BaseMenuItem index={2} icon={HelpCircleIcon} label={t("nav.helpItem")} className="gap-[7px]" onSelect={() => navigate("/help")} />
       {/* Appearance removed from here -- per explicit request ("remove the
           appearance from the avatar dropdown as we will control that via
           settings"): theme is now only set from Settings -> Appearance
           (settings-overlay.tsx's own AppearanceSection), not duplicated
           here too. */}
-      <BaseMenuItem index={3} icon={LogOutIcon} label="Log out" className="gap-[7px]" />
+      <BaseMenuItem index={3} icon={LogOutIcon} label={t("common.logOut")} className="gap-[7px]" />
       {/* text-foreground opacity-50, not text-ink-3 -- per explicit
           request ("make sure those describers match the style of the
           describer at the sidebar"): this used to say text-ink-3 matched
@@ -142,7 +144,7 @@ export function NavUserMenuItems({ onOpenSettings }: { onOpenSettings?: () => vo
           "Models Usage" -- per explicit request, now that each row is a
           provider (real per-provider message counts, see
           useProviderUsagePercents above), not a specific model any more. */}
-      <BaseDropdownLabel className="mt-4 text-xs font-normal text-foreground opacity-50">Provider usage</BaseDropdownLabel>
+      <BaseDropdownLabel className="mt-4 text-xs font-normal text-foreground opacity-50">{t("settings.providers.usage.title")}</BaseDropdownLabel>
       {USAGE_PROVIDERS.map((model, i) => (
         // CustomMenuItem, not MenuItem -- this row's real content (the
         // usage bars) doesn't fit MenuItem's fixed icon+label+check
@@ -186,6 +188,7 @@ export function NavUserMenuItems({ onOpenSettings }: { onOpenSettings?: () => vo
 // bar's own NavUser/mobile hamburger menu keep the full NavUserMenuItems
 // above unchanged -- this split is sidebar-specific.
 export function AccountMenuItems() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const notifications = useTurnNotifications()
   const isSignedIn = useIsSignedIn()
@@ -232,14 +235,14 @@ export function AccountMenuItems() {
           before the list starts, on top of the justify-between that was
           already spacing the label and button apart from each other. */}
       <div className="mt-2 mb-1 flex items-center justify-between gap-2 px-2">
-        <span className="text-xs font-normal text-foreground opacity-50">Notifications</span>
+        <span className="text-xs font-normal text-foreground opacity-50">{t("settings.general.notifications")}</span>
         {notifications.length > 0 && (
           <button
             type="button"
             onClick={() => dismissAllTurnNotifications()}
             className="text-[11px] font-normal text-muted-foreground hover:text-foreground"
           >
-            Dismiss all
+            {t("nav.notifications.dismissAll")}
           </button>
         )}
       </div>
@@ -262,7 +265,7 @@ export function AccountMenuItems() {
           onMouseEnter={() => setActiveIndex?.(null)}
           onMouseMove={(event) => event.stopPropagation()}
         >
-          No notifications
+          {t("nav.notifications.empty")}
         </div>
       ) : (
         // max-h-[208px] (4 * 52px rows) + overflow-y-auto -- per explicit
@@ -289,7 +292,7 @@ export function AccountMenuItems() {
             >
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium text-foreground">{notification.chatName}</p>
-                <p className="truncate">{notification.modelLabel} replied to the chat.</p>
+                <p className="truncate">{t("nav.notifications.replied", { model: notification.modelLabel })}</p>
                 <p className="opacity-50">{formatNotificationTime(notification.timestamp)}</p>
               </div>
               <button
@@ -299,7 +302,7 @@ export function AccountMenuItems() {
                   dismissTurnNotification(notification.id)
                 }}
                 className="shrink-0 rounded-full p-0.5 text-muted-foreground hover:text-foreground"
-                aria-label="Dismiss notification"
+                aria-label={t("nav.notifications.dismiss")}
               >
                 <XIcon className="size-3.5" />
               </button>
@@ -330,7 +333,7 @@ export function AccountMenuItems() {
       <BaseMenuItem
         index={notifications.length}
         icon={UserIcon}
-        label="Profile"
+        label={t("settings.nav.profile")}
         className="gap-[7px] pl-2.5"
         onSelect={() => navigate("/settings/profile")}
       />
@@ -353,22 +356,26 @@ export function AccountMenuItems() {
 
 // Matches WelcomePage.tsx's own "Coming soon" badge exactly (same classes),
 // so a disabled row reads consistently wherever it shows up in the app.
-const COMING_SOON_BADGE = (
-  <span className="ml-1.5 shrink-0 rounded-[4px] bg-hover-2 px-1 py-0.5 text-[10px] font-normal text-muted-foreground">
-    Soon
-  </span>
-)
+function ComingSoonBadge() {
+  const { t } = useTranslation()
+  return (
+    <span className="ml-1.5 shrink-0 rounded-[4px] bg-hover-2 px-1 py-0.5 text-[10px] font-normal text-muted-foreground">
+      {t("compose.soon")}
+    </span>
+  )
+}
 
 // Sidebar footer's own new Help dropdown (Docs + Keybindings) -- split out
 // of the avatar dropdown alongside AccountMenuItems above, per the same
 // request. Both disabled with a "Coming soon" badge now -- per explicit
 // request, ahead of the docs/keybindings features actually existing.
 export function HelpMenuItems() {
+  const { t } = useTranslation()
   return (
     <>
-      <BaseDropdownLabel>Help</BaseDropdownLabel>
-      <BaseMenuItem index={0} icon={DocsIcon} label="Docs" className="gap-[7px]" disabled badge={COMING_SOON_BADGE} />
-      <BaseMenuItem index={1} icon={KeybindingsIcon} label="Keybindings" className="gap-[7px]" disabled badge={COMING_SOON_BADGE} />
+      <BaseDropdownLabel>{t("nav.helpItem")}</BaseDropdownLabel>
+      <BaseMenuItem index={0} icon={DocsIcon} label={t("nav.docs")} className="gap-[7px]" disabled badge={<ComingSoonBadge />} />
+      <BaseMenuItem index={1} icon={KeybindingsIcon} label={t("nav.keybindings")} className="gap-[7px]" disabled badge={<ComingSoonBadge />} />
     </>
   )
 }
@@ -387,6 +394,7 @@ export function NavUser({
     avatar: string
   }
 }) {
+  const { t } = useTranslation()
   const triggerRef = useRef<HTMLButtonElement>(null)
 
   return (
@@ -473,7 +481,7 @@ export function NavUser({
             that component's own comment) -- this one is specific to the
             desktop dropdown, not part of the shared NavUserMenuItems
             component. */}
-        <DropdownMenuLabel className="mt-2 text-xs font-normal text-foreground opacity-50">App</DropdownMenuLabel>
+        <DropdownMenuLabel className="mt-2 text-xs font-normal text-foreground opacity-50">{t("nav.app")}</DropdownMenuLabel>
         <NavUserMenuItems />
       </DropdownMenuContent>
     </DropdownMenu>

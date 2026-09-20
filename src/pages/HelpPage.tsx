@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useEffect } from "react";
 import { PageContent } from "@/components/page-content";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -8,9 +9,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 // the compose box's own column (and every other new page) before any of
 // them get real content.
 export function HelpPage() {
+  const { t } = useTranslation();
   useEffect(() => {
-    document.title = "Help";
-  }, []);
+    document.title = t("nav.helpItem");
+  }, [t]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
