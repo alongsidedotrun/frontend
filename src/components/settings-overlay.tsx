@@ -127,7 +127,11 @@ const SETTINGS_ACTION_BUTTON_CLASS = `flex items-center gap-1.5 border border-bo
 // and justify-between (icon+label left, chevron right) instead of each
 // trigger sizing to its own label's length, so the two line up instead of
 // one being visibly narrower.
-const SETTINGS_DROPDOWN_TRIGGER_CLASS = `flex w-32 items-center justify-between gap-1.5 border border-border px-2.5 py-1.5 text-[12px] text-foreground hover:bg-muted/30 ${SETTINGS_CONTROL_RADIUS}`;
+const SETTINGS_DROPDOWN_TRIGGER_BASE = `flex items-center justify-between gap-1.5 border border-border px-2.5 py-1.5 text-[12px] text-foreground hover:bg-muted/30 ${SETTINGS_CONTROL_RADIUS}`;
+const SETTINGS_DROPDOWN_TRIGGER_CLASS = `${SETTINGS_DROPDOWN_TRIGGER_BASE} w-32`;
+// Fits its content (never narrower than the standard w-32) -- for triggers whose
+// label length varies by language, instead of hardcoding a wider fixed width.
+const SETTINGS_DROPDOWN_TRIGGER_FIT_CLASS = `${SETTINGS_DROPDOWN_TRIGGER_BASE} w-max min-w-32 whitespace-nowrap`;
 
 // SettingsSection -- label sits directly above the card with no box of its
 // own (Synara's own pattern: a plain muted label, not a boxed header), then
@@ -2251,7 +2255,7 @@ function LanguageRow() {
       <BaseDropdownMenu size="compact">
         <BaseDropdownTrigger
           render={
-            <button type="button" className={`${SETTINGS_DROPDOWN_TRIGGER_CLASS} w-44 whitespace-nowrap`}>
+            <button type="button" className={SETTINGS_DROPDOWN_TRIGGER_FIT_CLASS}>
               {entry.label}
               <ChevronDownIcon className="size-3.5 text-muted-foreground" />
             </button>
