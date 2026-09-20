@@ -2251,7 +2251,7 @@ function LanguageRow() {
       <BaseDropdownMenu size="compact">
         <BaseDropdownTrigger
           render={
-            <button type="button" className={SETTINGS_DROPDOWN_TRIGGER_CLASS}>
+            <button type="button" className={`${SETTINGS_DROPDOWN_TRIGGER_CLASS} w-44 whitespace-nowrap`}>
               {entry.label}
               <ChevronDownIcon className="size-3.5 text-muted-foreground" />
             </button>
