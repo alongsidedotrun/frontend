@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { PROVIDER_DISPLAY, ProviderIcon, QUICK_CHAT_MODELS, modelDisplayName } from "@/lib/quick-chat-models";
 import { defaultEffortFor, effortLabel, EFFORT_LEVELS, type EffortLevel } from "@/lib/effort";
 import { loadLastEffort, loadLastPermissionMode, saveLastEffort, saveLastPermissionMode } from "@/lib/last-used";
@@ -88,7 +90,7 @@ let cliAvailabilityCache: Record<string, boolean> = {};
 // didn't need a wider API change for what's now just a stricter
 // selection rule.
 function modelSelectionLabel(selected: typeof QUICK_CHAT_MODELS) {
-  if (selected.length === 0) return "Model";
+  if (selected.length === 0) return i18n.t("compose.model");
   return modelDisplayName(selected[0]);
 }
 
@@ -112,12 +114,12 @@ function modelSelectionLabel(selected: typeof QUICK_CHAT_MODELS) {
 // here, own copy (this app has no real permission-scoping system to
 // describe yet, so this states each stance's own actual behavior instead
 // of Synara's file/internet-access-specific wording).
-type PermissionModeOption = { value: "manual" | "ask" | "auto" | "plan"; label: string; description: string };
+type PermissionModeOption = { value: "manual" | "ask" | "auto" | "plan"; labelKey: string; descriptionKey: string };
 
 const MODES: PermissionModeOption[] = [
-  { value: "manual", label: "Manual", description: "Always ask before making changes" },
-  { value: "ask", label: "Ask", description: "Only ask when something looks risky" },
-  { value: "auto", label: "Auto", description: "Act freely without asking" },
+  { value: "manual", labelKey: "compose.permission.manual.label", descriptionKey: "compose.permission.manual.description" },
+  { value: "ask", labelKey: "compose.permission.ask.label", descriptionKey: "compose.permission.ask.description" },
+  { value: "auto", labelKey: "compose.permission.auto.label", descriptionKey: "compose.permission.auto.description" },
 ];
 
 // Antigravity has no real per-action approval prompt at all (agy's own
@@ -129,8 +131,8 @@ const MODES: PermissionModeOption[] = [
 // ("change permissions from the standard to Plan instead of Manual,
 // Remove Ask, and Keep Auto").
 const ANTIGRAVITY_MODES: PermissionModeOption[] = [
-  { value: "plan", label: "Plan", description: "Propose changes without writing files" },
-  { value: "auto", label: "Auto", description: "Act freely without asking" },
+  { value: "plan", labelKey: "compose.permission.plan.label", descriptionKey: "compose.permission.plan.description" },
+  { value: "auto", labelKey: "compose.permission.auto.label", descriptionKey: "compose.permission.auto.description" },
 ];
 
 
@@ -358,9 +360,9 @@ function compactTokenCount(n: number) {
 // set by default, Compact at 250k, Compact at 100k"), 500k is the default,
 // not "Auto".
 const AUTOCOMPACT_OPTIONS = [
-  { value: "500000", label: "Compact at 500k" },
-  { value: "250000", label: "Compact at 250k" },
-  { value: "100000", label: "Compact at 100k" },
+  { value: "500000", threshold: "500k" },
+  { value: "250000", threshold: "250k" },
+  { value: "100000", threshold: "100k" },
 ] as const;
 
 // Moved to sit beside the model name (was its own separate item further along
@@ -428,6 +430,7 @@ function ContextDropdown({
   autocompactScope: "chat" | "project" | "global";
   onSetAutocompact: (value: string) => void;
 }) {
+  const { t } = useTranslation();
   // "Compact now" -- Claude/Antigravity via a real "/compact" chat turn,
   // Codex (issue #265) via the real `thread/compact/start` RPC behind
   // POST /sessions/{id}/compact (see ChatPage.tsx's own call site comment).
@@ -469,7 +472,7 @@ function ContextDropdown({
           // explain itself, same complaint that one drew.
           <button
             type="button"
-            aria-label={`Context: ${compactTokenCount(used)} tokens used`}
+            aria-label={t("compose.context.ariaLabel", { used: compactTokenCount(used) })}
             className={`flex shrink-0 items-center gap-1 rounded-full px-1 text-[11px] text-ink-3 transition-opacity duration-300 hover:text-foreground focus:outline-none ${mounted ? "opacity-100" : "opacity-0"}`}
           >
             <ContextRing
@@ -481,7 +484,7 @@ function ContextDropdown({
       />
       <BaseDropdownContent side="top" align="center" sideOffset={6} className="w-52 min-w-0">
         <BaseDropdownLabel>
-          {autocompactScope === "project" ? "Context per project" : autocompactScope === "global" ? "Global context" : "Context per chat"}
+          {autocompactScope === "project" ? t("settings.chat.compactPerProject.title") : autocompactScope === "global" ? t("settings.chat.compactGlobal.title") : t("settings.chat.compactPerChat.title")}
         </BaseDropdownLabel>
         {/* No provider icon/name here any more -- per explicit request ("remove the
             providers at the dropdown as that does not make sense"): the compact
@@ -489,7 +492,7 @@ function ContextDropdown({
             identity, so showing a provider mark next to it implied a scoping that
             no longer exists. */}
         <div className="px-2.5 py-1.5 text-[12px] text-muted-foreground">
-          {compactTokenCount(used)} out of {compactTokenCount(compactThreshold * Math.max(1, modelCount))} tokens
+          {t("compose.context.usage", { used: compactTokenCount(used), total: compactTokenCount(compactThreshold * Math.max(1, modelCount)) })}
         </div>
         {(canCompact || canAutoCompact) && (
           <>
@@ -502,7 +505,7 @@ function ContextDropdown({
                 <BaseMenuItem
                   key={option.value}
                   index={i}
-                  label={option.label}
+                  label={t("compose.compactAt", { threshold: option.threshold })}
                   className={autocompactValue === option.value ? "bg-hover-2" : undefined}
                   onSelect={() => onSetAutocompact(option.value)}
                 />
@@ -510,7 +513,7 @@ function ContextDropdown({
             {canCompact && onCompactNow && (
               <>
                 <DropdownSeparator />
-                <BaseMenuItem index={AUTOCOMPACT_OPTIONS.length} label="Compact now" onSelect={onCompactNow} />
+                <BaseMenuItem index={AUTOCOMPACT_OPTIONS.length} label={t("compose.compactNow")} onSelect={onCompactNow} />
               </>
             )}
           </>
@@ -533,12 +536,13 @@ function EffortSliderPanel({
   effort: EffortLevel;
   onChange: (level: EffortLevel) => void;
 }) {
+  const { t } = useTranslation();
   const activeIndex = EFFORT_LEVELS.indexOf(effort);
 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] font-medium text-muted-foreground">Effort</span>
+        <span className="text-[11px] font-medium text-muted-foreground">{t("compose.effort")}</span>
         {/* text-[var(--send-button-bg)] -- the exact same blue the send
             button's own background uses (index.css's own --send-button-bg
             token, itself just var(--focus-accent)), per explicit request
@@ -581,7 +585,7 @@ function EffortSliderPanel({
           max={EFFORT_LEVELS.length - 1}
           step={1}
           value={activeIndex}
-          aria-label="Effort"
+          aria-label={t("compose.effort")}
           onPointerDown={(event) => event.stopPropagation()}
           onChange={(event) => onChange(EFFORT_LEVELS[Number(event.target.value)])}
           // h-3.5, matching the thumb's own size-3.5 -- per explicit follow-up
@@ -723,6 +727,7 @@ export function ComposeBox({
   autocompactScope: "chat" | "project" | "global";
   onSetAutocompact: (value: string) => void;
 }) {
+  const { t } = useTranslation();
   const [selectedModels, setSelectedModels] = useState(() => {
     const initial = QUICK_CHAT_MODELS.find((m) => m.value === defaultModelValue);
     return initial ? [initial] : [];
@@ -1047,7 +1052,7 @@ export function ComposeBox({
     }
     const Recognition = getSpeechRecognition();
     if (!Recognition) {
-      window.alert("Speech-to-text is not supported in this browser. (ALS-010)");
+      window.alert(t("compose.speechUnsupported"));
       return;
     }
     const recognition = new Recognition();
@@ -1420,7 +1425,7 @@ export function ComposeBox({
                 />
                 <button
                   type="button"
-                  aria-label={`Remove ${image.name}`}
+                  aria-label={t("compose.removeImage", { name: image.name })}
                   onClick={() => setImages((current) => current.filter((i) => i.id !== image.id))}
                   className="absolute -top-1.5 -right-1.5 flex size-4.5 items-center justify-center rounded-full border border-border bg-background text-ink-3 opacity-0 transition-opacity group-hover/attachment:opacity-100 hover:text-ink"
                 >
@@ -1577,7 +1582,7 @@ export function ComposeBox({
             size="icon"
             variant={listening ? "default" : "ghost"}
             onClick={toggleSpeechToText}
-            aria-label={listening ? "Stop dictation" : "Start dictation"}
+            aria-label={listening ? t("compose.dictation.stop") : t("compose.dictation.start")}
             // text-foreground, not text-ink-2 -- per explicit request ("the
             // compose box... tools needs to be updated to the new color"),
             // matching the sidebar's own move off its dimmer resting tone.
@@ -1601,7 +1606,7 @@ export function ComposeBox({
             )}
           </Button>
           {awaitingReply ? (
-            <Button size="icon" variant="outline" onClick={onStop} aria-label="Stop" className="size-[30px]">
+            <Button size="icon" variant="outline" onClick={onStop} aria-label={t("compose.stop")} className="size-[30px]">
               <SquareIcon className="fill-current" />
             </Button>
           ) : (
@@ -1623,7 +1628,7 @@ export function ComposeBox({
                 onSubmit(images, effort);
                 setImages([]);
               }}
-              aria-label="Send"
+              aria-label={t("compose.send")}
               // hover/active reference index.css's own
               // --send-button-bg-hover/-active tokens (color-mix computed
               // there, in plain CSS, not inline here -- see that token's
@@ -1672,7 +1677,7 @@ export function ComposeBox({
               <Button
                 variant="ghost"
                 size="icon"
-                aria-label="Add attachment"
+                aria-label={t("compose.addAttachment")}
                 className="size-[28px] text-foreground hover:bg-hover-2/50"
               >
                 {/* size-3.5 (14px), not size-4 (16px) -- per an app-wide
@@ -1684,16 +1689,16 @@ export function ComposeBox({
             }
           />
           <BaseDropdownContent side="top" align="start" sideOffset={6} className="w-40 min-w-0">
-            <BaseDropdownLabel>Add</BaseDropdownLabel>
+            <BaseDropdownLabel>{t("common.add")}</BaseDropdownLabel>
             <DropdownSubItem className="text-[12px] whitespace-nowrap" onClick={openFilePicker}>
               <AttachmentIcon className="mr-2 inline size-3.5 shrink-0 align-[-3px]" />
-              Files
+              {t("compose.files")}
             </DropdownSubItem>
             <DropdownSubItem className="text-[12px] whitespace-nowrap" disabled>
               <SkillIcon className="mr-2 inline size-3.5 shrink-0 align-[-3px]" />
-              Skills
+              {t("compose.skills")}
               <span className="ml-1.5 shrink-0 rounded-[4px] bg-hover-2 px-1 py-0.5 text-[10px] font-normal text-muted-foreground">
-                Soon
+                {t("compose.soon")}
               </span>
             </DropdownSubItem>
           </BaseDropdownContent>
@@ -1805,7 +1810,7 @@ export function ComposeBox({
                 directly under "any raw Menu.Popup", not only nested inside
                 a DropdownSubMenuItem's own submenu -- exactly what's used
                 here now. */}
-            <BaseDropdownLabel>Models</BaseDropdownLabel>
+            <BaseDropdownLabel>{t("compose.models")}</BaseDropdownLabel>
             {/* Capped at 6 rows (6 * h-7 = 168px), scrolling beyond that --
                 same cap-then-scroll treatment as the notifications list
                 (nav-user.tsx's own max-h-[208px] for 4 * 52px rows), per
@@ -1925,7 +1930,7 @@ export function ComposeBox({
                       className="py-1.5 pr-2.5 pl-2.5 text-[12px] whitespace-nowrap"
                       onClick={() => void setAsDefaultModel(m)}
                     >
-                      {chatId ? "Set as default for this chat" : "Set as default for new chat"}
+                      {chatId ? t("compose.setDefault.chat") : t("compose.setDefault.newChat")}
                     </DropdownRowActionItem>
                   </DropdownRowActionMenu>
                 </DropdownSubItem>
@@ -1963,7 +1968,7 @@ export function ComposeBox({
               onClick={() => onOpenSettings?.()}
             >
               <PlusIcon className="size-3.5 shrink-0" />
-              Add model
+              {t("compose.addModel")}
             </DropdownSubItem>
           </BaseDropdownContent>
         </BaseDropdownMenu>
@@ -2027,7 +2032,10 @@ export function ComposeBox({
                 size="sm"
                 className="h-[28px] px-1.5 text-xs font-normal text-foreground hover:bg-hover-2/50 aria-expanded:bg-hover-2/50"
               >
-                {modes.find((m) => m.value === mode)?.label}
+                {(() => {
+                  const found = modes.find((m) => m.value === mode);
+                  return found ? t(found.labelKey) : null;
+                })()}
                 <ChevronDownIcon className="size-3.5 shrink-0" />
               </Button>
             }
@@ -2055,7 +2063,7 @@ export function ComposeBox({
                 own CLI calls this exact concept "permission mode"
                 (--permission-mode), the primary provider here, so that term
                 over Synara's own "runtime mode" naming. */}
-            <BaseDropdownLabel>Permission</BaseDropdownLabel>
+            <BaseDropdownLabel>{t("compose.permission.title")}</BaseDropdownLabel>
             {modes.map((m) => (
               <DropdownSubItem
                 key={m.value}
@@ -2074,9 +2082,9 @@ export function ComposeBox({
                 }}
               >
                 <span className="flex w-full items-center justify-between gap-2">
-                  <span>{m.label}</span>
+                  <span>{t(m.labelKey)}</span>
                 </span>
-                <span className="text-[11px] font-normal text-muted-foreground">{m.description}</span>
+                <span className="text-[11px] font-normal text-muted-foreground">{t(m.descriptionKey)}</span>
               </DropdownSubItem>
             ))}
           </BaseDropdownContent>
