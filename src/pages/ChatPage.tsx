@@ -1,3 +1,5 @@
+import { Trans, useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { useOutletContext, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
@@ -316,6 +318,7 @@ function nextRowId() {
 // is; that's the part actually worth porting, the typing animation was
 // pure flourish on top of it.
 export function ChatPage() {
+  const { t } = useTranslation();
   const { sessionId } = useParams<{ sessionId: string }>();
   // Lifted to AppLayout now (per explicit request -- the chat's name lives
   // in the top bar's breadcrumb, not a second bar this page rendered
@@ -813,7 +816,7 @@ export function ChatPage() {
     // cancellation/timeout, which is the ONLY record that request ever
     // happened at all (the command never runs, so nothing else logs it).
     if (resolvedToolName && !isFileWrite && status !== "pending" && status !== "allow") {
-      const label = status === "cancelled" ? "Withdrawn" : status === "timed_out" ? "Denied (timed out)" : "Denied";
+      const label = status === "cancelled" ? i18n.t("chat.perm.withdrawn") : status === "timed_out" ? i18n.t("chat.perm.deniedTimedOut") : i18n.t("chat.perm.denied");
       addLiveToolCallLine(toolDisplayLabel(resolvedToolName), label);
     }
   }
@@ -876,7 +879,7 @@ export function ChatPage() {
         const value = event.model as string;
         const found = QUICK_CHAT_MODELS.find((m) => m.value === value);
         if (found) modelRef.current = found;
-        pushMarker(`Switched to ${found?.label ?? value}`);
+        pushMarker(i18n.t("chat.switchedTo", { model: found?.label ?? value }));
         return;
       }
 
@@ -962,12 +965,12 @@ export function ChatPage() {
       }
 
       if (type === "user_joined") {
-        pushMarker(`${event.name} joined the session`);
+        pushMarker(i18n.t("chat.userJoined", { name: event.name }));
         return;
       }
 
       if (type === "host_notice") {
-        pushMarker(`${event.name} has ${event.enabled ? "enabled" : "disabled"} session to this chat`);
+        pushMarker(i18n.t(event.enabled ? "chat.hostEnabled" : "chat.hostDisabled", { name: event.name }));
         return;
       }
 
@@ -1182,10 +1185,10 @@ export function ChatPage() {
         // today (claude_direct.rs's own rate_limit_info parsing) but the
         // copy should not bake that in as if it always will be true.
         const text = event.gave_up
-          ? "Provider usage limit reached, no more attempts available. Please wait a moment and try again. (ALS-012)"
+          ? i18n.t("chat.usageLimit.gaveUp")
           : resetsAtLabel
-            ? `Provider usage limit reached, resets around ${resetsAtLabel}, still waiting. (ALS-011)`
-            : "Provider usage limit reached, still waiting, this may take a bit longer than usual. (ALS-011)";
+            ? i18n.t("chat.usageLimit.resets", { time: resetsAtLabel })
+            : i18n.t("chat.usageLimit.waiting");
         pushRow({ kind: "command", id: nextRowId(), text, time: messageTime() });
         if (awaitingReplyRef.current) setWaitingPhase("waiting");
         if (event.gave_up) {
@@ -1258,7 +1261,7 @@ export function ChatPage() {
       // means"), so a report like "I'm seeing X" can be looked up precisely
       // instead of matched against message text that might reword over time.
       if (type === "chat_name_failed") {
-        pushMarker("The model failed to set a name to the chat. (ALS-007)");
+        pushMarker(i18n.t("chat.errors.nameFailed"));
         return;
       }
 
@@ -1266,7 +1269,7 @@ export function ChatPage() {
         awaitingReplyRef.current = false;
         setTurnInProgress(false);
         setWaitingPhase(null);
-        pushMarker("The agent did not respond in time. Please try again. (ALS-006)");
+        pushMarker(i18n.t("chat.errors.timeout"));
         return;
       }
 
@@ -1274,7 +1277,7 @@ export function ChatPage() {
         awaitingReplyRef.current = false;
         setTurnInProgress(false);
         setWaitingPhase(null);
-        pushMarker("Turn stopped.");
+        pushMarker(i18n.t("chat.turnStopped"));
         return;
       }
 
@@ -1301,7 +1304,7 @@ export function ChatPage() {
           // permission prompt in the middle of it.
           const pausedMs = pausedTotalMsRef.current + (pausedAtRef.current !== null ? Date.now() - pausedAtRef.current : 0);
           const durationSec = (parseServerTimestampMs(resultCreatedAt) - turnStartedAtRef.current - pausedMs) / 1000;
-          const durationLabel = `Worked for ${formatWorkedDuration(durationSec)}`;
+          const durationLabel = i18n.t("chat.workedFor", { duration: formatWorkedDuration(durationSec) });
           const rowId = firstAgentRowIdRef.current;
           if (rowId) {
             // reasoningText/toolCallLines patched here too, not at each text
@@ -1665,7 +1668,7 @@ export function ChatPage() {
         // anomaly (the network is up but the socket still failed); a real
         // network outage gets its own calmer, distinct code instead.
         if (!navigator.onLine) {
-          pushMarker("No network connection available. (ALS-001)");
+          pushMarker(i18n.t("models.noNetwork"));
           // Automatic reconnection once the network comes back -- per
           // explicit request. One-shot: the browser's own "online" event
           // fires at most once for this listener, and reconnecting calls
@@ -1680,7 +1683,7 @@ export function ChatPage() {
         }
         if (!hasShownDisconnectMarker) {
           hasShownDisconnectMarker = true;
-          pushMarker("Lost connection to the chat. (ALS-005)");
+          pushMarker(i18n.t("chat.errors.lostConnection"));
         }
         retryTimer = setTimeout(() => {
           if (closingIntentionally) return;
@@ -1819,7 +1822,7 @@ export function ChatPage() {
         text: trimmed,
         displayName: getUserDisplayName(),
         time: messageTime(),
-        failed: { errorText: `Failed to send message (status ${res.status}). (ALS-009)`, images, effort },
+        failed: { errorText: i18n.t("chat.errors.sendFailed", { status: res.status }), images, effort },
       });
     }
   }
@@ -1973,16 +1976,16 @@ export function ChatPage() {
   // it actually arrived with one.
   const waitingPhaseLabel =
     (waitingPhase === "waiting"
-      ? "Waiting"
+      ? t("chat.phase.waiting")
       : waitingPhase === "working"
-        ? "Working"
+        ? t("chat.phase.working")
         : waitingPhase === "reasoning"
-          ? "Reasoning"
+          ? t("chat.phase.reasoning")
           : waitingPhase === "searching"
             ? searchQueryRef.current
-              ? `Searching "${searchQueryRef.current}"`
-              : "Searching the web"
-            : "Thinking") +
+              ? t("chat.phase.searchingQuery", { query: searchQueryRef.current })
+              : t("chat.phase.searchingWeb")
+            : t("chat.phase.thinking")) +
     // Turn-duration feature (alongsidedotrun/private#53), live half -- Synara's
     // own "Working..." counter appends the same way, alongside whichever more
     // specific phase (Reasoning/Searching/etc.) is already known, rather than
@@ -2289,7 +2292,7 @@ export function ChatPage() {
           value={prompt}
           onChange={setPrompt}
           onSubmit={handleSend}
-          placeholder="Send a message"
+          placeholder={t("chat.sendPlaceholder")}
           // turnInProgress, not awaitingReply -- see this file's own comment on
           // turnInProgress's declaration for the full bug report ("stop button... reverting
           // to arrow straight away"). ComposeBox's only use of this prop is the Stop/Send
@@ -2394,10 +2397,11 @@ export function ChatPage() {
 // only an actual AI reply carries "AI can make mistakes" -- a human's own
 // message or Alongside's own /share reply doesn't need reviewing the same way.
 function MessageTime({ time, showDisclaimer }: { time: string; showDisclaimer?: boolean }) {
+  const { t } = useTranslation();
   return (
     <p className="px-1 text-2xs text-muted-foreground">
       {time}
-      {showDisclaimer && <span className="opacity-50"> Please review the answers. AI can make mistakes.</span>}
+      {showDisclaimer && <span className="opacity-50"> {t("chat.disclaimer")}</span>}
     </p>
   );
 }
@@ -2437,6 +2441,7 @@ function ChatRowView({
   // visibly jumps between the live and settled states.
   liveWorking?: { label: string; detailText?: string };
 }) {
+  const { t } = useTranslation();
   // Gates the actions row + disclaimer (agent branch, further down) until
   // the reply's own StreamingText reveal genuinely finishes -- per explicit
   // request ("copy, rate, re-try... source and time and advise shows before
@@ -2613,7 +2618,7 @@ function ChatRowView({
               onClick={() => onRetryFailedMessage(row)}
               className="text-2xs font-medium text-muted-foreground underline hover:text-foreground"
             >
-              Retry
+              {t("common.retry")}
             </button>
           </div>
         ) : (
@@ -2682,7 +2687,7 @@ function ChatRowView({
                       <XIcon className="size-3" />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent>Cancel edit</TooltipContent>
+                  <TooltipContent>{t("chat.cancelEdit")}</TooltipContent>
                 </Tooltip>
               ) : (
                 <>
@@ -2696,7 +2701,7 @@ function ChatRowView({
                         <RotateCcwIcon className="size-3" />
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent>Resend</TooltipContent>
+                    <TooltipContent>{t("chat.resend")}</TooltipContent>
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -2708,7 +2713,7 @@ function ChatRowView({
                         <EditIcon className="size-3" />
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent>Edit</TooltipContent>
+                    <TooltipContent>{t("chat.edit")}</TooltipContent>
                   </Tooltip>
                 </>
               )}
@@ -3110,6 +3115,7 @@ function PermissionCard({
   hasProject: boolean;
   onStopTurn: () => void;
 }) {
+  const { t } = useTranslation();
   const [otherText, setOtherText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const otherInputRef = useRef<HTMLInputElement>(null);
@@ -3186,12 +3192,12 @@ function PermissionCard({
   if (status !== "pending") {
     const label =
       status === "allow"
-        ? "Allowed"
+        ? t("chat.perm.allowed")
         : status === "cancelled"
-          ? "Withdrawn -- no longer needed"
+          ? t("chat.perm.withdrawnLong")
           : status === "timed_out"
-            ? "Denied -- no response in time"
-            : "Denied";
+            ? t("chat.perm.deniedNoResponse")
+            : t("chat.perm.denied");
     return (
       <div className="flex items-center gap-1.5 px-1 text-xs text-muted-foreground">
         {status === "allow" ? <CheckIcon className="size-3.5 shrink-0" /> : <XIcon className="size-3.5 shrink-0" />}
@@ -3207,7 +3213,7 @@ function PermissionCard({
       {/* No icon beside the title any more -- per explicit follow-up
           ("we should have no icons there at the title"). */}
       <div className="flex items-center gap-2">
-        <p className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">Allow {toolName} to run?</p>
+        <p className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">{t("chat.perm.allowToRun", { tool: toolName })}</p>
         {/* Per explicit follow-up ("is missing the x at the right top to
             cancel it and fully stop the command") -- denies this specific
             permission (the same real endpoint Deny already calls) and
@@ -3216,7 +3222,7 @@ function PermissionCard({
             question. */}
         <button
           type="button"
-          aria-label="Cancel and stop"
+          aria-label={t("chat.perm.cancelAndStop")}
           disabled={submitting}
           onClick={() => {
             void answer("deny");
@@ -3241,20 +3247,24 @@ function PermissionCard({
           absent) and is a real always-visible text field, not a button
           that reveals one -- per explicit follow-up correction. */}
       <div className="flex flex-col gap-1">
-        <PermissionOptionRow number={1} label="Yes" onClick={() => void answer("allow")} disabled={submitting} />
+        <PermissionOptionRow number={1} label={t("common.yes")} onClick={() => void answer("allow")} disabled={submitting} />
         {commandText && (
           <PermissionOptionRow
             number={2}
             label={
               <>
-                Yes, always allow <span className="font-mono">{commandText}</span> for this {hasProject ? "project" : "chat"}
+                <Trans
+                  i18nKey={hasProject ? "chat.perm.alwaysAllowProject" : "chat.perm.alwaysAllowChat"}
+                  values={{ command: commandText }}
+                  components={[<span className="font-mono" key="0" />]}
+                />
               </>
             }
             onClick={() => void answer("allow", undefined, { toolName, pattern: commandText })}
             disabled={submitting}
           />
         )}
-        <PermissionOptionRow number={commandText ? 3 : 2} label="No" onClick={() => void answer("deny")} disabled={submitting} />
+        <PermissionOptionRow number={commandText ? 3 : 2} label={t("common.no")} onClick={() => void answer("deny")} disabled={submitting} />
         <div className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-1.5">
           <span className="flex size-4 shrink-0 items-center justify-center rounded bg-hover-2/50 text-[10px] font-semibold text-muted-foreground">
             4
@@ -3267,12 +3277,12 @@ function PermissionCard({
             onKeyDown={(event) => {
               if (event.key === "Enter" && otherText.trim()) void answer("deny", otherText.trim());
             }}
-            placeholder="Other"
+            placeholder={t("chat.perm.other")}
             className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground"
           />
         </div>
       </div>
-      <p className="px-2.5 text-2xs text-muted-foreground">Esc to cancel</p>
+      <p className="px-2.5 text-2xs text-muted-foreground">{t("chat.perm.escToCancel")}</p>
     </div>
   );
 }
@@ -3315,6 +3325,7 @@ function AgentMessageActions({
   onRetry: () => void;
   effort: EffortLevel;
 }) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const [rating, setRating] = useState<"up" | "down" | null>(null);
   const [speaking, setSpeaking] = useState(false);
@@ -3417,7 +3428,7 @@ function AgentMessageActions({
             <CopyIcon className="size-3" />
           </button>
         </TooltipTrigger>
-        <TooltipContent>Copy</TooltipContent>
+        <TooltipContent>{t("common.copy")}</TooltipContent>
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
@@ -3428,7 +3439,7 @@ function AgentMessageActions({
             <ThumbsUpIcon className="size-3" />
           </button>
         </TooltipTrigger>
-        <TooltipContent>Good response</TooltipContent>
+        <TooltipContent>{t("chat.goodResponse")}</TooltipContent>
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
@@ -3439,7 +3450,7 @@ function AgentMessageActions({
             <ThumbsDownIcon className="size-3" />
           </button>
         </TooltipTrigger>
-        <TooltipContent>Bad response</TooltipContent>
+        <TooltipContent>{t("chat.badResponse")}</TooltipContent>
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
@@ -3447,7 +3458,7 @@ function AgentMessageActions({
             <RotateCcwIcon className="size-3" />
           </button>
         </TooltipTrigger>
-        <TooltipContent>Retry</TooltipContent>
+        <TooltipContent>{t("common.retry")}</TooltipContent>
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
@@ -3455,7 +3466,7 @@ function AgentMessageActions({
             <Volume2Icon className="size-3" />
           </button>
         </TooltipTrigger>
-        <TooltipContent>Read aloud</TooltipContent>
+        <TooltipContent>{t("chat.readAloud")}</TooltipContent>
       </Tooltip>
       {/* Plain text, not the old EffortDial graph-plus-hover-tooltip -- per
           explicit request ("lets just write the effort there instead of
@@ -3479,7 +3490,7 @@ function AgentMessageActions({
           className={`${iconButtonClass(sourcesOpen)} w-auto gap-1 px-1.5`}
         >
           <ResearchIcon className="size-3 shrink-0" />
-          <span className="text-2xs">{sources.length === 1 ? "Source" : `${sources.length} sources`}</span>
+          <span className="text-2xs">{t("chat.sources", { count: sources.length })}</span>
           <ChevronDownIcon className={`size-3 shrink-0 transition-transform ${sourcesOpen ? "rotate-180" : ""}`} />
         </button>
       )}

@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { useEffect, useRef, useState } from "react";
 import { suppressAutoScroll } from "@/lib/chat-scroll-suppress";
 import { useTextSwap } from "@/lib/use-text-swap";
@@ -65,6 +67,7 @@ export function ThinkingReasoning({
   open: boolean;
   onToggleOpen: () => void;
 }) {
+  useTranslation();
   const items: ReasoningItem[] = [
     ...splitSentences(text).map((s): ReasoningItem => ({ kind: "sentence", text: s })),
     ...(toolLines ?? []).map((t): ReasoningItem => ({ kind: "tool", label: t.label, detail: t.detail })),
@@ -144,7 +147,7 @@ export function ThinkingReasoning({
         type="button"
         className={styles.trHeader + (!live ? " " + styles.isClickable : "")}
         aria-expanded={expanded}
-        aria-label="Toggle thought detail"
+        aria-label={i18n.t("chat.toggleThought")}
         onClick={!live ? onToggleOpen : undefined}
       >
         {live ? (
@@ -212,7 +215,7 @@ export function ThinkingReasoning({
                     <ToolDetailRow key={i} label={item.label} detail={item.detail} />
                   ) : (
                     <div key={i} className={styles.trToolRow}>
-                      <span className={styles.trToolLabel}>{item.label}</span>
+                      <span className={styles.trToolLabel}>{toolLabelText(item.label)}</span>
                     </div>
                   )
                 )
@@ -233,6 +236,12 @@ export function ThinkingReasoning({
 // generic noun) -- kept here because collapsing to a truly generic label
 // (no raw path/command shown until expanded) was the explicit, repeated
 // ask this session, not just matching Synara's own choice of words.
+// Tool names ("Run"/"Read"/...) double as logic keys throughout ChatPage, so
+// they stay literal in data and are only translated here, at display time.
+function toolLabelText(label: string): string {
+  return i18n.exists(`tool.label.${label}`) ? i18n.t(`tool.label.${label}`) : label;
+}
+
 const TOOL_NOUNS: Record<string, string> = {
   Run: "command",
   Read: "file",
@@ -252,7 +261,8 @@ const TOOL_NOUNS: Record<string, string> = {
 // that's just a single string.
 function ToolDetailRow({ label, detail }: { label: string; detail: string }) {
   const [open, setOpen] = useState(false);
-  const noun = TOOL_NOUNS[label];
+  const { t } = useTranslation();
+  const noun = TOOL_NOUNS[label] ? t(`tool.noun.${label}`) : undefined;
   return (
     <div className={styles.trRunGroup}>
       <button
@@ -270,7 +280,7 @@ function ToolDetailRow({ label, detail }: { label: string; detail: string }) {
         }}
         aria-expanded={open}
       >
-        <span className={styles.trToolLabel}>{label}</span>
+        <span className={styles.trToolLabel}>{toolLabelText(label)}</span>
         {noun && <span className={styles.trToolDetail}>{noun}</span>}
         <svg
           className={styles.trChevron}
@@ -313,6 +323,7 @@ function ToolDetailRow({ label, detail }: { label: string; detail: string }) {
 }
 
 function CommandSnippet({ command }: { command: string }) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const copy = () => {
     navigator.clipboard?.writeText(command).then(() => {
@@ -324,7 +335,7 @@ function CommandSnippet({ command }: { command: string }) {
     <div className={styles.snippet}>
       <div className={styles.snippetHead}>
         <span className={styles.snippetLang}>bash</span>
-        <button type="button" className={styles.snippetIconButton} onClick={copy} aria-label="Copy command">
+        <button type="button" className={styles.snippetIconButton} onClick={copy} aria-label={t("chat.copyCommand")}>
           {copied ? (
             <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
               <path d="M20 6 9 17l-5-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />

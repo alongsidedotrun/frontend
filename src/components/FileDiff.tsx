@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useEffect, useState, type MouseEvent } from "react";
 import { diffLines } from "diff";
 import { FileExtensionBadge, stripExtension } from "@/components/file-extension-badge";
@@ -82,8 +83,9 @@ function DiffIcon() {
 const SNIPPET_LINES = 3;
 
 function DiffChevron({ open, onClick }: { open: boolean; onClick: (e: MouseEvent) => void }) {
+  const { t } = useTranslation();
   return (
-    <button type="button" className={styles.diffChevron} onClick={onClick} aria-expanded={open} aria-label="Toggle diff">
+    <button type="button" className={styles.diffChevron} onClick={onClick} aria-expanded={open} aria-label={t("chat.toggleDiff")}>
       <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
         <path
           d="m6 9 6 6 6-6"
@@ -358,6 +360,7 @@ export function FileDiffGroup({
   // "issue #288, phase 1" contract the plain FileDiff already had.
   onExpandFile?: (path: string) => void;
 }) {
+  const { t } = useTranslation();
   const single = files.length === 1;
   const [open, setOpen] = useState(true);
   // Keyed by path, not summed inline -- a file's own count can arrive
@@ -402,7 +405,7 @@ export function FileDiffGroup({
                 its own existing icon/label, not part of that ask. */}
             {kind === "New" ? <FilePlusIcon className={styles.diffIcon} /> : <DiffIcon />}
             <span className={styles.diffFile}>
-              {kind === "New" ? `Created ${files.length} new files` : `Edited ${files.length} files`}
+              {kind === "New" ? t("chat.diff.created", { count: files.length }) : t("chat.diff.edited", { count: files.length })}
             </span>
           </span>
         </button>

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useTextSwap } from "@/lib/use-text-swap";
 import styles from "./thinking-state.module.css";
 
@@ -16,8 +17,9 @@ import styles from "./thinking-state.module.css";
 // changing `text` (Waiting -> Working, a running seconds count updating)
 // instead of jumping instantly -- module CSS's own comment has the full
 // transition reasoning.
-export function ThinkingState({ text = "Thinking" }: { text?: string }) {
-  const { displayText, phase } = useTextSwap(text);
+export function ThinkingState({ text }: { text?: string }) {
+  const { t } = useTranslation();
+  const { displayText, phase } = useTextSwap(text ?? t("chat.phase.thinking"));
   const phaseClass = phase === "exit" ? styles.isExit : phase === "enter-start" ? styles.isEnterStart : "";
   return <span className={`${styles.shimmer} ${phaseClass}`}>{displayText}</span>;
 }
