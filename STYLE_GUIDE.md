@@ -21,7 +21,6 @@ Narrow, cross-cutting frontend decisions that don't belong in `project/architect
 
 Not yet promoted to tokens, and out of scope for theming regardless:
 
-- `#FFFFFF` / `#D4D4D8` — the auth page's "Continue with email" button and its hover state, intentionally light/white regardless of theme today. Hover darkened from the original `#F0F0F0`, which read as barely different from the `#FFFFFF` background against a dark-mode backdrop.
 - `#000AC2` — the old logo mark's brand colour; superseded by the new pixel-grid mark, which is fully self-contained (its own fixed `#323232`/`#41403E`/`#FAF9F5` fill colours baked into the SVG) rather than theming via this token system. The mark is now a single asset used for both themes (`frontend/logo.svg` and `frontend/logo-light.svg` are identical copies), deliberately a fixed badge like Slack's or Discord's icon, not a blend-with-the-sidebar mark, so it no longer needs separate Light/Dark variants at all. Master source files live in `frontend/assets/source/Porch {16,32,48,64,128,180,256,512,1024}px.svg`.
 - Google's own "G" logo colours (`#FFC107`, `#FF3D00`, `#4CAF50`, `#1976D2`) — must never be re-themed, they belong to Google.
 

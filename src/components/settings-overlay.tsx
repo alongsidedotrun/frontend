@@ -63,7 +63,6 @@ import {
   clearUserAvatarImage,
   getUserDisplayName,
   setUserAvatarImage,
-  setUserDisplayName,
   useUserAvatarImage,
   useUserDisplayName,
 } from "@/lib/user";
@@ -1483,12 +1482,6 @@ function ProfileSection() {
   const isSignedIn = useIsSignedIn();
   const avatarImage = useUserAvatarImage();
   const currentName = useUserDisplayName();
-  // A local draft, not writing straight through on every keystroke -- per
-  // explicit request ("we should be able to allow users to change their
-  // name at Profile"), matching the avatar upload flow's own
-  // pick-then-confirm shape (pendingImage, below) rather than committing a
-  // half-typed name on each change event.
-  const [nameDraft, setNameDraft] = useState(currentName);
   const [error, setError] = useState<string | null>(null);
   const [manageOpen, setManageOpen] = useState(false);
   // A newly picked file, resized but not yet saved -- per explicit
@@ -1535,42 +1528,16 @@ function ProfileSection() {
     link.click();
   }
 
-  function handleSaveName() {
-    const trimmed = nameDraft.trim();
-    if (!trimmed || trimmed === currentName) return;
-    setUserDisplayName(trimmed);
-  }
-
   return (
     <div className="flex flex-col">
       <SettingsSection title={t("settings.profile.personal")}>
-        {/* Not gated on isSignedIn -- unlike Manage photo below, a display
-            name is meaningful for a solo, signed-out local user too (it's
-            what "Me" attribution and chat messages already show, per
-            lib/user.ts's own getUserDisplayName). */}
+        {/* The name is the identity provider's (lib/identity.ts) and cannot be edited here. */}
         <SettingsRow
           id="setting-name"
           title={t("settings.profile.name.title")}
-          description={t("settings.profile.name.description")}
+          description={isSignedIn ? t("settings.profile.name.description") : t("settings.profile.name.signedOut")}
         >
-          <div className="flex items-center gap-1.5">
-            <Input
-              value={nameDraft}
-              onChange={(event) => setNameDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") handleSaveName();
-              }}
-              className="h-7 w-40 text-[12px] focus-visible:border-focus-accent"
-            />
-            <button
-              type="button"
-              className={SETTINGS_ACTION_BUTTON_CLASS}
-              disabled={!nameDraft.trim() || nameDraft.trim() === currentName}
-              onClick={handleSaveName}
-            >
-              {t("common.save")}
-            </button>
-          </div>
+          <span className="text-[12px] font-medium text-foreground">{currentName}</span>
         </SettingsRow>
         <SettingsRow
           id="setting-avatar"
