@@ -7,6 +7,7 @@ import { spring } from "@/lib/springs";
 import { isAutoScrollSuppressed, suppressAutoScroll } from "@/lib/chat-scroll-suppress";
 import { getUserDisplayName } from "@/lib/user";
 import { ComposeBox, toImageInputs, type ImageAttachment } from "@/components/compose-box";
+import { JoinRequests, type JoinRequest } from "@/components/join-requests";
 import { FileDiffGroup, diffToRows, type DiffRow } from "@/components/FileDiff";
 import type { SettingsSection } from "@/components/settings-overlay";
 import { effortLabel, type EffortLevel } from "@/lib/effort";
@@ -359,6 +360,8 @@ export function ChatPage() {
   // close to the borders").
   const chatSidePadding = rightPanelOpen ? "px-[50px]" : "px-3 sm:px-5";
   const [rows, setRows] = useState<ChatRow[]>([]);
+  // People waiting for this chat's host to let them in (components/join-requests.tsx).
+  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
   // Real bug, confirmed via a real CI build failure (TS6133, "awaitingReply declared
   // but never read"): the old `awaitingReply` React state was fully superseded by
   // turnInProgress below and awaitingReplyRef (the imperative guard used throughout
@@ -825,6 +828,15 @@ export function ChatPage() {
     pushRow({ kind: "marker", id: nextRowId(), text });
   }
 
+  // Requests still waiting on the host when this chat opens (events only carry changes).
+  useEffect(() => {
+    if (!sessionId) return;
+    fetch(`/sessions/${sessionId}/join-requests`)
+      .then((response) => (response.ok ? response.json() : []))
+      .then((pending: JoinRequest[]) => setJoinRequests(pending))
+      .catch(() => {});
+  }, [sessionId]);
+
   useEffect(() => {
     if (!sessionId) return;
 
@@ -961,6 +973,17 @@ export function ChatPage() {
           setWaitingPhase("waiting");
           refreshSidebarLists();
         }
+        return;
+      }
+
+      // A guest asked to join, or the host decided one: the pending list is the source of truth,
+      // so this only adds or removes the one request the event names.
+      if (type === "join_requested") {
+        setJoinRequests((current) => (current.some((r) => r.id === event.request_id) ? current : [...current, { id: event.request_id as string, display_name: event.name as string }]));
+        return;
+      }
+      if (type === "join_decided") {
+        setJoinRequests((current) => current.filter((r) => r.id !== event.request_id));
         return;
       }
 
@@ -1585,7 +1608,7 @@ export function ChatPage() {
         setTurnInProgress(false);
         setWaitingPhase(null);
         const text = event.ok
-          ? `The following link is available to join your chat: ${location.origin}${event.chat_path}`
+          ? `Sharing is on. Guests join through the sharing gateway at ${event.gateway as string}. Shareable invite links arrive with invites.`
           : (event.error as string);
         pushRow({ kind: "command", id: nextRowId(), text, time: messageTime() });
         return;
@@ -2280,6 +2303,7 @@ export function ChatPage() {
             );
           })()}
         </AnimatePresence>
+        {sessionId && <JoinRequests sessionId={sessionId} requests={joinRequests} onDecided={(id) => setJoinRequests((current) => current.filter((r) => r.id !== id))} />}
         <ComposeBox
           // Forces a remount whenever a *new* edit starts (editMessage's
           // own comment above has the full reasoning) -- ComposeBox's own
