@@ -16,7 +16,7 @@ import { loadNotifyTurnComplete, requestNotificationPermission, saveNotifyTurnCo
 import { loadLocallyHiddenChatIds } from "@/lib/locally-hidden-chats";
 import { isChatNotificationsEnabled, setChatNotificationsEnabled } from "@/lib/chat-notifications";
 import { useIsSignedIn } from "@/lib/auth";
-import { getUserDisplayName } from "@/lib/user";
+import { ShareDialog } from "@/components/share-dialog";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from "@/components/ui/breadcrumb";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -527,6 +527,8 @@ export function AppLayout() {
   // have an account. We will gate only share because that requires an
   // account for user management at chats").
   const isSignedIn = useIsSignedIn();
+  // The chat header's Share dialog (components/share-dialog.tsx).
+  const [shareOpen, setShareOpen] = useState(false);
   // Real React state, not a plain isChatNotificationsEnabled(sessionId)
   // call read fresh on every render -- that read the right value on the
   // menu's *next* open, but toggling it wouldn't flip the label inside the
@@ -1484,6 +1486,7 @@ export function AppLayout() {
                   // instead of hand-picking a one-off text-xs override
                   // that would drift from those the moment the shared
                   // scale changes.
+                  <>
                   <BaseDropdownMenu size="compact">
                     <BaseDropdownTrigger
                       render={
@@ -1555,13 +1558,7 @@ export function AppLayout() {
                             </Tooltip>
                           )
                         }
-                        onSelect={() =>
-                          void fetch(`/sessions/${sessionId}/messages`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ prompt: "/share", sender_name: getUserDisplayName() }),
-                          })
-                        }
+                        onSelect={() => setShareOpen(true)}
                       />
                       {/* Allowed commands removed entirely -- per explicit
                           request. AllowedCommandsDialog (this file's own
@@ -1607,6 +1604,8 @@ export function AppLayout() {
                       )}
                     </BaseDropdownContent>
                   </BaseDropdownMenu>
+                  <ShareDialog sessionId={sessionId} open={shareOpen} onOpenChange={setShareOpen} />
+                  </>
                 )}
               </div>
             </motion.header>
