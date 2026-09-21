@@ -554,6 +554,10 @@ export function ChatPage() {
   // actually growing.
   const chatContentRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  // The highest event id this chat view has received. Every event the backend records carries its
+  // id and ids only grow within a chat, so this is both the point a dropped connection resumes from
+  // (?after=) and the test for a duplicate: anything at or below it has already been shown.
+  const lastEventIdRef = useRef(0);
   // Refs mirroring the state above, read from inside the WebSocket
   // onmessage handler -- that closure is set up once per session (not
   // re-subscribed on every render), so it needs a way to read the latest
@@ -851,6 +855,11 @@ export function ChatPage() {
 
       const type = event.type as string;
 
+      if (typeof event.event_id === "number") {
+        if (event.event_id <= lastEventIdRef.current) return;
+        lastEventIdRef.current = event.event_id;
+      }
+
       // Sent once per connection, before history replay (server.rs's own
       // handle_socket) -- this chat's own per-chat default model/effort, if
       // "Set as default for this chat" has ever been used here. A null
@@ -1017,8 +1026,19 @@ export function ChatPage() {
         // until the new one is actually ready, swapped in atomically at
         // replay_complete below, instead of a blank flash in between.
         pendingBranchReplayRef.current = [];
+        // A branch switch replaces earlier events, so this is a full replay, not a resume.
+        lastEventIdRef.current = 0;
         wsRef.current?.close();
         connect();
+        return;
+      }
+
+      // The server cannot extend this view (the chat has edit branches, or this view is ahead of
+      // it): the history that follows replaces what is shown, swapped in at replay_complete the
+      // same way a branch switch is.
+      if (type === "replay_reset") {
+        pendingBranchReplayRef.current = [];
+        lastEventIdRef.current = 0;
         return;
       }
 
@@ -1068,6 +1088,12 @@ export function ChatPage() {
       }
 
       if (type === "replay_complete") {
+        if (typeof event.last_event_id === "number" && event.last_event_id > lastEventIdRef.current) {
+          lastEventIdRef.current = event.last_event_id;
+        }
+        // A resume after a dropped connection only sent what was missed: the transcript is already on
+        // screen, so there is no first-load scroll or reveal to run again.
+        if (event.resumed) return;
         // One atomic swap-in for a branch-switch reconnect's own buffered
         // replay (pendingBranchReplayRef's own comment, above pushRow, has
         // the full reasoning) -- the old branch's rows are still what's on
@@ -1667,53 +1693,70 @@ export function ChatPage() {
     // reconnect (below) can call it again on the same session, instead of
     // duplicating the socket setup or forcing a full effect re-run.
     function connect() {
-      const ws = new WebSocket(`${protocol}://${location.host}/sessions/${sessionId}/ws?name=${wsUserName}`);
+      // Resume from the last event this view has instead of replaying the whole chat on top of it.
+      const after = lastEventIdRef.current > 0 ? `&after=${lastEventIdRef.current}` : "";
+      const ws = new WebSocket(`${protocol}://${location.host}/sessions/${sessionId}/ws?name=${wsUserName}${after}`);
       wsRef.current = ws;
       ws.onopen = () => {
         retryDelayMs = 1000;
         hasShownDisconnectMarker = false;
       };
       ws.onmessage = (event) => handleEvent(event.data);
-      ws.onerror = () => {
-        if (closingIntentionally) return;
-        // The WebSocket spec deliberately gives onerror no detail about
-        // why it failed, but `navigator.onLine` distinguishes the one
-        // cause that is genuinely not this app's problem: the browser
-        // itself has no network route right now. Confirmed directly ("we
-        // should never have a stale session id, if the connection drops
-        // mid session we should not throw any errors as this is a network
-        // issue at the user side") -- a dropped WiFi connection or a
-        // laptop waking from sleep firing this same generic "WebSocket
-        // error, is the session ID correct?" copy every time was
-        // misleading (the session ID is essentially never the real cause)
-        // and read as an alarming app error for something that is neither
-        // alarming nor this app's fault. ALS-005 stays for a genuine
-        // anomaly (the network is up but the socket still failed); a real
-        // network outage gets its own calmer, distinct code instead.
-        if (!navigator.onLine) {
-          pushMarker(i18n.t("models.noNetwork"));
-          // Automatic reconnection once the network comes back -- per
-          // explicit request. One-shot: the browser's own "online" event
-          // fires at most once for this listener, and reconnecting calls
-          // connect() again, which re-arms this same handling if that new
-          // attempt also lands offline (a flaky connection flapping
-          // between the two).
-          if (!waitingForOnline) {
-            waitingForOnline = true;
-            window.addEventListener("online", handleOnline, { once: true });
-          }
-          return;
-        }
-        if (!hasShownDisconnectMarker) {
-          hasShownDisconnectMarker = true;
-          pushMarker(i18n.t("chat.errors.lostConnection"));
-        }
-        retryTimer = setTimeout(() => {
-          if (closingIntentionally) return;
-          retryDelayMs = Math.min(retryDelayMs * 2, 15000);
-          connect();
-        }, retryDelayMs);
+      // An error and the close that follows it both mean the connection is gone; handling either
+      // one (or both) is safe because every step below is guarded against running twice.
+      ws.onerror = handleDrop;
+      ws.onclose = () => {
+        // A socket that was replaced on purpose (branch switch) closing is not a drop.
+        if (wsRef.current !== ws) return;
+        handleDrop();
       };
+    }
+
+    function scheduleReconnect() {
+      if (closingIntentionally || retryTimer) return;
+      retryTimer = setTimeout(() => {
+        retryTimer = null;
+        if (closingIntentionally) return;
+        retryDelayMs = Math.min(retryDelayMs * 2, 15000);
+        connect();
+      }, retryDelayMs);
+    }
+
+    function handleDrop() {
+      if (closingIntentionally) return;
+      // The WebSocket spec deliberately gives onerror no detail about
+      // why it failed, but `navigator.onLine` distinguishes the one
+      // cause that is genuinely not this app's problem: the browser
+      // itself has no network route right now. Confirmed directly ("we
+      // should never have a stale session id, if the connection drops
+      // mid session we should not throw any errors as this is a network
+      // issue at the user side") -- a dropped WiFi connection or a
+      // laptop waking from sleep firing this same generic "WebSocket
+      // error, is the session ID correct?" copy every time was
+      // misleading (the session ID is essentially never the real cause)
+      // and read as an alarming app error for something that is neither
+      // alarming nor this app's fault. ALS-005 stays for a genuine
+      // anomaly (the network is up but the socket still failed); a real
+      // network outage gets its own calmer, distinct code instead.
+      if (!navigator.onLine) {
+        // Automatic reconnection once the network comes back -- per
+        // explicit request. One-shot: the browser's own "online" event
+        // fires at most once for this listener, and reconnecting calls
+        // connect() again, which re-arms this same handling if that new
+        // attempt also lands offline (a flaky connection flapping
+        // between the two).
+        if (!waitingForOnline) {
+          pushMarker(i18n.t("models.noNetwork"));
+          waitingForOnline = true;
+          window.addEventListener("online", handleOnline, { once: true });
+        }
+        return;
+      }
+      if (!hasShownDisconnectMarker) {
+        hasShownDisconnectMarker = true;
+        pushMarker(i18n.t("chat.errors.lostConnection"));
+      }
+      scheduleReconnect();
     }
 
     function handleOnline() {
@@ -1808,6 +1851,8 @@ export function ChatPage() {
       body: JSON.stringify({
         prompt: trimmed,
         sender_name: getUserDisplayName(),
+        // Lets the backend ignore this send if it is repeated after a dropped connection.
+        client_message_id: crypto.randomUUID(),
         model: modelRef.current.value,
         images: images.length > 0 ? toImageInputs(images) : undefined,
         // Real now (compose-box.tsx's own Effort slider, its own comment has the
