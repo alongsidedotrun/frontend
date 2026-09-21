@@ -67,6 +67,7 @@ import {
   useUserDisplayName,
 } from "@/lib/user";
 import { signOut, useIsSignedIn } from "@/lib/auth";
+import { useIdentity } from "@/lib/identity";
 
 // Tips/Notifications/Usage are sub-sections *inside* General, not their
 // own routes -- per explicit request ("Not as items but as menu items
@@ -1482,6 +1483,9 @@ function ProfileSection() {
   const isSignedIn = useIsSignedIn();
   const avatarImage = useUserAvatarImage();
   const currentName = useUserDisplayName();
+  // The plan the identity service reports; a signed-out device is on the free plan.
+  const identityPlan = useIdentity().plan;
+  const plan = identityPlan === "hosted" || identityPlan === "enterprise" ? identityPlan : "free";
   const [error, setError] = useState<string | null>(null);
   const [manageOpen, setManageOpen] = useState(false);
   // A newly picked file, resized but not yet saved -- per explicit
@@ -1666,7 +1670,7 @@ function ProfileSection() {
             Enterprise upgrade flow that doesn't exist. Revisit once a real
             subscription system exists. */}
         <SettingsRow title={t("settings.profile.subscription.title")} description={t("settings.profile.subscription.description")}>
-          <span className="text-[12px] font-medium text-foreground">{t("settings.profile.subscription.free")}</span>
+          <span className="text-[12px] font-medium text-foreground">{t(`settings.profile.subscription.${plan}`)}</span>
         </SettingsRow>
       </SettingsSection>
 

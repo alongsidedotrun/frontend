@@ -10,10 +10,12 @@ export type Identity = {
   displayName: string | null;
   email: string | null;
   picture: string | null;
+  // The plan the identity service reports ("free", "hosted", "enterprise"); null while signed out.
+  plan: string | null;
 };
 
 const CACHE_KEY = "alongside_identity_cache";
-const SIGNED_OUT: Identity = { signedIn: false, displayName: null, email: null, picture: null };
+const SIGNED_OUT: Identity = { signedIn: false, displayName: null, email: null, picture: null, plan: null };
 const listeners = new Set<() => void>();
 
 function readCache(): Identity {
@@ -58,12 +60,14 @@ export async function refreshIdentity(): Promise<Identity> {
     const status = (await response.json()) as {
       signed_in: boolean;
       profile: { display_name: string; email: string | null; picture: string | null } | null;
+      plan: string | null;
     };
     set({
       signedIn: status.signed_in,
       displayName: status.profile?.display_name ?? null,
       email: status.profile?.email ?? null,
       picture: status.profile?.picture ?? null,
+      plan: status.plan ?? null,
     });
   } catch {
     // backend unreachable: keep what is known
