@@ -28,6 +28,8 @@ export default defineConfig({
       "/cli": "http://127.0.0.1:3000",
       // Sign-in state and the sign-in callback (backend/src/auth.rs).
       "/identity": "http://127.0.0.1:3000",
+      // Joining chats hosted on other machines (backend/src/remote.rs).
+      "/remote": "http://127.0.0.1:3000",
       // /projects, /settings, /secrets -- confirmed directly as a real gap
       // (GET /projects returning Vite's own SPA index.html, 200 OK but
       // Content-Type: text/html, not JSON -- exactly the failure mode this
