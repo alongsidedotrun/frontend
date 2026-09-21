@@ -8,6 +8,7 @@ import { isAutoScrollSuppressed, suppressAutoScroll } from "@/lib/chat-scroll-su
 import { getUserDisplayName } from "@/lib/user";
 import { ComposeBox, toImageInputs, type ImageAttachment } from "@/components/compose-box";
 import { JoinRequests, type JoinRequest } from "@/components/join-requests";
+import { clearPresence, setPresence, type Person } from "@/lib/presence";
 import { FileDiffGroup, diffToRows, type DiffRow } from "@/components/FileDiff";
 import type { SettingsSection } from "@/components/settings-overlay";
 import { effortLabel, type EffortLevel } from "@/lib/effort";
@@ -996,6 +997,12 @@ export function ChatPage() {
         return;
       }
 
+      // Live: who is in the chat and who is online now (a full snapshot each time; never stored).
+      if (type === "presence") {
+        setPresence(event.participants as Person[]);
+        return;
+      }
+
       if (type === "user_joined") {
         pushMarker(i18n.t("chat.userJoined", { name: event.name }));
         return;
@@ -1769,6 +1776,7 @@ export function ChatPage() {
 
     return () => {
       closingIntentionally = true;
+      clearPresence();
       if (waitingForOnline) window.removeEventListener("online", handleOnline);
       if (retryTimer) clearTimeout(retryTimer);
       wsRef.current?.close();

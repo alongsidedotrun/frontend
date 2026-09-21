@@ -17,6 +17,7 @@ import { loadLocallyHiddenChatIds } from "@/lib/locally-hidden-chats";
 import { isChatNotificationsEnabled, setChatNotificationsEnabled } from "@/lib/chat-notifications";
 import { useIsSignedIn } from "@/lib/auth";
 import { ShareDialog } from "@/components/share-dialog";
+import { PresenceStack } from "@/components/presence-stack";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from "@/components/ui/breadcrumb";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -1474,6 +1475,7 @@ export function AppLayout() {
                     matches this whole header's own guard above), since
                     neither action means anything on the Home/new-chat
                     screen. */}
+                {sessionId && <PresenceStack />}
                 {sessionId && (
                   // size="compact" -- per explicit request ("Share chat
                   // and enable notifications dropdown needs to be smaller
