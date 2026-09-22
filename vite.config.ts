@@ -26,6 +26,10 @@ export default defineConfig({
     proxy: {
       "/sessions": { target: "http://127.0.0.1:3000", ws: true },
       "/cli": "http://127.0.0.1:3000",
+      // Sign-in state and the sign-in callback (backend/src/auth.rs).
+      "/identity": "http://127.0.0.1:3000",
+      // Joining chats hosted on other machines (backend/src/remote.rs).
+      "/remote": "http://127.0.0.1:3000",
       // /projects, /settings, /secrets -- confirmed directly as a real gap
       // (GET /projects returning Vite's own SPA index.html, 200 OK but
       // Content-Type: text/html, not JSON -- exactly the failure mode this
@@ -99,7 +103,19 @@ export default defineConfig({
       // the backend across this session without a matching entry here, so
       // every real fetch to them fell through to Vite's own SPA catch-all
       // (200 OK, text/html) instead of ever reaching the backend.
-      "/library": "http://127.0.0.1:3000",
+      // "/library/files", not a bare "/library" -- real bug, confirmed
+      // directly ("when refreshing http://localhost:5173/library that
+      // stay white... http proxy error: /library/files"): LibraryPage.tsx's
+      // own client-side route is exactly /library, so a bare prefix here
+      // proxied a full page reload at that URL straight to the backend
+      // (bypassing Vite's own SPA fallback entirely, unlike a plain 404
+      // which Vite would have served index.html for), instead of ever
+      // letting Vite serve the real app shell. Same class of bug this
+      // file's own /settings comment already documents (a bare
+      // "/settings" prefix collided with the frontend's own
+      // /settings/:section route) -- scoped to the one real API sub-path,
+      // matching server.rs's own route rename to /library/files.
+      "/library/files": "http://127.0.0.1:3000",
       "/files": "http://127.0.0.1:3000",
       "/integrations": "http://127.0.0.1:3000",
       "/permission-rules": "http://127.0.0.1:3000",

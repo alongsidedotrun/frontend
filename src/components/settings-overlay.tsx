@@ -17,8 +17,10 @@ import {
 } from "@/hooks/use-appearance-settings";
 import { spring } from "@/lib/springs";
 import { modelDisplayName, PROVIDER_DISPLAY, ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
-import { EFFORT_LABELS, EFFORT_LEVELS, loadDefaultEffort, saveDefaultEffort, type EffortLevel } from "@/lib/effort";
-import { LANGUAGE_OPTIONS, loadLanguage, saveLanguage, type LanguageValue } from "@/lib/language";
+import { effortLabel, EFFORT_LEVELS, loadDefaultEffort, saveDefaultEffort, type EffortLevel } from "@/lib/effort";
+import { LANGUAGE_OPTIONS, loadLanguage, saveLanguage, uiLocaleFor, type LanguageValue } from "@/lib/language";
+import { Trans, useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { loadNotifyTurnComplete, requestNotificationPermission, saveNotifyTurnComplete } from "@/lib/notify-turn-complete";
 import { formatStorageBytes, useUsageStats } from "@/lib/use-usage";
 import { ErrorText } from "@/lib/error-code";
@@ -61,11 +63,11 @@ import {
   clearUserAvatarImage,
   getUserDisplayName,
   setUserAvatarImage,
-  setUserDisplayName,
   useUserAvatarImage,
   useUserDisplayName,
 } from "@/lib/user";
 import { signOut, useIsSignedIn } from "@/lib/auth";
+import { useIdentity } from "@/lib/identity";
 
 // Tips/Notifications/Usage are sub-sections *inside* General, not their
 // own routes -- per explicit request ("Not as items but as menu items
@@ -125,7 +127,11 @@ const SETTINGS_ACTION_BUTTON_CLASS = `flex items-center gap-1.5 border border-bo
 // and justify-between (icon+label left, chevron right) instead of each
 // trigger sizing to its own label's length, so the two line up instead of
 // one being visibly narrower.
-const SETTINGS_DROPDOWN_TRIGGER_CLASS = `flex w-32 items-center justify-between gap-1.5 border border-border px-2.5 py-1.5 text-[12px] text-foreground hover:bg-muted/30 ${SETTINGS_CONTROL_RADIUS}`;
+const SETTINGS_DROPDOWN_TRIGGER_BASE = `flex items-center justify-between gap-1.5 border border-border px-2.5 py-1.5 text-[12px] text-foreground hover:bg-muted/30 ${SETTINGS_CONTROL_RADIUS}`;
+const SETTINGS_DROPDOWN_TRIGGER_CLASS = `${SETTINGS_DROPDOWN_TRIGGER_BASE} w-32`;
+// Fits its content (never narrower than the standard w-32) -- for triggers whose
+// label length varies by language, instead of hardcoding a wider fixed width.
+const SETTINGS_DROPDOWN_TRIGGER_FIT_CLASS = `${SETTINGS_DROPDOWN_TRIGGER_BASE} w-max min-w-32 whitespace-nowrap`;
 
 // SettingsSection -- label sits directly above the card with no box of its
 // own (Synara's own pattern: a plain muted label, not a boxed header), then
@@ -195,16 +201,20 @@ function SettingsRow({
 // INBOX_ITEM icons), per explicit request ("match our sidebar row sizes
 // items and gaps and text and icon spacing") now that these rows render
 // through that same RailButton component.
-const SECTIONS: { key: SettingsSection; label: string; icon: ReactNode }[] = [
-  { key: "profile", label: "Profile", icon: <UserIcon className="size-[14px]" /> },
-  { key: "general", label: "General", icon: <SettingsIcon className="size-[14px]" /> },
-  { key: "appearance", label: "Appearance", icon: <PaletteIcon className="size-[14px]" /> },
-  { key: "chat", label: "Chat", icon: <BubbleChatIcon className="size-[14px]" /> },
-  { key: "provider", label: "Provider", icon: <ProvidersIcon className="size-[14px]" /> },
+// `label` stays the fixed English name -- used only internally by
+// rankSettingsSearch's own substring matching (that function's own comment
+// has the "why not translated" reasoning), never rendered directly.
+// `labelKey` is what every real display site below calls t() with.
+const SECTIONS: { key: SettingsSection; label: string; labelKey: string; icon: ReactNode }[] = [
+  { key: "profile", label: "Profile", labelKey: "settings.nav.profile", icon: <UserIcon className="size-[14px]" /> },
+  { key: "general", label: "General", labelKey: "settings.nav.general", icon: <SettingsIcon className="size-[14px]" /> },
+  { key: "appearance", label: "Appearance", labelKey: "settings.nav.appearance", icon: <PaletteIcon className="size-[14px]" /> },
+  { key: "chat", label: "Chat", labelKey: "settings.nav.chat", icon: <BubbleChatIcon className="size-[14px]" /> },
+  { key: "provider", label: "Provider", labelKey: "settings.nav.provider", icon: <ProvidersIcon className="size-[14px]" /> },
   // Its own top-level section now, not a drill-in under Provider -- per
   // explicit correction ("Still inside providers its meant to be settings
   // > apps and not settings > providers > apps").
-  { key: "apps", label: "Apps", icon: <IntegrationsIcon className="size-[14px]" /> },
+  { key: "apps", label: "Apps", labelKey: "settings.nav.apps", icon: <IntegrationsIcon className="size-[14px]" /> },
 ];
 
 // Group describers -- per explicit request ("we need to add section
@@ -222,20 +232,20 @@ const SECTIONS: { key: SettingsSection; label: string; icon: ReactNode }[] = [
 // "Restore defaults" button at the end of their own page, which made the
 // Danger zone's one global "Reset all settings" purely redundant, not a
 // second real capability.
-const SETTINGS_NAV_GROUPS: { label: string; keys: SettingsSection[] }[] = [
+const SETTINGS_NAV_GROUPS: { labelKey: string; keys: SettingsSection[] }[] = [
   // General first, then the rest alphabetical (Appearance, Chat, Profile)
   // -- per explicit request.
-  { label: "Application", keys: ["general", "appearance", "chat", "profile"] },
-  { label: "Connections", keys: ["provider", "apps"] },
+  { labelKey: "settings.nav.group.application", keys: ["general", "appearance", "chat", "profile"] },
+  { labelKey: "settings.nav.group.connections", keys: ["provider", "apps"] },
 ];
 
-const SECTION_SUBTITLE: Record<SettingsSection, string> = {
-  profile: "Update your profile picture and see your subscription type.",
-  general: "Show or hide tips, and manage notifications.",
-  appearance: "Pick a theme, adjust fonts, and set how wide chats appear.",
-  chat: "Set the default model and effort for new chats, and check the local usage of storage for the chats you have started.",
-  provider: "Sign in to Claude, ChatGPT, Gemini, or Grok, and see how much each is used.",
-  apps: "Connect GitHub, Gmail, and other apps to use in your chats.",
+const SECTION_SUBTITLE_KEY: Record<SettingsSection, string> = {
+  profile: "settings.nav.subtitle.profile",
+  general: "settings.nav.subtitle.general",
+  appearance: "settings.nav.subtitle.appearance",
+  chat: "settings.nav.subtitle.chat",
+  provider: "settings.nav.subtitle.provider",
+  apps: "settings.nav.subtitle.apps",
 };
 
 // Search -- per explicit request ("Also build search + reset-to-default +
@@ -524,6 +534,7 @@ type ConnectionState = "connected" | "not-installed" | "not-signed-in" | "error"
 // that immediately gets replaced reads as more noise than silence does for
 // something this fast.
 function ConnectionBadge({ state }: { state: ConnectionState | undefined }) {
+  const { t } = useTranslation();
   const [shown, setShown] = useState(state);
   const [visible, setVisible] = useState(true);
 
@@ -538,11 +549,11 @@ function ConnectionBadge({ state }: { state: ConnectionState | undefined }) {
       return;
     }
     setVisible(false);
-    const t = setTimeout(() => {
+    const timeout = setTimeout(() => {
       setShown(state);
       setVisible(true);
     }, 150);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timeout);
   }, [state, shown]);
 
   if (shown === undefined) return null;
@@ -556,14 +567,14 @@ function ConnectionBadge({ state }: { state: ConnectionState | undefined }) {
   const isError = shown === "error";
   const label =
     shown === "waiting"
-      ? "Waiting for sign-in..."
+      ? t("settings.providers.waitingForSignIn")
       : isError
         ? "(ALS-002)"
         : shown === "connected"
-          ? "Connected"
+          ? t("common.connected")
           : shown === "not-signed-in"
-            ? "Not signed in (ALS-004)"
-            : "Not installed (ALS-003)";
+            ? t("settings.providers.notSignedIn")
+            : t("settings.providers.notInstalled");
   const tone =
     shown === "connected"
       ? "rounded-full px-2 py-0.5 text-[9px] font-medium bg-green-500/10 text-green-600 dark:text-green-400"
@@ -584,6 +595,7 @@ function ConnectionBadge({ state }: { state: ConnectionState | undefined }) {
 // connections are disabled and hidden (this component's own comment
 // further down has the full reasoning).
 function ProviderConnectionView({ provider }: { provider: Provider }) {
+  const { t } = useTranslation();
   // Guessed, not looked up anywhere real -- per explicit request to check "all
   // providers", not just Claude/Codex (the two with a confirmed real binary name and
   // login-status check, backend/src/server.rs's own cli_available). This may report
@@ -627,7 +639,7 @@ function ProviderConnectionView({ provider }: { provider: Provider }) {
       // really missing. Surfacing that distinction inline instead of the
       // missing-CLI dialog avoids telling the user to (re)install something that's
       // already installed.
-      setLoggedInMessage("No connection to the application, make sure the application is running, then try again. (ALS-002)");
+      setLoggedInMessage(t("settings.providers.noConnection"));
     } else if (installed) {
       // Straight to the real login flow, no overlay -- per explicit request
       // ("when we click sign in we should do what the setup now does and
@@ -654,10 +666,10 @@ function ProviderConnectionView({ provider }: { provider: Provider }) {
       if (res.ok) {
         await refetchAvailability();
       } else {
-        setLoggedInMessage("Could not disconnect. Try again.");
+        setLoggedInMessage(t("settings.providers.couldNotDisconnect"));
       }
     } catch {
-      setLoggedInMessage("No connection to the application, make sure the application is running, then try again. (ALS-002)");
+      setLoggedInMessage(t("settings.providers.noConnection"));
     } finally {
       setLoggingOut(false);
     }
@@ -752,7 +764,7 @@ function ProviderConnectionView({ provider }: { provider: Provider }) {
           that's new work built from scratch, not a tab re-added here. */}
       <div className="mt-5">
         <div className={`${SETTINGS_CARD_RADIUS} border border-border p-4`}>
-          <p className="text-[12px] font-medium text-foreground">Use your own {provider.displayName} account</p>
+          <p className="text-[12px] font-medium text-foreground">{t("settings.providers.useOwnAccount", { provider: provider.displayName })}</p>
           {/* Two variants, not one fixed sentence -- per explicit request
               ("needs to be consistent around all providers"): the same
               wording applies to every provider (no provider name in
@@ -762,9 +774,7 @@ function ProviderConnectionView({ provider }: { provider: Provider }) {
               step (download it first) than ALS-004/already-connected
               (just sign in, or check on an existing sign-in). */}
           <p className="mt-1 text-[13px] font-normal text-muted-foreground">
-            {installed
-              ? "Once this provider is available via terminal, Alongside reuses that login."
-              : "This provider needs to be downloaded from its official page and made available via terminal, as Alongside reuses that login."}
+            {installed ? t("settings.providers.reusesLoginInstalled") : t("settings.providers.reusesLoginNotInstalled")}
           </p>
           <Button
             variant="outline"
@@ -781,7 +791,13 @@ function ProviderConnectionView({ provider }: { provider: Provider }) {
             // request, logging in isn't the fix for "can't reach Alongside".
             disabled={cliCheckError || available === undefined || loggingOut}
           >
-            {available ? (loggingOut ? "Disconnecting..." : "Disconnect") : installed ? "Sign in" : "Set up"}
+            {available
+              ? loggingOut
+                ? t("settings.providers.disconnecting")
+                : t("common.disconnect")
+              : installed
+                ? t("settings.providers.signIn")
+                : t("settings.providers.setUp")}
           </Button>
           {loggedInMessage && (
             <p className="mt-2 text-[10px] font-normal text-green-600 dark:text-green-400"><ErrorText message={loggedInMessage} /></p>
@@ -809,13 +825,17 @@ function ProviderConnectionView({ provider }: { provider: Provider }) {
                 "via Antigravity" for Gemini, "via Claude Code" for Claude,
                 "via Codex" for Codex), so this reads correctly for every
                 provider without hardcoding one. */}
-            <DialogTitle>{installed ? `Sign in to ${provider.displayName} is required` : "Not installed"}</DialogTitle>
+            <DialogTitle>
+              {installed ? t("settings.providers.signInRequired", { provider: provider.displayName }) : t("settings.providers.notInstalledTitle")}
+            </DialogTitle>
             <DialogDescription>
               <ErrorText
                 message={
                   installed
-                    ? `You are trying to use ${provider.displayName}${provider.displayCaption ? ` ${provider.displayCaption}` : ""} and sign in is required. (ALS-004)`
-                    : `Alongside could not find a "${cliBinary}" command on your PATH. (ALS-003)`
+                    ? t("settings.providers.tryingToUse", {
+                        name: `${provider.displayName}${provider.displayCaption ? ` ${provider.displayCaption}` : ""}`,
+                      })
+                    : t("settings.providers.commandNotFound", { binary: cliBinary })
                 }
               />
             </DialogDescription>
@@ -836,7 +856,7 @@ function ProviderConnectionView({ provider }: { provider: Provider }) {
                 if (url) window.open(url, "_blank", "noopener,noreferrer");
               }}
             >
-              Visit provider documentation
+              {t("settings.providers.visitDocs")}
             </Button>
             {installed && (
               // type="button" -- per explicit request/bug report ("I
@@ -851,7 +871,7 @@ function ProviderConnectionView({ provider }: { provider: Provider }) {
               // by this button directly -- this only has to stop being a
               // stray form submit.
               <Button type="button" onClick={handleSetupNow} disabled={loggingIn} className="h-8 text-[11px]">
-                {loggingIn ? "Opening..." : "Setup now"}
+                {loggingIn ? t("settings.providers.opening") : t("settings.providers.setupNow")}
               </Button>
             )}
           </DialogFooter>
@@ -875,6 +895,7 @@ function ProviderConnectionView({ provider }: { provider: Provider }) {
 // icon+name portion is its own button and the right-hand action is a sibling, both
 // inside a plain (non-interactive) row div.
 function ProviderCard({ provider, onClick }: { provider: Provider; onClick: () => void }) {
+  const { t } = useTranslation();
   const cliBinary = provider.name.toLowerCase();
   const { available, installed, error: cliCheckError } = useCliAvailability(cliBinary);
   // Every caller of this component now only ever passes an
@@ -898,14 +919,14 @@ function ProviderCard({ provider, onClick }: { provider: Provider; onClick: () =
     // Same coded message as ConnectionBadge's own "error" state -- per
     // explicit request, a clear error instead of a vague "can't check"
     // (that badge's own comment has the full ALS-002 reasoning).
-    ? "No connection to the application, make sure the application is running, then try again. (ALS-002)"
+    ? t("settings.providers.noConnection")
     : checking
-      ? "Checking..."
+      ? t("settings.providers.checking")
       : isConnected
-        ? "Connected"
+        ? t("common.connected")
         : installed
-          ? "Not signed in"
-          : "Not installed";
+          ? t("settings.providers.notSignedInPlain")
+          : t("settings.providers.notInstalledPlain");
   const docsUrl = PROVIDER_DOCS_URLS[cliBinary];
   // Same shrink-0/text sizing as before, just no hover of its own any more
   // (see the outer row's own comment below).
@@ -969,7 +990,7 @@ function ProviderCard({ provider, onClick }: { provider: Provider; onClick: () =
           // now. Inside the same button as the chevron above (not a
           // sibling span) so it shares that full-card hover instead of
           // sitting outside it looking inert.
-          <span className="shrink-0 text-[11px] font-normal text-muted-foreground">No connection</span>
+          <span className="shrink-0 text-[11px] font-normal text-muted-foreground">{t("settings.providers.noConnectionPlain")}</span>
         )}
       </button>
       {isFullCardButton ? null : installed ? (
@@ -978,7 +999,7 @@ function ProviderCard({ provider, onClick }: { provider: Provider; onClick: () =
         // already has the real "Log in"/"Setup now" flow wired up
         // (ProviderConnectionView's own handleLogIn/handleSetupNow).
         <button type="button" onClick={onClick} className={actionButtonClassName}>
-          Log in
+          {t("settings.providers.logIn")}
         </button>
       ) : docsUrl ? (
         // Not installed -- straight to the provider's own install docs,
@@ -992,13 +1013,13 @@ function ProviderCard({ provider, onClick }: { provider: Provider; onClick: () =
           }}
           className={actionButtonClassName}
         >
-          Install
+          {t("settings.providers.install")}
         </button>
       ) : (
         // No confirmed docs URL for this provider (PROVIDER_DOCS_URLS'
         // own comment) -- falls back to the detail view, same as before.
         <button type="button" onClick={onClick} className={actionButtonClassName}>
-          Set up
+          {t("settings.providers.setUp")}
         </button>
       )}
     </div>
@@ -1027,6 +1048,7 @@ function ProviderCard({ provider, onClick }: { provider: Provider; onClick: () =
 // reasoning -- the sidebar's own back chevron needs a real history entry
 // to walk back to), not a second, differently-built navigation pattern.
 function AppsSection() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedApp = searchParams.get("app");
@@ -1053,13 +1075,13 @@ function AppsSection() {
           exit={{ opacity: 0, transition: spring.slow.exit }}
         >
           <div className="mt-4 mb-2 text-xs font-normal text-foreground select-none">
-            <span className="opacity-50">Available</span>
+            <span className="opacity-50">{t("settings.apps.available")}</span>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <GithubIntegrationCard onClick={() => openApp("github")} />
           </div>
           <div className="mt-4 mb-2 text-xs font-normal text-foreground select-none">
-            <span className="opacity-50">Coming soon</span>
+            <span className="opacity-50">{t("settings.apps.comingSoon")}</span>
           </div>
           <div className="grid grid-cols-2 gap-2">
             {/* Same row shape/reasoning as ProvidersSection's own "Request a
@@ -1075,9 +1097,9 @@ function AppsSection() {
                 <AlongsideLogo className="size-5 text-black dark:text-white" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[12px] font-medium text-foreground">Request an app</span>
+                <span className="block truncate text-[12px] font-medium text-foreground">{t("settings.apps.requestApp.title")}</span>
                 <span className="line-clamp-2 text-[10px] font-normal text-muted-foreground">
-                  We listen to our community and bring their requested apps.
+                  {t("settings.apps.requestApp.description")}
                 </span>
               </span>
             </button>
@@ -1089,6 +1111,7 @@ function AppsSection() {
 }
 
 function GithubIntegrationCard({ onClick }: { onClick: () => void }) {
+  const { t } = useTranslation();
   const [connectedUsername, setConnectedUsername] = useState<string | null>(null);
 
   useEffect(() => {
@@ -1124,7 +1147,7 @@ function GithubIntegrationCard({ onClick }: { onClick: () => void }) {
             separate "Checking..." transient state (per a later explicit
             follow-up, "remove checking..."). */}
         <span className="line-clamp-2 text-[10px] font-normal text-muted-foreground">
-          {isConnected ? "Connected" : "Disconnected"}
+          {isConnected ? t("common.connected") : t("common.disconnected")}
         </span>
       </span>
       {/* Per explicit request ("we are missing the arrow > at github like
@@ -1147,6 +1170,7 @@ function GithubIntegrationCard({ onClick }: { onClick: () => void }) {
 // page (this component), not a Dialog -- per explicit correction, same
 // "icon+name header, content below" shape ProviderConnectionView uses.
 function GithubAppConnectionView({ onBack }: { onBack: () => void }) {
+  const { t } = useTranslation();
   const [connectedUsername, setConnectedUsername] = useState<string | null>(null);
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
@@ -1197,50 +1221,45 @@ function GithubAppConnectionView({ onBack }: { onBack: () => void }) {
         <div className="min-w-0 flex-1">
           <div className="truncate text-[13px] font-medium text-foreground">GitHub</div>
           <div className="truncate text-[13px] font-normal text-muted-foreground">
-            {connectedUsername ? `Connected as ${connectedUsername}` : "Not connected"}
+            {connectedUsername ? t("settings.apps.github.connectedAs", { username: connectedUsername }) : t("settings.apps.github.notConnected")}
           </div>
         </div>
       </div>
       {connectedUsername ? (
         <div className="mt-5 flex flex-col gap-3">
           <p className="text-[13px] text-muted-foreground">
-            Use it in any chat by mentioning <span className="font-mono">@github</span>.
+            <Trans i18nKey="settings.apps.github.useInChat" components={[<span className="font-mono" key="0" />]} />
           </p>
           <Button variant="outline" className="w-fit" onClick={() => void disconnect()}>
-            Disconnect
+            {t("common.disconnect")}
           </Button>
         </div>
       ) : (
         <div className="mt-5 flex flex-col gap-5">
           <div className="flex flex-col gap-1">
-            <p className="text-[13px] font-medium text-foreground">1. Create a GitHub OAuth App</p>
-            <p className="text-[12px] text-muted-foreground">
-              Go to GitHub → Settings → Developer settings → OAuth Apps → New OAuth App. Set the Authorization callback URL to:
-            </p>
+            <p className="text-[13px] font-medium text-foreground">{t("settings.apps.github.step1.title")}</p>
+            <p className="text-[12px] text-muted-foreground">{t("settings.apps.github.step1.description")}</p>
             <code className="rounded-lg bg-muted px-2.5 py-1.5 text-[11px] break-all text-foreground">{callbackUrl}</code>
           </div>
           <div className="flex flex-col gap-2">
-            <p className="text-[13px] font-medium text-foreground">2. Paste its Client ID and Client Secret</p>
-            <Input placeholder="Client ID" value={clientId} onChange={(event) => setClientId(event.target.value)} />
+            <p className="text-[13px] font-medium text-foreground">{t("settings.apps.github.step2.title")}</p>
+            <Input placeholder={t("settings.apps.github.clientId.placeholder")} value={clientId} onChange={(event) => setClientId(event.target.value)} />
             <Input
               type="password"
-              placeholder="Client Secret"
+              placeholder={t("settings.apps.github.clientSecret.placeholder")}
               value={clientSecret}
               onChange={(event) => setClientSecret(event.target.value)}
             />
-            <p className="text-[11px] text-muted-foreground">
-              The secret will be saved as sensitive -- make sure to save it somewhere safe, as it's not recoverable once you leave this
-              screen.
-            </p>
+            <p className="text-[11px] text-muted-foreground">{t("settings.apps.github.secretWarning")}</p>
           </div>
           <div className="flex flex-col gap-1">
-            <p className="text-[13px] font-medium text-foreground">3. Use it in your chats</p>
+            <p className="text-[13px] font-medium text-foreground">{t("settings.apps.github.step3.title")}</p>
             <p className="text-[12px] text-muted-foreground">
-              Once connected, mention <span className="font-mono">@github</span> in any chat.
+              <Trans i18nKey="settings.apps.github.step3.description" components={[<span className="font-mono" key="0" />]} />
             </p>
           </div>
           <Button className="w-fit" disabled={!clientId.trim() || !clientSecret.trim() || submitting} onClick={() => void connect()}>
-            Connect
+            {t("common.connect")}
           </Button>
         </div>
       )}
@@ -1258,6 +1277,7 @@ function ProvidersSection() {
   // walk back to. Routing this through the URL means selecting a provider
   // is a real navigate(), which the existing stack already picks up for
   // free.
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedProviderName = searchParams.get("provider");
@@ -1315,7 +1335,7 @@ function ProvidersSection() {
           {activeProviders.length > 0 && (
             <>
               <div className="mt-4 mb-2 text-xs font-normal text-foreground select-none">
-                <span className="opacity-50">Available</span>
+                <span className="opacity-50">{t("settings.apps.available")}</span>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 {activeProviders.map((provider) => (
@@ -1336,7 +1356,7 @@ function ProvidersSection() {
               !ACTIVE_PROVIDERS) are gone from this section entirely for
               launch, not just visually de-emphasized. */}
           <div className="mt-4 mb-2 text-xs font-normal text-foreground select-none">
-            <span className="opacity-50">Coming soon</span>
+            <span className="opacity-50">{t("settings.apps.comingSoon")}</span>
           </div>
           <div className="grid grid-cols-2 gap-2">
             {/* Request provider -- per explicit request, its own row using
@@ -1368,7 +1388,7 @@ function ProvidersSection() {
                 <AlongsideLogo className="size-5 text-black dark:text-white" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[12px] font-medium text-foreground">Request a provider</span>
+                <span className="block truncate text-[12px] font-medium text-foreground">{t("settings.providers.requestProvider.title")}</span>
                 {/* line-clamp-2, not truncate -- per explicit request
                     ("make the requested providers description suit into
                     two or more lines/rows, we will need to allow this to
@@ -1377,7 +1397,7 @@ function ProvidersSection() {
                     description (now shown there for every Coming soon
                     row too) can run just as long as this one. */}
                 <span className="line-clamp-2 text-[10px] font-normal text-muted-foreground">
-                  We listen to our community and bring their requested providers.
+                  {t("settings.providers.requestProvider.description")}
                 </span>
               </span>
             </button>
@@ -1390,7 +1410,7 @@ function ProvidersSection() {
               grid-cols-2 half-width) since it's the only item in this
               section. */}
           <div className="mt-4 mb-2 text-xs font-normal text-foreground select-none">
-            <span className="opacity-50">Usage</span>
+            <span className="opacity-50">{t("settings.providers.usage")}</span>
           </div>
           <button
             type="button"
@@ -1401,9 +1421,9 @@ function ProvidersSection() {
               <ProviderUsageIcon className="size-5 text-muted-foreground" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[12px] font-medium text-foreground">Provider usage</span>
+              <span className="block truncate text-[12px] font-medium text-foreground">{t("settings.providers.usage.title")}</span>
               <span className="line-clamp-2 text-[10px] font-normal text-muted-foreground">
-                See usage broken down by provider.
+                {t("settings.providers.usage.description")}
               </span>
             </span>
             <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
@@ -1457,17 +1477,15 @@ function resizeImageFile(file: File, maxSize = 256, quality = 0.85): Promise<str
 // down from General's own former Caution section (that section's own
 // comment has the pointer).
 function ProfileSection() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const isSignedIn = useIsSignedIn();
   const avatarImage = useUserAvatarImage();
   const currentName = useUserDisplayName();
-  // A local draft, not writing straight through on every keystroke -- per
-  // explicit request ("we should be able to allow users to change their
-  // name at Profile"), matching the avatar upload flow's own
-  // pick-then-confirm shape (pendingImage, below) rather than committing a
-  // half-typed name on each change event.
-  const [nameDraft, setNameDraft] = useState(currentName);
+  // The plan the identity service reports; a signed-out device is on the free plan.
+  const identityPlan = useIdentity().plan;
+  const plan = identityPlan === "hosted" || identityPlan === "enterprise" ? identityPlan : "free";
   const [error, setError] = useState<string | null>(null);
   const [manageOpen, setManageOpen] = useState(false);
   // A newly picked file, resized but not yet saved -- per explicit
@@ -1485,14 +1503,14 @@ function ProfileSection() {
     if (!file) return;
     setError(null);
     if (file.type !== "image/jpeg" && file.type !== "image/png") {
-      setError("Please choose a JPEG or PNG file.");
+      setError(t("settings.profile.avatar.invalidFile"));
       return;
     }
     try {
       const dataUrl = await resizeImageFile(file);
       setPendingImage(dataUrl);
     } catch {
-      setError("That image could not be used. Please try a different file.");
+      setError(t("settings.profile.avatar.unusable"));
     }
   }
 
@@ -1514,46 +1532,20 @@ function ProfileSection() {
     link.click();
   }
 
-  function handleSaveName() {
-    const trimmed = nameDraft.trim();
-    if (!trimmed || trimmed === currentName) return;
-    setUserDisplayName(trimmed);
-  }
-
   return (
     <div className="flex flex-col">
-      <SettingsSection title="Personal">
-        {/* Not gated on isSignedIn -- unlike Manage photo below, a display
-            name is meaningful for a solo, signed-out local user too (it's
-            what "Me" attribution and chat messages already show, per
-            lib/user.ts's own getUserDisplayName). */}
+      <SettingsSection title={t("settings.profile.personal")}>
+        {/* The name is the identity provider's (lib/identity.ts) and cannot be edited here. */}
         <SettingsRow
           id="setting-name"
-          title="Name"
-          description="Your display name for chats."
+          title={t("settings.profile.name.title")}
+          description={isSignedIn ? t("settings.profile.name.description") : t("settings.profile.name.signedOut")}
         >
-          <div className="flex items-center gap-1.5">
-            <Input
-              value={nameDraft}
-              onChange={(event) => setNameDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") handleSaveName();
-              }}
-              className="h-7 w-40 text-[12px] focus-visible:border-focus-accent"
-            />
-            <button
-              type="button"
-              className={SETTINGS_ACTION_BUTTON_CLASS}
-              disabled={!nameDraft.trim() || nameDraft.trim() === currentName}
-              onClick={handleSaveName}
-            >
-              Save
-            </button>
-          </div>
+          <span className="text-[12px] font-medium text-foreground">{currentName}</span>
         </SettingsRow>
         <SettingsRow
           id="setting-avatar"
-          title="Profile picture"
+          title={t("settings.profile.avatar.title")}
           // No (i) tooltip any more -- per explicit request, after
           // confirming directly against the real upload code: there's no
           // actual size requirement (resizeImageFile below auto-resizes
@@ -1563,7 +1555,7 @@ function ProfileSection() {
           // upload handler both reject anything else) -- kept visible in
           // plain text instead of behind an icon, since it's the one part
           // of the old copy that was actually true.
-          description="Your profile picture for chats."
+          description={t("settings.profile.avatar.description")}
           status={error ?? undefined}
         >
           {/* disabled when signed out -- per explicit request ("profile
@@ -1579,7 +1571,7 @@ function ProfileSection() {
             disabled={!isSignedIn}
             onClick={() => setManageOpen(true)}
           >
-            Manage photo
+            {t("settings.profile.avatar.managePhoto")}
           </button>
           <input
             ref={fileInputRef}
@@ -1609,13 +1601,13 @@ function ProfileSection() {
         >
           <DialogContent>
             <DialogHeader>
-              <DialogTitle className="text-sm font-semibold">Manage your profile picture</DialogTitle>
+              <DialogTitle className="text-sm font-semibold">{t("settings.profile.avatar.dialogTitle")}</DialogTitle>
               {/* Format note lives here now, not the Settings row's own
                   description -- per explicit request. */}
               <DialogDescription className="text-[13px] font-normal">
                 {avatarImage
-                  ? "Download or remove your current profile picture, or upload a new one. JPEG or PNG only."
-                  : "Add a picture to your profile for other users to see. JPEG or PNG only."}
+                  ? t("settings.profile.avatar.dialogDescription.withPhoto")
+                  : t("settings.profile.avatar.dialogDescription.noPhoto")}
               </DialogDescription>
             </DialogHeader>
             {/* Photo on the left, name on the right -- per explicit
@@ -1641,7 +1633,7 @@ function ProfileSection() {
               {avatarImage && !pendingImage && (
                 <Button variant="outline" className="h-8 gap-1.5 text-[11px]" onClick={handleDownload}>
                   <DownloadIcon className="size-3.5" />
-                  Download
+                  {t("common.download")}
                 </Button>
               )}
               {/* Same red as the chat delete-confirmation dialog's own
@@ -1651,7 +1643,7 @@ function ProfileSection() {
                   className="h-8 bg-red-600 text-[11px] text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
                   onClick={() => clearUserAvatarImage()}
                 >
-                  Remove
+                  {t("common.remove")}
                 </Button>
               )}
               {/* Flips to Confirm once a file has been picked -- per
@@ -1660,11 +1652,11 @@ function ProfileSection() {
                   setUserAvatarImage now. */}
               {pendingImage ? (
                 <Button className="h-8 text-[11px]" onClick={handleConfirmUpload}>
-                  Confirm
+                  {t("common.confirm")}
                 </Button>
               ) : (
                 <Button className="h-8 text-[11px]" onClick={() => fileInputRef.current?.click()}>
-                  Add
+                  {t("common.add")}
                 </Button>
               )}
             </DialogFooter>
@@ -1677,8 +1669,8 @@ function ProfileSection() {
             this states that plainly rather than fabricating a Pro/
             Enterprise upgrade flow that doesn't exist. Revisit once a real
             subscription system exists. */}
-        <SettingsRow title="Subscription" description="Your current plan on this device.">
-          <span className="text-[12px] font-medium text-foreground">Free</span>
+        <SettingsRow title={t("settings.profile.subscription.title")} description={t("settings.profile.subscription.description")}>
+          <span className="text-[12px] font-medium text-foreground">{t(`settings.profile.subscription.${plan}`)}</span>
         </SettingsRow>
       </SettingsSection>
 
@@ -1699,11 +1691,11 @@ function ProfileSection() {
           since that one genuinely needs the real sign-in form. state:
           { from } lets AuthPage return here (not always Getting started)
           once signed back in. */}
-      <SettingsSection title="Caution">
+      <SettingsSection title={t("settings.profile.caution")}>
         <SettingsRow
           id="setting-log-out"
-          title={isSignedIn ? "Log out" : "Sign in"}
-          description={isSignedIn ? "Sign out of your account on this device." : "Sign in to share chats with other people."}
+          title={isSignedIn ? t("common.logOut") : t("common.signIn")}
+          description={isSignedIn ? t("settings.profile.logOut.description") : t("settings.profile.signIn.description")}
         >
           <button
             type="button"
@@ -1717,7 +1709,7 @@ function ProfileSection() {
             }}
           >
             <LogOutIcon className="size-3.5" />
-            {isSignedIn ? "Log out" : "Sign in"}
+            {isSignedIn ? t("common.logOut") : t("common.signIn")}
           </button>
         </SettingsRow>
       </SettingsSection>
@@ -1735,6 +1727,7 @@ function ProfileSection() {
 // (alongsidedotrun/private#207). Appearance used to be a fourth
 // sub-section here too; it now lives in its own AppearanceSection, below.
 function GeneralSection() {
+  const { t } = useTranslation();
   const { show: showGettingStarted, setShow: setShowGettingStarted } = useGettingStarted();
   const [notifyEnabled, setNotifyEnabledState] = useState(loadNotifyTurnComplete);
 
@@ -1770,22 +1763,22 @@ function GeneralSection() {
 
   return (
     <div className="flex flex-col">
-      <SettingsSection title="Tips">
+      <SettingsSection title={t("settings.general.tips")}>
         <SettingsRow
           id="setting-getting-started"
-          title="Getting started"
-          description="Show the Getting started page and its sidebar entry."
+          title={t("settings.general.gettingStarted.title")}
+          description={t("settings.general.gettingStarted.description")}
         >
           <Switch checked={showGettingStarted} onToggle={() => setShowGettingStarted(!showGettingStarted)} aria-label="Getting started" />
         </SettingsRow>
       </SettingsSection>
 
-      <SettingsSection title="Language & Timezone">
+      <SettingsSection title={t("settings.general.languageAndTimezone")}>
         <LanguageRow />
         <TimezoneRow />
       </SettingsSection>
 
-      <SettingsSection title="Notifications">
+      <SettingsSection title={t("settings.general.notifications")}>
         {/* Copy per explicit request/follow-up, with the two disputed
             claims in the original wording resolved for real rather than
             just dropped: "human or provider turn" narrowed to "provider
@@ -1798,8 +1791,8 @@ function GeneralSection() {
             (chat-notifications.ts) that notifyTurnComplete also checks. */}
         <SettingsRow
           id="setting-notify-turn-complete"
-          title="Receive a notification from every chat when a turn completes"
-          description="Every chat delivers a notification when a provider turn finishes while the app is not focused. If disabled, notifications can still be enabled for individual chats."
+          title={t("settings.general.notifyTurnComplete.title")}
+          description={t("settings.general.notifyTurnComplete.description")}
         >
           <Switch
             checked={notifyEnabled}
@@ -1817,11 +1810,11 @@ function GeneralSection() {
           heading is just calling it out as worth a second thought. Log
           out moved to its own new Profile section -- per explicit request
           ("logout to go inside there instead of general"). */}
-      <SettingsSection title="Caution">
-        <SettingsRow title="Default general settings" description="Reset every setting on this page back to its default.">
+      <SettingsSection title={t("settings.general.caution")}>
+        <SettingsRow title={t("settings.general.resetDefaults.title")} description={t("settings.general.resetDefaults.description")}>
           <button type="button" className={SETTINGS_ACTION_BUTTON_CLASS} disabled={!anyChanged} onClick={restoreDefaults}>
             <RotateCcwIcon className="size-3.5" />
-            Reset
+            {t("settings.general.resetDefaults.button")}
           </button>
         </SettingsRow>
       </SettingsSection>
@@ -1833,6 +1826,7 @@ function GeneralSection() {
 // explicit request ("we should get an appearance menu at the sidebar as
 // well as palette icon and move from general").
 function AppearanceSection() {
+  const { t } = useTranslation();
   const { theme, setTheme } = useTheme();
   const isMac = useIsMac();
   const isWindows = useIsWindows();
@@ -1893,15 +1887,15 @@ function AppearanceSection() {
   // (nav-user.tsx's own Settings/Docs/Help rows, compose-box.tsx's own
   // Plus row) already passes the bare component this same way.
   const themeOptions: { value: typeof theme; label: string; icon: IconComponent }[] = [
-    { value: "system", label: "System", icon: SystemIcon },
-    { value: "light", label: "Light", icon: SunIcon },
-    { value: "dark", label: "Dark", icon: MoonIcon },
+    { value: "system", label: t("settings.appearance.theme.system"), icon: SystemIcon },
+    { value: "light", label: t("settings.appearance.theme.light"), icon: SunIcon },
+    { value: "dark", label: t("settings.appearance.theme.dark"), icon: MoonIcon },
   ];
   const currentTheme = themeOptions.find((o) => o.value === theme) ?? themeOptions[0];
 
   const chatWidthOptions: { value: ChatWidth; label: string; icon: IconComponent }[] = [
-    { value: "standard", label: "Standard", icon: ChevronsInwardHorizontalIcon },
-    { value: "expanded", label: "Expanded", icon: ExpandedWidthIcon },
+    { value: "standard", label: t("settings.appearance.chatWidth.standard"), icon: ChevronsInwardHorizontalIcon },
+    { value: "expanded", label: t("settings.appearance.chatWidth.expanded"), icon: ExpandedWidthIcon },
   ];
   const currentChatWidth = chatWidthOptions.find((o) => o.value === chatWidth) ?? chatWidthOptions[0];
 
@@ -1928,8 +1922,8 @@ function AppearanceSection() {
           (Use system UI font applies everywhere); Layout groups the
           window/column-shape rows, including transparency (macOS-only,
           same gate as before). */}
-      <SettingsSection title="Theme">
-        <SettingsRow id="setting-theme" title="Theme" description="Switch between light and dark, or follow the system.">
+      <SettingsSection title={t("settings.appearance.theme")}>
+        <SettingsRow id="setting-theme" title={t("settings.appearance.theme")} description={t("settings.appearance.theme.description")}>
           <BaseDropdownMenu size="compact">
             <BaseDropdownTrigger
               render={
@@ -1969,25 +1963,33 @@ function AppearanceSection() {
         </SettingsRow>
       </SettingsSection>
 
-      <SettingsSection title="Fonts">
+      <SettingsSection title={t("settings.appearance.fonts")}>
         <SettingsRow
           id="setting-system-ui-font"
-          title="Use system UI font"
-          description="Ignore the theme's font and render the interface with the native system font."
+          title={t("settings.appearance.systemUiFont.title")}
+          description={t("settings.appearance.systemUiFont.description")}
         >
           <Switch checked={systemUiFont} onToggle={() => setSystemUiFont(!systemUiFont)} aria-label="Use system UI font" />
         </SettingsRow>
         {/* macOS only, hidden (not shown-and-disabled) everywhere else,
             per the confirmed story text ("Only visible when using macOS"). */}
         {isMac && (
-          <SettingsRow id="setting-font-smoothing" title="Font smoothing" description="Lighter, crisper text rendering.">
+          <SettingsRow
+            id="setting-font-smoothing"
+            title={t("settings.appearance.fontSmoothing.title")}
+            description={t("settings.appearance.fontSmoothing.description")}
+          >
             <Switch checked={fontSmoothing} onToggle={() => setFontSmoothing(!fontSmoothing)} aria-label="Font smoothing" />
           </SettingsRow>
         )}
       </SettingsSection>
 
-      <SettingsSection title="Layout">
-        <SettingsRow id="setting-chat-width" title="Chat width" description="Control how wide the chat column grows.">
+      <SettingsSection title={t("settings.appearance.layout")}>
+        <SettingsRow
+          id="setting-chat-width"
+          title={t("settings.appearance.chatWidth.title")}
+          description={t("settings.appearance.chatWidth.description")}
+        >
           {/* A dropdown now, not a segmented control -- per explicit
               request ("Chat width... should use a dropdown like [Theme's
               own dropdown]"), matching that row's own BaseDropdownMenu/
@@ -2022,17 +2024,21 @@ function AppearanceSection() {
         {/* macOS only, hidden (not shown-and-disabled) everywhere else,
             per the confirmed story text ("Only visible when using macOS"). */}
         {transparencySupported && (
-          <SettingsRow id="setting-transparency" title="Enable transparency" description="Native window transparency.">
+          <SettingsRow
+            id="setting-transparency"
+            title={t("settings.appearance.transparency.title")}
+            description={t("settings.appearance.transparency.description")}
+          >
             <Switch checked={transparencyEnabled} onToggle={() => updateTransparency(!transparencyEnabled)} aria-label="Enable transparency" />
           </SettingsRow>
         )}
       </SettingsSection>
 
-      <SettingsSection title="Caution">
-        <SettingsRow title="Default appearance settings" description="Reset every setting on this page back to its default.">
+      <SettingsSection title={t("settings.appearance.caution")}>
+        <SettingsRow title={t("settings.appearance.resetDefaults.title")} description={t("settings.appearance.resetDefaults.description")}>
           <button type="button" className={SETTINGS_ACTION_BUTTON_CLASS} disabled={!anyChanged} onClick={restoreDefaults}>
             <RotateCcwIcon className="size-3.5" />
-            Reset
+            {t("settings.general.resetDefaults.button")}
           </button>
         </SettingsRow>
       </SettingsSection>
@@ -2196,45 +2202,40 @@ function listTimezoneGroups(): TimezoneGroup[] {
     });
 }
 
+// One shared LanguageValue now drives both this dropdown's own choice and,
+// via i18n.changeLanguage (issue #307) + spelling_language (issue #306),
+// the UI language and the AI's own reply language -- per explicit
+// confirmation ("one shared setting"), not two separate controls. The
+// former "More languages... Soon" placeholder is gone now that
+// LANGUAGE_OPTIONS (language.ts) actually lists six real, translated
+// languages alongside the three English variants.
 function LanguageRow() {
+  const { t } = useTranslation();
   const [language, setLanguageState] = useState(loadLanguage);
 
   function setLanguage(value: LanguageValue) {
     setLanguageState(value);
     saveLanguage(value);
+    void i18n.changeLanguage(uiLocaleFor(value));
   }
 
   const entry = LANGUAGE_OPTIONS.find((l) => l.value === language) ?? LANGUAGE_OPTIONS[0];
 
   return (
-    <SettingsRow id="setting-language" title="Language" description="Auto detects from your device. Change to your preference.">
+    <SettingsRow id="setting-language" title={t("settings.general.language.title")} description={t("settings.general.language.description")}>
       <BaseDropdownMenu size="compact">
         <BaseDropdownTrigger
           render={
-            <button type="button" className={SETTINGS_DROPDOWN_TRIGGER_CLASS}>
+            <button type="button" className={SETTINGS_DROPDOWN_TRIGGER_FIT_CLASS}>
               {entry.label}
               <ChevronDownIcon className="size-3.5 text-muted-foreground" />
             </button>
           }
         />
-        <BaseDropdownContent align="end" checkedIndex={LANGUAGE_OPTIONS.findIndex((l) => l.value === language)}>
+        <BaseDropdownContent align="end" className="min-w-52 whitespace-nowrap" checkedIndex={LANGUAGE_OPTIONS.findIndex((l) => l.value === language)}>
           {LANGUAGE_OPTIONS.map((l, i) => (
             <BaseMenuItem key={l.value} index={i} label={l.label} checked={language === l.value} onSelect={() => setLanguage(l.value)} />
           ))}
-          <DropdownSeparator />
-          {/* Decorative, per explicit request -- MenuItem's own built-in `badge`
-              prop already covers this exact "coming soon" pill convention
-              (its own comment: "e.g. 'Coming soon' on a disabled row"). */}
-          <BaseMenuItem
-            index={LANGUAGE_OPTIONS.length}
-            label="More languages"
-            disabled
-            badge={
-              <span className="ml-1.5 shrink-0 rounded-[4px] bg-hover-2 px-1 py-0.5 text-[10px] font-normal text-muted-foreground">
-                Soon
-              </span>
-            }
-          />
         </BaseDropdownContent>
       </BaseDropdownMenu>
     </SettingsRow>
@@ -2242,6 +2243,7 @@ function LanguageRow() {
 }
 
 function TimezoneRow() {
+  const { t } = useTranslation();
   const [timezone, setTimezoneState] = useState(loadTimezone);
   const groups = useMemo(listTimezoneGroups, []);
   const flatValues = useMemo(() => groups.flatMap((g) => g.zones.map((z) => z.value)), [groups]);
@@ -2286,7 +2288,7 @@ function TimezoneRow() {
   }
 
   return (
-    <SettingsRow id="setting-timezone" title="Timezone" description="Auto detects from your device. Change to your preference.">
+    <SettingsRow id="setting-timezone" title={t("settings.general.timezone.title")} description={t("settings.general.language.description")}>
       <BaseDropdownMenu size="compact">
         <BaseDropdownTrigger
           render={
@@ -2378,6 +2380,7 @@ function TimezoneRow() {
 // action so either surface changing it is immediately reflected in the
 // other the next time each is opened.
 function DefaultModelRow() {
+  const { t } = useTranslation();
   const [defaultModel, setDefaultModel] = useState<string | null>(null);
 
   useEffect(() => {
@@ -2406,8 +2409,8 @@ function DefaultModelRow() {
   return (
     <SettingsRow
       id="setting-default-provider"
-      title="Default provider"
-      description="The default model for all new chats."
+      title={t("settings.chat.defaultProvider.title")}
+      description={t("settings.chat.defaultProvider.description")}
     >
       <BaseDropdownMenu size="compact">
         <BaseDropdownTrigger
@@ -2419,7 +2422,7 @@ function DefaultModelRow() {
               {/* size-3.5 (14px), not size-4 (16px) -- per an app-wide
                   compact-scale audit. */}
               {entry && <ProviderIcon model={entry} className="size-3.5" />}
-              {entry ? modelDisplayName(entry) : "None"}
+              {entry ? modelDisplayName(entry) : t("common.none")}
               <ChevronDownIcon className="size-3.5 text-muted-foreground" />
             </button>
           }
@@ -2439,7 +2442,7 @@ function DefaultModelRow() {
         <BaseDropdownContent align="end" className="max-h-72 overflow-y-auto" checkedIndex={defaultModel == null ? 0 : QUICK_CHAT_MODELS.filter((m) => m.configured).findIndex((m) => m.value === defaultModel) + 1}>
           <BaseMenuItem
             index={0}
-            label="None"
+            label={t("common.none")}
             checked={defaultModel == null}
             onSelect={() => void updateDefaultModel(null)}
           />
@@ -2469,6 +2472,7 @@ function DefaultModelRow() {
 // real use yet. Read by compose-box.tsx's own defaultEffortFor
 // (lib/effort.ts) -- every compose box's own Effort dropdown starts here.
 function DefaultEffortRow() {
+  const { t } = useTranslation();
   const [defaultEffort, setDefaultEffort] = useState<EffortLevel | null>(() => loadDefaultEffort());
 
   function update(level: EffortLevel | null) {
@@ -2479,8 +2483,8 @@ function DefaultEffortRow() {
   return (
     <SettingsRow
       id="setting-default-effort"
-      title="Default effort"
-      description="How much effort a new chat starts with."
+      title={t("settings.chat.defaultEffort.title")}
+      description={t("settings.chat.defaultEffort.description")}
     >
       <BaseDropdownMenu size="compact">
         <BaseDropdownTrigger
@@ -2489,7 +2493,7 @@ function DefaultEffortRow() {
               type="button"
               className={`flex items-center gap-1.5 border border-border px-2.5 py-1.5 text-[12px] text-foreground hover:bg-muted/30 ${SETTINGS_CONTROL_RADIUS}`}
             >
-              {defaultEffort ? EFFORT_LABELS[defaultEffort] : "None"}
+              {defaultEffort ? effortLabel(defaultEffort) : t("common.none")}
               <ChevronDownIcon className="size-3.5 text-muted-foreground" />
             </button>
           }
@@ -2497,7 +2501,7 @@ function DefaultEffortRow() {
         <BaseDropdownContent align="end" checkedIndex={defaultEffort == null ? 0 : EFFORT_LEVELS.indexOf(defaultEffort) + 1}>
           <BaseMenuItem
             index={0}
-            label="None"
+            label={t("common.none")}
             checked={defaultEffort == null}
             onSelect={() => update(null)}
           />
@@ -2506,7 +2510,7 @@ function DefaultEffortRow() {
             <BaseMenuItem
               key={level}
               index={i + 1}
-              label={EFFORT_LABELS[level]}
+              label={effortLabel(level)}
               checked={defaultEffort === level}
               onSelect={() => update(level)}
             />
@@ -2527,6 +2531,7 @@ function DefaultEffortRow() {
 // ContextDropdown, via ChatPage.tsx's chat_defaults handling of this same stored
 // value) -- "Context per chat"/"Context per project".
 function CompactScopeRows() {
+  const { t } = useTranslation();
   // Three independent flags, not one enum -- server.rs's own set_autocompact_scope
   // comment has the full resolution/invariant rules (chat > project > global,
   // disabling chat alone enables global without touching project, enabling global
@@ -2557,22 +2562,22 @@ function CompactScopeRows() {
     <>
       <SettingsRow
         id="setting-compact-per-chat"
-        title="Context per chat"
-        description="Context is set per chat."
+        title={t("settings.chat.compactPerChat.title")}
+        description={t("settings.chat.compactPerChat.description")}
       >
         <Switch checked={flags.chat} onToggle={() => void update("chat", !flags.chat)} aria-label="Context per chat" />
       </SettingsRow>
       <SettingsRow
         id="setting-compact-per-project"
-        title="Context per project"
-        description="Context is set to all chats under a project."
+        title={t("settings.chat.compactPerProject.title")}
+        description={t("settings.chat.compactPerProject.description")}
       >
         <Switch checked={flags.project} onToggle={() => void update("project", !flags.project)} aria-label="Context per project" />
       </SettingsRow>
       <SettingsRow
         id="setting-compact-global"
-        title="Global context"
-        description="Apply a global context to all chats, excluded when project context is enabled."
+        title={t("settings.chat.compactGlobal.title")}
+        description={t("settings.chat.compactGlobal.description")}
       >
         <Switch checked={flags.global} onToggle={() => void update("global", !flags.global)} aria-label="Global context" />
       </SettingsRow>
@@ -2581,6 +2586,7 @@ function CompactScopeRows() {
 }
 
 function ChatSection() {
+  const { t } = useTranslation();
   const [defaultModel, setDefaultModel] = useState<string | null | undefined>(undefined);
   const [defaultEffort, setDefaultEffort] = useState<EffortLevel | null>(() => loadDefaultEffort());
   // Moved here from General's own Usage section -- per explicit request
@@ -2628,21 +2634,21 @@ function ChatSection() {
 
   return (
     <div className="flex flex-col">
-      <SettingsSection title="Chat">
+      <SettingsSection title={t("settings.chat.title")}>
         <DefaultModelRow key={resetCount} />
         <DefaultEffortRow key={resetCount} />
       </SettingsSection>
 
-      <SettingsSection title="Compact">
+      <SettingsSection title={t("settings.chat.compact.title")}>
         <CompactScopeRows />
       </SettingsSection>
 
-      <SettingsSection title="Usage">
+      <SettingsSection title={t("settings.chat.usage")}>
         <SettingsRow
           id="setting-chat-usage"
-          title="Chat usage"
-          description="How much local storage your chats are taking up."
-          status={usageError ? "No connection to the application, make sure the application is running, then try again. (ALS-002)" : undefined}
+          title={t("settings.chat.usage.title")}
+          description={t("settings.chat.usage.description")}
+          status={usageError ? t("settings.providers.noConnection") : undefined}
         >
           <span className="text-[12px] font-medium text-foreground">
             {usage ? formatStorageBytes(usage.storage_bytes) : usageError ? "--" : "..."}
@@ -2655,11 +2661,11 @@ function ChatSection() {
           request ("chat should have the same as general, caution section
           with default chat settings option"), replacing the bespoke
           RestoreDefaultsButton row this used to end on. */}
-      <SettingsSection title="Caution">
-        <SettingsRow title="Default chat settings" description="Reset every setting on this page back to its default.">
+      <SettingsSection title={t("settings.chat.caution")}>
+        <SettingsRow title={t("settings.chat.resetDefaults.title")} description={t("settings.chat.resetDefaults.description")}>
           <button type="button" className={SETTINGS_ACTION_BUTTON_CLASS} disabled={!anyChanged} onClick={() => void restoreDefaults()}>
             <RotateCcwIcon className="size-3.5" />
-            Reset
+            {t("settings.general.resetDefaults.button")}
           </button>
         </SettingsRow>
       </SettingsSection>
@@ -2760,6 +2766,7 @@ function useSettingsHistory() {
 }
 
 export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const isMac = useIsMac();
@@ -2836,7 +2843,7 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
     // sidebar and <> add Return to app"), reversing the earlier collapse/
     // back-forward toggle row for a single dedicated row instead.
     <aside
-      aria-label="Settings navigation"
+      aria-label={t("settings.nav.ariaLabel")}
       className="relative flex h-full shrink-0 flex-col overflow-hidden border-r border-border bg-sidebar"
       style={{ width: SIDEBAR_WIDTH }}
     >
@@ -2887,7 +2894,7 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
               type="button"
               onClick={goBackInSettings}
               disabled={settingsHistory.index <= 0}
-              aria-label="Go back"
+              aria-label={t("nav.goBack.ariaLabel")}
               className="flex size-5 shrink-0 items-center justify-center rounded-[6px] text-muted-foreground transition-colors hover:bg-hover-2/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
             >
               <ChevronLeftIcon className="size-[14px]" />
@@ -2896,7 +2903,7 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
               type="button"
               onClick={goForwardInSettings}
               disabled={settingsHistory.index >= settingsHistory.stack.length - 1}
-              aria-label="Go forward"
+              aria-label={t("nav.goForward.ariaLabel")}
               className="flex size-5 shrink-0 items-center justify-center rounded-[6px] text-muted-foreground transition-colors hover:bg-hover-2/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
             >
               <ChevronRightIcon className="size-[14px]" />
@@ -2931,7 +2938,7 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
                 goToResult(results[0]);
               }
             }}
-            placeholder="Search settings"
+            placeholder={t("settings.search.placeholder")}
             className="h-7 rounded-[var(--row-radius-sm)] border border-border bg-transparent pl-[30px] text-xs font-normal text-foreground placeholder:text-foreground placeholder:opacity-100 placeholder:transition-opacity placeholder:duration-200 focus:placeholder:opacity-0 focus-visible:border-focus-accent md:text-xs"
           />
           {!query && (
@@ -2960,7 +2967,7 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
           // custom row shape.
           <div className="mx-2 flex flex-col gap-0.5">
             {results.length === 0 && (
-              <p className="px-2 py-2 text-[11px] font-normal text-muted-foreground">No results for "{query}"</p>
+              <p className="px-2 py-2 text-[11px] font-normal text-muted-foreground">{t("settings.search.noResults", { query })}</p>
             )}
             {results.map((entry) => {
               const s = SECTIONS.find((sec) => sec.key === entry.section)!;
@@ -2973,7 +2980,7 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
                 >
                   <span className="flex items-center gap-1.5 text-[10px] font-normal text-muted-foreground">
                     {s.icon}
-                    {s.label}
+                    {t(s.labelKey)}
                   </span>
                   <span className="pl-[22px] text-[12px] text-foreground">{entry.title}</span>
                 </button>
@@ -2983,13 +2990,13 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
         ) : (
           <GlideGroup>
             {SETTINGS_NAV_GROUPS.map((group) => (
-              <div key={group.label} className="flex flex-col not-first:mt-3">
+              <div key={group.labelKey} className="flex flex-col not-first:mt-3">
                 {/* Group describer -- per explicit request ("we need to add
                     section describers like synara does"), same "Projects"/
                     "Chats" label treatment the real sidebar uses
                     (sidebar-nav.tsx) literal-for-literal. */}
                 <div className="mx-2 mt-1 mb-0.5 flex h-5 items-center px-2 text-xs font-normal text-foreground select-none">
-                  <span className="opacity-50">{group.label}</span>
+                  <span className="opacity-50">{t(group.labelKey)}</span>
                 </div>
                 {group.keys.map((key) => {
                   const s = SECTIONS.find((sec) => sec.key === key)!;
@@ -2997,7 +3004,7 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
                     <RailButton
                       key={key}
                       icon={s.icon}
-                      label={s.label}
+                      label={t(s.labelKey)}
                       active={section === key}
                       // replace: true -- confirmed directly as a real bug
                       // ("Return to app is returning to the previous page
@@ -3052,7 +3059,7 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
             // edge in its viewBox with no internal margin, so 14px reads
             // visibly heavier than every other row icon at the same box).
             icon={<AlongsideLogo className="size-[13px]" />}
-            label="Return to Alongside"
+            label={t("settings.returnToAlongside")}
             onClick={() => navigate("/new-chat")}
           />
         </GlideGroup>
@@ -3073,7 +3080,7 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
                 <button
                   ref={accountTriggerRef}
                   type="button"
-                  aria-label="Account menu"
+                  aria-label={t("nav.account.ariaLabel")}
                   className="flex h-7 flex-1 min-w-0 shrink-0 transform-gpu items-center gap-2 rounded-[var(--row-radius)] px-1.5 text-left transition-[background-color] duration-150 hover:bg-hover-2/50"
                 >
                   {/* DefaultAvatar (ui/avatar.tsx), not a hand-rolled flat
@@ -3134,7 +3141,7 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
                 <button
                   ref={helpTriggerRef}
                   type="button"
-                  aria-label="Help menu"
+                  aria-label={t("nav.help.ariaLabel")}
                   // text-foreground -- same fix as sidebar-nav.tsx's own
                   // identical Help trigger (that one's own comment has the
                   // full reasoning).
@@ -3161,6 +3168,7 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
 // active section straight off the URL (/settings/:section) rather than a
 // prop threaded down from a modal's own open/section state.
 export function SettingsSectionContent({ section }: { section: SettingsSection }) {
+  const { t } = useTranslation();
   const contentRef = useRef<HTMLDivElement>(null);
 
   // Deep-link scroll -- a search result (SettingsSidebarNav's own
@@ -3211,8 +3219,13 @@ export function SettingsSectionContent({ section }: { section: SettingsSection }
             divider under the heading and subheading of each page on
             settings, remove that"). */}
         <PageContent maxWidth="var(--chat-max-width)">
-          <h2 className="text-[16px] font-semibold text-foreground">{SECTIONS.find((s) => s.key === section)?.label}</h2>
-          <p className="mt-0.5 text-[13px] font-normal text-muted-foreground">{SECTION_SUBTITLE[section]}</p>
+          <h2 className="text-[16px] font-semibold text-foreground">
+            {(() => {
+              const labelKey = SECTIONS.find((s) => s.key === section)?.labelKey;
+              return labelKey ? t(labelKey) : null;
+            })()}
+          </h2>
+          <p className="mt-0.5 text-[13px] font-normal text-muted-foreground">{t(SECTION_SUBTITLE_KEY[section])}</p>
         </PageContent>
         <PageContent maxWidth="var(--chat-max-width)">
           {section === "profile" && <ProfileSection />}

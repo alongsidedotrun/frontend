@@ -1,13 +1,17 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Trans, useTranslation } from "react-i18next";
+import i18n from "@/i18n";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { useOutletContext, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { spring } from "@/lib/springs";
+import { isAutoScrollSuppressed, suppressAutoScroll } from "@/lib/chat-scroll-suppress";
 import { getUserDisplayName } from "@/lib/user";
 import { ComposeBox, toImageInputs, type ImageAttachment } from "@/components/compose-box";
-import { FileDiff, type DiffRow } from "@/components/FileDiff";
-import { diffLines } from "diff";
+import { JoinRequests, type JoinRequest } from "@/components/join-requests";
+import { clearPresence, setPresence, type Person } from "@/lib/presence";
+import { FileDiffGroup, diffToRows, type DiffRow } from "@/components/FileDiff";
 import type { SettingsSection } from "@/components/settings-overlay";
-import { EFFORT_LABELS, type EffortLevel } from "@/lib/effort";
+import { effortLabel, type EffortLevel } from "@/lib/effort";
 import { isMonthFirstDateOrder, loadLanguage } from "@/lib/language";
 import { loadNotifyTurnComplete, notifyTurnComplete } from "@/lib/notify-turn-complete";
 import { pushTurnNotification } from "@/lib/turn-notifications";
@@ -34,6 +38,7 @@ import { ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
 import { lastUsedReady, loadLastContext, loadLastModel, saveLastContext, saveLastModel } from "@/lib/last-used";
 import { StreamingText } from "@/components/streaming-text";
 import { ThinkingState } from "@/components/thinking-state";
+import { ThinkingReasoning } from "@/components/thinking-reasoning";
 
 // A real agent reply now shows its own provider's mark (ProviderIcon, same as every
 // other place in this app a model icon renders), not always AlongsideLogo -- per
@@ -102,6 +107,24 @@ type ChatRow =
       // ChatRow this used to be pushed as its own separate row (removed -- folded
       // into the unified TurnWorkDisclosure this row itself now renders instead).
       reasoningText?: string;
+      // One entry per non-file-writing tool call this turn actually made
+      // (real ContentBlock::ToolUse blocks, same provider-agnostic pipeline
+      // every other tool_use branch already shares) -- {label:"Bash",
+      // detail:"sed -n '1,160p' Internet.md"}, {label:"WebSearch",
+      // detail:"some query"}. Per explicit request: these used to render as
+      // their own separate ToolRow in the middle of the transcript,
+      // cluttering it with every intermediate command a turn happened to
+      // run. Now collected silently while the turn is "Working"
+      // (liveToolCallLines, below) and only surfaced here, inside the same
+      // expand arrow "Worked for Ns" already offers -- undefined when a turn
+      // made no such calls, same as reasoningText. Write/Edit calls are
+      // deliberately excluded -- those still render their own real diff card
+      // (FileDiffGroup), not a hidden line, since that's a dedicated feature
+      // in its own right, not incidental plumbing. Structured (label+detail),
+      // not a single formatted string, so ThinkingReasoning can render each
+      // the same way a real editor's own tool-call trace does -- bold label,
+      // muted monospace detail -- rather than one plain sentence.
+      toolCallLines?: { label: string; detail?: string }[];
     }
   | { kind: "command"; id: string; text: string; time: string }
   // name/summary/input real, not fabricated -- name and input are the tool_use
@@ -130,8 +153,11 @@ type ChatRow =
 // Same idea as dray's own ToolCall.tsx SUMMARY_FIELDS -- the one input field most
 // worth showing inline for a given tool, so a tool row reads as "Read app.py" or
 // "Bash: npm test" instead of a bare tool name. Falls through in order since a
-// block only ever has some of these; the first one present wins.
-const TOOL_SUMMARY_FIELDS = ["file_path", "path", "notebook_path", "command", "pattern", "query", "url", "description"];
+// block only ever has some of these; the first one present wins. TargetFile --
+// Antigravity's own write_to_file names its path field differently than every
+// other provider (db.rs's own FILE_PATH_KEYS has the same real, confirmed-
+// directly discrepancy for Library's file list).
+const TOOL_SUMMARY_FIELDS = ["file_path", "path", "TargetFile", "notebook_path", "command", "pattern", "query", "url", "description"];
 
 function summarizeToolInput(input: unknown): string | null {
   if (!input || typeof input !== "object") return null;
@@ -141,6 +167,72 @@ function summarizeToolInput(input: unknown): string | null {
     if (typeof value === "string" && value) return value;
   }
   return null;
+}
+
+
+// Maps a provider-specific tool name onto the name this file's own rendering
+// already knows how to treat specially, so a tool row reads the same
+// regardless of which provider's own internal name produced it -- per
+// explicit request ("write_to_file should be hidden as that's a backend
+// thing"): Antigravity's write_to_file is functionally the same action as
+// Claude's own Write (replace a file's full contents), but showing its raw
+// internal tool name verbatim in a "worked for Ns" row read as an
+// implementation detail leaking through, not a real tool.
+const TOOL_NAME_ALIASES: Record<string, string> = {
+  write_to_file: "Write",
+};
+
+// Display-only rename for the hidden-tool-call drawer specifically (this
+// file's own toolCallLines/addLiveToolCallLine), collapsing every provider's
+// own real tool names onto one shared "main states" vocabulary per explicit
+// request: Read/Write/Edit/Run. Write/Edit never actually reach this map --
+// isFileWrite (below) routes those straight to their own FileDiffGroup card
+// instead -- so in practice this only ever needs to cover Read and Run, but
+// the mapping itself makes no assumption about that.
+//
+// Every key here is a REAL, live-confirmed tool name, not a guess:
+// - "Bash" -- Claude's own real tool name, and what backend/src/codex.rs
+//   explicitly renames commandExecution to.
+// - "run_command" -- Antigravity's own real tool name for a shell command
+//   (confirmed earlier this session, `agy --output-format stream-json`).
+// - "view_file" -- Antigravity's own real tool name for reading a file
+//   (confirmed live just now, the same way: `agy --print "Read the file
+//   ..." --output-format stream-json` reported tool_name "view_file").
+// Claude's own "Read" and Codex's own "Edit" (fileChange always maps to
+// "Edit" in codex.rs, never "Write") already match this vocabulary exactly
+// and need no entry here. Codex has no distinct read-file tool at all --
+// it reads files via shell commands (`sed`, `cat`), which already fall
+// under "Run" through the "Bash" mapping above; not fabricated as its own
+// bucket since no such real tool exists.
+const TOOL_DISPLAY_LABELS: Record<string, string> = {
+  Bash: "Run",
+  run_command: "Run",
+  view_file: "Read",
+};
+
+function toolDisplayLabel(name: string): string {
+  return TOOL_DISPLAY_LABELS[name] ?? name;
+}
+
+// Real bug, confirmed directly ("it should be showing Run bash command and
+// not like Run /bin/bash because that is the exact command, the commands
+// should stay like synara's"): Codex's own real commandExecution command
+// string is always wrapped in a literal shell invocation --
+// `/bin/bash -lc "pwd && rg --files -g 'CEOs.md' -g 'CEOs'"` -- confirmed
+// directly from a real transcript. That wrapper is real, but it's Codex's
+// own internal plumbing for running a command at all, not something the
+// model chose to say -- showing it verbatim buried the actual command a
+// reader cares about behind boilerplate. Strips the wrapper down to the
+// real inner command when it matches that exact shape; anything else
+// (Claude's own Bash tool already gives the bare command with no wrapper)
+// passes through unchanged.
+function cleanRunCommand(command: string): string {
+  const match = command.match(/^\/bin\/bash -lc "(.*)"$/s);
+  return match ? match[1] : command;
+}
+
+function normalizeToolName(name: string): string {
+  return TOOL_NAME_ALIASES[name] ?? name;
 }
 
 function messageTime() {
@@ -228,6 +320,7 @@ function nextRowId() {
 // is; that's the part actually worth porting, the typing animation was
 // pure flourish on top of it.
 export function ChatPage() {
+  const { t } = useTranslation();
   const { sessionId } = useParams<{ sessionId: string }>();
   // Lifted to AppLayout now (per explicit request -- the chat's name lives
   // in the top bar's breadcrumb, not a second bar this page rendered
@@ -243,14 +336,16 @@ export function ChatPage() {
   // own auto-naming happened to fail (chat_name_failed, not
   // chat_name_updated) -- receiveChatNameFromServer's own existing refresh
   // call only fires on a successful rename, not on every real message.
-  const { chatName, receiveChatNameFromServer, refreshSidebarLists, openSettings, openFile, rightPanelOpen } = useOutletContext<{
-    chatName: string;
-    receiveChatNameFromServer: (name: string) => void;
-    refreshSidebarLists: () => void;
-    openSettings: (section: SettingsSection) => void;
-    openFile: (path: string) => void;
-    rightPanelOpen: boolean;
-  }>();
+  const { chatName, receiveChatNameFromServer, refreshSidebarLists, openSettings, openFile, rightPanelOpen, notifyFilesTouched } =
+    useOutletContext<{
+      chatName: string;
+      receiveChatNameFromServer: (name: string) => void;
+      refreshSidebarLists: () => void;
+      openSettings: (section: SettingsSection) => void;
+      openFile: (path: string) => void;
+      rightPanelOpen: boolean;
+      notifyFilesTouched: () => void;
+    }>();
   // Real correction, per explicit follow-up ("we reduce to 400px but
   // there's so much space around it, instead of reducing the content to
   // 400px, keep that as 800px and reduce the outside paddings on left and
@@ -266,6 +361,8 @@ export function ChatPage() {
   // close to the borders").
   const chatSidePadding = rightPanelOpen ? "px-[50px]" : "px-3 sm:px-5";
   const [rows, setRows] = useState<ChatRow[]>([]);
+  // People waiting for this chat's host to let them in (components/join-requests.tsx).
+  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
   // Real bug, confirmed via a real CI build failure (TS6133, "awaitingReply declared
   // but never read"): the old `awaitingReply` React state was fully superseded by
   // turnInProgress below and awaitingReplyRef (the imperative guard used throughout
@@ -313,6 +410,40 @@ export function ChatPage() {
   // once the turn settles (folded into the agent row's own reasoningText field
   // instead, ChatRowView's "agent" branch).
   const [liveReasoningText, setLiveReasoningText] = useState<string | null>(null);
+  // Real bug, confirmed directly ("There's no arrow to expand the worked to
+  // see bash allowed"): handleEvent (the WS effect's own onmessage handler,
+  // below) is defined once per session -- its own useEffect deps only ever
+  // include [sessionId] -- so any state variable it reads directly, not
+  // through a ref, is frozen at whatever that state held the one time this
+  // effect actually ran, forever, regardless of later setState calls
+  // elsewhere. liveReasoningTextRef/liveToolCallLinesRef exist purely so
+  // handleEvent can read the CURRENT value instead of that permanently
+  // stale one; the matching useState above/below still drives the actual
+  // live re-render (TurnWorkDisclosure's own live call site, further down,
+  // reads the state directly from JSX -- a normal render, not handleEvent's
+  // stale closure, so that one was never affected).
+  const liveReasoningTextRef = useRef<string | null>(null);
+  // Same idea as liveReasoningText, above, but for non-file-writing tool
+  // calls (ChatRow's own toolCallLines comment has the full reasoning) --
+  // accumulated silently while the turn runs, folded into the settled agent
+  // row once the turn's own text block arrives, never shown in the LIVE
+  // "Working" shimmer itself -- per explicit request, these stay genuinely
+  // hidden until "Worked" and its own expand arrow exist to reveal them.
+  // Plain ref, no matching useState needed at all (unlike liveReasoningText):
+  // nothing ever renders this live, it only ever gets read once, when the
+  // turn settles.
+  const liveToolCallLinesRef = useRef<{ label: string; detail?: string }[]>([]);
+  // Keeps liveReasoningTextRef in sync -- call this instead of the raw
+  // setLiveReasoningText anywhere inside handleEvent (its own comment,
+  // above, has the full reasoning for why the ref is the one that matters
+  // there).
+  function updateLiveReasoningText(value: string | null) {
+    liveReasoningTextRef.current = value;
+    setLiveReasoningText(value);
+  }
+  function addLiveToolCallLine(label: string, detail?: string) {
+    liveToolCallLinesRef.current = [...liveToolCallLinesRef.current, { label, detail }];
+  }
   const searchQueryRef = useRef<string | null>(null);
   const [prompt, setPrompt] = useState("");
   // Non-destructive Edit -- per explicit follow-up ("the resend should
@@ -424,6 +555,10 @@ export function ChatPage() {
   // actually growing.
   const chatContentRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  // The highest event id this chat view has received. Every event the backend records carries its
+  // id and ids only grow within a chat, so this is both the point a dropped connection resumes from
+  // (?after=) and the test for a duplicate: anything at or below it has already been shown.
+  const lastEventIdRef = useRef(0);
   // Refs mirroring the state above, read from inside the WebSocket
   // onmessage handler -- that closure is set up once per session (not
   // re-subscribed on every render), so it needs a way to read the latest
@@ -448,11 +583,31 @@ export function ChatPage() {
   // Antigravity both self-report one, Codex doesn't, so a provider-duration-based
   // approach would silently leave Codex without one. turnStartedAtRef holds the
   // real server-recorded created_at (backend/src/lib.rs's own attach_created_at) off
-  // the human_message that opened the current turn; lastAgentRowIdRef is which
-  // "agent" row to patch with the final "Worked for Xs" label once the matching
-  // "result" event (this turn's end) arrives.
+  // the human_message that opened the current turn.
+  //
+  // Real bug, confirmed directly via screenshot ("We working should be at the
+  // first message"): a turn that announces its own intent first ("I'll delete
+  // the existing file...") before actually doing the work reads oddly with the
+  // final "Worked for Ns" label attached to a LATER closing summary instead --
+  // the reader sees a plain, label-less reply, then the real diff, then only
+  // *then* a second reply that finally explains what happened. Patching the
+  // FIRST agent row of the turn instead (firstAgentRowIdRef) puts "Worked for
+  // Ns" right where the actual work started, which is also where a reader's
+  // eye already is; a later closing summary this same turn produces still
+  // renders as its own plain reply, just without a second (redundant) label.
   const turnStartedAtRef = useRef<number | null>(null);
-  const lastAgentRowIdRef = useRef<string | null>(null);
+  const firstAgentRowIdRef = useRef<string | null>(null);
+  // Real bug, confirmed directly ("waiting for an answer should stop the
+  // timer"): both the live counter and the final "Worked for Ns" used to
+  // count straight through a pending permission request -- genuinely idle
+  // time (the model can't do anything until a human answers) inflating a
+  // number meant to represent how long the model actually worked.
+  // pausedAtRef is when the CURRENT pause began (null while not paused);
+  // pausedTotalMsRef accumulates every pause's own real duration across the
+  // whole turn (a turn can hit more than one permission request). Both
+  // subtracted from elapsed time everywhere it's computed, below.
+  const pausedAtRef = useRef<number | null>(null);
+  const pausedTotalMsRef = useRef(0);
   const [liveElapsedSec, setLiveElapsedSec] = useState<number | null>(null);
   // Same stale-closure reasoning as the refs above, for a real bug this one
   // caused directly: a chat's own auto-rename (chat_name_updated) and its
@@ -565,7 +720,19 @@ export function ChatPage() {
   useEffect(() => {
     const el = chatContentRef.current;
     if (!el) return;
-    const observer = new ResizeObserver(() => scrollToBottomIfNear());
+    // chat-scroll-suppress.ts's own comment has the full reasoning -- a
+    // shared module, not a local variable, since a nested disclosure
+    // (thinking-reasoning.tsx's own ToolDetailRow) needs to arm this same
+    // suppression too, confirmed as a real gap directly ("the run command
+    // is snapping the same way the parent was doing before"). Only
+    // skipped HERE, not inside scrollToBottomIfNear itself: every other
+    // caller of that function (a freshly sent message, a new row) is a
+    // genuine "follow the new content" case that should still scroll even
+    // if a disclosure happens to be mid-transition at the same moment.
+    const observer = new ResizeObserver(() => {
+      if (isAutoScrollSuppressed()) return;
+      scrollToBottomIfNear();
+    });
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
@@ -625,14 +792,55 @@ export function ChatPage() {
   // edited after the fact. Matched by requestId, not the row's own local id --
   // the backend only ever knows its own request_id, never this tab's id.
   function updatePermissionRow(requestId: string, status: Extract<ChatRow, { kind: "permission" }>["status"]) {
+    let resolvedToolName: string | null = null;
     setRows((prev) =>
-      prev.map((row) => (row.kind === "permission" && row.requestId === requestId ? { ...row, status } : row))
+      prev.map((row) => {
+        if (row.kind !== "permission" || row.requestId !== requestId) return row;
+        resolvedToolName = row.toolName;
+        return { ...row, status };
+      })
     );
+    // Same hidden-drawer treatment as every other tool call, per explicit
+    // follow-up ("still showing Bash: Allowed... as a message and not under
+    // Working") -- a resolved permission's own compact trace used to stay
+    // inline forever (this row's own render branch, below, has the "that's
+    // real chat history" reasoning that no longer applies now that every
+    // other tool call already folds into the same drawer). requestId is
+    // real and stable, but resolvedToolName only gets set synchronously
+    // above if a matching row still exists.
+    // Real bug, confirmed directly ("Claude now says Write Allowed instead
+    // of Write Founders.md"): Write/Edit permission requests hit this same
+    // path, but those tool calls already get their own real diff card
+    // (FileDiffGroup, via the generic tool_use branch's own isFileWrite
+    // check) with the actual file name -- adding a second "Write: Allowed"
+    // trace here doesn't just duplicate that, it's strictly worse (loses
+    // the real file name entirely). Skipped here the same way the generic
+    // branch already skips them.
+    const isFileWrite = resolvedToolName === "Write" || resolvedToolName === "Edit";
+    // Real bug, confirmed directly ("Run Allowed should be not showing"):
+    // an ALLOWED call already gets its own real entry the moment it
+    // actually runs (the generic tool_use branch, below) -- "Run: Allowed"
+    // was pure duplicate noise on top of that, unlike a genuine denial/
+    // cancellation/timeout, which is the ONLY record that request ever
+    // happened at all (the command never runs, so nothing else logs it).
+    if (resolvedToolName && !isFileWrite && status !== "pending" && status !== "allow") {
+      const label = status === "cancelled" ? i18n.t("chat.perm.withdrawn") : status === "timed_out" ? i18n.t("chat.perm.deniedTimedOut") : i18n.t("chat.perm.denied");
+      addLiveToolCallLine(toolDisplayLabel(resolvedToolName), label);
+    }
   }
 
   function pushMarker(text: string) {
     pushRow({ kind: "marker", id: nextRowId(), text });
   }
+
+  // Requests still waiting on the host when this chat opens (events only carry changes).
+  useEffect(() => {
+    if (!sessionId) return;
+    fetch(`/sessions/${sessionId}/join-requests`)
+      .then((response) => (response.ok ? response.json() : []))
+      .then((pending: JoinRequest[]) => setJoinRequests(pending))
+      .catch(() => {});
+  }, [sessionId]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -647,6 +855,11 @@ export function ChatPage() {
       }
 
       const type = event.type as string;
+
+      if (typeof event.event_id === "number") {
+        if (event.event_id <= lastEventIdRef.current) return;
+        lastEventIdRef.current = event.event_id;
+      }
 
       // Sent once per connection, before history replay (server.rs's own
       // handle_socket) -- this chat's own per-chat default model/effort, if
@@ -688,7 +901,7 @@ export function ChatPage() {
         const value = event.model as string;
         const found = QUICK_CHAT_MODELS.find((m) => m.value === value);
         if (found) modelRef.current = found;
-        pushMarker(`Switched to ${found?.label ?? value}`);
+        pushMarker(i18n.t("chat.switchedTo", { model: found?.label ?? value }));
         return;
       }
 
@@ -703,6 +916,20 @@ export function ChatPage() {
         // participant's message.
         const createdAt = event.created_at as string | undefined;
         turnStartedAtRef.current = createdAt ? parseServerTimestampMs(createdAt) : null;
+        // Reset here, not just at "result" -- a turn that never cleanly
+        // reaches "result" (a timeout, an error) would otherwise leave this
+        // pointed at some earlier turn's row forever, since the "set only if
+        // still null" logic below (firstAgentRowIdRef's own comment) never
+        // gets a chance to update it again once it's non-null. Same reasoning
+        // for the two accumulators below -- a turn that never reaches
+        // "result" (the only other place these reset, now that they
+        // accumulate for the whole turn instead of resetting per text block)
+        // would otherwise leak stray reasoning/tool-call data into the next.
+        firstAgentRowIdRef.current = null;
+        updateLiveReasoningText(null);
+        liveToolCallLinesRef.current = [];
+        pausedAtRef.current = null;
+        pausedTotalMsRef.current = 0;
         // Real per-message value now (server.rs's own human_message event,
         // that file's own comment has the full reasoning) -- not a
         // client-side "whatever this tab most recently sent" ref, which
@@ -759,13 +986,30 @@ export function ChatPage() {
         return;
       }
 
+      // A guest asked to join, or the host decided one: the pending list is the source of truth,
+      // so this only adds or removes the one request the event names.
+      if (type === "join_requested") {
+        setJoinRequests((current) => (current.some((r) => r.id === event.request_id) ? current : [...current, { id: event.request_id as string, display_name: event.name as string }]));
+        return;
+      }
+      if (type === "join_decided") {
+        setJoinRequests((current) => current.filter((r) => r.id !== event.request_id));
+        return;
+      }
+
+      // Live: who is in the chat and who is online now (a full snapshot each time; never stored).
+      if (type === "presence") {
+        setPresence(event.participants as Person[]);
+        return;
+      }
+
       if (type === "user_joined") {
-        pushMarker(`${event.name} joined the session`);
+        pushMarker(i18n.t("chat.userJoined", { name: event.name }));
         return;
       }
 
       if (type === "host_notice") {
-        pushMarker(`${event.name} has ${event.enabled ? "enabled" : "disabled"} session to this chat`);
+        pushMarker(i18n.t(event.enabled ? "chat.hostEnabled" : "chat.hostDisabled", { name: event.name }));
         return;
       }
 
@@ -789,12 +1033,48 @@ export function ChatPage() {
         // until the new one is actually ready, swapped in atomically at
         // replay_complete below, instead of a blank flash in between.
         pendingBranchReplayRef.current = [];
+        // A branch switch replaces earlier events, so this is a full replay, not a resume.
+        lastEventIdRef.current = 0;
         wsRef.current?.close();
         connect();
         return;
       }
 
+      // The server cannot extend this view (the chat has edit branches, or this view is ahead of
+      // it): the history that follows replaces what is shown, swapped in at replay_complete the
+      // same way a branch switch is.
+      if (type === "replay_reset") {
+        pendingBranchReplayRef.current = [];
+        lastEventIdRef.current = 0;
+        return;
+      }
+
       if (type === "system") {
+        if (awaitingReplyRef.current) setWaitingPhase("thinking");
+        return;
+      }
+
+      // Real, provider-agnostic "a tool call just started" signal (backend/src/
+      // antigravity.rs and codex.rs) -- both providers' own tool-lifecycle
+      // events forward a real ToolUse row only once the call is already
+      // finished (unlike Claude, which shows it immediately), so without this
+      // a long Codex/Antigravity tool call showed nothing at all until it was
+      // done. No row of its own -- just lights up the same "working" phase
+      // Claude's own tool_use branch above sets, unconditionally (this can
+      // arrive before or after awaitingReplyRef flips, and either way a tool
+      // is now genuinely running).
+      if (type === "tool_started") {
+        setWaitingPhase("working");
+        return;
+      }
+
+      // Real, provider-agnostic "reasoning has genuinely started" signal
+      // (backend/src/codex.rs) -- Codex's own app-server emits a real
+      // "reasoning"-typed item every turn (live-confirmed), same phase
+      // Claude's own thinking-block branch above already shows, but Codex's
+      // own item/started fires before any of its real text (if any ever
+      // arrives -- often it does not) is known.
+      if (type === "thinking_started") {
         if (awaitingReplyRef.current) setWaitingPhase("thinking");
         return;
       }
@@ -815,6 +1095,12 @@ export function ChatPage() {
       }
 
       if (type === "replay_complete") {
+        if (typeof event.last_event_id === "number" && event.last_event_id > lastEventIdRef.current) {
+          lastEventIdRef.current = event.last_event_id;
+        }
+        // A resume after a dropped connection only sent what was missed: the transcript is already on
+        // screen, so there is no first-load scroll or reveal to run again.
+        if (event.resumed) return;
         // One atomic swap-in for a branch-switch reconnect's own buffered
         // replay (pendingBranchReplayRef's own comment, above pushRow, has
         // the full reasoning) -- the old branch's rows are still what's on
@@ -955,10 +1241,10 @@ export function ChatPage() {
         // today (claude_direct.rs's own rate_limit_info parsing) but the
         // copy should not bake that in as if it always will be true.
         const text = event.gave_up
-          ? "Provider usage limit reached, no more attempts available. Please wait a moment and try again. (ALS-012)"
+          ? i18n.t("chat.usageLimit.gaveUp")
           : resetsAtLabel
-            ? `Provider usage limit reached, resets around ${resetsAtLabel}, still waiting. (ALS-011)`
-            : "Provider usage limit reached, still waiting, this may take a bit longer than usual. (ALS-011)";
+            ? i18n.t("chat.usageLimit.resets", { time: resetsAtLabel })
+            : i18n.t("chat.usageLimit.waiting");
         pushRow({ kind: "command", id: nextRowId(), text, time: messageTime() });
         if (awaitingReplyRef.current) setWaitingPhase("waiting");
         if (event.gave_up) {
@@ -970,12 +1256,24 @@ export function ChatPage() {
       }
 
       // Real event now (backend's own claude_direct.rs control-protocol handling)
-      // -- the CLI is genuinely blocked on stdin waiting for this exact answer, not
-      // a cosmetic prompt. Clears the waiting shimmer the same way a real reply
-      // would: there's a real, visible card asking the question now, so a generic
-      // "Waiting"/"Thinking" label underneath it would be redundant chrome.
+      // -- the CLI is genuinely blocked on stdin waiting for this exact answer.
+      // Real bug, confirmed directly, through two corrections: first "Waiting
+      // disappears once we get the prompt for an answer but should stay there
+      // as it's waiting on my answer" (fixed by no longer clearing the phase
+      // entirely), then "Working should change to waiting when waiting for
+      // the user to answer" -- leaving whichever phase was already active
+      // (often "working", since a tool call's own start is what triggers a
+      // permission request in the first place) was misleading: the MODEL
+      // isn't doing anything right now, a human is being asked to. Forced to
+      // "waiting" here instead, the same phase a turn starts in -- accurate
+      // either way, since the model is genuinely idle until this resolves.
       if (type === "permission_request") {
-        setWaitingPhase(null);
+        setWaitingPhase("waiting");
+        // Real bug, confirmed directly ("waiting for an answer should stop
+        // the timer") -- pausedAtRef/pausedTotalMsRef's own comment, above,
+        // has the full reasoning. Guarded on already-null: this fires once
+        // per real request, never twice for the same pause.
+        if (pausedAtRef.current === null) pausedAtRef.current = Date.now();
         pushRow({
           kind: "permission",
           id: nextRowId(),
@@ -991,6 +1289,12 @@ export function ChatPage() {
         const behavior = event.behavior as string;
         const status = behavior === "allow" ? "allow" : behavior === "cancelled" ? "cancelled" : "deny";
         updatePermissionRow(event.request_id as string, status);
+        // Same pause tracking as permission_request, above -- this pause is
+        // over, fold its real duration into the running total.
+        if (pausedAtRef.current !== null) {
+          pausedTotalMsRef.current += Date.now() - pausedAtRef.current;
+          pausedAtRef.current = null;
+        }
         // The turn is still genuinely in flight after an allow (the tool call the
         // question was about hasn't run yet) or a deny (the model still has to
         // react to being told no) -- back to a generic waiting state, same as
@@ -1013,7 +1317,7 @@ export function ChatPage() {
       // means"), so a report like "I'm seeing X" can be looked up precisely
       // instead of matched against message text that might reword over time.
       if (type === "chat_name_failed") {
-        pushMarker("The model failed to set a name to the chat. (ALS-007)");
+        pushMarker(i18n.t("chat.errors.nameFailed"));
         return;
       }
 
@@ -1021,7 +1325,7 @@ export function ChatPage() {
         awaitingReplyRef.current = false;
         setTurnInProgress(false);
         setWaitingPhase(null);
-        pushMarker("The agent did not respond in time. Please try again. (ALS-006)");
+        pushMarker(i18n.t("chat.errors.timeout"));
         return;
       }
 
@@ -1029,7 +1333,7 @@ export function ChatPage() {
         awaitingReplyRef.current = false;
         setTurnInProgress(false);
         setWaitingPhase(null);
-        pushMarker("Turn stopped.");
+        pushMarker(i18n.t("chat.turnStopped"));
         return;
       }
 
@@ -1040,22 +1344,45 @@ export function ChatPage() {
         setLiveElapsedSec(null);
         // Turn-duration feature (alongsidedotrun/private#53) -- this "result" is
         // this turn's own end, turnStartedAtRef (the preceding human_message) is
-        // its start; patches the reply row a few lines above set lastAgentRowIdRef
-        // to. Real server timestamps on both ends (backend/src/lib.rs's own
-        // attach_created_at), not client-side receive-time guesses, so a replayed
-        // history shows the same duration every time, not however long this
-        // particular tab took to receive each event.
+        // its start; patches the reply row a few lines above set
+        // firstAgentRowIdRef to (that ref's own comment has the reasoning for
+        // why the FIRST reply, not the last). Real server timestamps on both
+        // ends (backend/src/lib.rs's own attach_created_at), not client-side
+        // receive-time guesses, so a replayed history shows the same duration
+        // every time, not however long this particular tab took to receive
+        // each event.
         const resultCreatedAt = event.created_at as string | undefined;
         if (resultCreatedAt && turnStartedAtRef.current !== null) {
-          const durationSec = (parseServerTimestampMs(resultCreatedAt) - turnStartedAtRef.current) / 1000;
-          const durationLabel = `Worked for ${formatWorkedDuration(durationSec)}`;
-          const rowId = lastAgentRowIdRef.current;
+          // Real time spent genuinely paused (pausedAtRef/pausedTotalMsRef's
+          // own comment, above, has the full reasoning) subtracted out --
+          // "Worked for Ns" should reflect the model's own real working
+          // time, not however long a human happened to take answering a
+          // permission prompt in the middle of it.
+          const pausedMs = pausedTotalMsRef.current + (pausedAtRef.current !== null ? Date.now() - pausedAtRef.current : 0);
+          const durationSec = (parseServerTimestampMs(resultCreatedAt) - turnStartedAtRef.current - pausedMs) / 1000;
+          const durationLabel = i18n.t("chat.workedFor", { duration: formatWorkedDuration(durationSec) });
+          const rowId = firstAgentRowIdRef.current;
           if (rowId) {
-            setRows((prev) => prev.map((row) => (row.id === rowId && row.kind === "agent" ? { ...row, durationLabel } : row)));
+            // reasoningText/toolCallLines patched here too, not at each text
+            // block's own push -- real bug, confirmed directly ("The arrow
+            // to expand and collapse is missing"): only the first reply ever
+            // gets a durationLabel now, so it's the only row whose disclosure
+            // can ever show anything; the *push-time* code's own comment has
+            // the full reasoning. This is the whole turn's real accumulated
+            // total, not just whatever happened before the first reply.
+            const reasoningText = liveReasoningTextRef.current ?? undefined;
+            const toolCallLines = liveToolCallLinesRef.current.length > 0 ? liveToolCallLinesRef.current : undefined;
+            setRows((prev) =>
+              prev.map((row) => (row.id === rowId && row.kind === "agent" ? { ...row, durationLabel, reasoningText, toolCallLines } : row))
+            );
           }
         }
         turnStartedAtRef.current = null;
-        lastAgentRowIdRef.current = null;
+        firstAgentRowIdRef.current = null;
+        updateLiveReasoningText(null);
+        liveToolCallLinesRef.current = [];
+        pausedAtRef.current = null;
+        pausedTotalMsRef.current = 0;
         // Settings > General > Notifications ("Notify when a chat turn
         // completes", alongsidedotrun/private#207) -- this is the real
         // turn-completion point (the Claude Agent SDK's own "result"
@@ -1176,7 +1503,7 @@ export function ChatPage() {
               // liveReasoningText carries over to the settled agent row's own
               // reasoningText field once the final text block below arrives.
               setWaitingPhase("working");
-              setLiveReasoningText(block.thinking);
+              updateLiveReasoningText(block.thinking);
             } else if (block.type === "text" && block.text) {
               setWaitingPhase(null);
               // event.model -- the real model that actually produced *this*
@@ -1202,10 +1529,11 @@ export function ChatPage() {
               const agentRowId = nextRowId();
               // Turn-duration feature (alongsidedotrun/private#53) -- this turn's
               // own "result" event (below) patches this exact row with the final
-              // "Worked for Xs" label once it lands. A turn with more than one
-              // text block (rare, but possible) just keeps overwriting this to the
-              // latest one, which is also the one "result" should be labeling.
-              lastAgentRowIdRef.current = agentRowId;
+              // "Worked for Xs" label once it lands. Only the FIRST text block
+              // this turn sets it (firstAgentRowIdRef's own comment has the
+              // reasoning) -- a turn with a later closing summary just renders
+              // that as its own plain reply, no second label.
+              if (!firstAgentRowIdRef.current) firstAgentRowIdRef.current = agentRowId;
               pushRow({
                 kind: "agent",
                 id: agentRowId,
@@ -1220,32 +1548,80 @@ export function ChatPage() {
                 // replayed at instead of when it actually arrived.
                 time: typeof event.created_at === "string" ? formatMessageTimestamp(parseServerTimestampMs(event.created_at)) : messageTime(),
                 effort: sentEffortRef.current,
-                // Carried over from the live "working" phase above -- undefined
-                // for Codex/Antigravity (they never emit a thinking block at all)
-                // and for a Claude turn with no thinking this time either.
-                reasoningText: liveReasoningText ?? undefined,
+                // Real bug, confirmed directly via screenshot ("The arrow to
+                // expand and collapse is missing to see all the states that
+                // were ran"): this used to attach + reset liveReasoningTextRef/
+                // liveToolCallLinesRef right here, on EVERY text block -- but
+                // "Worked for Ns" (and its own expand arrow) only ever shows
+                // on the turn's first reply now (firstAgentRowIdRef's own
+                // comment). Any tool call that happened between a first reply
+                // ("I'll verify...") and a later closing summary ("Created
+                // Founders.md...") got attached to that SECOND row instead,
+                // which never gets a durationLabel and so never renders its
+                // own disclosure at all -- the data was real, just silently
+                // orphaned. Left unset here; the "result" handler (below)
+                // patches the actual first row with everything accumulated
+                // across the WHOLE turn, once it's actually over.
               });
-              setLiveReasoningText(null);
             } else if (block.type === "tool_use" && block.name === "WebSearch") {
               // No "tool" row for this one -- shown as the shimmer "Searching"
               // phase instead (waitingPhaseLabel, below), same treatment as
               // "thinking"/"reasoning". Settles the same way those do, once the
               // next text/tool_use block arrives.
-              searchQueryRef.current = (block.input?.query as string | undefined) ?? null;
+              const query = (block.input?.query as string | undefined) ?? null;
+              searchQueryRef.current = query;
               setWaitingPhase("searching");
+              // Same treatment as the generic tool-call branch below -- the
+              // query itself used to vanish the moment the turn settled
+              // (searchQueryRef only ever backs the live shimmer); now it
+              // survives in the same hidden, expandable list.
+              if (query) addLiveToolCallLine("WebSearch", query);
             } else if (block.type === "tool_use" && block.name) {
               // summary/input real, not fabricated -- summarizeToolInput (this
               // file's own, above) reads the block's own real input fields; input
               // itself is kept on the row too so ChatRowView can show the full raw
               // arguments on expand, matching dray's own ToolCall.tsx.
-              setWaitingPhase(null);
-              pushRow({
-                kind: "tool",
-                id: nextRowId(),
-                name: block.name,
-                summary: summarizeToolInput(block.input),
-                input: block.input,
-              });
+              // "working", not null -- real bug, confirmed directly ("everything
+              // falls in between Waiting, Worked"): this used to clear the phase
+              // indicator the instant a tool_use block was merely seen, so a
+              // long-running tool call showed nothing at all until the model's
+              // own next block arrived. A tool call in flight is real, ongoing
+              // work the same way a thinking block above is -- it settles back to
+              // null the same way, once a text block (the actual reply) lands.
+              setWaitingPhase("working");
+              const toolName = normalizeToolName(block.name);
+              const isFileWrite = toolName === "Write" || toolName === "Edit";
+              if (isFileWrite) {
+                // Only Write/Edit still render inline, as their own real
+                // diff card (FileDiffGroup, via the render-time grouping
+                // pass below) -- a dedicated feature in its own right, not
+                // incidental plumbing a reader needs to dig for.
+                pushRow({
+                  kind: "tool",
+                  id: nextRowId(),
+                  name: toolName,
+                  summary: summarizeToolInput(block.input),
+                  input: block.input,
+                });
+                // Real bug, confirmed directly ("the files at the right
+                // sidebar and library are not updating in real time so i
+                // have to refresh"): right-panel.tsx's own ChatFileListPanel
+                // only fetches once per chat, with nothing telling it a new
+                // file just landed here. Write/Edit is exactly the moment
+                // that becomes true.
+                notifyFilesTouched();
+              } else {
+                // Every other tool call (Bash, Read, Grep, run_command,
+                // etc. -- any provider, same ContentBlock::ToolUse shape)
+                // per explicit request: no longer its own visible row
+                // cluttering the transcript. Collected silently instead,
+                // folded into the settled agent row's own toolCallLines
+                // once this turn's text block arrives (above), revealed
+                // only through that row's own "Worked for Ns" expand arrow.
+                const displayLabel = toolDisplayLabel(toolName);
+                const detail = summarizeToolInput(block.input);
+                addLiveToolCallLine(displayLabel, detail && displayLabel === "Run" ? cleanRunCommand(detail) : (detail ?? undefined));
+              }
             }
           }
         }
@@ -1264,9 +1640,9 @@ export function ChatPage() {
         awaitingReplyRef.current = false;
         setTurnInProgress(false);
         setWaitingPhase(null);
-        const text = event.ok
-          ? `The following link is available to join your chat: ${location.origin}${event.chat_path}`
-          : (event.error as string);
+        // Story #412: the relay is the production path, so /share turns relay syncing on rather than
+        // the host-embedded gateway; an invite still comes from the Share dialog's own "Create invite".
+        const text = event.ok ? "Sharing is on. Open the Share menu to create an invite link." : (event.error as string);
         pushRow({ kind: "command", id: nextRowId(), text, time: messageTime() });
         return;
       }
@@ -1324,53 +1700,70 @@ export function ChatPage() {
     // reconnect (below) can call it again on the same session, instead of
     // duplicating the socket setup or forcing a full effect re-run.
     function connect() {
-      const ws = new WebSocket(`${protocol}://${location.host}/sessions/${sessionId}/ws?name=${wsUserName}`);
+      // Resume from the last event this view has instead of replaying the whole chat on top of it.
+      const after = lastEventIdRef.current > 0 ? `&after=${lastEventIdRef.current}` : "";
+      const ws = new WebSocket(`${protocol}://${location.host}/sessions/${sessionId}/ws?name=${wsUserName}${after}`);
       wsRef.current = ws;
       ws.onopen = () => {
         retryDelayMs = 1000;
         hasShownDisconnectMarker = false;
       };
       ws.onmessage = (event) => handleEvent(event.data);
-      ws.onerror = () => {
-        if (closingIntentionally) return;
-        // The WebSocket spec deliberately gives onerror no detail about
-        // why it failed, but `navigator.onLine` distinguishes the one
-        // cause that is genuinely not this app's problem: the browser
-        // itself has no network route right now. Confirmed directly ("we
-        // should never have a stale session id, if the connection drops
-        // mid session we should not throw any errors as this is a network
-        // issue at the user side") -- a dropped WiFi connection or a
-        // laptop waking from sleep firing this same generic "WebSocket
-        // error, is the session ID correct?" copy every time was
-        // misleading (the session ID is essentially never the real cause)
-        // and read as an alarming app error for something that is neither
-        // alarming nor this app's fault. ALS-005 stays for a genuine
-        // anomaly (the network is up but the socket still failed); a real
-        // network outage gets its own calmer, distinct code instead.
-        if (!navigator.onLine) {
-          pushMarker("No network connection available. (ALS-001)");
-          // Automatic reconnection once the network comes back -- per
-          // explicit request. One-shot: the browser's own "online" event
-          // fires at most once for this listener, and reconnecting calls
-          // connect() again, which re-arms this same handling if that new
-          // attempt also lands offline (a flaky connection flapping
-          // between the two).
-          if (!waitingForOnline) {
-            waitingForOnline = true;
-            window.addEventListener("online", handleOnline, { once: true });
-          }
-          return;
-        }
-        if (!hasShownDisconnectMarker) {
-          hasShownDisconnectMarker = true;
-          pushMarker("Lost connection to the chat. (ALS-005)");
-        }
-        retryTimer = setTimeout(() => {
-          if (closingIntentionally) return;
-          retryDelayMs = Math.min(retryDelayMs * 2, 15000);
-          connect();
-        }, retryDelayMs);
+      // An error and the close that follows it both mean the connection is gone; handling either
+      // one (or both) is safe because every step below is guarded against running twice.
+      ws.onerror = handleDrop;
+      ws.onclose = () => {
+        // A socket that was replaced on purpose (branch switch) closing is not a drop.
+        if (wsRef.current !== ws) return;
+        handleDrop();
       };
+    }
+
+    function scheduleReconnect() {
+      if (closingIntentionally || retryTimer) return;
+      retryTimer = setTimeout(() => {
+        retryTimer = null;
+        if (closingIntentionally) return;
+        retryDelayMs = Math.min(retryDelayMs * 2, 15000);
+        connect();
+      }, retryDelayMs);
+    }
+
+    function handleDrop() {
+      if (closingIntentionally) return;
+      // The WebSocket spec deliberately gives onerror no detail about
+      // why it failed, but `navigator.onLine` distinguishes the one
+      // cause that is genuinely not this app's problem: the browser
+      // itself has no network route right now. Confirmed directly ("we
+      // should never have a stale session id, if the connection drops
+      // mid session we should not throw any errors as this is a network
+      // issue at the user side") -- a dropped WiFi connection or a
+      // laptop waking from sleep firing this same generic "WebSocket
+      // error, is the session ID correct?" copy every time was
+      // misleading (the session ID is essentially never the real cause)
+      // and read as an alarming app error for something that is neither
+      // alarming nor this app's fault. ALS-005 stays for a genuine
+      // anomaly (the network is up but the socket still failed); a real
+      // network outage gets its own calmer, distinct code instead.
+      if (!navigator.onLine) {
+        // Automatic reconnection once the network comes back -- per
+        // explicit request. One-shot: the browser's own "online" event
+        // fires at most once for this listener, and reconnecting calls
+        // connect() again, which re-arms this same handling if that new
+        // attempt also lands offline (a flaky connection flapping
+        // between the two).
+        if (!waitingForOnline) {
+          pushMarker(i18n.t("models.noNetwork"));
+          waitingForOnline = true;
+          window.addEventListener("online", handleOnline, { once: true });
+        }
+        return;
+      }
+      if (!hasShownDisconnectMarker) {
+        hasShownDisconnectMarker = true;
+        pushMarker(i18n.t("chat.errors.lostConnection"));
+      }
+      scheduleReconnect();
     }
 
     function handleOnline() {
@@ -1383,6 +1776,7 @@ export function ChatPage() {
 
     return () => {
       closingIntentionally = true;
+      clearPresence();
       if (waitingForOnline) window.removeEventListener("online", handleOnline);
       if (retryTimer) clearTimeout(retryTimer);
       wsRef.current?.close();
@@ -1418,7 +1812,14 @@ export function ChatPage() {
     if (waitingPhase === null) return;
     const tick = () => {
       if (turnStartedAtRef.current === null) return;
-      setLiveElapsedSec(Math.floor((Date.now() - turnStartedAtRef.current) / 1000));
+      // pausedAtRef/pausedTotalMsRef's own comment, above, has the full
+      // reasoning -- ticking straight through a pending permission request
+      // still runs every second while paused, but subtracting the
+      // in-progress pause's own growing duration each time keeps the
+      // displayed number frozen at whatever it was when the pause began,
+      // exactly like the counter actually stopping.
+      const pausedMs = pausedTotalMsRef.current + (pausedAtRef.current !== null ? Date.now() - pausedAtRef.current : 0);
+      setLiveElapsedSec(Math.floor((Date.now() - turnStartedAtRef.current - pausedMs) / 1000));
     };
     tick();
     const interval = window.setInterval(tick, 1000);
@@ -1458,6 +1859,8 @@ export function ChatPage() {
       body: JSON.stringify({
         prompt: trimmed,
         sender_name: getUserDisplayName(),
+        // Lets the backend ignore this send if it is repeated after a dropped connection.
+        client_message_id: crypto.randomUUID(),
         model: modelRef.current.value,
         images: images.length > 0 ? toImageInputs(images) : undefined,
         // Real now (compose-box.tsx's own Effort slider, its own comment has the
@@ -1495,7 +1898,7 @@ export function ChatPage() {
         text: trimmed,
         displayName: getUserDisplayName(),
         time: messageTime(),
-        failed: { errorText: `Failed to send message (status ${res.status}). (ALS-009)`, images, effort },
+        failed: { errorText: i18n.t("chat.errors.sendFailed", { status: res.status }), images, effort },
       });
     }
   }
@@ -1649,21 +2052,25 @@ export function ChatPage() {
   // it actually arrived with one.
   const waitingPhaseLabel =
     (waitingPhase === "waiting"
-      ? "Waiting"
+      ? t("chat.phase.waiting")
       : waitingPhase === "working"
-        ? "Working"
+        ? t("chat.phase.working")
         : waitingPhase === "reasoning"
-          ? "Reasoning"
+          ? t("chat.phase.reasoning")
           : waitingPhase === "searching"
             ? searchQueryRef.current
-              ? `Searching "${searchQueryRef.current}"`
-              : "Searching the web"
-            : "Thinking") +
+              ? t("chat.phase.searchingQuery", { query: searchQueryRef.current })
+              : t("chat.phase.searchingWeb")
+            : t("chat.phase.thinking")) +
     // Turn-duration feature (alongsidedotrun/private#53), live half -- Synara's
     // own "Working..." counter appends the same way, alongside whichever more
     // specific phase (Reasoning/Searching/etc.) is already known, rather than
-    // replacing it.
-    (liveElapsedSec !== null ? ` ${formatWorkedDuration(liveElapsedSec)}` : "");
+    // replacing it. Real bug, confirmed directly ("remove the seconds at
+    // waiting, that should only show at working"): a bare "Waiting" has no
+    // real work happening yet to time (the model hasn't started, or a human
+    // is being asked something) -- only "working" is genuine elapsed
+    // work time worth surfacing a running counter for.
+    (waitingPhase === "working" && liveElapsedSec !== null ? ` ${formatWorkedDuration(liveElapsedSec)}` : "");
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -1729,7 +2136,72 @@ export function ChatPage() {
               pendingEditEventId === null
                 ? -1
                 : rows.findIndex((r) => r.kind === "human" && r.eventId === pendingEditEventId);
+            // Groups consecutive same-kind Write/Edit tool rows into one
+            // FileDiffGroup card (per explicit request, "we should be
+            // using the same component for all") -- a pure render-time
+            // pass, not a change to `rows` itself/how it's pushed, so
+            // history replay and live streaming both group the exact same
+            // way with no separate logic. groupStarts maps a group's
+            // first row id to the rows it stands in for; skipIds are
+            // every other row in that run, rendered as nothing at all
+            // (their own visual identity is now the group card).
+            //
+            // Real bug, confirmed directly via screenshot ("the filediff is
+            // before the worked"): a Write/Edit run always happens BEFORE
+            // the model's own final text block (the tool has to run before
+            // the model can describe what it did), so it always rendered
+            // above that reply -- read as backwards, since the natural
+            // reading order is "here's what I did" then "here's the
+            // change". A run immediately followed by an agent row (no
+            // provider-specific check needed, every provider's own
+            // tool_use/text ordering is identical) is deferred instead:
+            // skipped at its own natural position (deferredAnchorIds) and
+            // rendered again, via the same renderFileDiffGroupCard, right
+            // after that agent row (deferredGroups, read in the render
+            // loop below). A run with nothing after it, or followed by
+            // anything other than an agent row (rare -- a turn that ends
+            // mid-tool-call, or another tool group), still renders at its
+            // own natural position, unchanged.
+            const groupStarts = new Map<string, Extract<ChatRow, { kind: "tool" }>[]>();
+            const deferredGroups = new Map<string, Extract<ChatRow, { kind: "tool" }>[]>();
+            const skipIds = new Set<string>();
+            for (let i = 0; i < rows.length; i++) {
+              const r = rows[i];
+              if (r.kind !== "tool" || (r.name !== "Write" && r.name !== "Edit")) continue;
+              if (skipIds.has(r.id) || groupStarts.has(r.id) || deferredGroups.has(r.id)) continue;
+              const run: Extract<ChatRow, { kind: "tool" }>[] = [r];
+              let j = i + 1;
+              while (j < rows.length) {
+                const next = rows[j];
+                if (next.kind !== "tool" || next.name !== r.name) break;
+                run.push(next);
+                skipIds.add(next.id);
+                j++;
+              }
+              // Real bug, confirmed directly ("the claude provider does not
+              // follow the same format we fixed"): this used to check
+              // `rows[j]` directly, requiring literal index-adjacency --
+              // Claude's own Write calls almost always have a real
+              // "permission" row sitting between the tool run and the
+              // model's own text reply (its permission_resolved trace
+              // renders nothing at all, per ChatRowView's own "permission"
+              // branch, but the ROW still exists in this array), which
+              // broke the adjacency check even though there's genuinely
+              // nothing visible in between. Skips forward past any row
+              // that never renders anything of its own (today, only
+              // "permission") to find the real next visible row instead.
+              let k = j;
+              while (k < rows.length && rows[k].kind === "permission") k++;
+              const followingRow = rows[k];
+              if (followingRow?.kind === "agent") {
+                deferredGroups.set(followingRow.id, run);
+                skipIds.add(r.id);
+              } else {
+                groupStarts.set(r.id, run);
+              }
+            }
             return rows.map((row, index) => {
+            if (skipIds.has(row.id)) return null;
             const isHistorical = historicalRowIdsRef.current.has(row.id);
             const rowClassName = !isHistorical
               ? "t-row-in"
@@ -1746,32 +2218,64 @@ export function ChatPage() {
             // deleted on send) dim/disable; the edited row stays fully
             // interactive.
             const isPendingEditInactive = pendingEditBoundaryIndex !== -1 && index > pendingEditBoundaryIndex;
+            const deferredGroup = deferredGroups.get(row.id);
+            const deferredCard = deferredGroup ? renderFileDiffGroupCard(deferredGroup, openFile) : null;
+            // Real bug, confirmed directly via screenshot ("The state moved
+            // instead of staying at the first message of the model"): the
+            // LIVE Waiting/Working shimmer used to always render as its own
+            // separate block at the very bottom of the whole rows list
+            // (below), so once real content (a diff card, a permission
+            // request) landed underneath the first reply this same turn,
+            // the live indicator visibly drifted further down the page --
+            // then, once the turn actually settled, "Worked for Ns" jumped
+            // back up to attach to that first reply instead (firstAgentRowIdRef's
+            // own fix). Rendered here instead, inline, in the exact same slot
+            // the settled version will occupy (ChatRowView's own agent
+            // branch, its own comment has that reasoning) -- the bottom
+            // block (below) now only ever shows before any reply exists yet.
+            const liveWorking =
+              row.kind === "agent" && row.id === firstAgentRowIdRef.current && waitingPhase && !row.durationLabel
+                ? { label: waitingPhaseLabel, detailText: liveReasoningText ?? undefined }
+                : undefined;
             return (
-            <div
-              key={row.id}
-              ref={(node) => {
-                if (node) rowElsRef.current.set(row.id, node);
-                else rowElsRef.current.delete(row.id);
-              }}
-              className={`${rowClassName} ${isPendingEditInactive ? "pointer-events-none opacity-40" : ""}`}
-            >
-              <ChatRowView
-                row={row}
-                isPendingEdit={row.kind === "human" && row.eventId === pendingEditEventId}
-                onCancelEdit={cancelEdit}
-                onRetry={retryLastMessage}
-                onRetryFailedMessage={retryFailedMessage}
-                onResendMessage={resendMessage}
-                onEditMessage={editMessage}
-                onSwitchBranch={switchBranch}
-                sessionId={sessionId}
-                onOpenFile={openFile}
-              />
-            </div>
+            <Fragment key={row.id}>
+              <div
+                ref={(node) => {
+                  if (node) rowElsRef.current.set(row.id, node);
+                  else rowElsRef.current.delete(row.id);
+                }}
+                className={`${rowClassName} ${isPendingEditInactive ? "pointer-events-none opacity-40" : ""}`}
+              >
+                <ChatRowView
+                  row={row}
+                  isPendingEdit={row.kind === "human" && row.eventId === pendingEditEventId}
+                  onCancelEdit={cancelEdit}
+                  onRetry={retryLastMessage}
+                  onRetryFailedMessage={retryFailedMessage}
+                  onResendMessage={resendMessage}
+                  onEditMessage={editMessage}
+                  onSwitchBranch={switchBranch}
+                  onOpenFile={openFile}
+                  toolGroup={groupStarts.get(row.id)}
+                  liveWorking={liveWorking}
+                />
+              </div>
+              {deferredCard && <div className={rowClassName}>{deferredCard}</div>}
+            </Fragment>
             );
           });
           })()}
-          {waitingPhase && (
+          {/* Real bug, confirmed directly via screenshot ("The state moved
+              instead of staying at the first message of the model"): this
+              used to always render here regardless of whether a reply
+              already existed, so it visibly drifted down the page as more
+              content (a diff card, a permission request) landed below that
+              first reply, then jumped back up once the turn settled
+              (ChatRowView's own liveWorking prop, above, is the fix -- it
+              takes over, inline, the moment a first reply exists). This
+              block now only ever covers the gap before any reply exists yet
+              -- real Waiting/Thinking with nothing to attach to. */}
+          {waitingPhase && !firstAgentRowIdRef.current && (
             // No circle/orb any more -- per explicit request ("make sure
             // that we don't have any circle or placeholder for icons"):
             // the shimmering text on its own is the whole indicator now,
@@ -1852,6 +2356,7 @@ export function ChatPage() {
             );
           })()}
         </AnimatePresence>
+        {sessionId && <JoinRequests sessionId={sessionId} requests={joinRequests} onDecided={(id) => setJoinRequests((current) => current.filter((r) => r.id !== id))} />}
         <ComposeBox
           // Forces a remount whenever a *new* edit starts (editMessage's
           // own comment above has the full reasoning) -- ComposeBox's own
@@ -1864,7 +2369,7 @@ export function ChatPage() {
           value={prompt}
           onChange={setPrompt}
           onSubmit={handleSend}
-          placeholder="Send a message"
+          placeholder={t("chat.sendPlaceholder")}
           // turnInProgress, not awaitingReply -- see this file's own comment on
           // turnInProgress's declaration for the full bug report ("stop button... reverting
           // to arrow straight away"). ComposeBox's only use of this prop is the Stop/Send
@@ -1969,10 +2474,11 @@ export function ChatPage() {
 // only an actual AI reply carries "AI can make mistakes" -- a human's own
 // message or Alongside's own /share reply doesn't need reviewing the same way.
 function MessageTime({ time, showDisclaimer }: { time: string; showDisclaimer?: boolean }) {
+  const { t } = useTranslation();
   return (
     <p className="px-1 text-2xs text-muted-foreground">
       {time}
-      {showDisclaimer && <span className="opacity-50"> Please review the answers. AI can make mistakes.</span>}
+      {showDisclaimer && <span className="opacity-50"> {t("chat.disclaimer")}</span>}
     </p>
   );
 }
@@ -1986,8 +2492,9 @@ function ChatRowView({
   onResendMessage,
   onEditMessage,
   onSwitchBranch,
-  sessionId,
   onOpenFile,
+  toolGroup,
+  liveWorking,
 }: {
   row: ChatRow;
   isPendingEdit: boolean;
@@ -1997,9 +2504,21 @@ function ChatRowView({
   onResendMessage: (row: Extract<ChatRow, { kind: "human" }>) => void;
   onEditMessage: (row: Extract<ChatRow, { kind: "human" }>) => void;
   onSwitchBranch: (group: string, index: number) => void;
-  sessionId: string | undefined;
   onOpenFile: (path: string) => void;
+  // Set only on the first row of a run of consecutive same-kind Write/Edit
+  // tool rows (computeToolGroups, below) -- the full run this one row
+  // stands in for, rendered as a single FileDiffGroup card instead of N
+  // separate rows. Every other row in that run isn't rendered at all
+  // (rows.map's own grouping pass, further down).
+  toolGroup?: Extract<ChatRow, { kind: "tool" }>[];
+  // Only ever set on the turn's own first agent row, while that turn is
+  // still genuinely in progress (rows.map's own comment, above, has the
+  // full reasoning) -- rendered in the exact slot row.durationLabel's own
+  // settled disclosure will occupy once the turn finishes, so nothing
+  // visibly jumps between the live and settled states.
+  liveWorking?: { label: string; detailText?: string };
 }) {
+  const { t } = useTranslation();
   // Gates the actions row + disclaimer (agent branch, further down) until
   // the reply's own StreamingText reveal genuinely finishes -- per explicit
   // request ("copy, rate, re-try... source and time and advise shows before
@@ -2036,15 +2555,19 @@ function ChatRowView({
   }
 
   if (row.kind === "tool") {
-    // Real Write/Edit -> FileDiff (issue #288, phase 1), manual-expand-only
-    // per that issue's own explicit direction -- everything else keeps the
-    // existing generic ToolRow treatment.
-    if (row.name === "Write" || row.name === "Edit") {
-      const diffRows = buildFileDiffRows(row.name, row.input);
-      const filePath = summarizeToolInput(row.input);
-      if (diffRows && filePath) {
-        return <FileDiff file={filePath} rows={diffRows} onExpand={() => onOpenFile(filePath)} />;
-      }
+    // Real Write/Edit -> FileDiffGroup (issue #288, phase 1, extended per
+    // explicit request "we should be using the same component for all"),
+    // manual-expand-only per that issue's own explicit direction --
+    // everything else keeps the existing generic ToolRow treatment.
+    // toolGroup (set only on a group's first row, computeToolGroups below)
+    // covers every provider uniformly: Claude/Codex's real content
+    // resolves synchronously via buildFileDiffRows; Antigravity's
+    // write_to_file (no content in its own tool_use, only the path) has
+    // no syncRows, and FileDiffGroup's own ResolvedFile fetches the real
+    // file content off disk instead -- same card either way.
+    if (toolGroup && (row.name === "Write" || row.name === "Edit")) {
+      const card = renderFileDiffGroupCard(toolGroup, onOpenFile);
+      if (card) return card;
     }
     return <ToolRow name={row.name} summary={row.summary} input={row.input} />;
   }
@@ -2054,24 +2577,13 @@ function ChatRowView({
     // near <ComposeBox>) -- per explicit correction ("that actually should
     // be similar to codex/claude where the action opens at the top of the
     // compose box and be full length of the compose box"), not shown
-    // inline as a chat message. A resolved one (allow/deny/cancelled/
-    // timed_out) still leaves the same compact one-line trace here it
-    // always has -- that's real chat history, not an in-progress prompt.
-    if (row.status === "pending") return null;
-    // onStopTurn is unreachable here -- PermissionCard's own early return
-    // for a non-pending status (right above the header/X button) means
-    // this callback never actually gets called for a resolved row.
-    return (
-      <PermissionCard
-        sessionId={sessionId}
-        requestId={row.requestId}
-        toolName={row.toolName}
-        input={row.input}
-        status={row.status}
-        hasProject={false}
-        onStopTurn={() => {}}
-      />
-    );
+    // inline as a chat message. A resolved one used to leave its own
+    // compact one-line trace here permanently ("Bash: Allowed") -- per
+    // explicit follow-up, that's the same clutter every other tool call
+    // already folds away: updatePermissionRow (above) already pushes this
+    // same trace into liveToolCallLines the moment it resolves, so nothing
+    // renders inline for it at all anymore, resolved or pending.
+    return null;
   }
 
   if (row.kind === "human") {
@@ -2183,7 +2695,7 @@ function ChatRowView({
               onClick={() => onRetryFailedMessage(row)}
               className="text-2xs font-medium text-muted-foreground underline hover:text-foreground"
             >
-              Retry
+              {t("common.retry")}
             </button>
           </div>
         ) : (
@@ -2252,7 +2764,7 @@ function ChatRowView({
                       <XIcon className="size-3" />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent>Cancel edit</TooltipContent>
+                  <TooltipContent>{t("chat.cancelEdit")}</TooltipContent>
                 </Tooltip>
               ) : (
                 <>
@@ -2266,7 +2778,7 @@ function ChatRowView({
                         <RotateCcwIcon className="size-3" />
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent>Resend</TooltipContent>
+                    <TooltipContent>{t("chat.resend")}</TooltipContent>
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -2278,7 +2790,7 @@ function ChatRowView({
                         <EditIcon className="size-3" />
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent>Edit</TooltipContent>
+                    <TooltipContent>{t("chat.edit")}</TooltipContent>
                   </Tooltip>
                 </>
               )}
@@ -2324,16 +2836,33 @@ function ChatRowView({
   return (
     <div className={`flex flex-col items-start gap-1 ${iconLoaded ? "" : "invisible"}`}>
       {/* Unified Waiting/Thinking/Working/Worked disclosure (alongsidedotrun/
-          private#53), same control the live indicator below the rows list uses
-          while awaiting this reply -- per explicit request ("that should be in
-          the same area where Waiting was... when opening the dropdown, thinking
-          and worked can be seen"), and above the model name row, not below
-          (explicit follow-up). Only once durationLabel exists (the matching
-          "result" event has landed) -- the brief gap between this row's own text
-          arriving and that happening shows nothing here, same trade-off Synara's
-          own settled-vs-live split has. */}
-      {row.durationLabel && (
-        <TurnWorkDisclosure label={row.durationLabel} detailText={row.reasoningText} />
+          private#53) -- per explicit request ("that should be in the same
+          area where Waiting was... when opening the dropdown, thinking and
+          worked can be seen"), and above the model name row, not below
+          (explicit follow-up). Settled (row.durationLabel, once the matching
+          "result" event has landed) takes priority; liveWorking (this row's
+          own comment has the full reasoning) renders in that exact same slot
+          while the turn's still genuinely in progress, so nothing visibly
+          jumps between the two. Neither yet -- the brief gap between this
+          row's own text arriving and either landing -- shows nothing here,
+          same trade-off Synara's own settled-vs-live split has. */}
+      {/* mb-2 on the wrapper, not the outer flex column's own gap-1 --
+          real bug, confirmed directly via screenshot ("Increase the
+          bottom space/margin/space between worked and other states to
+          the message of the AI"): gap-1 applies uniformly to every child
+          in this column, so widening it would have also pushed the model-
+          name row away from the reply text below it, not just this one
+          gap. Only rendered when the disclosure itself renders something
+          -- an empty wrapper would still add its own margin with nothing
+          inside to justify it. */}
+      {(row.durationLabel || liveWorking) && (
+        <div className="mb-2">
+          {row.durationLabel ? (
+            <TurnWorkDisclosure label={row.durationLabel} detailText={row.reasoningText} toolLines={row.toolCallLines} />
+          ) : (
+            liveWorking && <TurnWorkDisclosure label={liveWorking.label} detailText={liveWorking.detailText} live />
+          )}
+        </div>
       )}
       <div className="flex items-center gap-1.5 px-1">
         {/* size-5 (20px), not size-6 -- per explicit request ("make sure
@@ -2414,24 +2943,28 @@ function buildFileDiffRows(name: string, input: unknown): DiffRow[] | null {
     newText = record.new_string;
   }
   if (oldText === null || newText === null) return null;
+  return diffToRows(oldText, newText);
+}
 
-  const rows: DiffRow[] = [];
-  let oldLine = 1;
-  let newLine = 1;
-  for (const part of diffLines(oldText, newText)) {
-    const lines = part.value.split("\n");
-    if (lines[lines.length - 1] === "") lines.pop();
-    for (const text of lines) {
-      if (part.added) {
-        rows.push({ old: null, cur: newLine++, type: "add", text });
-      } else if (part.removed) {
-        rows.push({ old: oldLine++, cur: null, type: "del", text });
-      } else {
-        rows.push({ old: oldLine++, cur: newLine++, type: "ctx", text });
-      }
-    }
-  }
-  return rows;
+// Shared by ChatRowView's own "tool" branch (a group not immediately
+// followed by the model's own text reply) and the render loop's own
+// deferred-group handling further up (a group immediately followed by the
+// reply, moved to render after it instead -- see that loop's own comment) --
+// one real FileDiffGroup-building path, not two copies that could drift.
+function renderFileDiffGroupCard(
+  toolGroup: Extract<ChatRow, { kind: "tool" }>[],
+  onOpenFile: (path: string) => void
+): ReactNode {
+  const name = toolGroup[0].name;
+  const files = toolGroup
+    .map((r) => {
+      const path = summarizeToolInput(r.input);
+      if (!path) return null;
+      return { name: path.split("/").filter(Boolean).pop() ?? path, path, syncRows: buildFileDiffRows(r.name, r.input) };
+    })
+    .filter((f): f is NonNullable<typeof f> => f !== null);
+  if (files.length === 0) return null;
+  return <FileDiffGroup kind={name === "Write" ? "New" : "Edited"} files={files} onExpandFile={onOpenFile} />;
 }
 
 function ToolRow({ name, summary, input }: { name: string; summary: string | null; input: unknown }) {
@@ -2572,10 +3105,26 @@ function SourceLink({ source }: { source: { label: string; href: string } }) {
 // time still get the same expand affordance per explicit request ("be expandable
 // as well"), just with an honest "nothing to show" line rather than fabricated
 // content.
-function TurnWorkDisclosure({ label, detailText, live }: { label: string; detailText?: string; live?: boolean }) {
+function TurnWorkDisclosure({
+  label,
+  detailText,
+  toolLines,
+  live,
+}: {
+  label: string;
+  detailText?: string;
+  // Real tool calls this turn made (ChatRow's own toolCallLines comment has
+  // the full reasoning) -- per explicit request ("that should have an arrow
+  // to open the drawer so we can see the hidden commands"). Never passed by
+  // the LIVE call site (ChatPage.tsx's own waitingPhase-driven indicator,
+  // below) -- these stay genuinely hidden while "Working", only surfacing
+  // once the turn settles and this same expand arrow already exists.
+  toolLines?: { label: string; detail?: string }[];
+  live?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const trimmedDetail = detailText?.trim();
-  const labelEl = live ? <ThinkingState text={label} /> : <span className="text-xs text-muted-foreground">{label}</span>;
+  const hasToolLines = !!toolLines && toolLines.length > 0;
   // No expand affordance at all when there's nothing real to show -- per
   // explicit follow-up ("hide the expand arrow entirely for these replies"):
   // Codex/Antigravity never emit a thinking block at all, so every one of
@@ -2583,16 +3132,30 @@ function TurnWorkDisclosure({ label, detailText, live }: { label: string; detail
   // honest but useless "No additional detail for this reply." placeholder.
   // Plain, non-interactive label instead, exactly like Claude's own replies
   // that genuinely didn't use extended thinking this turn.
-  if (!trimmedDetail) {
+  if (!trimmedDetail && !hasToolLines) {
+    const labelEl = live ? <ThinkingState text={label} /> : <span className="text-xs text-muted-foreground">{label}</span>;
     return <div className="px-1">{labelEl}</div>;
   }
+  // ThinkingReasoning (per explicit request, adopted from
+  // https://www.aicss.dev/r/thinking-reasoning.json -- that file's own
+  // comment has the full adaptation reasoning) owns the reveal animation
+  // and collapsed/expanded rendering; this app's own "Worked for Ns"
+  // label (not the reference's own "Thought for Ns") passes straight
+  // through unchanged, per explicit decision.
   return (
     <div className="px-1">
-      <button type="button" onClick={() => setOpen((prev) => !prev)} className="flex items-center gap-1.5">
-        {labelEl}
-        <ChevronRightIcon className={`size-3 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`} />
-      </button>
-      {open && <p className="mt-1 max-w-[95%] text-xs whitespace-pre-wrap text-muted-foreground italic">{trimmedDetail}</p>}
+      <ThinkingReasoning
+        label={label}
+        text={trimmedDetail ?? ""}
+        toolLines={toolLines}
+        live={!!live}
+        open={open}
+        onToggleOpen={() => {
+          // chat-scroll-suppress.ts's own comment has the full reasoning.
+          suppressAutoScroll();
+          setOpen((prev) => !prev);
+        }}
+      />
     </div>
   );
 }
@@ -2629,6 +3192,7 @@ function PermissionCard({
   hasProject: boolean;
   onStopTurn: () => void;
 }) {
+  const { t } = useTranslation();
   const [otherText, setOtherText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const otherInputRef = useRef<HTMLInputElement>(null);
@@ -2705,12 +3269,12 @@ function PermissionCard({
   if (status !== "pending") {
     const label =
       status === "allow"
-        ? "Allowed"
+        ? t("chat.perm.allowed")
         : status === "cancelled"
-          ? "Withdrawn -- no longer needed"
+          ? t("chat.perm.withdrawnLong")
           : status === "timed_out"
-            ? "Denied -- no response in time"
-            : "Denied";
+            ? t("chat.perm.deniedNoResponse")
+            : t("chat.perm.denied");
     return (
       <div className="flex items-center gap-1.5 px-1 text-xs text-muted-foreground">
         {status === "allow" ? <CheckIcon className="size-3.5 shrink-0" /> : <XIcon className="size-3.5 shrink-0" />}
@@ -2726,7 +3290,7 @@ function PermissionCard({
       {/* No icon beside the title any more -- per explicit follow-up
           ("we should have no icons there at the title"). */}
       <div className="flex items-center gap-2">
-        <p className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">Allow {toolName} to run?</p>
+        <p className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">{t("chat.perm.allowToRun", { tool: toolName })}</p>
         {/* Per explicit follow-up ("is missing the x at the right top to
             cancel it and fully stop the command") -- denies this specific
             permission (the same real endpoint Deny already calls) and
@@ -2735,7 +3299,7 @@ function PermissionCard({
             question. */}
         <button
           type="button"
-          aria-label="Cancel and stop"
+          aria-label={t("chat.perm.cancelAndStop")}
           disabled={submitting}
           onClick={() => {
             void answer("deny");
@@ -2760,20 +3324,24 @@ function PermissionCard({
           absent) and is a real always-visible text field, not a button
           that reveals one -- per explicit follow-up correction. */}
       <div className="flex flex-col gap-1">
-        <PermissionOptionRow number={1} label="Yes" onClick={() => void answer("allow")} disabled={submitting} />
+        <PermissionOptionRow number={1} label={t("common.yes")} onClick={() => void answer("allow")} disabled={submitting} />
         {commandText && (
           <PermissionOptionRow
             number={2}
             label={
               <>
-                Yes, always allow <span className="font-mono">{commandText}</span> for this {hasProject ? "project" : "chat"}
+                <Trans
+                  i18nKey={hasProject ? "chat.perm.alwaysAllowProject" : "chat.perm.alwaysAllowChat"}
+                  values={{ command: commandText }}
+                  components={[<span className="font-mono" key="0" />]}
+                />
               </>
             }
             onClick={() => void answer("allow", undefined, { toolName, pattern: commandText })}
             disabled={submitting}
           />
         )}
-        <PermissionOptionRow number={commandText ? 3 : 2} label="No" onClick={() => void answer("deny")} disabled={submitting} />
+        <PermissionOptionRow number={commandText ? 3 : 2} label={t("common.no")} onClick={() => void answer("deny")} disabled={submitting} />
         <div className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-1.5">
           <span className="flex size-4 shrink-0 items-center justify-center rounded bg-hover-2/50 text-[10px] font-semibold text-muted-foreground">
             4
@@ -2786,12 +3354,12 @@ function PermissionCard({
             onKeyDown={(event) => {
               if (event.key === "Enter" && otherText.trim()) void answer("deny", otherText.trim());
             }}
-            placeholder="Other"
+            placeholder={t("chat.perm.other")}
             className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground"
           />
         </div>
       </div>
-      <p className="px-2.5 text-2xs text-muted-foreground">Esc to cancel</p>
+      <p className="px-2.5 text-2xs text-muted-foreground">{t("chat.perm.escToCancel")}</p>
     </div>
   );
 }
@@ -2834,6 +3402,7 @@ function AgentMessageActions({
   onRetry: () => void;
   effort: EffortLevel;
 }) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const [rating, setRating] = useState<"up" | "down" | null>(null);
   const [speaking, setSpeaking] = useState(false);
@@ -2936,7 +3505,7 @@ function AgentMessageActions({
             <CopyIcon className="size-3" />
           </button>
         </TooltipTrigger>
-        <TooltipContent>Copy</TooltipContent>
+        <TooltipContent>{t("common.copy")}</TooltipContent>
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
@@ -2947,7 +3516,7 @@ function AgentMessageActions({
             <ThumbsUpIcon className="size-3" />
           </button>
         </TooltipTrigger>
-        <TooltipContent>Good response</TooltipContent>
+        <TooltipContent>{t("chat.goodResponse")}</TooltipContent>
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
@@ -2958,7 +3527,7 @@ function AgentMessageActions({
             <ThumbsDownIcon className="size-3" />
           </button>
         </TooltipTrigger>
-        <TooltipContent>Bad response</TooltipContent>
+        <TooltipContent>{t("chat.badResponse")}</TooltipContent>
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
@@ -2966,7 +3535,7 @@ function AgentMessageActions({
             <RotateCcwIcon className="size-3" />
           </button>
         </TooltipTrigger>
-        <TooltipContent>Retry</TooltipContent>
+        <TooltipContent>{t("common.retry")}</TooltipContent>
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
@@ -2974,14 +3543,14 @@ function AgentMessageActions({
             <Volume2Icon className="size-3" />
           </button>
         </TooltipTrigger>
-        <TooltipContent>Read aloud</TooltipContent>
+        <TooltipContent>{t("chat.readAloud")}</TooltipContent>
       </Tooltip>
       {/* Plain text, not the old EffortDial graph-plus-hover-tooltip -- per
           explicit request ("lets just write the effort there instead of
           having a graph that we can only see when we hover bc is not
           clear"): the graph on its own read as decorative until you
           hovered it, unlike every other real value on this row. */}
-      <span className="px-1 text-xs text-muted-foreground">{EFFORT_LABELS[effort]} effort</span>
+      <span className="px-1 text-xs text-muted-foreground">{effortLabel(effort)} effort</span>
       {/* Sources -- same row as every other action, after effort, per explicit
           request (was its own separate block below the row before). A real
           dropdown trigger now, not a hover tooltip -- per explicit request:
@@ -2998,7 +3567,7 @@ function AgentMessageActions({
           className={`${iconButtonClass(sourcesOpen)} w-auto gap-1 px-1.5`}
         >
           <ResearchIcon className="size-3 shrink-0" />
-          <span className="text-2xs">{sources.length === 1 ? "Source" : `${sources.length} sources`}</span>
+          <span className="text-2xs">{t("chat.sources", { count: sources.length })}</span>
           <ChevronDownIcon className={`size-3 shrink-0 transition-transform ${sourcesOpen ? "rotate-180" : ""}`} />
         </button>
       )}

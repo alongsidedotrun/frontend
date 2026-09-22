@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import { useSyncExternalStore } from "react";
 
 // In-app companion to the OS-level "Notify when a chat turn completes"
@@ -89,11 +90,11 @@ export function useTurnNotifications(): TurnNotification[] {
 // back from a stored timestamp column.
 export function formatNotificationTime(timestampMs: number): string {
   const seconds = Math.max(0, (Date.now() - timestampMs) / 1000);
-  if (seconds < 60) return "Just now";
+  if (seconds < 60) return i18n.t("common.relativeTime.justNow");
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} min ago`;
+  if (minutes < 60) return i18n.t("common.relativeTime.minutesAgo", { count: minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  if (hours < 24) return i18n.t("common.relativeTime.hoursAgo", { count: hours });
   const days = Math.floor(hours / 24);
-  return `${days} day${days === 1 ? "" : "s"} ago`;
+  return i18n.t("common.relativeTime.daysAgo", { count: days });
 }

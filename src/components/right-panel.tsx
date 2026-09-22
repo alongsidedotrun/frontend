@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { EditorView } from "@codemirror/view";
@@ -8,15 +10,15 @@ import { python } from "@codemirror/lang-python";
 import { html } from "@codemirror/lang-html";
 import { css } from "@codemirror/lang-css";
 import { json } from "@codemirror/lang-json";
-import { useCreateBlockNote, SideMenu, SideMenuController, DragHandleButton, type SideMenuProps } from "@blocknote/react";
-import { offset } from "@floating-ui/react";
-import { en } from "@blocknote/core/locales";
-import { BlockNoteView, lightDefaultTheme, darkDefaultTheme, type Theme } from "@blocknote/mantine";
-import "@blocknote/mantine/style.css";
-import "./right-panel.css";
+import { Plate, usePlateEditor } from "platejs/react";
+import { EditorKit } from "@/components/editor/editor-kit";
+import { Editor, EditorContainer } from "@/components/ui/editor";
+import { FixedToolbar } from "@/components/ui/fixed-toolbar";
+import { FixedToolbarButtons } from "@/components/ui/fixed-toolbar-buttons";
 import { XIcon, File02Icon, ChevronLeftIcon, ChevronRightIcon, FolderIcon, TerminalIcon, DotsVerticalIcon } from "@/components/icons/untitled-ui";
 import { Button } from "@/components/ui/button";
-import { FileExtensionBadge, stripExtension } from "@/components/file-extension-badge";
+import { LibraryFileNameCell } from "@/components/library-file-row";
+import { formatRelativeTime } from "@/lib/relative-time";
 import {
   DropdownMenu as BaseDropdownMenu,
   DropdownTrigger as BaseDropdownTrigger,
@@ -25,39 +27,17 @@ import {
 import { MenuItem as BaseMenuItem } from "@/components/ui/menu-item";
 import { MoreTrigger } from "@/components/ui/more-trigger";
 
-// Real BlockNote block editor (issue #299) -- replaces the earlier
-// Streamdown-based read-mostly preview per explicit direction (referencing
-// a sibling repo, cydonia, as a design target: click-to-transform a block
-// into a different type, drag-and-drop block reordering, a "Plain text"
-// toggle). BlockNote ships the drag handle/side menu and the slash "turn
-// into" menu itself, so neither needs custom implementation here.
-//
-// Transparent editor background, same real bug/fix class as the CodeMirror
-// background fix elsewhere in this file: BlockNote's own default themes
-// bake in a real (non-transparent) editor background rather than blending
-// into this panel's own bg-background. Unlike CodeMirror's stylesheet-based
-// theme (a real specificity fight, needed Prec.highest + !important),
-// BlockNote's Theme is applied as inline CSS custom properties on the
-// editor's own DOM node (applyBlockNoteCSSVariablesFromTheme), so a plain
-// override here is sufficient -- no specificity contest to force.
-const lightTheme: Theme = {
-  ...lightDefaultTheme,
-  colors: { ...lightDefaultTheme.colors, editor: { ...lightDefaultTheme.colors.editor, background: "transparent" } },
-};
-const darkTheme: Theme = {
-  ...darkDefaultTheme,
-  colors: { ...darkDefaultTheme.colors, editor: { ...darkDefaultTheme.colors.editor, background: "transparent" } },
-};
-
-// Shorter empty-block placeholder -- per explicit request ("it should only
-// be Type / for commands and not Enter..."): BlockNote's own default
-// ("Enter text or type '/' for commands", @blocknote/core's en locale)
-// spells out both ways to start a block; overriding just this one string
-// on top of the full `en` dictionary (options.dictionary replaces the
-// whole dictionary, not a per-key merge, per BlockNoteEditor.ts's own
-// `this.dictionary = options.dictionary || en`) keeps every other real
-// translation intact.
-const dictionary = { ...en, placeholders: { ...en.placeholders, default: "Type '/' for commands" } };
+// Real Plate.js block editor -- replaces BlockNote (issue #299 originally
+// built this on BlockNote; migrated per explicit request, "give me other
+// alternatives to blocknote, there's a lot to fix and i want something
+// ready to use" -- BlockNote's packaged Mantine/Emotion styling needed a
+// long running series of !important CSS overrides to fit this panel's
+// compact scale, each one its own bug report; Plate ships through the
+// shadcn CLI as copied-in source instead of a packaged stylesheet, so
+// sizing is just this app's own Tailwind classes going forward). EditorKit
+// (src/components/editor/editor-kit.tsx) is Plate's own full stock plugin
+// bundle -- headings/lists/tables/media/AI/markdown/comments/suggestions/
+// the fixed toolbar, all included, none of it hand-assembled here.
 
 // This document's real title, not its raw filename -- per explicit
 // request ("instead of example.md at the top that should be the title of
@@ -75,10 +55,22 @@ const dictionary = { ...en, placeholders: { ...en.placeholders, default: "Type '
 // renders as its own static element and the body blocks passed into
 // BlockNote never include it as a duplicate. Falls back to the filename
 // (extension stripped) when there's no such heading yet.
-function splitTitle(markdownText: string, path: string): { title: string; body: string } {
+// useFilenameFallback (default true): only the initial load-from-disk
+// call (below) should invent a title from the filename when there's no
+// heading -- real bug, confirmed directly ("that keeps hardcoding
+// example to the file instead of keeping Untitled"): togglePlainText's
+// own plaintext -> blocks direction also called this, so an
+// intentionally emptied title (no heading left in the raw text) got
+// silently resurrected as the file's real name every time the user
+// switched views, even though they'd already cleared it on purpose.
+function splitTitle(
+  markdownText: string,
+  path: string,
+  useFilenameFallback = true
+): { title: string; body: string } {
   const lines = markdownText.split("\n");
   const headingIndex = lines.findIndex((line) => /^#{1,6}\s+/.test(line));
-  const fallbackTitle = fileName(path).replace(/\.(md|markdown)$/i, "");
+  const fallbackTitle = useFilenameFallback ? fileName(path).replace(/\.(md|markdown)$/i, "") : "";
   if (headingIndex === -1 || lines.slice(0, headingIndex).some((line) => line.trim() !== "")) {
     return { title: fallbackTitle, body: markdownText };
   }
@@ -97,151 +89,6 @@ function splitTitle(markdownText: string, path: string): { title: string; body: 
 function combineTitle(title: string, body: string): string {
   return title.trim() ? `# ${title.trim()}\n\n${body}` : body;
 }
-
-// A real, uploaded cover image -- per explicit direction ("what is it
-// used by cydonia to generate the cover?... don't implement anything, the
-// only thing we should have is upload cover"): checked cydonia's own
-// cover.rs directly -- its generated pattern is a from-scratch procedural
-// algorithm (a hand-tuned halftone dither), not something worth porting,
-// but that same file also supports a real uploaded cover image, stored as
-// a plain file beside the document ("the file being there is the whole
-// of the state" -- its own comment). This mirrors that: GET/POST
-// /files/cover (backend/src/server.rs) store the cover as
-// `<basename>.cover.<ext>` next to the markdown file, no DB row, so
-// there's nothing to keep in sync and a cover deleted outside the app is
-// simply gone -- same trust boundary as /files itself.
-function Cover({ path }: { path: string }) {
-  // Real bug, confirmed directly via a screenshot (a broken-image glyph
-  // sitting where the cover should be, on a file with no cover uploaded
-  // yet -- the overwhelmingly common case right now): starting hasCover
-  // optimistically true meant the <img> always mounted and always
-  // attempted to load /files/cover before anything had confirmed a cover
-  // actually exists, so a missing one always hit the browser's own
-  // native broken-image rendering first, onError or not. Starting false
-  // and confirming existence with a HEAD request before ever rendering
-  // the <img> means a missing cover never gets an <img> tag at all.
-  const [hasCover, setHasCover] = useState(false);
-  const [version, setVersion] = useState(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setHasCover(false);
-    setVersion(0);
-    fetch(`/files/cover?path=${encodeURIComponent(path)}`, { method: "HEAD" })
-      .then((res) => {
-        if (!cancelled && res.ok) setHasCover(true);
-      })
-      .catch(() => {
-        // No cover, or the request itself failed -- either way, the
-        // neutral placeholder (already the default) is the right state.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [path]);
-
-  async function handleUpload(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = () => reject(new Error("Failed to read the selected file."));
-      reader.readAsDataURL(file);
-    });
-    await fetch("/files/cover", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path, data_url: dataUrl }),
-    });
-    setHasCover(true);
-    setVersion((v) => v + 1);
-  }
-
-  return (
-    // bg-black/[0.06] dark:bg-white/[0.06], not bg-muted -- real bug,
-    // confirmed directly ("For no cover, just add something like a plain
-    // lighter bg for dark mode and a darker bg for light mode"): bg-muted
-    // already darkens in light mode and lightens in dark mode (the same
-    // direction requested), but only at a 4% --accent opacity meant for
-    // subtle hover states, not a placeholder that needs to actually read
-    // as a real "cover" area against the page.
-    <div className="group relative h-[110px] w-full shrink-0 bg-black/[0.06] dark:bg-white/[0.06]">
-      {hasCover && (
-        // key={version} -- a plain src change alone doesn't force a
-        // reload if the URL is otherwise identical to what's already
-        // painted; the version query param (bumped after a real upload)
-        // guarantees a fresh request instead of the old image lingering.
-        <img
-          key={version}
-          src={`/files/cover?path=${encodeURIComponent(path)}&v=${version}`}
-          alt=""
-          className="h-full w-full object-cover"
-          onError={() => setHasCover(false)}
-        />
-      )}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/png,image/jpeg,image/webp,image/gif"
-        className="hidden"
-        onChange={(event) => void handleUpload(event)}
-      />
-      {/* Bottom-right, only on hover -- per explicit direction ("inside
-          the cover at the bottom right"), matching Notion's own
-          add/change-cover placement. */}
-      <button
-        type="button"
-        onClick={() => fileInputRef.current?.click()}
-        className="absolute right-2 bottom-2 rounded-md border border-border bg-background/90 px-2 py-1 text-[12px] text-foreground opacity-0 shadow-sm backdrop-blur-sm transition-opacity group-hover:opacity-100"
-      >
-        {hasCover ? "Change cover" : "Add cover"}
-      </button>
-    </div>
-  );
-}
-
-// A single gutter icon, not BlockNote's default separate "+"/drag-handle
-// pair -- per explicit request (referencing cydonia's own source directly:
-// bezel-editor's menu.rs `handle()` renders one "⠿" glyph that drags to
-// reorder on mousedown+move, or opens the block menu on a plain click
-// disambiguated at release). BlockNote's own DragHandleButton already
-// does exactly this (its own source wraps the drag handle in a
-// Menu.Root/Menu.Trigger, opening DragHandleMenu -- BlockNote's "turn
-// into"/duplicate/delete menu -- on click, while native HTML5 draggable
-// still handles the reorder drag) -- so this only drops AddBlockButton
-// ("+") from the default two-button side menu, not a new interaction.
-function SingleHandleSideMenu(props: SideMenuProps) {
-  return (
-    <SideMenu {...props}>
-      <DragHandleButton {...props} />
-    </SideMenu>
-  );
-}
-
-// Real bug, confirmed directly via a follow-up screenshot ("the drag icon
-// and text still not vertically centralised"): BlockNote's own default
-// placement for this menu is "left-start" (top-aligned to the block, not
-// centered) plus a *hardcoded per-block-type pixel offset* to fake
-// vertical centering (@blocknote/react's own SideMenuController.tsx,
-// getBlockOffset() -- e.g. +39px for an h1), tuned for BlockNote's own
-// default (larger) font sizes. Shrinking the font scale to fit this panel
-// (right-panel.css) made every one of those hardcoded numbers wrong, so
-// no further pixel-guessing fix would hold. Overriding placement to
-// plain "left" instead makes floating-ui center the menu against the
-// reference block's own real height itself (no per-block-type table to
-// keep in sync with font-size changes), and mainAxis: 6 adds real
-// breathing room between the handle and the block's own text -- per a
-// further explicit follow-up ("increase the gap of the icon to the text
-// so when we hover over it, the hover bg do not touch the text").
-const sideMenuFloatingUIOptions = {
-  useFloatingOptions: {
-    placement: "left" as const,
-    middleware: [offset({ mainAxis: 6 })],
-  },
-};
 
 // Extension -> CodeMirror language extension. Anything not listed here
 // still gets a real, editable plain-text CodeMirror instance (no syntax
@@ -305,11 +152,12 @@ const transparentBackground = Prec.highest(
 // come back") -- same shape a browser's own back/forward pair has, backed
 // by AppLayout.tsx's own panelNav history stack.
 function NavButtons({ canGoBack, canGoForward, onBack, onForward }: { canGoBack: boolean; canGoForward: boolean; onBack: () => void; onForward: () => void }) {
+  const { t } = useTranslation();
   return (
     <div className="flex shrink-0 items-center gap-0.5">
       <button
         type="button"
-        aria-label="Back"
+        aria-label={t("nav.goBack.ariaLabel")}
         disabled={!canGoBack}
         onClick={onBack}
         className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-hover-2/50 hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
@@ -318,7 +166,7 @@ function NavButtons({ canGoBack, canGoForward, onBack, onForward }: { canGoBack:
       </button>
       <button
         type="button"
-        aria-label="Forward"
+        aria-label={t("nav.goForward.ariaLabel")}
         disabled={!canGoForward}
         onClick={onForward}
         className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-hover-2/50 hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
@@ -338,26 +186,41 @@ export type RightPanelState = { type: "list"; chatId: string } | { type: "file";
 // per-chat file list, and the existing single-file editor.
 export function RightPanel({
   state,
-  onClose,
+  onCloseFile,
   onSelectFile,
   onBack,
   onForward,
   canGoBack,
   canGoForward,
+  filesTouchedTick,
 }: {
   state: RightPanelState;
-  onClose: () => void;
+  // Real bug, confirmed directly ("the close at the right sidebar when we
+  // have a file open is not to close the sidebar but to close the file to
+  // go back to library"): FileEditorPanel's own in-panel Close used to be
+  // wired to the same `onClose` the header's own toggle uses, so closing a
+  // FILE collapsed the entire sidebar instead of just returning to the
+  // file list -- a real, distinct action (AppLayout.tsx's own
+  // navigateRightPanel to a "list" entry), not another way to hide the
+  // panel outright.
+  onCloseFile: () => void;
   onSelectFile: (path: string) => void;
   onBack: () => void;
   onForward: () => void;
   canGoBack: boolean;
   canGoForward: boolean;
+  // Bumped by AppLayout.tsx whenever the active chat's own live event
+  // stream processes a Write/Edit tool_use -- see that file's own
+  // notifyFilesTouched comment for the real bug this fixes.
+  filesTouchedTick: number;
 }) {
   const navButtons = <NavButtons canGoBack={canGoBack} canGoForward={canGoForward} onBack={onBack} onForward={onForward} />;
   if (state.type === "list") {
-    return <ChatFileListPanel chatId={state.chatId} onSelectFile={onSelectFile} navButtons={navButtons} />;
+    return (
+      <ChatFileListPanel chatId={state.chatId} onSelectFile={onSelectFile} navButtons={navButtons} refreshSignal={filesTouchedTick} />
+    );
   }
-  return <FileEditorPanel path={state.path} onClose={onClose} navButtons={navButtons} />;
+  return <FileEditorPanel path={state.path} onClose={onCloseFile} navButtons={navButtons} />;
 }
 
 // This chat's own files -- the same real GET /library data the Library
@@ -367,11 +230,19 @@ function ChatFileListPanel({
   chatId,
   onSelectFile,
   navButtons,
+  refreshSignal,
 }: {
   chatId: string;
   onSelectFile: (path: string) => void;
   navButtons: ReactNode;
+  // Bumped whenever the active chat's own live event stream processes a
+  // Write/Edit tool_use -- real bug, confirmed directly ("the files at the
+  // right sidebar and library are not updating in real time so i have to
+  // refresh"): this only ever fetched once per chatId, with nothing
+  // telling it a new file just landed for the chat it's already showing.
+  refreshSignal: number;
 }) {
+  const { t } = useTranslation();
   const [files, setFiles] = useState<{ filePath: string; lastModified: string }[] | null>(null);
   // Real bug, confirmed directly ("the sidebar is stuck at loading... and
   // its not showing us our library"): this fetch had no .catch at all, so
@@ -380,14 +251,26 @@ function ChatFileListPanel({
   // from still-loading. FileEditorPanel's own fetch already handles this
   // correctly; this one was just missing the same real error path.
   const [error, setError] = useState<string | null>(null);
+  const prevChatIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    setFiles(null);
+    // Only reset to the loading state for a genuinely different chat --
+    // a refreshSignal bump mid-conversation should refetch quietly, not
+    // flash the whole list back to blank while it reloads.
+    if (prevChatIdRef.current !== chatId) {
+      prevChatIdRef.current = chatId;
+      setFiles(null);
+    }
     setError(null);
-    fetch("/library")
+    // /library/files, not a bare /library -- real bug, confirmed directly
+    // ("if I reload i get [raw JSON]"): LibraryPage.tsx's own route is
+    // exactly /library too, and the backend's real API route at that same
+    // exact path won a full-page reload over the SPA (server.rs's own
+    // route registration comment has the full reasoning).
+    fetch("/library/files")
       .then((res) => {
-        if (!res.ok) throw new Error(`Failed to load files (status ${res.status}).`);
+        if (!res.ok) throw new Error(i18n.t("rightPanel.loadFilesFailed", { status: res.status }));
         return res.json();
       })
       .then((rows: { file_path: string; chat_id: string; last_modified: string }[]) => {
@@ -400,11 +283,49 @@ function ChatFileListPanel({
     return () => {
       cancelled = true;
     };
-  }, [chatId]);
+  }, [chatId, refreshSignal]);
+
+  // Real bug, confirmed directly ("The right sidebar at the chat is
+  // missing... the three dots to rename or delete the file is missing
+  // too"): this panel's own file rows never got LibraryPage.tsx's real
+  // rename/delete wiring at all, only its own read-only click-to-open.
+  // Same real endpoints, same "patch local state on success" pattern --
+  // library-file-row.tsx's own comment has the full reasoning for why
+  // these two components (LibraryFileMoreMenu/LibraryFileNameCell) are
+  // shared, not reimplemented, between Library and this panel.
+  async function deleteFile(filePath: string) {
+    await fetch(`/files?path=${encodeURIComponent(filePath)}`, { method: "DELETE" });
+    setFiles((prev) => (prev ? prev.filter((f) => f.filePath !== filePath) : prev));
+  }
+
+  async function renameFile(filePath: string, newLeaf: string) {
+    const res = await fetch("/files/rename", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: filePath, new_name: newLeaf }),
+    });
+    if (!res.ok) return;
+    const { path: newPath }: { path: string } = await res.json();
+    setFiles((prev) => (prev ? prev.map((f) => (f.filePath === filePath ? { ...f, filePath: newPath } : f)) : prev));
+  }
 
   return (
-    <div className="flex h-full min-w-0 flex-col border-l border-border bg-background">
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
+    // No border-l here -- real bug, confirmed directly ("the border...
+    // between chat and right sidebar is doubled instead of being only
+    // one border like the left sidebar"): AppLayout.tsx's own drag-resize
+    // handle (a real w-px bg-border div) already draws that seam, sitting
+    // immediately left of this panel -- this border-l drew a second,
+    // adjacent line right next to it.
+    <div className="flex h-full min-w-0 flex-col bg-background">
+      {/* h-10, not py-2 -- real bug, confirmed directly via a follow-up
+          screenshot ("the chat and right sidebar topbar bottom borders
+          are not aligned to be seamless"): this header's own border sits
+          directly beside the chat header's own (AppLayout.tsx), and only
+          sharing one real fixed height (not two paddings that happen to
+          compute close) guarantees the two lines land at the same y --
+          same fix applied to FileEditorPanel's own identical header
+          below, and to LibraryPage.tsx's. */}
+      <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-3">
         {/* Library/Terminal pill tabs -- per explicit request ("the right
             sidebar should show two options Library or Terminal", a real
             screenshot of VS Code's own Explorer/Terminal tab pair, with
@@ -414,18 +335,26 @@ function ChatFileListPanel({
             that a working terminal is its own real feature (a PTY
             process on the backend, xterm.js on the frontend), not a
             small addition alongside the file library. */}
+        {/* size-3.5 -- already matches AppLayout.tsx's own right-panel
+            toggle icon (the "collapse right sidebar" icon,
+            SidebarRightIcon, also size-3.5), confirmed directly -- per
+            explicit request ("The library and terminal icon should be
+            the same size as the collapse right sidebar icon size").
+            text-[11px], down from 12px, to sit better proportionally
+            next to that icon size -- per the same follow-up ("reduce the
+            font size to match the new size of the icons"). */}
         <div className="flex min-w-0 flex-1 items-center gap-1">
-          <span className="flex items-center gap-1 truncate rounded-md bg-hover-2/50 px-2 py-1 text-[12px] font-medium text-foreground">
+          <span className="flex items-center gap-1 truncate rounded-md bg-hover-2/50 px-2 py-1 text-[11px] font-medium text-foreground">
             <FolderIcon className="size-3.5 shrink-0" />
-            Library
+            {t("library.title")}
           </span>
           <span
             aria-disabled
-            title="Terminal is not available yet"
-            className="flex cursor-not-allowed items-center gap-1 truncate rounded-md px-2 py-1 text-[12px] text-muted-foreground opacity-50"
+            title={t("rightPanel.terminalUnavailable")}
+            className="flex cursor-not-allowed items-center gap-1 truncate rounded-md px-2 py-1 text-[11px] text-muted-foreground opacity-50"
           >
             <TerminalIcon className="size-3.5 shrink-0" />
-            Terminal
+            {t("rightPanel.terminal")}
           </span>
         </div>
         {navButtons}
@@ -443,31 +372,42 @@ function ChatFileListPanel({
         {error ? (
           <p className="p-2 text-[13px] text-muted-foreground">{error}</p>
         ) : files === null ? (
-          <p className="p-2 text-[13px] text-muted-foreground">Loading...</p>
+          <p className="p-2 text-[13px] text-muted-foreground">{t("rightPanel.loading")}</p>
         ) : files.length === 0 ? (
-          <p className="p-2 text-[13px] text-muted-foreground">No files touched in this chat yet.</p>
+          <p className="p-2 text-[13px] text-muted-foreground">{t("rightPanel.noFiles")}</p>
         ) : (
           <div className="flex flex-col gap-0.5">
             {files.map((file) => (
-              <button
+              // div, not a real <button> -- LibraryFileNameCell's own "..."
+              // menu is a real button, and a button can't nest inside
+              // another one (same real constraint LibraryPage.tsx's own
+              // tree row comment already documents). onClick still opens
+              // the file the same way; the menu/rename input each stop
+              // their own propagation already.
+              <div
                 key={file.filePath}
-                type="button"
                 onClick={() => onSelectFile(file.filePath)}
-                className="flex items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-hover-2/50"
+                className="group flex cursor-pointer items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-hover-2/50"
               >
-                <File02Icon className="size-3.5 shrink-0 text-muted-foreground" />
-                {/* flex-1 on the wrapper, not the name span -- real bug,
-                    confirmed directly ("add the badge to beside the file
-                    name and not at the far right"): flex-1 directly on a
-                    truncating span stretches it to fill the whole row
-                    regardless of the actual text length, pushing anything
-                    after it (the badge) to the row's own far edge instead
-                    of sitting right next to the visible text. */}
-                <div className="flex min-w-0 flex-1 items-center gap-1">
-                  <span className="min-w-0 truncate">{stripExtension(fileName(file.filePath))}</span>
-                  <FileExtensionBadge name={file.filePath} />
-                </div>
-              </button>
+                {/* LibraryFileNameCell, not a bare FileExtensionBadge +
+                    name -- per explicit request ("the three dots to
+                    rename or delete the file is missing too"), the same
+                    real component (badge, inline rename, "..." menu)
+                    LibraryPage.tsx's own file rows already use. Real bug,
+                    confirmed directly ("hover over it, the three dots is
+                    not showing"): this row was missing the "group"
+                    className MoreTrigger's own opacity-0 group-hover:
+                    opacity-100 styling requires -- LibraryPage.tsx's own
+                    working row already has it. */}
+                <LibraryFileNameCell
+                  leaf={fileName(file.filePath)}
+                  onRename={(newLeaf) => renameFile(file.filePath, newLeaf)}
+                  onDelete={() => deleteFile(file.filePath)}
+                />
+                {/* Per explicit request ("missing the 1 day ago as an
+                    example of when the file was created"). */}
+                <span className="shrink-0 text-2xs text-muted-foreground">{formatRelativeTime(file.lastModified)}</span>
+              </div>
             ))}
           </div>
         )}
@@ -477,11 +417,12 @@ function ChatFileListPanel({
 }
 
 function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose: () => void; navButtons: ReactNode }) {
+  const { t } = useTranslation();
   const [content, setContent] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
-  // Real block editor (BlockNote) for markdown files -- per explicit
+  // Real block editor (Plate.js) for markdown files -- per explicit
   // direction (referencing cydonia's own editor as a design target: click-
   // to-transform a block, drag-reorder, a "Plain text" toggle), replacing
   // the earlier Streamdown-based preview. Every other extension keeps the
@@ -491,13 +432,15 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
   const isMarkdown = ["md", "markdown"].includes(path.split(".").pop()?.toLowerCase() ?? "");
   const [view, setView] = useState<"blocks" | "plaintext">("blocks");
   const [title, setTitle] = useState(() => fileName(path).replace(/\.(md|markdown)$/i, ""));
+  const titleInputRef = useRef<HTMLInputElement>(null);
   // Recreated per file (deps: [path]) -- a fresh editor/document per open
-  // file rather than one long-lived instance reused across files.
-  const editor = useCreateBlockNote({ dictionary }, [path]);
-  // Guards editor.replaceBlocks calls (initial hydration from disk, and
+  // file rather than one long-lived instance reused across files, same
+  // convention useCreateBlockNote's own [path] deps arg used.
+  const editor = usePlateEditor({ plugins: EditorKit }, [path]);
+  // Guards editor.tf.setValue calls (initial hydration from disk, and
   // plaintext -> blocks conversion on toggle) from tripping the dirty flag
-  // via BlockNoteView's own onChange -- those are real content-setting
-  // operations, not a user edit.
+  // via Plate's own onChange -- those are real content-setting operations,
+  // not a user edit.
   const hydratingRef = useRef(false);
 
   useEffect(() => {
@@ -508,8 +451,8 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
     setView("blocks");
     fetch(`/files?path=${encodeURIComponent(path)}`)
       .then((res) => {
-        if (res.status === 404) throw new Error("This file no longer exists.");
-        if (!res.ok) throw new Error(`Failed to load file (status ${res.status}).`);
+        if (res.status === 404) throw new Error(i18n.t("rightPanel.fileGone"));
+        if (!res.ok) throw new Error(i18n.t("rightPanel.loadFileFailed", { status: res.status }));
         return res.text();
       })
       .then((text) => {
@@ -519,7 +462,18 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
           const { title: t, body } = splitTitle(text, path);
           setTitle(t);
           hydratingRef.current = true;
-          editor.replaceBlocks(editor.document, editor.tryParseMarkdownToBlocks(body));
+          // editor.api.markdown.deserialize(body), not setValue(body)
+          // directly -- real bug, confirmed directly via screenshot
+          // ("the file is escaping the markdown"): setValue's own type
+          // signature (value?: V | string) treats a plain string as HTML
+          // to deserialize, not markdown -- confirmed directly by
+          // reproducing it headlessly (it calls deserializeHtml, which
+          // needs a real DOMParser). A markdown string with no actual
+          // HTML tags parses as one bare text node, flattening every
+          // heading/paragraph into a single block and leaving "##"/"###"
+          // markers as literal text. Passing the already-deserialized
+          // node array instead skips that ambiguous string path entirely.
+          editor.tf.setValue(editor.api.markdown.deserialize(body));
           hydratingRef.current = false;
         }
       })
@@ -536,14 +490,16 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
 
   function togglePlainText() {
     if (view === "blocks") {
-      setContent(combineTitle(title, editor.blocksToMarkdownLossy()));
+      setContent(combineTitle(title, editor.api.markdown.serialize({ preserveEmptyParagraphs: false })));
       setView("plaintext");
     } else {
       if (content !== null) {
-        const { title: t, body } = splitTitle(content, path);
+        const { title: t, body } = splitTitle(content, path, false);
         setTitle(t);
         hydratingRef.current = true;
-        editor.replaceBlocks(editor.document, editor.tryParseMarkdownToBlocks(body));
+        // See the initial-load effect's own identical comment above --
+        // same real bug, same fix.
+        editor.tf.setValue(editor.api.markdown.deserialize(body));
         hydratingRef.current = false;
       }
       setView("blocks");
@@ -552,7 +508,10 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
 
   async function save() {
     if (content === null || saving) return;
-    const markdown = isMarkdown && view === "blocks" ? combineTitle(title, editor.blocksToMarkdownLossy()) : content;
+    const markdown =
+      isMarkdown && view === "blocks"
+        ? combineTitle(title, editor.api.markdown.serialize({ preserveEmptyParagraphs: false }))
+        : content;
     setSaving(true);
     try {
       await fetch("/files", {
@@ -567,13 +526,28 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
   }
 
   return (
-    <div className="flex h-full min-w-0 flex-col border-l border-border bg-background">
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
-        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">{isMarkdown ? title : fileName(path)}</span>
+    // No border-l here either -- same fix, same reasoning as
+    // ChatFileListPanel's own identical container above.
+    <div className="flex h-full min-w-0 flex-col bg-background">
+      <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-3">
+        {/* Blank until content actually loads, not the filename-derived
+            guess immediately -- per explicit request ("we should show no
+            text until actual text is available"): a markdown file's real
+            title (splitTitle, below) can differ from that guess once the
+            file's own first heading is read, so showing the guess first
+            was a real, if brief, wrong-title flash on every open. */}
+        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
+          {content !== null ? (isMarkdown ? title : fileName(path)) : ""}
+        </span>
         {navButtons}
+        {/* size="xs" (h-6), not "sm" -- real bug, confirmed directly
+            ("the save button is enormous"): this row's other buttons
+            (navButtons, the "..." trigger below) are all sized to match
+            a size-6 icon button, and "sm" (h-7, plus text padding) read
+            noticeably larger next to them. */}
         {dirty && (
-          <Button size="sm" disabled={saving} onClick={() => void save()}>
-            Save
+          <Button size="xs" disabled={saving} onClick={() => void save()}>
+            {t("common.save")}
           </Button>
         )}
         {/* Vertical "..." dropdown, not a standalone pen icon + a plain
@@ -584,78 +558,136 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
             way to close the panel. size="sm" (size-5), not "md" -- this
             row's own other icon buttons are all size-6 already. */}
         <BaseDropdownMenu size="compact">
-          <BaseDropdownTrigger render={<MoreTrigger orientation="vertical" size="sm" bg autoHide={false} aria-label="More" />} />
+          <BaseDropdownTrigger render={<MoreTrigger orientation="vertical" size="sm" bg autoHide={false} aria-label={t("common.more")} />} />
           <BaseDropdownContent align="end" className="w-40">
             {isMarkdown && (
               <BaseMenuItem
                 index={0}
                 icon={File02Icon}
-                label={view === "blocks" ? "Plain text" : "Show blocks"}
+                label={view === "blocks" ? t("rightPanel.plainText") : t("rightPanel.showBlocks")}
                 className="gap-[7px]"
                 onSelect={togglePlainText}
               />
             )}
-            <BaseMenuItem index={isMarkdown ? 1 : 0} icon={XIcon} label="Close" className="gap-[7px]" onSelect={onClose} />
+            <BaseMenuItem index={isMarkdown ? 1 : 0} icon={XIcon} label={t("common.close")} className="gap-[7px]" onSelect={onClose} />
           </BaseDropdownContent>
         </BaseDropdownMenu>
       </div>
       {/* [container-type:inline-size] -- per explicit request ("the font
           size needs to be dynamic... i need to fits to screen because in
           a smaller screen smaller fonts looks massive"): the title
-          input's and the block editor's own font-size (right-panel.css)
-          both use container query units (cqi) scaled off *this* panel's
-          own actual rendered width, not the viewport -- this panel
-          resizes independently of the window (its own drag handle), so a
+          input's own font-size (its own inline clamp(), below) uses
+          container query units (cqi) scaled off *this* panel's own
+          actual rendered width, not the viewport -- this panel resizes
+          independently of the window (its own drag handle), so a
           vw-based size would react to the wrong dimension. */}
       <div className="min-h-0 flex-1 overflow-auto [container-type:inline-size]">
         {error ? (
           <p className="p-3 text-[13px] text-muted-foreground">{error}</p>
         ) : content === null ? (
-          <p className="p-3 text-[13px] text-muted-foreground">Loading...</p>
+          // Blank, not a "Loading..." placeholder -- per explicit request
+          // ("we should show no text until actual text is available"),
+          // matching the header title's own identical treatment above.
+          null
         ) : (
           <>
-            {/* Shown above either view -- both are still the same
-                document, per explicit request that "all of our .mds"
-                get this, not just the Blocks view. */}
-            {isMarkdown && <Cover path={path} />}
             {isMarkdown && view === "blocks" ? (
-              <>
-                {/* A plain, static text input -- not a BlockNote block --
-                    per explicit request ("the title should not be click
-                    and drag but static"): splitTitle (above) already
-                    keeps this out of editor.document entirely, so it
-                    never picks up BlockNote's own per-block chrome (drag
-                    handle/turn-into menu) the way it did when the title
-                    was still just "whichever block happens to be first".
-                    px-[54px] matches bn-editor's own padding-inline
-                    (right-panel.css) so the title's left edge lines up
-                    with the body text below it. font-size: clamp(...cqi)
-                    -- same responsive-to-panel-width approach as the
-                    body text below (right-panel.css's own comment has
-                    the full reasoning), scaled up since a title reads
-                    larger than body text. */}
+              // FixedToolbar/title/EditorContainer all live inside this one
+              // <Plate>, in this exact order -- real bug, confirmed
+              // directly via screenshot ("The title is above the tools
+              // bar, that should be in the content area below"):
+              // FixedToolbarKit (editor-kit.tsx) was previously part of
+              // the plugin bundle, whose own render.beforeEditable hook
+              // always inserts the toolbar immediately above wherever
+              // <Editor> itself renders, regardless of other sibling
+              // JSX -- so the title <input>, rendered before <Editor> but
+              // outside <Plate> entirely, ended up above the toolbar
+              // instead of below it. FixedToolbarKit is now left out of
+              // the bundle (see that file's own comment) and rendered
+              // here explicitly instead, so it's first, unconditionally,
+              // with the title and body both after it. sticky top-0
+              // (FixedToolbar's own class) needs a scrollable ancestor to
+              // stick against -- this panel's own outer overflow-auto
+              // container (above) is that ancestor, since EditorContainer
+              // itself has that overflow overridden away below.
+              <Plate
+                editor={editor}
+                onChange={() => {
+                  if (!hydratingRef.current) setDirty(true);
+                }}
+              >
+                <FixedToolbar>
+                  <FixedToolbarButtons />
+                </FixedToolbar>
+                {/* A plain, static text input -- not a Plate block -- per
+                    explicit request ("the title should not be click and
+                    drag but static"): splitTitle (above) already keeps
+                    this out of the document entirely, so it never picks
+                    up Plate's own per-block chrome (drag handle/turn-into
+                    menu) the way it did when the title was still just
+                    "whichever block happens to be first". px-[54px]
+                    matches the editor's own left padding (ui/editor.tsx's
+                    own "default"/"none" variant paddings) so the title's
+                    left edge lines up with the body text below it.
+                    font-size: clamp(...cqi) -- same responsive-to-panel-
+                    width approach as this container's own [container-
+                    type:inline-size] comment above, scaled up since a
+                    title reads larger than body text. */}
                 <input
+                  ref={titleInputRef}
                   type="text"
                   value={title}
                   onChange={(event) => {
                     setTitle(event.target.value);
                     setDirty(true);
                   }}
-                  placeholder="Untitled"
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      editor.tf.focus({ edge: "startEditor" });
+                    }
+                  }}
+                  placeholder={t("rightPanel.untitled")}
                   className="w-full border-0 bg-transparent px-[54px] pt-8 pb-1 font-bold text-foreground outline-none placeholder:text-muted-foreground/60"
                   style={{ fontSize: "clamp(20px, 6cqi, 32px)" }}
                 />
-                <BlockNoteView
-                  editor={editor}
-                  theme={document.documentElement.classList.contains("dark") ? darkTheme : lightTheme}
-                  sideMenu={false}
-                  onChange={() => {
-                    if (!hydratingRef.current) setDirty(true);
-                  }}
-                >
-                  <SideMenuController sideMenu={SingleHandleSideMenu} floatingUIOptions={sideMenuFloatingUIOptions} />
-                </BlockNoteView>
-              </>
+                <EditorContainer variant="default" className="h-auto overflow-visible">
+                  {/* onKeyDown: Backspace at the very start of the document
+                      -- real bug ("we should be able to fully delete the
+                      title even tho we are at next line"): the title is a
+                      plain input (see above), not part of the Plate
+                      document, so Backspace at the body's own first
+                      position had nothing before it to merge into and did
+                      nothing. Redirects that Backspace into the title
+                      itself (deleting its last character and moving focus
+                      there), matching how Backspace at the start of a
+                      block normally merges into whatever comes before it. */}
+                  <Editor
+                    variant="none"
+                    className="px-[54px] py-2"
+                    onKeyDown={(event) => {
+                      if (
+                        event.key === "Backspace" &&
+                        editor.api.isCollapsed() &&
+                        editor.selection &&
+                        editor.api.isStart(editor.selection.anchor, [])
+                      ) {
+                        event.preventDefault();
+                        const next = title.slice(0, -1);
+                        setTitle(next);
+                        setDirty(true);
+                        requestAnimationFrame(() => {
+                          const input = titleInputRef.current;
+                          if (input) {
+                            input.focus();
+                            input.setSelectionRange(next.length, next.length);
+                          }
+                        });
+                      }
+                    }}
+                  />
+                </EditorContainer>
+              </Plate>
             ) : (
               <CodeMirror
                 value={content}
@@ -665,7 +697,7 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
                 onChange={(value) => {
                   setContent(value);
                   setDirty(true);
-                  if (isMarkdown) setTitle(splitTitle(value, path).title);
+                  if (isMarkdown) setTitle(splitTitle(value, path, false).title);
                 }}
                 onKeyDown={(event) => {
                   if ((event.metaKey || event.ctrlKey) && event.key === "s") {

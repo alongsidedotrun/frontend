@@ -21,7 +21,6 @@ Narrow, cross-cutting frontend decisions that don't belong in `project/architect
 
 Not yet promoted to tokens, and out of scope for theming regardless:
 
-- `#FFFFFF` / `#D4D4D8` — the auth page's "Continue with email" button and its hover state, intentionally light/white regardless of theme today. Hover darkened from the original `#F0F0F0`, which read as barely different from the `#FFFFFF` background against a dark-mode backdrop.
 - `#000AC2` — the old logo mark's brand colour; superseded by the new pixel-grid mark, which is fully self-contained (its own fixed `#323232`/`#41403E`/`#FAF9F5` fill colours baked into the SVG) rather than theming via this token system. The mark is now a single asset used for both themes (`frontend/logo.svg` and `frontend/logo-light.svg` are identical copies), deliberately a fixed badge like Slack's or Discord's icon, not a blend-with-the-sidebar mark, so it no longer needs separate Light/Dark variants at all. Master source files live in `frontend/assets/source/Porch {16,32,48,64,128,180,256,512,1024}px.svg`.
 - Google's own "G" logo colours (`#FFC107`, `#FF3D00`, `#4CAF50`, `#1976D2`) — must never be re-themed, they belong to Google.
 
@@ -29,6 +28,16 @@ Not yet promoted to tokens, and out of scope for theming regardless:
 
 - **Theme-switching mechanism is still undesigned.** Whether this becomes a `data-theme` attribute swapping CSS custom properties, a second compiled stylesheet, or something else, is open implementation work for whoever picks up the Settings toggle. This document only fixes the values each mechanism would need to swap between.
 - **One hardcoded value still needs to be kept in sync by hand.** `.btn-shadcn-outline` (the auth page's "Continue with Google" button) uses `box-shadow: 0 0 0 1px #3A3A3A` instead of a real `border`, specifically so the ring renders outside the box-sizing border-box rather than shrinking the button's interior relative to its borderless "Continue with email" sibling. The value is meant to match `porch-border`'s dark value but is written as a raw hex literal, since Tailwind's `shadow-[...]` arbitrary syntax doesn't cleanly reference a theme colour by name; it already drifted out of sync once when `porch-border` was retuned from `#27272A` and had to be updated by hand to match. Should eventually be reconciled (e.g. via a CSS custom property) so this doesn't require remembering to update it every time `porch-border` changes.
+
+## UI text / i18n (issue #307)
+
+**Rule: no raw user-facing string literals in JSX going forward.** Every UI string (button labels, titles, descriptions, empty states, error messages) is a key in `src/i18n/translations.ts` — one row per key, one column per language (`en`, `pt-BR`, `es`, `fr`, `de`, `zh`, `ja`) — read via `useTranslation()`'s `t("the.key")`, not a hardcoded English string. `src/i18n/index.ts` transposes that table into `react-i18next`'s resources shape at init time; `src/lib/language.ts`'s `LanguageValue`/`uiLocaleFor` is the one shared setting (Settings → General → Language) that drives both this UI language and, separately, the AI's own reply language.
+
+Every page and shared component in `frontend/src` is converted: Settings, sidebar, header, Home, Inbox, Library, Welcome, Auth, Provider usage, chat (messages, permission cards, tool rows, diffs), compose box and the right panel. Code that runs outside React render (relative times, effort labels, thrown load errors, OS notifications) uses the `i18n` singleton (`import i18n from "@/i18n"`, `i18n.t(...)`) instead of the hook.
+
+Known, intentional gaps: the IANA timezone city names and the settings-search keyword index (`SETTINGS_SEARCH_ENTRIES`) stay English; provider-supplied text (usage window names, error details) is shown as received; the "Untitled chat" sentinel is a data value, not display copy; `login-form.tsx` is an unused scaffold.
+
+When adding any user-facing string: add one row to `translations.ts` with all seven columns and read it via `t()`. Plurals use `_one`/`_other` suffixed rows called as `t("key", { count })`. Sentences containing links or styled fragments use `<Trans>` with `<0>...</0>` markers. Keep any trailing `(ALS-0xx)` tag verbatim in every language so `ErrorText` can link it.
 
 ## Component conventions
 

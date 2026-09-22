@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
@@ -9,6 +11,7 @@ import { SearchIcon, UserIcon } from "@/components/icons/untitled-ui";
 import { spring } from "@/lib/springs";
 import { modelDisplayName, ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
 import { AlongsideLogo } from "@/components/icons/alongside-logo";
+import { SidebarModelStack } from "@/components/sidebar-nav";
 
 type InboxModel = { provider: string; model: string };
 
@@ -36,57 +39,35 @@ function parseSqliteTimestamp(value: string): Date {
 }
 
 // No date-fns/dayjs in this app yet -- one small relative-time formatter is
-// simpler than adding a dependency for it.
+// simpler than adding a dependency for it. Own local copy, not
+// src/lib/relative-time.ts's shared one -- that one caps at days (its own
+// real consumers, Library/right-panel, never need months/years for a
+// recently-touched file); merging the two would change Library's own
+// output, an unrelated behavior change. i18n.t (singleton, not
+// useTranslation()'s own t) since this is a plain function, not a
+// component -- same reasoning as relative-time.ts's own identical comment.
 function formatRelativeTime(value: string): string {
   const date = parseSqliteTimestamp(value);
   const seconds = Math.max(0, (Date.now() - date.getTime()) / 1000);
-  if (seconds < 60) return "Just now";
+  if (seconds < 60) return i18n.t("common.relativeTime.justNow");
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  if (minutes < 60) return i18n.t("common.relativeTime.minutesAgo", { count: minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  if (hours < 24) return i18n.t("common.relativeTime.hoursAgo", { count: hours });
   const days = Math.floor(hours / 24);
-  if (days < 30) return `${days} day${days === 1 ? "" : "s"} ago`;
+  if (days < 30) return i18n.t("common.relativeTime.daysAgo", { count: days });
   const months = Math.floor(days / 30);
-  if (months < 12) return `${months} month${months === 1 ? "" : "s"} ago`;
+  if (months < 12) return i18n.t("common.relativeTime.monthsAgo", { count: months });
   const years = Math.floor(months / 12);
-  return `${years} year${years === 1 ? "" : "s"} ago`;
-}
-
-// Overlapping icon stack, one per distinct provider a chat has actually
-// used -- per explicit request ("if I switch to claude or codex that should
-// show both but in a stack card format"). -space-x-1.5 + ring-2
-// ring-background is the same overlap technique ui/avatar.tsx's own
-// AvatarGroup already uses (its own "group/avatar-group flex -space-x-2..."
-// className), reused here directly rather than pulling in the full Avatar
-// component for plain provider-mark <img>s. Capped at 3 -- a real, visible
-// "+N" count past that would need actual UI of its own to be honest about
-// what's hidden, not built here since no chat has hit that in practice yet.
-function ModelStack({ models }: { models: InboxModel[] }) {
-  return (
-    <span className="flex shrink-0 -space-x-1.5">
-      {models.slice(0, 3).map((entry, index) => {
-        const found = QUICK_CHAT_MODELS.find((m) => m.value === entry.model);
-        if (!found) return null;
-        return (
-          <span
-            key={`${entry.provider}-${entry.model}`}
-            className="flex size-3.5 items-center justify-center rounded-full bg-background ring-2 ring-background"
-            style={{ zIndex: models.length - index }}
-          >
-            <ProviderIcon model={found} className="size-3" />
-          </span>
-        );
-      })}
-    </span>
-  );
+  return i18n.t("common.relativeTime.yearsAgo", { count: years });
 }
 
 function SearchBar({ query, onChange }: { query: string; onChange: (value: string) => void }) {
+  const { t } = useTranslation();
   return (
     <div className="relative">
       <Label htmlFor="inbox-search" className="sr-only">
-        Search conversations
+        {t("inbox.searchPlaceholder")}
       </Label>
       {/* h-7/text-xs/size-[14px] icon/rounded-[var(--row-radius-sm)] --
           matches the sidebar's own search input exactly (sidebar-nav.tsx),
@@ -99,7 +80,7 @@ function SearchBar({ query, onChange }: { query: string; onChange: (value: strin
       <SearchIcon className="pointer-events-none absolute top-1/2 left-[9px] size-[14px] -translate-y-1/2 text-muted-foreground" />
       <Input
         id="inbox-search"
-        placeholder="Search conversations"
+        placeholder={t("inbox.searchPlaceholder")}
         value={query}
         onChange={(event) => onChange(event.target.value)}
         // focus-visible:border-focus-accent -- matches the sidebar's own
@@ -119,6 +100,7 @@ function SearchBar({ query, onChange }: { query: string; onChange: (value: strin
 // beside the name, and a snippet of the last message underneath -- backed
 // by GET /inbox-items (backend/src/db.rs's own list_inbox).
 export function InboxPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [items, setItems] = useState<InboxItem[]>([]);
   // Gates the empty state below -- without this, `items` starting at []
@@ -128,8 +110,8 @@ export function InboxPage() {
   const [query, setQuery] = useState("");
 
   useEffect(() => {
-    document.title = "Inbox";
-  }, []);
+    document.title = t("inbox.title");
+  }, [t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -254,10 +236,8 @@ export function InboxPage() {
               <AlongsideLogo className="size-[32px] text-black dark:text-white" />
             </div>
             <div className="absolute left-1/2 w-full max-w-[22rem] -translate-x-1/2 text-center" style={{ top: "calc(50% + 16px + 12px)" }}>
-              <h1 className="text-[18px] font-normal text-foreground">See your chats activity</h1>
-              <p className="mt-2 text-[13px] font-normal text-muted-foreground">
-                At inbox you are able to see your most recent chats activity before entering the entire chat
-              </p>
+              <h1 className="text-[18px] font-normal text-foreground">{t("inbox.empty.heading")}</h1>
+              <p className="mt-2 text-[13px] font-normal text-muted-foreground">{t("inbox.empty.subheading")}</p>
             </div>
           </motion.div>
         ) : (
@@ -331,7 +311,12 @@ export function InboxPage() {
                     // propagating up through this un-set card and forcing
                     // the whole card wider than its container instead of
                     // letting the inner ellipsis actually take effect.
-                    className="relative flex w-full min-w-0 flex-col gap-1 rounded-xl border border-border px-4 py-3 text-left transition-colors hover:bg-hover-2/50"
+                    // overflow-hidden -- belt-and-suspenders alongside the
+                    // snippet <p>'s own w-full fix above: guarantees no
+                    // content can ever visually render past this card's own
+                    // rounded border, regardless of which nested flex item
+                    // turns out not to have resolved a definite width.
+                    className="relative flex w-full min-w-0 flex-col gap-1 overflow-hidden rounded-xl border border-border px-4 py-3 text-left transition-colors hover:bg-hover-2/50"
                   >
                     {/* Absolute top-right, not inline in the name row -- per
                         explicit request ("last updated... at the right top").
@@ -344,7 +329,19 @@ export function InboxPage() {
                       </span>
                     )}
                     <div className="flex items-center gap-1.5 pr-16">
-                      {model && <ProviderIcon model={model} className="size-4 shrink-0" />}
+                      {/* Every distinct model this chat has used, matching
+                          the topbar's own overlapping stack (SidebarModelStack,
+                          up to 4 real icons, else the first 3 plus a real
+                          total-count 4th slot) -- per explicit request
+                          ("we should show the same as the top bar multiple
+                          models or more than 4 beside the chat name"),
+                          moved here from the sender row below (ModelStack,
+                          removed), which now shows only the one model that
+                          actually authored the last message. Leading, not
+                          trailing, the name -- per a direct follow-up ("The
+                          providers icon shopuld be at the left and not
+                          right"). */}
+                      {item.models.length > 0 && <SidebarModelStack models={item.models} />}
                       <span className="min-w-0 flex-1 truncate text-sm font-normal text-foreground">{item.name}</span>
                     </div>
                     {item.snippet && (
@@ -354,52 +351,48 @@ export function InboxPage() {
                       // for a human message (this app has no real per-user
                       // avatar yet -- sidebar-nav.tsx's own account row uses
                       // this exact same theme-inverted circle+glyph stand-in for
-                      // the same reason), or -- for an assistant reply -- a
-                      // stack of every provider this chat has actually used
-                      // (ModelStack above) plus their real names as text.
+                      // the same reason), or -- for an assistant reply -- the
+                      // one model that actually sent it (item.model, the most
+                      // recently started agent session for this chat -- per a
+                      // later explicit request: "the description should be the
+                      // last message author like Gemini Icon + Gemini Model's
+                      // Name", not a stack of every model the chat has ever
+                      // used, which now lives beside the chat name instead).
                       // Stacked vertically (sender row, then message below), not
                       // inline beside the name -- per explicit request ("the
                       // message should not be beside the name of the model but
                       // underneath like the message from the agent"), matching
                       // ChatPage.tsx's own agent-row layout (icon+label row,
                       // reply text below it).
-                      <div className="flex min-w-0 flex-col gap-0.5">
+                      <div className="flex w-full min-w-0 flex-col gap-0.5">
                         <div className="flex min-w-0 items-center gap-1.5">
                           {item.snippetKind === "human" ? (
                             <span className="flex size-3 shrink-0 items-center justify-center rounded-full bg-black dark:bg-white">
                               <UserIcon className="size-2 text-white dark:text-black" />
                             </span>
                           ) : (
-                            item.models.length > 0 && <ModelStack models={item.models} />
+                            model && <ProviderIcon model={model} className="size-3 shrink-0" />
                           )}
-                          {item.snippetKind !== "human" && item.models.length > 0 && (
-                            // min-w-0 + truncate, not shrink-0 -- confirmed
-                            // directly as a real bug ("the inbox cards is
-                            // not fitting to the size of the screen and
-                            // its being cropped instead of reduce the
-                            // width of each card"): with several providers
-                            // joined into one long name string, shrink-0
-                            // refused to let this span shrink at all,
-                            // forcing the whole row (and card) to overflow
-                            // horizontally rather than truncating this
-                            // text with an ellipsis the way the snippet
-                            // line below it already does.
-                            <span className="min-w-0 truncate text-2xs text-muted-foreground">
-                              {item.models
-                                .map((entry) => {
-                                  const found = QUICK_CHAT_MODELS.find((m) => m.value === entry.model);
-                                  return found ? modelDisplayName(found) : entry.model;
-                                })
-                                .join(", ")}
-                            </span>
+                          {item.snippetKind !== "human" && model && (
+                            <span className="min-w-0 truncate text-2xs text-muted-foreground">{modelDisplayName(model)}</span>
                           )}
                         </div>
                         {/* Same active-font/50%-dimmed treatment as the
                             sidebar's own Projects/Recents empty-state
                             placeholders (sidebar-nav.tsx), reused here directly
                             rather than the generic text-muted-foreground this
-                            used before. */}
-                        <p className="min-w-0 truncate text-2xs text-foreground opacity-50">{item.snippet}</p>
+                            used before. w-full, not just min-w-0/truncate --
+                            real bug, confirmed directly via screenshot ("the
+                            last message going beyond the width boundary when
+                            it should do the ... instead"): a run of text with
+                            no wrap points at all (a markdown-style link with a
+                            long, space-free URL, here) still needs this flex
+                            item to actually resolve to a definite width to
+                            ellipsis against -- min-w-0 alone only stops this
+                            paragraph's own min-content size from forcing the
+                            row wider, it doesn't itself give the paragraph a
+                            width to truncate to. */}
+                        <p className="w-full min-w-0 truncate text-2xs text-foreground opacity-50">{item.snippet}</p>
                       </div>
                     )}
                   </button>

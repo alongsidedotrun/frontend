@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { getIdentity, subscribeIdentity } from "@/lib/identity";
 
 // Moved out of AppLayout.tsx -- was defined and exported there ("so ChatPage
 // reuses the exact same fallback/lookup instead of a second copy that could
@@ -11,36 +12,34 @@ import { useSyncExternalStore } from "react";
 const USER_NAME_KEY = "alongside_user_name";
 const nameListeners = new Set<() => void>();
 
-// "Guest", not the app's own name -- real bug, confirmed directly
-// ("that had Alongside as the signed in user... i didn't create the user
-// alongside"): a device that has never set a name or signed in read as if
-// it already had a real account called "Alongside", the product's own
-// name, rather than as the not-yet-personalized default it actually is.
+// The signed-in person's name is always the identity provider's (lib/identity.ts); it is never
+// typed in. Signed out, a device shows "Guest" -- not the app's own name, which read as if the
+// device already had a real account called "Alongside". A name saved by an earlier version stays
+// readable (getLocalUserName) only so signing in can link the chats made under it.
 export function getUserDisplayName() {
+  return getIdentity().displayName || localStorage.getItem(USER_NAME_KEY) || "Guest";
+}
+
+// The name this device's chats were created under before an account existed.
+export function getLocalUserName() {
   return localStorage.getItem(USER_NAME_KEY) || "Guest";
 }
 
-// settings-overlay.tsx's own Profile section calls this from a real "change
-// your name" control -- per explicit request ("we should be able to allow
-// users to change their name at Profile"). Reactive (useUserDisplayName,
-// below), same pattern as useUserAvatarImage just below it, so the sidebar
-// account row and every message header using this device's own name update
-// the moment it changes instead of only on next unrelated re-render.
-export function setUserDisplayName(name: string) {
-  const trimmed = name.trim();
-  if (trimmed) localStorage.setItem(USER_NAME_KEY, trimmed);
-  else localStorage.removeItem(USER_NAME_KEY);
+// Once the account has claimed those chats, the old local name is no longer needed.
+export function clearLocalUserName() {
+  localStorage.removeItem(USER_NAME_KEY);
   nameListeners.forEach((listener) => listener());
 }
 
 export function useUserDisplayName(): string {
-  return useSyncExternalStore(
-    (listener) => {
-      nameListeners.add(listener);
-      return () => nameListeners.delete(listener);
-    },
-    getUserDisplayName
-  );
+  return useSyncExternalStore((listener) => {
+    nameListeners.add(listener);
+    const unsubscribe = subscribeIdentity(listener);
+    return () => {
+      nameListeners.delete(listener);
+      unsubscribe();
+    };
+  }, getUserDisplayName);
 }
 
 // One color, picked once and kept forever (until a real "change your
@@ -64,19 +63,6 @@ export function getUserAvatarSeed(): number {
   return seed;
 }
 
-// AuthPage.tsx's own submitSignup calls this right after a real account is
-// created -- confirmed directly as a real bug ("the icon for alongside is
-// red for all the accounts i have locally"): the lazy generation above only
-// ever fires once per browser (a single global key, not one per account), so
-// every account created locally on the same device kept inheriting whichever
-// color the very first one happened to get. A brand new account should get
-// its own random color, not the device's leftover one.
-export function regenerateUserAvatarSeed(): number {
-  const seed = Math.floor(Math.random() * 100000);
-  localStorage.setItem(AVATAR_SEED_KEY, String(seed));
-  return seed;
-}
-
 // The real "change your avatar" feature the seed's own comment above
 // foreshadowed -- per explicit request ("add a new menu at settings for
 // Profile where we can allow users to upload their avatar picture").
@@ -94,8 +80,10 @@ export function regenerateUserAvatarSeed(): number {
 const AVATAR_IMAGE_KEY = "alongside_avatar_image";
 const avatarImageListeners = new Set<() => void>();
 
+// An uploaded photo wins; otherwise the photo a social provider (Google, GitHub, Apple) supplied
+// with the account; otherwise null, which renders the app's own random default avatar.
 export function getUserAvatarImage(): string | null {
-  return localStorage.getItem(AVATAR_IMAGE_KEY);
+  return localStorage.getItem(AVATAR_IMAGE_KEY) || getIdentity().picture;
 }
 
 export function setUserAvatarImage(dataUrl: string) {
@@ -112,7 +100,11 @@ export function useUserAvatarImage(): string | null {
   return useSyncExternalStore(
     (listener) => {
       avatarImageListeners.add(listener);
-      return () => avatarImageListeners.delete(listener);
+      const unsubscribe = subscribeIdentity(listener);
+      return () => {
+        avatarImageListeners.delete(listener);
+        unsubscribe();
+      };
     },
     getUserAvatarImage
   );

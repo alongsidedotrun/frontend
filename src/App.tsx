@@ -14,6 +14,7 @@ import { DocsPage } from "@/pages/DocsPage";
 import { HelpPage } from "@/pages/HelpPage";
 import { HomePage } from "@/pages/HomePage";
 import { InboxPage } from "@/pages/InboxPage";
+import { JoinPage } from "@/pages/JoinPage";
 import { LibraryPage } from "@/pages/LibraryPage";
 import { ModelsPage } from "@/pages/ModelsPage";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
@@ -56,6 +57,8 @@ const ROUTES: RouteObject[] = [
       { path: "/new-chat", element: <HomePage /> },
       { path: "/getting-started", element: <WelcomePage /> },
       { path: "/chat/:sessionId", element: <ChatPage /> },
+      // Joining a chat someone else hosts, from an invite link (JoinPage.tsx).
+      { path: "/join", element: <JoinPage /> },
       { path: "/projects", element: <ProjectsPage /> },
       { path: "/apps", element: <AppsPage /> },
       // Full page now, not a modal -- per explicit request ("i want a

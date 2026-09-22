@@ -181,7 +181,29 @@ function OrderedList({ children, ...props }: React.ComponentProps<"ol"> & ExtraP
   );
 }
 
-export function StreamingText({ text, animate, onDone }: { text: string; animate: boolean; onDone?: () => void }) {
+// A file:// link in a reply (Antigravity's write_to_file confirms the path
+// this way, e.g. "[HelloWorld.md](file:///Users/.../HelloWorld.md)") --
+// real bug, confirmed directly ("why is it showing blocked at
+// HelloWorld.md [blocked]"): Streamdown's own link sanitizer (rehype-harden)
+// hardcodes file:/javascript:/data:/vbscript: as permanently blocked
+// protocols with no config escape hatch (checked directly in its source),
+// appending " [blocked]" to the link text rather than rendering it. This
+// app's own trust model already gives agents full filesystem access, so
+// there's no real security reason to hide the reference -- but there's
+// also no in-app "open this local file" action wired up here (that's
+// Library/the right panel's own job, driven by a real path prop, not a
+// markdown string) to make it a genuinely working link either. Dropping
+// just the link wrapper and keeping its label as plain text is the
+// straightforward middle ground: no dead/blocked-looking link, and the
+// filename the agent named is still right there in the reply.
+const FILE_LINK_PATTERN = /\[([^\]]+)\]\(file:\/\/[^\s)]+\)/g;
+
+function stripFileLinks(text: string): string {
+  return text.replace(FILE_LINK_PATTERN, "$1");
+}
+
+export function StreamingText({ text: rawText, animate, onDone }: { text: string; animate: boolean; onDone?: () => void }) {
+  const text = useRef(stripFileLinks(rawText)).current;
   // Plain split(" "), not a line-aware tokenizer -- a real newline inside a word's
   // own substring survives untouched (never split on), so it's still there once
   // this joins revealed words back with " " -- no separate handling needed the way

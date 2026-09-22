@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FocusEvent, type MouseEvent, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { useIsMobile } from "@/hooks/use-media-query";
@@ -70,6 +71,18 @@ import GlideMenu from "@/components/primitives/glide-menu";
  * ───────────────────────────────────────────────────────── */
 
 export const SIDEBAR_WIDTH = 220;
+// The real drag range for the expanded sidebar's own width (below, "Real
+// drag-resize" comment). MIN is SIDEBAR_WIDTH itself -- per explicit
+// follow-up ("the minimum draggable should be where our collapse bar is
+// at when expanded so we allow only users to expand the sidebar for the
+// reading chats name if they want"): dragging only ever makes the
+// sidebar wider than its own default, never narrower, so there's no
+// separate "collapsed but not really collapsed" in-between width to
+// design row layout around -- rows only ever need to handle "default" or
+// "wider than default." MAX is a plain, generous cap against dragging it
+// into taking over the whole window.
+export const SIDEBAR_MIN_WIDTH = SIDEBAR_WIDTH;
+export const SIDEBAR_MAX_WIDTH = 360;
 // No longer actually reachable -- `collapsed` now always fully collapses
 // the sidebar to width 0 on every platform (the <aside> below's own
 // fullyCollapsed comment has the full reasoning), so this narrow-rail
@@ -257,6 +270,7 @@ function SidebarSearch({
   collapsed: boolean;
   onExpandSidebar: () => void;
 }) {
+  const { t } = useTranslation();
   const isMac = useIsMac();
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -299,7 +313,7 @@ function SidebarSearch({
     return (
       <button
         type="button"
-        aria-label="Search"
+        aria-label={t("nav.search.ariaLabel")}
         onClick={onExpandSidebar}
         // h-7 (28px), not h-8 -- was h-8 while every real nav row
         // (RailButton) stays a fixed h-7 in both collapsed and expanded
@@ -323,12 +337,12 @@ function SidebarSearch({
   return (
     <div className="relative min-w-0 flex-1">
       <Label htmlFor="sidebar-search" className="sr-only">
-        Search
+        {t("nav.search.ariaLabel")}
       </Label>
       <Input
         ref={searchRef}
         id="sidebar-search"
-        placeholder="Search"
+        placeholder={t("nav.search.ariaLabel")}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         // Escape clears, same as Settings' own search (settings-overlay.tsx)
@@ -448,7 +462,7 @@ function SidebarSearch({
           <motion.button
             key="clear"
             type="button"
-            aria-label="Clear search"
+            aria-label={t("nav.search.clearAriaLabel")}
             onClick={() => {
               onChange("");
               searchRef.current?.focus();
@@ -464,7 +478,7 @@ function SidebarSearch({
           <motion.button
             key="kbd"
             type="button"
-            aria-label="Find"
+            aria-label={t("nav.search.findAriaLabel")}
             tabIndex={-1}
             onClick={() => searchRef.current?.focus()}
             initial={{ y: -8, opacity: 0 }}
@@ -603,6 +617,7 @@ function ProjectRow({
   onMenuOpenChange,
   onRename,
   onDeleteRequest,
+  rowWidth,
 }: {
   item: SidebarProject;
   expanded: boolean;
@@ -611,10 +626,14 @@ function ProjectRow({
   onSelect: () => void;
   onNewChat: () => void;
   menuOpen: boolean;
+  // Same real bug/fix as ChatRow's own identical prop -- that component's
+  // own comment has the full reasoning.
+  rowWidth: number;
   onMenuOpenChange: (open: boolean) => void;
   onRename: (name: string) => void;
   onDeleteRequest: () => void;
 }) {
+  const { t } = useTranslation();
   // Inline rename -- per explicit request ("the three dots to rename or
   // delete project"). Same compact input+check+x shape the "New project"
   // popover already uses, swapped in over the row's own label instead of a
@@ -675,7 +694,8 @@ function ProjectRow({
       // own initial paint -- a network round trip can't finish before the
       // page first renders) it appears with a hard, instant snap instead
       // of the same graceful entrance every chat row gets.
-      className="t-tt-wrap t-row-in group mx-2 block w-[204px] rounded-[var(--row-radius)]"
+      className="t-tt-wrap t-row-in group mx-2 block rounded-[var(--row-radius)]"
+      style={{ width: rowWidth }}
       onMouseEnter={positionFixedTooltip}
       onFocus={positionFixedTooltip}
     >
@@ -812,7 +832,7 @@ function ProjectRow({
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.12 }}
               >
-                <BaseDropdownLabel>Delete</BaseDropdownLabel>
+                <BaseDropdownLabel>{t("common.delete")}</BaseDropdownLabel>
                 {/* text-foreground, not text-muted-foreground -- per explicit
                     request ("would you like to delete font color is not the
                     same font color as new chat or rename, is looks like is
@@ -859,21 +879,21 @@ function ProjectRow({
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.12 }}
               >
-                <BaseDropdownLabel>More</BaseDropdownLabel>
+                <BaseDropdownLabel>{t("common.more")}</BaseDropdownLabel>
                 {/* Moved in from its own standalone "+" beside the chevron --
                     per explicit request ("add the create chat inside more and
                     not beside >"). */}
                 <BaseMenuItem
                   index={0}
                   icon={PlusIcon}
-                  label="New chat"
+                  label={t("common.newChat")}
                   className="gap-[7px]"
                   onSelect={onNewChat}
                 />
                 <BaseMenuItem
                   index={1}
                   icon={EditIcon}
-                  label="Rename"
+                  label={t("common.rename")}
                   className="gap-[7px]"
                   onSelect={() => {
                     setDraft(item.label);
@@ -888,7 +908,7 @@ function ProjectRow({
                 <BaseMenuItem
                   index={2}
                   icon={DeleteIcon}
-                  label="Delete"
+                  label={t("common.delete")}
                   destructive
                   closeOnClick={false}
                   className="gap-[7px]"
@@ -909,26 +929,52 @@ function ProjectRow({
 // (that component's own comment has the full reasoning) -- not reused
 // directly since it isn't exported, and this row's own much narrower width
 // needs a smaller cap and icon size than an inbox card affords.
-function SidebarModelStack({ models }: { models: { provider: string; model: string }[] }) {
+//
+// Overlapping, with a real ring -- per explicit follow-up ("the models in
+// the sidebar and at topbar should be stacked with a 1px border that's the
+// same color as our bg so users can see the multiple models but not take
+// all the space"), reversing an earlier "no circle/ring, small positive
+// gap" decision. Back to InboxPage.tsx's own ModelStack technique (that
+// component's own comment has the full precedent, also ui/avatar.tsx's
+// AvatarGroup) -- -space-x-1 overlap, ring-1 ring-background (1px, not
+// that component's 2px: a request for "1px border" specifically).
+//
+// Real overflow handling, matching AppLayout.tsx's own chat-header model
+// stack (that component's own comment has the full request chain: up to
+// 4 real icons if that's everything, else the first 3 stay real icons
+// and the 4th slot is the real total provider count) -- per explicit
+// follow-up ("The top bar is correct but not the sidebar"). No HoverCard
+// here though, unlike that one -- per a further explicit follow-up ("the
+// sidebar should not have the hover"); this row is already a real link
+// with its own hover state, so a popover on top of that read as one
+// hover behavior too many. size-4/size-4.5, not size-3/size-3.5 -- per a
+// further follow-up ("increase the size a little bit more on the
+// sidebar as well, its hard to see").
+export function SidebarModelStack({ models }: { models: { provider: string; model: string }[] }) {
+  const visible = models.length > 4 ? models.slice(0, 3) : models.slice(0, 4);
   return (
-    // mr-1, not ml-1 -- this now renders before the label (that row's own
-    // comment has the full reasoning), so the gap belongs on the trailing
-    // side, toward the label, not the leading side any more. size-3 icon,
-    // matching the row's own text-xs (12px) label -- per explicit follow-up
-    // ("increase the icon size to match the font size"). No circle/ring
-    // background any more -- per explicit follow-up ("it should only be the
-    // icon"), and a small positive gap instead of the old overlapping
-    // -space-x-1: that overlap only read cleanly with the ring providing
-    // real separation between icons, per Inbox's own ModelStack (that
-    // component's own comment has the full reasoning for the technique);
-    // with no ring, two overlapping bare icons would just visually clip into
-    // each other instead of clearly reading as two.
-    <span className="mr-1 flex shrink-0 items-center gap-0.5">
-      {models.slice(0, 2).map((entry) => {
+    <span className="mr-1 flex shrink-0 -space-x-1">
+      {visible.map((entry, index) => {
         const found = QUICK_CHAT_MODELS.find((m) => m.value === entry.model);
         if (!found) return null;
-        return <ProviderIcon key={`${entry.provider}-${entry.model}`} model={found} className="size-3.5 shrink-0" />;
+        return (
+          <span
+            key={`${entry.provider}-${entry.model}`}
+            className="flex size-4.5 shrink-0 items-center justify-center rounded-full bg-background ring-1 ring-background"
+            style={{ zIndex: models.length - index }}
+          >
+            <ProviderIcon model={found} className="size-4" />
+          </span>
+        );
       })}
+      {models.length > 4 && (
+        <span
+          className="flex size-4.5 shrink-0 items-center justify-center rounded-full bg-hover-2 text-[9px] font-medium text-muted-foreground ring-1 ring-background"
+          style={{ zIndex: 0 }}
+        >
+          {models.length}
+        </span>
+      )}
     </span>
   );
 }
@@ -947,6 +993,7 @@ function ChatRow({
   onArchive,
   onDeleteRequest,
   onAssignToProject,
+  rowWidth,
 }: {
   item: SidebarRecent;
   active: boolean;
@@ -957,7 +1004,14 @@ function ChatRow({
   onArchive: () => void;
   onDeleteRequest: () => void;
   onAssignToProject: (projectId: string | null) => void;
+  // Real bug, confirmed directly ("the chat name... width are not
+  // expanding dynamically"): this row's own w-[204px] Tailwind class was
+  // a fixed value, independent of the sidebar's own live, now-draggable
+  // width -- an inline style (below) is what actually lets it track a
+  // runtime value; a Tailwind class can't interpolate one.
+  rowWidth: number;
 }) {
+  const { t } = useTranslation();
   // Same reblur fix as ProjectRow's own "..." trigger (that row's own
   // comment has the full bug report).
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
@@ -1004,7 +1058,8 @@ function ChatRow({
   return (
     <span
       data-chat-id={item.id}
-      className="t-tt-wrap t-row-in group relative mx-2 block w-[204px]"
+      className="t-tt-wrap t-row-in group relative mx-2 block"
+      style={{ width: rowWidth }}
       onMouseEnter={positionFixedTooltip}
       onFocus={positionFixedTooltip}
     >
@@ -1074,7 +1129,7 @@ function ChatRow({
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.12 }}
               >
-                <BaseDropdownLabel>Delete</BaseDropdownLabel>
+                <BaseDropdownLabel>{t("common.delete")}</BaseDropdownLabel>
                 {/* text-foreground, not text-muted-foreground -- see
                     ProjectRow's own identical fix/comment. */}
                 <div className="px-2 pb-2 text-[11px] font-normal text-foreground">
@@ -1116,7 +1171,7 @@ function ChatRow({
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.12 }}
               >
-                <BaseDropdownLabel>More</BaseDropdownLabel>
+                <BaseDropdownLabel>{t("common.more")}</BaseDropdownLabel>
                 {/* A chat already inside a project shows a plain "Remove from
                     project" -- no submenu, no list of other projects to move to
                     -- per explicit follow-up ("remove the third menu and flip add
@@ -1126,13 +1181,13 @@ function ChatRow({
                   <BaseMenuItem
                     index={0}
                     icon={FolderIcon}
-                    label="Remove from project"
+                    label={t("nav.chat.removeFromProject")}
                     className="gap-[7px]"
                     onSelect={() => onAssignToProject(null)}
                   />
                 ) : projects.length > 0 ? (
-                  <DropdownSubMenuItem index={0} icon={FolderIcon} label="Add to project" className="gap-[7px] text-[12px]">
-                    <BaseDropdownLabel>Projects</BaseDropdownLabel>
+                  <DropdownSubMenuItem index={0} icon={FolderIcon} label={t("nav.chat.addToProject")} className="gap-[7px] text-[12px]">
+                    <BaseDropdownLabel>{t("nav.projects")}</BaseDropdownLabel>
                     {projects.map((project) => (
                       <DropdownSubItem
                         key={project.id}
@@ -1151,17 +1206,17 @@ function ChatRow({
                   // projects dropdown as empty"): a submenu that always opens onto
                   // an empty "Projects" panel read as broken, not as "no projects
                   // yet."
-                  <BaseMenuItem index={0} icon={FolderIcon} label="Add to project" className="gap-[7px]" disabled />
+                  <BaseMenuItem index={0} icon={FolderIcon} label={t("nav.chat.addToProject")} className="gap-[7px]" disabled />
                 )}
                 <DropdownSeparator />
-                <BaseMenuItem index={1} icon={ArchiveIcon} label="Archive" className="gap-[7px]" onSelect={onArchive} />
+                <BaseMenuItem index={1} icon={ArchiveIcon} label={t("common.archive")} className="gap-[7px]" onSelect={onArchive} />
                 {/* closeOnClick={false} -- see ProjectRow's own identical
                     Delete row for the full reasoning (swaps this menu's own
                     content in place instead of closing it). */}
                 <BaseMenuItem
                   index={2}
                   icon={DeleteIcon}
-                  label="Delete"
+                  label={t("common.delete")}
                   destructive
                   closeOnClick={false}
                   className="gap-[7px]"
@@ -1194,6 +1249,13 @@ export function RailButton({
   pressEffect = true,
   danger = false,
   glideRow = true,
+  // Defaults to SIDEBAR_ROW_WIDTH -- settings-overlay.tsx's own
+  // (non-resizable) SettingsSidebarNav calls this with no override and
+  // keeps that fixed width; sidebar-nav.tsx's own real, now-draggable
+  // <aside> passes its live computed rowWidth instead, per explicit
+  // request ("the chat name and the search bar width are not expanding
+  // dynamically").
+  rowWidth = SIDEBAR_ROW_WIDTH,
 }: {
   icon: ReactNode;
   label: string;
@@ -1231,6 +1293,7 @@ export function RailButton({
   // (this component's own export comment has the full reasoning), same
   // semantic color that row already carried before reusing this component.
   danger?: boolean;
+  rowWidth?: number;
 }) {
   // bg-accent (var(--accent), index.css) on the active row -- the same
   // token the hover highlight itself reads at half opacity
@@ -1263,7 +1326,7 @@ export function RailButton({
   } ${danger ? "hover:bg-destructive/10" : active ? "bg-accent" : ""}`;
   const style = fullWidth
     ? {
-        width: collapsed ? SIDEBAR_COLLAPSED_ROW_WIDTH : SIDEBAR_ROW_WIDTH,
+        width: collapsed ? SIDEBAR_COLLAPSED_ROW_WIDTH : rowWidth,
         transition: `background-color 150ms, color 150ms, transform 150ms, width ${SIDEBAR_MOTION_MS}ms ${SIDEBAR_EASING}`,
       }
     : { transition: "background-color 150ms, color 150ms, transform 150ms" };
@@ -1342,6 +1405,7 @@ export default function SidebarNav({
   onOpenSettings,
   placeholderNav = false,
 }: SidebarNavProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const displayName = useUserDisplayName();
@@ -1713,6 +1777,49 @@ export default function SidebarNav({
   // than a push-layout rail/hidden choice, so it keeps its existing
   // persistent-narrow-rail-when-closed behavior unchanged.
   const fullyCollapsed = collapsed && !isMobile;
+  // Real drag-resize, matching AppLayout.tsx's own right-panel drag handle
+  // (that file's own startRightPanelResize has the identical shape) --
+  // per explicit request ("make the left sidebar to be draggable like the
+  // right sidebar but keep a minimum draggable width so it does not snap
+  // for collapsed"). SIDEBAR_MIN_WIDTH sits well above SIDEBAR_WIDTH's own
+  // row-layout needs (SIDEBAR_ROW_WIDTH + its own insets), so dragging
+  // narrower never approaches the fully-collapsed (width: 0) look -- that
+  // stays a separate, discrete toggle (toggleCollapsed above), never
+  // reachable by dragging. Not applied while collapsed/fullyCollapsed:
+  // there's nothing meaningful to drag at 0 or at the (unreachable, see
+  // SIDEBAR_COLLAPSED_WIDTH's own comment) narrow-rail width.
+  const [width, setWidth] = useState(SIDEBAR_WIDTH);
+  const [isResizingWidth, setIsResizingWidth] = useState(false);
+  function startResize(event: React.MouseEvent) {
+    event.preventDefault();
+    setIsResizingWidth(true);
+    const startX = event.clientX;
+    const startWidth = width;
+    // globalThis.MouseEvent, not the bare MouseEvent this file's own top
+    // import already shadows with React's synthetic event type -- the
+    // native window listener below hands this a real DOM event, not a
+    // React one.
+    function onMove(moveEvent: globalThis.MouseEvent) {
+      setWidth(Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, startWidth + (moveEvent.clientX - startX))));
+    }
+    function onUp() {
+      setIsResizingWidth(false);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }
+  // Real bug, confirmed directly ("the chat name and the search bar
+  // width are not expanding dynamically"): every row's own width (search
+  // bar, chat rows via RailButton, the avatar/help row) was computed off
+  // the fixed SIDEBAR_ROW_WIDTH constant regardless of this sidebar's own
+  // live, now-draggable width -- dragging wider grew the <aside> itself
+  // but left every row still clipped at the old 204px. Same margin math
+  // as SIDEBAR_WIDTH/SIDEBAR_ROW_WIDTH's own fixed relationship (220-204
+  // = 16px of mx-2 inset on both sides), just computed off the live width
+  // instead of the constant.
+  const rowWidth = width - (SIDEBAR_WIDTH - SIDEBAR_ROW_WIDTH);
   // Wraps a real navigation/selection action so picking a destination on
   // mobile also closes the drawer back to the collapsed rail, same as
   // ChatGPT/Claude -- desktop's own push-layout collapse doesn't need
@@ -1779,7 +1886,7 @@ export default function SidebarNav({
         symptom this fixes on desktop already having one continuous line,
         mobile now matches. */}
     <aside
-      aria-label="Workspace navigation"
+      aria-label={t("nav.workspace.ariaLabel")}
       // bg-sidebar (== bg-background, index.css's own --sidebar: var(
       // --background)) -- opaque, so on mobile (position: fixed, above)
       // this reliably hides whatever content sits behind it via z-index
@@ -1787,13 +1894,39 @@ export default function SidebarNav({
       // above describes, instead of needing a separate dimming overlay
       // over the rest of the page to hide that content some other way.
       // Harmless on desktop too, where nothing ever renders underneath it.
-      className={`flex shrink-0 overflow-hidden bg-sidebar transition-[width] ${fullyCollapsed ? "" : "border-r border-border"} ${isMobile ? "fixed top-0 left-0 z-50 h-dvh" : `relative ${fill ? "h-full" : "h-[600px]"}`} ${className}`}
+      className={`relative flex shrink-0 overflow-hidden bg-sidebar transition-[width] ${fullyCollapsed ? "" : "border-r border-border"} ${isMobile ? "fixed top-0 left-0 z-50 h-dvh" : `relative ${fill ? "h-full" : "h-[600px]"}`} ${className}`}
       style={{
-        width: fullyCollapsed ? 0 : collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH,
-        transitionDuration: `${SIDEBAR_MOTION_MS}ms`,
+        width: fullyCollapsed ? 0 : collapsed ? SIDEBAR_COLLAPSED_WIDTH : width,
+        transitionDuration: isResizingWidth ? "0ms" : `${SIDEBAR_MOTION_MS}ms`,
         transitionTimingFunction: SIDEBAR_EASING,
       }}
     >
+      {/* Real drag-resize handle -- per explicit request ("make the left
+          sidebar to be draggable like the right sidebar"), matching
+          AppLayout.tsx's own right-panel resize handle in spirit (a thin
+          hover-highlighted strip, mousedown starts the drag). Only while
+          genuinely expanded and not on mobile (the drawer's own width
+          there is a fixed, non-resizable cover-the-content value, not
+          this push-layout one) -- collapsed/fullyCollapsed have nothing
+          meaningful to drag. absolute right-0, not a flex sibling: this
+          sits *inside* the already width-animated <aside>, so it tracks
+          the live edge automatically through the same collapse/expand
+          transition without needing its own separate position math. */}
+      {!collapsed && !isMobile && (
+        <div
+          onMouseDown={startResize}
+          // w-px, not w-1 (4px) -- real bug, confirmed directly ("the left
+          // sidebar is getting an thicker blue highlight when i drag
+          // compared to the right sidebar"); matches AppLayout.tsx's own
+          // right-panel handle width exactly. bg-transparent at rest, not
+          // bg-border like that handle -- this sidebar's own <aside>
+          // already draws border-r border-border along this same edge, so
+          // a resting bg-border here would double that line up, the same
+          // class of bug the right panel's own containers had fixed
+          // earlier (border-l removed there for the identical reason).
+          className="absolute top-0 right-0 z-10 h-full w-px shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-focus-accent"
+        />
+      )}
       {/* width animates in step with the <aside> above (same value, same
           transition) -- this was left fixed at 220px after the <aside>
           itself went back to animating its own outer width, which made
@@ -1815,8 +1948,8 @@ export default function SidebarNav({
       <div
         className="flex min-h-0 shrink-0 flex-col pt-2 transition-[width]"
         style={{
-          width: fullyCollapsed ? 0 : collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH,
-          transitionDuration: `${SIDEBAR_MOTION_MS}ms`,
+          width: fullyCollapsed ? 0 : collapsed ? SIDEBAR_COLLAPSED_WIDTH : width,
+          transitionDuration: isResizingWidth ? "0ms" : `${SIDEBAR_MOTION_MS}ms`,
           transitionTimingFunction: SIDEBAR_EASING,
         }}
       >
@@ -1857,7 +1990,7 @@ export default function SidebarNav({
         <div
           className="mx-2 flex h-6 shrink-0 items-center overflow-hidden"
           style={{
-            width: collapsed ? SIDEBAR_COLLAPSED_ROW_WIDTH : SIDEBAR_ROW_WIDTH,
+            width: collapsed ? SIDEBAR_COLLAPSED_ROW_WIDTH : rowWidth,
             transition: `width ${SIDEBAR_MOTION_MS}ms ${SIDEBAR_EASING}`,
           }}
         >
@@ -1952,7 +2085,7 @@ export default function SidebarNav({
           >
             <button
               type="button"
-              aria-label="Go back"
+              aria-label={t("nav.goBack.ariaLabel")}
               disabled={!canGoBack}
               onClick={goBack}
               className="flex size-5 shrink-0 transform-gpu items-center justify-center rounded-[6px] text-foreground transition-[background-color,color] duration-150 hover:bg-hover-2/50 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-30"
@@ -1961,7 +2094,7 @@ export default function SidebarNav({
             </button>
             <button
               type="button"
-              aria-label="Go forward"
+              aria-label={t("nav.goForward.ariaLabel")}
               disabled={!canGoForward}
               onClick={goForward}
               className="flex size-5 shrink-0 transform-gpu items-center justify-center rounded-[6px] text-foreground transition-[background-color,color] duration-150 hover:bg-hover-2/50 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-30"
@@ -1982,7 +2115,7 @@ export default function SidebarNav({
         {collapsed ? (
           <SidebarSearch value={searchQuery} onChange={setSearchQuery} collapsed={collapsed} onExpandSidebar={() => toggleCollapsed(false)} />
         ) : (
-          <div className="mx-2 flex h-7 w-[204px] items-center">
+          <div className="mx-2 flex h-7 items-center" style={{ width: rowWidth }}>
             <SidebarSearch value={searchQuery} onChange={setSearchQuery} collapsed={collapsed} onExpandSidebar={() => toggleCollapsed(false)} />
           </div>
         )}
@@ -2002,8 +2135,9 @@ export default function SidebarNav({
           {showGettingStarted && (
             <RailButton
               collapsed={collapsed}
+              rowWidth={rowWidth}
               icon={placeholderNav ? <BlankPageIcon className="size-[14px]" /> : WELCOME_ITEM.icon}
-              label={placeholderNav ? "Placeholder" : WELCOME_ITEM.label}
+              label={placeholderNav ? t("common.placeholder") : t("nav.welcome")}
               url={WELCOME_ITEM.url}
               active={activeNav === WELCOME_ITEM.key}
               onClick={() => navigateAndClose(() => onNavigate?.(WELCOME_ITEM.key))}
@@ -2011,16 +2145,18 @@ export default function SidebarNav({
           )}
           <RailButton
             collapsed={collapsed}
+            rowWidth={rowWidth}
             icon={placeholderNav ? <BlankPageIcon className="size-[14px]" /> : INBOX_ITEM.icon}
-            label={placeholderNav ? "Placeholder" : INBOX_ITEM.label}
+            label={placeholderNav ? t("common.placeholder") : t("nav.inbox")}
             url={INBOX_ITEM.url}
             active={activeNav === INBOX_ITEM.key}
             onClick={() => navigateAndClose(() => onNavigate?.(INBOX_ITEM.key))}
           />
           <RailButton
             collapsed={collapsed}
+            rowWidth={rowWidth}
             icon={placeholderNav ? <BlankPageIcon className="size-[14px]" /> : LIBRARY_ITEM.icon}
-            label={placeholderNav ? "Placeholder" : LIBRARY_ITEM.label}
+            label={placeholderNav ? t("common.placeholder") : t("nav.library")}
             url={LIBRARY_ITEM.url}
             active={activeNav === LIBRARY_ITEM.key}
             onClick={() => navigateAndClose(() => onNavigate?.(LIBRARY_ITEM.key))}
@@ -2041,8 +2177,9 @@ export default function SidebarNav({
               instead of two copies of the same classes drifting apart. */}
           <RailButton
             collapsed={collapsed}
+            rowWidth={rowWidth}
             icon={<PlusIcon className="size-[14px]" />}
-            label="New chat"
+            label={t("common.newChat")}
             active={activeNav === "home"}
             onClick={() => navigateAndClose(() => onNewChat?.())}
           />
@@ -2194,7 +2331,7 @@ export default function SidebarNav({
                 and that should only be my pointer"): this label reads as
                 a section header, not real selectable body copy. */}
             {/* "Projects", not "Recent projects" -- per explicit request. */}
-            <span className="opacity-50">Projects</span>
+            <span className="opacity-50">{t("nav.projects")}</span>
             <div className="flex items-center gap-0.5">
               {/* Popover, not navigate("/projects") -- confirmed directly as
                   a real gap ("we are redirecting when trying to create a
@@ -2225,7 +2362,7 @@ export default function SidebarNav({
                   render={
                     <button
                       type="button"
-                      aria-label="New project"
+                      aria-label={t("nav.newProject.ariaLabel")}
                       // opacity-0, not visible by default -- confirmed directly as
                       // a real gap ("when we scroll over that should show the +
                       // icon and not active by default"): only reveal on hover of
@@ -2245,7 +2382,7 @@ export default function SidebarNav({
                     the field to enter the name and then either cancel or
                     create"), replacing the old inline X/check-icon design. */}
                 <BaseDropdownContent align="start" className="w-40">
-                  <BaseDropdownLabel>Create</BaseDropdownLabel>
+                  <BaseDropdownLabel>{t("common.create")}</BaseDropdownLabel>
                   <div className="px-2 pb-2">
                     <Input
                       autoFocus
@@ -2255,7 +2392,7 @@ export default function SidebarNav({
                         if (event.key === "Enter") void handleCreateProject();
                         if (event.key === "Escape") handleDismissProject();
                       }}
-                      placeholder="Project name"
+                      placeholder={t("nav.projectName.placeholder")}
                       // md:text-2xs, not just text-2xs -- the shared Input
                       // component (ui/input.tsx) bakes in its own
                       // md:text-sm, which otherwise wins over a plain
@@ -2291,7 +2428,7 @@ export default function SidebarNav({
                 state instead of a blank gap that could pass for a loading
                 glitch. */}
             {projects.length === 0 && (
-              <div className="mx-2 flex h-7 items-center px-2 text-xs font-normal text-muted-foreground opacity-50">No projects</div>
+              <div className="mx-2 flex h-7 items-center px-2 text-xs font-normal text-muted-foreground opacity-50">{t("nav.projects.empty")}</div>
             )}
             {projects.map((item) => {
                 const projectChats = chatsForProject(item.id);
@@ -2302,6 +2439,7 @@ export default function SidebarNav({
                       item={item}
                       expanded={expanded}
                       hasChats={projectChats.length > 0}
+                      rowWidth={rowWidth}
                       // Only when there's something to expand into -- per
                       // explicit request ("we should not expand when its
                       // empty"): an empty project just gets selected, no
@@ -2368,6 +2506,7 @@ export default function SidebarNav({
                                 item={chatItem}
                                 active={selectedRecent === chatItem.id}
                                 projects={projects}
+                                rowWidth={rowWidth}
                                 menuOpen={menuOpenId === chatItem.id}
                                 onMenuOpenChange={(open) => setMenuOpenId(open ? chatItem.id : null)}
                                 onSelect={() => navigateAndClose(() => navigate(`/chat/${chatItem.id}`))}
@@ -2400,11 +2539,11 @@ export default function SidebarNav({
                   verbatim here). */}
               <div className="group mx-2 mt-3 mb-0.5 flex h-5 items-center justify-between px-2 text-xs font-normal text-foreground select-none">
                 {/* "Chats", not "Recent chats" -- per explicit request. */}
-                <span className="opacity-50">Chats</span>
+                <span className="opacity-50">{t("nav.chats")}</span>
                 <div className="flex items-center gap-0.5">
                   <button
                     type="button"
-                    aria-label="New chat"
+                    aria-label={t("common.newChat")}
                     onClick={() => navigateAndClose(() => onNewChat?.())}
                     className="flex size-4 shrink-0 items-center justify-center rounded-[4px] text-foreground opacity-0 transition-[color,opacity] duration-150 group-hover:opacity-50 hover:text-ink hover:opacity-100"
                   >
@@ -2418,7 +2557,7 @@ export default function SidebarNav({
                     above -- see that block's own comment for the full
                     reasoning. */}
                 {rootChats.length === 0 && (
-                  <div className="mx-2 flex h-7 items-center px-2 text-xs font-normal text-muted-foreground opacity-50">No chats</div>
+                  <div className="mx-2 flex h-7 items-center px-2 text-xs font-normal text-muted-foreground opacity-50">{t("nav.chats.empty")}</div>
                 )}
                 {rootChats.map((item) => (
                   <ChatRow
@@ -2426,6 +2565,7 @@ export default function SidebarNav({
                     item={item}
                     active={selectedRecent === item.id}
                     projects={projects}
+                    rowWidth={rowWidth}
                     menuOpen={menuOpenId === item.id}
                     onMenuOpenChange={(open) => setMenuOpenId(open ? item.id : null)}
                     onSelect={() => navigateAndClose(() => navigate(`/chat/${item.id}`))}
@@ -2482,8 +2622,9 @@ export default function SidebarNav({
           <GlideGroup>
             <RailButton
               collapsed={collapsed}
+              rowWidth={rowWidth}
               icon={<SettingsIcon className="size-[14px]" />}
-              label="Settings"
+              label={t("nav.settings")}
               onClick={() => (onOpenSettings ? onOpenSettings() : navigate("/settings"))}
             />
           </GlideGroup>
@@ -2506,7 +2647,7 @@ export default function SidebarNav({
             // rounded-[var(--row-radius)] shape.
             className="mx-2 mt-1 flex h-7 shrink-0 items-center gap-1 overflow-hidden rounded-[var(--row-radius)]"
             style={{
-              width: collapsed ? SIDEBAR_COLLAPSED_ROW_WIDTH : SIDEBAR_ROW_WIDTH,
+              width: collapsed ? SIDEBAR_COLLAPSED_ROW_WIDTH : rowWidth,
               transition: `width ${SIDEBAR_MOTION_MS}ms ${SIDEBAR_EASING}`,
             }}
           >
@@ -2536,7 +2677,7 @@ export default function SidebarNav({
                 <button
                   ref={accountTriggerRef}
                   type="button"
-                  aria-label="Account menu"
+                  aria-label={t("nav.account.ariaLabel")}
                   // px-1.5 (6px), not px-0.5 (2px) -- per explicit request
                   // ("verify the avatar... especially the size and
                   // location"): the reference sidebar's own footer row
@@ -2682,7 +2823,7 @@ export default function SidebarNav({
                   <button
                     ref={helpTriggerRef}
                     type="button"
-                    aria-label="Help menu"
+                    aria-label={t("nav.help.ariaLabel")}
                     // No hover/active background -- same fix as the "..."
                     // menus' own triggers (sidebar-nav.tsx's own comment on
                     // those has the full bug report): color-only, via

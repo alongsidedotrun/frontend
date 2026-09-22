@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate, useOutlet, useLocation, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { RightPanel } from "@/components/right-panel";
@@ -9,17 +10,18 @@ import { SettingsSidebarNav, type SettingsSection } from "@/components/settings-
 import { useIsFullscreen, useIsTauri } from "@/hooks/use-tauri";
 import { useIsMac } from "@/hooks/use-platform";
 import { useIsMobile } from "@/hooks/use-media-query";
-import { preloadProviderIcons, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
+import { preloadProviderIcons, QUICK_CHAT_MODELS, ProviderIcon } from "@/lib/quick-chat-models";
 import { pushTurnNotification } from "@/lib/turn-notifications";
 import { loadNotifyTurnComplete, requestNotificationPermission, saveNotifyTurnComplete } from "@/lib/notify-turn-complete";
 import { loadLocallyHiddenChatIds } from "@/lib/locally-hidden-chats";
 import { isChatNotificationsEnabled, setChatNotificationsEnabled } from "@/lib/chat-notifications";
 import { useIsSignedIn } from "@/lib/auth";
-import { getUserDisplayName } from "@/lib/user";
+import { ShareDialog } from "@/components/share-dialog";
+import { PresenceStack } from "@/components/presence-stack";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from "@/components/ui/breadcrumb";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
 import {
   DropdownMenu as BaseDropdownMenu,
   DropdownTrigger as BaseDropdownTrigger,
@@ -113,83 +115,46 @@ function ChatNameText({ name }: { name: string }) {
   );
 }
 
-// Lists this chat's own saved "always allow" permission rules (scoped to
-// its project if it has one, otherwise the chat itself -- server.rs's own
-// list_permission_rules resolves that the same way find_permission_rule/
-// create_permission_rule already do) with a delete button per row -- the
-// only way to undo one of ChatPage.tsx's own PermissionCard "always allow"
-// choices short of editing the database directly.
-function AllowedCommandsDialog({
-  sessionId,
-  open,
-  onOpenChange,
-}: {
-  sessionId: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const [rules, setRules] = useState<{ id: string; scope_type: string; tool_name: string; pattern: string }[]>([]);
-
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    fetch(`/sessions/${sessionId}/permission-rules`)
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data) => {
-        if (!cancelled) setRules(data);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [open, sessionId]);
-
-  async function removeRule(id: string) {
-    setRules((current) => current.filter((rule) => rule.id !== id));
-    await fetch(`/permission-rules/${id}`, { method: "DELETE" });
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Allowed commands</DialogTitle>
-          <DialogDescription>
-            Commands and file edits you chose "always allow" for -- scoped to this chat's project if it has one, otherwise just this
-            chat.
-          </DialogDescription>
-        </DialogHeader>
-        {rules.length === 0 ? (
-          <p className="py-4 text-center text-[13px] text-muted-foreground">Nothing allowed yet.</p>
-        ) : (
-          <div className="flex flex-col gap-1">
-            {rules.map((rule) => (
-              <div key={rule.id} className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 text-[13px]">
-                <span className="shrink-0 text-2xs text-muted-foreground">{rule.tool_name}</span>
-                <span className="min-w-0 flex-1 truncate font-mono text-foreground">{rule.pattern}</span>
-                <button
-                  type="button"
-                  aria-label={`Remove ${rule.pattern}`}
-                  onClick={() => void removeRule(rule.id)}
-                  className="flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-hover-2/50 hover:text-foreground"
-                >
-                  <XIcon className="size-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 function PageBreadcrumb({
   chatName,
   onSaveChatName,
+  models,
+  active,
 }: {
   chatName: string;
   onSaveChatName: (name: string) => void;
+  // Mirrors the parent header's own showChatHeader -- real bug, confirmed
+  // directly ("I am at Library page with no chat open and I move to new
+  // chat and then the topbar changes from Library to the chat name
+  // instead of fading out Library and not show anything else"): this
+  // component picks its branch (Home/Library/chat-name) purely from the
+  // *current* route, but the header itself stays mounted and only fades
+  // its opacity out rather than unmounting (see that header's own
+  // comment) -- so the instant the route changed away from /library, this
+  // swapped straight to the chat-name branch (showing whatever stale
+  // chatName was left over from the last real chat) for the entire
+  // fade-out, instead of continuing to show "Library" the whole time
+  // nothing else is visible yet. Freezing the rendered output while
+  // inactive (below) instead of always deriving it live fixes this the
+  // same way the header's own chatName-preservation comment already
+  // fixes the analogous "leaving a chat" case -- both are really the
+  // same bug (visible content briefly disagreeing with what should still
+  // be showing during a fade-out), just triggered from a different route.
+  active: boolean;
+  // Every distinct provider/model this chat has actually used -- per
+  // explicit request ("we need to add the model at the chat name like
+  // the name of the sidebar has the icon of the model so that we can
+  // easily see all the models in the chat"), matching sidebar-nav.tsx's
+  // own SidebarModelStack. Not reused directly -- that component isn't
+  // exported, matching this codebase's own established pattern (its own
+  // comment: "Same overlapping-icon-stack technique as InboxPage.tsx's
+  // own ModelStack... not reused directly since it isn't exported" --
+  // each row gets its own small version tuned to its own width/icon size
+  // rather than one shared component threading every caller's own
+  // spacing needs).
+  models?: { provider: string; model: string }[];
 }) {
+  const { t } = useTranslation();
   const location = useLocation();
   const { sessionId } = useParams();
   // Click-to-edit, not a permanently-live input -- per explicit request
@@ -201,6 +166,7 @@ function PageBreadcrumb({
   // editable input firing onSaveChatName straight from onChange couldn't do.
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(chatName);
+  const contentRef = useRef<React.ReactNode>(null);
 
   function startEditing() {
     setDraft(chatName);
@@ -216,8 +182,9 @@ function PageBreadcrumb({
     setEditing(false);
   }
 
+  let content: React.ReactNode;
   if (location.pathname === "/getting-started") {
-    return (
+    content = (
       <Breadcrumb>
         {/* text-[13px]: matches dray's own --text-ui token (0.8125rem =
             13px) -- their session-header row (SessionHeader.tsx) sets this
@@ -226,14 +193,41 @@ function PageBreadcrumb({
             own default text-sm (14px). */}
         <BreadcrumbList className="text-[13px]">
           <BreadcrumbItem>
-            <BreadcrumbPage>Home</BreadcrumbPage>
+            <BreadcrumbPage>{t("breadcrumb.home")}</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
     );
-  }
-
-  return (
+  } else if (location.pathname === "/library") {
+    // Real bug, confirmed directly (pasted rendered HTML showing this whole
+    // header at opacity: 0 on the Library page): this header is always
+    // mounted on every page -- even one with no open chat -- specifically
+    // to *reserve its own real height* so opacity/visibility toggling never
+    // causes a layout jump (this component's own header comment has the
+    // full reasoning). LibraryPage.tsx used to build its own second, real
+    // 40px header on top of that already-reserved-but-invisible space,
+    // which is what actually produced "the library topbar is huge" --
+    // never a border or padding bug, two real headers stacked. The fix is
+    // this branch, not more CSS on Library's own page: reuse this same
+    // reserved slot instead of adding another one.
+    content = (
+      <Breadcrumb>
+        {/* pl-2 on top of the header's own pl-2 (its <header> above) --
+            per explicit request ("give the top bar title... the same
+            indentation as the describer so it looks aligned"): matches
+            LibraryPage.tsx's own left column, whose "Projects"/"Chats"
+            labels sit at px-2 (the column) + px-2 (the label row) = 16px
+            from the page edge, while this title otherwise only had the
+            header's own 8px. */}
+        <BreadcrumbList className="pl-2 text-[11px]">
+          <BreadcrumbItem>
+            <BreadcrumbPage>{t("library.title")}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+    );
+  } else {
+    content = (
     <Breadcrumb>
       {/* No "Home >" leading crumb any more -- per explicit request: projects are
           real data now (GET /projects, backend/src/server.rs -- the SQLite
@@ -244,8 +238,89 @@ function PageBreadcrumb({
           regardless. Just the title itself now, same as a chat that *does*
           belong to a real project would still show past its own project's
           name once that assignment exists. */}
-      <BreadcrumbList className="text-[13px]">
+      {/* text-[11px], down from 13px -- per explicit follow-up ("the chat
+          name should be reduce to match the font size at icon + library
+          and icon + terminal"): matches the right panel's own Library/
+          Terminal pill labels (right-panel.tsx, reduced to 11px in the
+          same pass). */}
+      <BreadcrumbList className="text-[11px]">
         <BreadcrumbItem>
+          {/* Model icon stack -- per explicit request ("we need to add
+              the model at the chat name like the name of the sidebar has
+              the icon of the model so that we can easily see all the
+              models in the chat"), overlapping with a real 1px ring per
+              a follow-up ("the models... should be stacked with a 1px
+              border that's the same color as our bg"), matching sidebar-
+              nav.tsx's own SidebarModelStack (that component's own
+              comment has the full precedent chain back to
+              InboxPage.tsx's ModelStack/ui/avatar.tsx's AvatarGroup).
+              size-4 icon inside a slightly larger circle, one step up
+              from SidebarModelStack's own size-3 (this row has more
+              breathing room to spend it in).
+              Real overflow handling, not just a silent slice(0, 2) --
+              per a further explicit follow-up ("that only shows 2
+              providers... we should show up to 4 providers but stacked
+              and then if we get more then we do all the 3 stacked and
+              fourth be the number of providers in total so when someone
+              hovers over it then a popover shows all the providers"):
+              up to 4 real icons when that's everything; past 4, only the
+              first 3 are real provider icons and the 4th slot is the
+              real total count (not "+N" remaining, the actual number of
+              providers this chat has used) instead of a 4th icon.
+              Wrapped in a HoverCard either way so hovering always shows
+              the complete real list, including ones the stack itself
+              never had room to show a icon for. */}
+          {models && models.length > 0 && (
+            <HoverCard openDelay={150} closeDelay={0}>
+              <HoverCardTrigger asChild>
+                {/* No mr-1 here -- real bug, confirmed directly via
+                    screenshot ("There's a big space at the topbar icon and
+                    chat name, that should be the same gap like the
+                    sidebar"): BreadcrumbItem (ui/breadcrumb.tsx) already
+                    applies its own gap-1 (4px) between its children, so
+                    this span's own mr-1 (also 4px) doubled it to 8px.
+                    Removing it leaves BreadcrumbItem's own 4px alone,
+                    which already matches SidebarModelStack's own mr-1
+                    (4px, no competing parent gap there) exactly. */}
+                <span className="flex shrink-0 -space-x-1 align-middle">
+                  {(models.length > 4 ? models.slice(0, 3) : models.slice(0, 4)).map((entry, index) => {
+                    const found = QUICK_CHAT_MODELS.find((m) => m.value === entry.model);
+                    if (!found) return null;
+                    return (
+                      <span
+                        key={`${entry.provider}-${entry.model}`}
+                        className="flex size-4.5 shrink-0 items-center justify-center rounded-full bg-background ring-1 ring-background"
+                        style={{ zIndex: models.length - index }}
+                      >
+                        <ProviderIcon model={found} className="size-4" />
+                      </span>
+                    );
+                  })}
+                  {models.length > 4 && (
+                    <span
+                      className="flex size-4.5 shrink-0 items-center justify-center rounded-full bg-hover-2 text-[9px] font-medium text-muted-foreground ring-1 ring-background"
+                      style={{ zIndex: 0 }}
+                    >
+                      {models.length}
+                    </span>
+                  )}
+                </span>
+              </HoverCardTrigger>
+              <HoverCardContent align="start" className="w-auto p-1.5">
+                <div className="flex flex-col gap-1">
+                  {models.map((entry) => {
+                    const found = QUICK_CHAT_MODELS.find((m) => m.value === entry.model);
+                    return (
+                      <div key={`${entry.provider}-${entry.model}`} className="flex items-center gap-1.5 text-xs text-foreground">
+                        {found && <ProviderIcon model={found} className="size-3.5 shrink-0" />}
+                        <span className="truncate">{found?.label ?? entry.model}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </HoverCardContent>
+            </HoverCard>
+          )}
           {/* No more `sessionId ? ... : <BreadcrumbPage>Untitled chat</BreadcrumbPage>`
               branch -- confirmed directly as the real cause of "this changing
               to Untitled and is moving to the left a bit... happens when
@@ -308,11 +383,11 @@ function PageBreadcrumb({
                   // differently-scoped dark: variant. Confirmed directly as the real
                   // cause of a visible background color on this input specifically in
                   // dark mode.
-                  className="h-6 w-48 border-none bg-transparent px-1 text-[13px] font-normal text-foreground shadow-none focus-visible:ring-0 md:text-[13px] dark:bg-transparent"
+                  className="h-6 w-48 border-none bg-transparent px-1 text-[11px] font-normal text-foreground shadow-none focus-visible:ring-0 md:text-[11px] dark:bg-transparent"
                 />
                 <button
                   type="button"
-                  aria-label="Confirm chat name"
+                  aria-label={t("chatHeader.confirmName")}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={confirm}
                   className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground outline-hidden hover:bg-hover-2/50 hover:text-foreground"
@@ -321,7 +396,7 @@ function PageBreadcrumb({
                 </button>
                 <button
                   type="button"
-                  aria-label="Cancel editing chat name"
+                  aria-label={t("chatHeader.cancelName")}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={cancel}
                   className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground outline-hidden hover:bg-hover-2/50 hover:text-foreground"
@@ -335,10 +410,17 @@ function PageBreadcrumb({
               // a plain button instead, matching the editing Input's own
               // size/padding so nothing shifts position when toggling
               // between the two.
+              // text-[11px], not 13px -- real bug, confirmed directly via
+              // a follow-up screenshot ("The chat name still pretty big
+              // compared to library and terminal"): this button's own
+              // explicit text-[13px] overrode the parent BreadcrumbList's
+              // text-[11px] (above) outright, since it's set directly on
+              // the element rather than inherited -- reducing the parent
+              // alone was never going to reach this.
               <button
                 type="button"
                 onClick={startEditing}
-                className="h-6 max-w-48 truncate rounded px-1 text-left text-[13px] font-normal text-foreground hover:bg-hover-2/50"
+                className="h-6 max-w-48 truncate rounded px-1 text-left text-[11px] font-normal text-foreground hover:bg-hover-2/50"
               >
                 {/* key={sessionId} -- confirmed directly as a real bug
                     ("switching from new chat to an existing chat quickly
@@ -366,7 +448,17 @@ function PageBreadcrumb({
         </BreadcrumbItem>
       </BreadcrumbList>
     </Breadcrumb>
-  );
+    );
+  }
+
+  // Freeze the rendered output while inactive instead of always returning
+  // freshly-derived content -- see the `active` prop's own comment above
+  // for the real bug this fixes (Library -> New Chat briefly showing a
+  // stale chat name instead of continuing to show "Library" for the
+  // header's whole fade-out). Only updates while active, so the frozen
+  // value is always whatever was last genuinely visible.
+  if (active) contentRef.current = content;
+  return contentRef.current ?? content;
 }
 
 // Code/Design -- reached from the compose box's own Chat/Code/Design
@@ -402,6 +494,7 @@ const SIDEBAR_HIDDEN_ROUTES = ["/docs", "/help"];
 const SETTINGS_NAV_SECTIONS: SettingsSection[] = ["profile", "general", "appearance", "chat", "provider", "apps"];
 
 export function AppLayout() {
+  const { t } = useTranslation();
   // Quick chat/Memory/Share/members only make sense once there's an actual
   // chat open -- they're all chat-scoped concepts (which model this chat
   // uses, this chat's memory, sharing *this* chat, who's *in* this chat),
@@ -410,12 +503,33 @@ export function AppLayout() {
   const { sessionId } = useParams();
   const hasOpenChat = Boolean(sessionId);
   const location = useLocation();
+  // The route the page-level crossfade has actually *settled* on -- only
+  // updates once the outgoing page's own exit animation genuinely
+  // finishes (the outlet's own AnimatePresence onExitComplete, below),
+  // unlike location.pathname which changes the instant navigation
+  // happens. Layout decisions that shouldn't visibly disturb a page
+  // that's still mid-exit (Library's own sidebar-width squeeze, its file
+  // panel restoring) key off this instead of the raw route -- see that
+  // effect's own comment for the real bug this fixes.
+  const [settledPathname, setSettledPathname] = useState(location.pathname);
+  // Real bug, confirmed directly (pasted rendered HTML showing this
+  // header at opacity: 0 on Library): this header stays mounted and
+  // reserved-but-invisible on every page without an open chat, so a
+  // second page (LibraryPage.tsx) building its own separate header
+  // stacked a real, visible header underneath an already-reserved
+  // invisible one -- two headers, not a padding/border bug. Library now
+  // reuses this same slot (PageBreadcrumb's own /library branch) instead
+  // of building a second one, so this header needs to actually show
+  // (not just reserve space) on that route too.
+  const showChatHeader = hasOpenChat || location.pathname === "/library";
   const navigate = useNavigate();
   // Gates only the chat header's own Share action below -- per explicit
   // request/correction ("we should not gate the send because they don't
   // have an account. We will gate only share because that requires an
   // account for user management at chats").
   const isSignedIn = useIsSignedIn();
+  // The chat header's Share dialog (components/share-dialog.tsx).
+  const [shareOpen, setShareOpen] = useState(false);
   // Real React state, not a plain isChatNotificationsEnabled(sessionId)
   // call read fresh on every render -- that read the right value on the
   // menu's *next* open, but toggling it wouldn't flip the label inside the
@@ -428,12 +542,6 @@ export function AppLayout() {
   useEffect(() => {
     setChatNotifyEnabledState(!!sessionId && isChatNotificationsEnabled(sessionId));
   }, [sessionId]);
-  // Persisted "always allow" permission rules (real reference screenshot's
-  // own "Yes, allow ... for this project" choice, ChatPage.tsx's own
-  // PermissionCard) -- surfaced here, in the same "..." menu Share chat/
-  // Add to project already live in, since there's otherwise no way to ever
-  // undo a saved rule short of editing the database directly.
-  const [allowedCommandsOpen, setAllowedCommandsOpen] = useState(false);
   // Chat header's own "..." menu -- "Add to project" -- per explicit
   // request ("the chat three dots at the sidebar and at the top right
   // icons should allow us to attach the chat an existing project or new
@@ -635,7 +743,18 @@ export function AppLayout() {
   // server (receiveChatNameFromServer below) -- a rename doesn't otherwise
   // have any other reason to refetch.
   const [recents, setRecents] = useState<
-    { id: string; label: string; creatorName?: string | null; projectId?: string | null }[]
+    {
+      id: string;
+      label: string;
+      creatorName?: string | null;
+      projectId?: string | null;
+      // Already fetched below (models: c.models) but missing from this
+      // type until now -- needed for PageBreadcrumb's own model icon
+      // stack, per explicit request ("we need to add the model at the
+      // chat name... so that we can easily see all the models in the
+      // chat").
+      models?: { provider: string; model: string }[];
+    }[]
   >([]);
   const [sidebarProjects, setSidebarProjects] = useState<{ id: string; label: string }[]>([]);
   async function refreshSidebarLists() {
@@ -705,6 +824,17 @@ export function AppLayout() {
   // instant sessionId cleared, mid-fade, well before Home (which never
   // shows this header at all) was actually what the user was looking at.
   if (sessionId !== lastSessionIdRef.current) {
+    // TEMP diagnostic (real bug, "the chat name at the top bar goes to
+    // untitled as I re ran the first message but should stick to the same
+    // name given at the first time, the name at the sidebar stays the
+    // same") -- remove once found.
+    console.log("[chatname-debug] sessionId changed", {
+      from: lastSessionIdRef.current,
+      to: sessionId,
+      recentsCount: recents.length,
+      foundInRecents: recents.find((r) => r.id === sessionId)?.label,
+      chatNameBefore: chatName,
+    });
     lastSessionIdRef.current = sessionId;
     if (sessionId) {
       const known = recents.find((r) => r.id === sessionId)?.label ?? "Untitled chat";
@@ -734,6 +864,8 @@ export function AppLayout() {
   // document.activeElement check guards against a live edit in progress
   // here getting clobbered by a same-tick echo of the *previous* value.
   function receiveChatNameFromServer(name: string) {
+    // TEMP diagnostic, same bug as above -- remove once found.
+    console.log("[chatname-debug] receiveChatNameFromServer", { name });
     lastSavedChatNameRef.current = name;
     setChatName((current) => (document.activeElement?.id === "chatNameInput" ? current : name));
     void refreshSidebarLists();
@@ -781,11 +913,77 @@ export function AppLayout() {
   const [panelNav, setPanelNav] = useState<{ history: RightPanelEntry[]; index: number }>({ history: [], index: -1 });
   const [panelVisible, setPanelVisible] = useState(false);
   const rightPanel = panelVisible ? (panelNav.history[panelNav.index] ?? null) : null;
+  // Drives the header's own right-panel toggle button visibility -- see
+  // that button's own comment for the full reasoning. Always true on a
+  // real chat (hasOpenChat); on Library (no chat, no sessionId) it's
+  // true only once a file is actually open.
+  const visibleRightPanelToggle = hasOpenChat || rightPanel !== null;
 
   useEffect(() => {
     setPanelNav({ history: [], index: -1 });
     setPanelVisible(false);
   }, [sessionId]);
+
+  // Hide (not clear) the panel when leaving Library, and restore it on
+  // return -- real bug, confirmed directly ("when I open the file at
+  // library and move to new chat, that stays open, it should stay open
+  // at library page only"), then a direct correction on the first fix
+  // ("No, it should not close, if i left open at library when i comeback
+  // to it, it should still be open"): the effect above only resets on a
+  // real sessionId change, but Library and New Chat both have no
+  // sessionId at all (undefined on both), so that transition never
+  // tripped it -- a file opened from Library kept showing on unrelated
+  // pages. A first pass *cleared* panelNav on every non-Library route,
+  // which fixed the leak but also permanently forgot the file, so
+  // returning to Library never reopened it either. This snapshot ref
+  // instead remembers exactly what was open (only when it was actually a
+  // Library-opened panel -- !sessionId excludes a real chat's own file,
+  // which the sessionId effect above already owns resetting) and restores
+  // it the moment /library is reached again, from anywhere.
+  // useLayoutEffect, not useEffect -- real bug, confirmed directly ("we
+  // get the transition of the new chat page expanding its width...
+  // Does that make sense? We should not transition state between
+  // pages"): a plain effect runs *after* the browser has already
+  // painted the route-change render, so for one real frame the width
+  // styles below still computed off the *old* panelVisible/panelNav
+  // (rightPanel not yet cleared) -- routeJustChanged suppressed that
+  // frame's own transition duration, but the very next frame (this
+  // effect's setPanelVisible actually landing) was a same-route update
+  // again, so it animated normally, reading as the panel briefly
+  // flashing open then sliding shut on every single page leave. Moving
+  // the reset into a layout effect lets React apply it before that first
+  // paint instead, so there's never a stale in-between frame to animate
+  // away from.
+  const libraryPanelSnapshotRef = useRef<{ history: RightPanelEntry[]; index: number } | null>(null);
+  // settledPathname, not location.pathname, gates the *restore* branch
+  // below -- real bug, confirmed directly ("when moving from new chat
+  // page to library... the right panel shows the name example at the
+  // top bar and Loading()... the entire library page should be the one
+  // showing the fade out of the new chat page and fading in the left
+  // panel and right panel"): restoring immediately on the raw route
+  // change re-mounted the file panel (and squeezed mainContent down to
+  // Library's own 256px, below) *while the outgoing New Chat page was
+  // still mid-fade-out inside that same now-narrow column* -- both
+  // pages briefly shared one ancestor whose width had already jumped to
+  // the *new* page's own layout. settledPathname instead only updates
+  // once the outgoing page's own exit animation has genuinely finished
+  // (the outlet's own AnimatePresence onExitComplete, below), so the
+  // outgoing page keeps its natural full width for its entire fade-out,
+  // and Library's own sidebar/panel structure -- including restoring
+  // this snapshot -- only appears afterward.
+  useLayoutEffect(() => {
+    if (location.pathname !== "/library") {
+      libraryPanelSnapshotRef.current = rightPanel && !sessionId ? panelNav : null;
+      setPanelVisible(false);
+    } else if (settledPathname === "/library" && libraryPanelSnapshotRef.current) {
+      setPanelNav(libraryPanelSnapshotRef.current);
+      setPanelVisible(true);
+    }
+    // Checked directly against location.pathname (not the isLibraryRoute
+    // const further below, which is declared after this point in the
+    // function) -- fires exactly when leaving or arriving at /library.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, settledPathname]);
 
   function navigateRightPanel(entry: RightPanelEntry) {
     setPanelNav(({ history, index }) => ({ history: [...history.slice(0, index + 1), entry], index: index + 1 }));
@@ -803,6 +1001,51 @@ export function AppLayout() {
     // exactly this same spot, not reset to the chat's own file list.
     setPanelVisible(false);
   }
+  // Real bug, confirmed directly ("the close at the right sidebar when we
+  // have a file open is not to close the sidebar but to close the file to
+  // go back to library"): RightPanel's own FileEditorPanel used to reuse
+  // onRightPanelClose (the header toggle's own "collapse the whole
+  // sidebar" action) for its in-panel Close button too -- a distinct real
+  // action, going back to this chat's own file list, not hiding the panel
+  // outright. Falls back to actually closing only for the one case a
+  // "list" entry can't apply to at all (a file opened from the global
+  // Library page, no sessionId/chat context -- that same edge case is
+  // already called out just above, at the header toggle's own click
+  // handler).
+  function closeFileToLibrary() {
+    if (sessionId) navigateRightPanel({ type: "list", chatId: sessionId });
+    else onRightPanelClose();
+  }
+  // Real bug, confirmed directly ("I renamed example file in the library
+  // and the right sidebar still showing the not updated file name"):
+  // Library's own rename patches its own file list, but has no way to
+  // reach into this panel's own navigation history, so a file already
+  // open here (by its old path) kept showing the old path/title forever
+  // -- FileEditorPanel's own `path` prop, and everything it derives from
+  // that (the title, splitTitle's own filename fallback), never changes
+  // on its own just because the file moved on disk. Patches every
+  // history entry pointing at the old path, not just the current one, so
+  // going back/forward in this panel's own history doesn't resurrect it.
+  function renameOpenFile(oldPath: string, newPath: string) {
+    setPanelNav(({ history, index }) => ({
+      history: history.map((entry) => (entry.type === "file" && entry.path === oldPath ? { ...entry, path: newPath } : entry)),
+      index,
+    }));
+  }
+
+  // Real bug, confirmed directly ("the files at the right sidebar and
+  // library are not updating in real time so i have to refresh"): the
+  // right panel's own file list (ChatFileListPanel, right-panel.tsx) only
+  // ever fetches once per chatId, with nothing telling it a Write/Edit
+  // tool_use just landed for the chat it's already showing. ChatPage
+  // calls this (via the same outlet context openFile/renameOpenFile
+  // already go through) whenever it processes one of those tool_use
+  // blocks in the live event stream; bumping this tick is threaded down
+  // as a dependency into that same fetch effect, below.
+  const [filesTouchedTick, setFilesTouchedTick] = useState(0);
+  function notifyFilesTouched() {
+    setFilesTouchedTick((tick) => tick + 1);
+  }
 
   // Real drag-resize (mouse-driven width state), not react-resizable-panels
   // -- per explicit request ("make sure we are using the same drawer
@@ -817,6 +1060,131 @@ export function AppLayout() {
   // still works.
   const [rightPanelWidth, setRightPanelWidth] = useState(420);
   const [isResizingRightPanel, setIsResizingRightPanel] = useState(false);
+  // LibraryPage.tsx's own main column only ever holds its own w-64 project/
+  // chat sidebar -- real bug, confirmed directly via screenshot: opening a
+  // file there left a large empty gap between that sidebar and the
+  // (normally narrow) right panel, since the panel kept its ordinary fixed
+  // chat-editing width instead of using the space Library has nothing else
+  // to put there. Shrinking mainContent to exactly LibraryPage's own
+  // sidebar width (not to 0 -- a first pass at this collapsed the sidebar
+  // itself too, hiding it behind the now full-width panel instead of
+  // keeping it visible alongside the file) lets the right panel absorb
+  // everything past it, on this one route only -- a real open chat still
+  // needs that middle column for its own conversation.
+  // settledPathname, not location.pathname -- see that state's own
+  // comment: this drives the actual layout squeeze/expand, which needs
+  // to wait for the outgoing page's exit animation to finish, same
+  // reasoning as the panel-restore effect above.
+  const isLibraryRoute = settledPathname === "/library";
+  const libraryFullPanel = isLibraryRoute && rightPanel !== null;
+  // Must match LibraryPage.tsx's own left column ("w-64").
+  const LIBRARY_SIDEBAR_WIDTH = 256;
+
+  // Real bug, confirmed directly ("when switching pages... we get the
+  // transition of the new chat page expanding its width because the
+  // document that was open at library used that width, and if i return
+  // to library, the same opening transition happens again... We should
+  // not transition state between pages"): mainContent/the right panel's
+  // width transition is meant for opening/closing a file *while staying
+  // on* Library, not for a route change that happens to also change
+  // libraryFullPanel's own value (leaving Library with a file open drops
+  // it back to false; returning restores it back to true) -- from this
+  // effect's own perspective those look identical to a real toggle, so
+  // both animated too. Compared against a ref of the previous render's
+  // own pathname, in the render body itself (same technique this file's
+  // own lastSessionIdRef/chatName correction above already uses) so the
+  // very first render after a route change can see that it just
+  // happened and skip the transition for that one commit only -- any
+  // later toggle on the *same* route (actually opening/closing a file)
+  // still animates normally.
+  const prevPathnameForWidthRef = useRef(location.pathname);
+  const routeJustChanged = location.pathname !== prevPathnameForWidthRef.current;
+  prevPathnameForWidthRef.current = location.pathname;
+
+  // Belt-and-suspenders on top of routeJustChanged above -- confirmed
+  // directly that a real width transition was STILL visibly playing on
+  // the destination page after a route change ("the width animation is
+  // not playing at library but its playing at new chat page"), meaning
+  // routeJustChanged's own duration overrides didn't reach whatever
+  // element was actually still animating. Rather than keep chasing that
+  // element one at a time, this reuses the exact mechanism use-theme.tsx
+  // already relies on for the same class of problem (many independent
+  // transitions all needing to be silenced for one moment): .no-
+  // transitions (index.css) forces `transition: none !important` on
+  // every element underneath it, added for a single frame right after
+  // any route change and removed on the next one, so whichever element
+  // was animating (this one or a new one found later) simply can't.
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    root.classList.add("no-transitions");
+    // Double rAF, not a single one -- a single rAF callback can still run
+    // before the browser has actually painted the frame the class was
+    // meant to cover, removing it too early to have suppressed anything.
+    // The first rAF lands after that paint; the second one is where it's
+    // actually safe to remove the class.
+    let innerId = 0;
+    const outerId = requestAnimationFrame(() => {
+      innerId = requestAnimationFrame(() => {
+        root.classList.remove("no-transitions");
+      });
+    });
+    return () => {
+      cancelAnimationFrame(outerId);
+      cancelAnimationFrame(innerId);
+      root.classList.remove("no-transitions");
+    };
+  }, [location.pathname]);
+
+  // Real bug, confirmed directly ("we need our transition again when
+  // opening the file, the right sidebar should transition like it does
+  // on chat"): mainContent/the right panel below normally transition
+  // between two explicit pixel widths (that's what actually makes the
+  // width change animatable at all -- see this file's own comments on
+  // the right panel's width style). On Library, mainContent's own two
+  // states are "flex-1" (an implicit, auto-computed width) and a literal
+  // 256px, and there's nothing to interpolate *from* a flex-1 box's
+  // width isn't a real authored value CSS can transition. Measuring the
+  // actual available row width (this row's own real pixel width, minus
+  // nothing else -- it already excludes the left sidebar just by being
+  // its flex sibling) turns that implicit state into a real number too,
+  // so both Library states become plain pixel-to-pixel transitions like
+  // every other width animation in this file already is.
+  const contentRowRef = useRef<HTMLDivElement>(null);
+  const mainContentRef = useRef<HTMLDivElement>(null);
+  const [contentRowWidth, setContentRowWidth] = useState(0);
+  useEffect(() => {
+    const el = contentRowRef.current;
+    if (!el) return;
+    const update = () => setContentRowWidth(el.getBoundingClientRect().width);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  const rightPanelTargetWidth = isLibraryRoute
+    ? rightPanel
+      ? Math.max(0, contentRowWidth - LIBRARY_SIDEBAR_WIDTH)
+      : 0
+    : rightPanel
+      ? rightPanelWidth
+      : 0;
+  // Temporary diagnostic -- per explicit report ("the right sidebar still
+  // going over the chat when opened and not reducing the chat width like
+  // before"), the code here looks structurally correct (a real flex row,
+  // mainContent as flex-1/min-w-0, the panel as a fixed-width shrink-0
+  // sibling), so logging the actual computed numbers rather than guessing
+  // at CSS blind again. Remove once the real cause is found.
+  useEffect(() => {
+    console.log("[right-panel-layout]", {
+      isLibraryRoute,
+      rightPanelOpen: !!rightPanel,
+      contentRowWidth,
+      rightPanelWidth,
+      rightPanelTargetWidth,
+      mainContentEl: mainContentRef.current?.getBoundingClientRect(),
+      contentRowEl: contentRowRef.current?.getBoundingClientRect(),
+    });
+  }, [isLibraryRoute, rightPanel, contentRowWidth, rightPanelWidth, rightPanelTargetWidth]);
 
   function startRightPanelResize(event: React.MouseEvent) {
     event.preventDefault();
@@ -841,6 +1209,8 @@ export function AppLayout() {
     openSettings,
     refreshSidebarLists,
     openFile: (path: string) => navigateRightPanel({ type: "file", path }),
+    renameOpenFile,
+    notifyFilesTouched,
     // Per explicit request ("The right sidebar is not expanding enough, it
     // should expand to compact the chat message so instead of being 800px
     // default that be 400px with the sidebar open") -- ChatPage.tsx reads
@@ -908,27 +1278,34 @@ export function AppLayout() {
               it skips this row (and the space it reserves) entirely
               instead of just fading it to invisible. */}
           {!isSettingsRoute && (
-              // No h-12/border-b any more -- per explicit request, matching
-            // dray's own equivalent header (its App.tsx's own <header>,
-            // which repurposes its native title-bar strip instead of
-            // drawing a separate bordered bar below it): "there's no top
-            // bar at the content page" there, just the session name
-            // sitting bare with no border/background/fixed-height chrome
-            // of its own. py-2, not h-12, so this row still sizes to its
-            // own content instead of collapsing to nothing. Quick
-            // chat/Memory/Share/AvatarStack all stayed at first (this was
-            // originally just a styling change, drop the border/height/bg,
-            // not a removal of dray's session-name-only header contents) --
-            // since replaced by small icon buttons below, per a later,
-            // separate request.
-            // px-3 py-1.5, not px-4 py-2 -- dray's own equivalent header is a
-            // fixed h-(--titlebar-h) (40px) row with px-3; this row sizes to
-            // its own content instead (no fixed height, see this file's own
-            // comment above), but at px-4 py-2 with size-7 icon buttons
-            // inside it computed taller and wider than that 40px reference,
-            // which is what read as "too big" -- px-3 py-1.5 lands closer to
-            // it without pinning an exact height this row was deliberately
-            // built to not have.
+              // border-b border-border added back -- per a later explicit
+            // follow-up ("Our chat name as well has a top bar together with
+            // the buttons at the top right so we need to add a topbar
+            // bottom border too"), matching the same border now added to
+            // Library's own header (LibraryPage.tsx) and the right panel's
+            // (right-panel.tsx). This reverses the "no top bar" decision
+            // below -- both its border and (see h-10, next) its "sizes to
+            // its own content, no fixed height" half -- since a border
+            // shared across a real seam (this header sits directly left of
+            // the right panel's own header, screenshot confirmed) has to
+            // land at the exact same y for the two to actually read as one
+            // continuous line rather than two separately-drawn ones a pixel
+            // or two apart. h-10, not py-1.5 -- real bug, confirmed
+            // directly via a follow-up screenshot ("the chat and right
+            // sidebar topbar bottom borders are not aligned to be
+            // seamless"): matching content sizing to a coincidentally
+            // similar height (both landing near 40px) isn't the same
+            // guarantee as both rows sharing one real fixed height, and it
+            // showed. h-10 mirrors dray's own reference (the comment this
+            // replaces already cited its `h-(--titlebar-h)`, 40px) and is
+            // now also set explicitly on right-panel.tsx's own two headers
+            // and LibraryPage.tsx's, so all three are pinned to the same
+            // value instead of three independent paddings that happen to
+            // land close.
+            //
+            // Below: the original "no top bar" decision's own reasoning,
+            // for the parts that still hold (no background, dray's own
+            // session-name-only header contents).
             // relative z-10 -- confirmed directly as the real root cause of
             // "still not working" (neither the hover background nor the
             // tooltip pill, on either fix attempt): this row sits at the
@@ -947,11 +1324,16 @@ export function AppLayout() {
             // matches the sidebar's own real stacking level (that div's
             // own comment), safely above the drag region's z-0.
             <motion.header
-              animate={{ opacity: hasOpenChat ? 1 : 0, transition: spring.slow }}
-              className={`relative z-10 flex shrink-0 items-center justify-between gap-2 py-1.5 pr-3 pl-2 ${hasOpenChat ? "" : "pointer-events-none"}`}
+              animate={{ opacity: showChatHeader ? 1 : 0, transition: spring.slow }}
+              className={`relative z-10 flex h-10 shrink-0 items-center justify-between gap-2 border-b border-border pr-3 pl-2 ${showChatHeader ? "" : "pointer-events-none"}`}
             >
               <div className="flex items-center gap-2">
-                <PageBreadcrumb chatName={chatName} onSaveChatName={saveChatName} />
+                <PageBreadcrumb
+                  chatName={chatName}
+                  onSaveChatName={saveChatName}
+                  models={recents.find((r) => r.id === sessionId)?.models}
+                  active={showChatHeader}
+                />
               </div>
               {/* gap-0.5, not gap-2 -- icon-sm's own 28px box already has visible
                   empty margin around each 16px glyph, so gap-2 on top of that read
@@ -983,6 +1365,95 @@ export function AppLayout() {
                     (size-7/28px), but the icons inside it hadn't been
                     stepped down to the matching compact icon token (14px)
                     yet. */}
+                {/* Memory button removed -- per explicit request ("we won't
+                    do that now"), same decorative/placeholder status it
+                    always had, just not shipped for now. */}
+                {/* Right-hand sidebar toggle -- brought back per explicit
+                    report ("The right sidebar icon is missing at the top
+                    right row"), opening this *chat's own* file list per a
+                    later explicit follow-up ("that should open the
+                    library of this chat and show multiple files/ one per
+                    row file and when i click at it i should be able to
+                    see, edit and save changes to the file"). Restores
+                    wherever panelNav was left (a real file, mid-scroll,
+                    etc.) if there's already history for this chat --
+                    per a further explicit follow-up ("when collapsing the
+                    right sidebar that should save the state we were at...
+                    should be in the same place") -- only starting a fresh
+                    list when there's no history yet (a real chat switch
+                    already resets it, the effect above). Disabled only
+                    when there's no open chat to list files for at all
+                    (Home, Library, etc.). */}
+                <button
+                  type="button"
+                  aria-label={t("chatHeader.chatFiles")}
+                  // hasOpenChat || rightPanel !== null, not just !sessionId
+                  // -- real bug, confirmed directly ("the collapse right
+                  // sidebar should be active only when we open a file so we
+                  // can close that sidebar again... right now it doesn't
+                  // work"): Library opens a file via openFile ->
+                  // navigateRightPanel directly, with no chat session at
+                  // all (sessionId is only ever set on a real chat route),
+                  // so the old !sessionId gate disabled this button
+                  // outright on Library, even with a file open -- there
+                  // was no way to close it again except navigating away.
+                  //
+                  // A second, separate follow-up on the same button ("We
+                  // are showing inactive right sidebar at the library, it
+                  // should only fade in once we open the file to close
+                  // it"): with Library now showing this header at all
+                  // (showChatHeader's own /library branch), this button
+                  // started rendering permanently -- just disabled/dimmed
+                  // -- on every Library visit even with nothing open, since
+                  // disabled alone only blocks the click, not the button's
+                  // own visibility. On a real chat this button is still
+                  // always useful (clicking opens the file list from
+                  // scratch), so it stays visible there unconditionally;
+                  // on Library it only has one job -- closing an already-
+                  // open file -- so it now fades in only once a file
+                  // actually opens, and fades back out once it closes,
+                  // instead of sitting there inert the rest of the time.
+                  disabled={!visibleRightPanelToggle}
+                  onClick={() => {
+                    // Toggles closed when already open -- per explicit
+                    // request ("when we click at the icon of the right
+                    // sidebar when right is open, that should collapse
+                    // the sidebar again"), same open/close pairing every
+                    // other icon-toggled panel in this app already has.
+                    // Checked first, before the sessionId gate below: a
+                    // Library-opened file has no sessionId at all, but
+                    // should still be closable.
+                    if (rightPanel) {
+                      onRightPanelClose();
+                      return;
+                    }
+                    if (!sessionId) return;
+                    if (panelNav.history.length === 0) navigateRightPanel({ type: "list", chatId: sessionId });
+                    else setPanelVisible(true);
+                  }}
+                  // disabled:hover:text-muted-foreground -- real bug,
+                  // confirmed directly ("The button looks disabled as i
+                  // hover that changes color"): a disabled <button> still
+                  // matches CSS :hover (disabled only blocks click/focus,
+                  // not the pseudo-class), so hover:text-foreground was
+                  // firing regardless of the disabled state, reading as
+                  // "not actually disabled" even though clicking correctly
+                  // did nothing.
+                  //
+                  // text-foreground at rest, not text-muted-foreground --
+                  // real bug, confirmed directly ("the color of the right
+                  // sidebar icon does not match the three dot beside it"):
+                  // the "..." trigger right next to this one is MoreTrigger
+                  // with autoHide={false}, which per that shared
+                  // component's own comment rests at text-foreground (the
+                  // always-visible-icon convention every standalone header
+                  // icon in this app follows) -- this button was the one
+                  // standalone header icon still resting dimmer, at
+                  // text-muted-foreground, instead of matching it.
+                  className={`flex size-7 shrink-0 items-center justify-center rounded-lg text-foreground transition-[opacity,color,background-color] hover:bg-hover-2/50 disabled:text-muted-foreground disabled:hover:bg-transparent ${visibleRightPanelToggle ? "opacity-100" : "pointer-events-none opacity-0"}`}
+                >
+                  <SidebarRightIcon className="size-3.5" />
+                </button>
                 {/* Real "..." menu now, not a decorative Share icon -- per
                     explicit request ("at the top right of the chat once
                     created where it shows the name we should add a three
@@ -1004,6 +1475,7 @@ export function AppLayout() {
                     matches this whole header's own guard above), since
                     neither action means anything on the Home/new-chat
                     screen. */}
+                {sessionId && <PresenceStack />}
                 {sessionId && (
                   // size="compact" -- per explicit request ("Share chat
                   // and enable notifications dropdown needs to be smaller
@@ -1016,14 +1488,32 @@ export function AppLayout() {
                   // instead of hand-picking a one-off text-xs override
                   // that would drift from those the moment the shared
                   // scale changes.
+                  <>
                   <BaseDropdownMenu size="compact">
                     <BaseDropdownTrigger
                       render={
-                        <MoreTrigger orientation="vertical" size="md" bg autoHide={false} aria-label="Chat options" />
+                        <MoreTrigger orientation="vertical" size="md" bg autoHide={false} aria-label={t("chatHeader.chatOptions")} />
                       }
                     />
                     <BaseDropdownContent align="end" className="w-40">
-                      <BaseDropdownLabel>More</BaseDropdownLabel>
+                      <BaseDropdownLabel>{t("common.more")}</BaseDropdownLabel>
+                      {/* Enable/Disable notification first -- per explicit
+                          follow-up ("remove the allowed commands option and
+                          move Enable notifications to the top as that's the
+                          only available option there now"): with Allowed
+                          commands gone (below), this is the one item that
+                          always works regardless of sign-in state, unlike
+                          Share chat right after it. */}
+                      <BaseMenuItem
+                        index={0}
+                        icon={BellIcon}
+                        label={chatNotifyEnabled ? t("chatHeader.disableNotification") : t("chatHeader.enableNotification")}
+                        className="gap-[7px]"
+                        onSelect={() => {
+                          setChatNotificationsEnabled(sessionId, !chatNotifyEnabled);
+                          setChatNotifyEnabledState(!chatNotifyEnabled);
+                        }}
+                      />
                       {/* Gated on sign-in, not on anything provider-related --
                           per explicit request/correction ("the send button
                           should be available once users have setup their
@@ -1041,9 +1531,9 @@ export function AppLayout() {
                           (menu-item.tsx), which would otherwise swallow the
                           hover needed to show this tooltip too. */}
                       <BaseMenuItem
-                        index={0}
+                        index={1}
                         icon={ShareIcon}
-                        label="Share chat"
+                        label={t("chatHeader.shareChat")}
                         disabled={!isSignedIn}
                         className="gap-[7px]"
                         badge={
@@ -1066,35 +1556,16 @@ export function AppLayout() {
                                   so it stays correct if this tooltip pattern
                                   ever gets reused inside a deeper nested
                                   menu. */}
-                              <TooltipContent className="z-[9999]">The share feature is only available when signed in.</TooltipContent>
+                              <TooltipContent className="z-[9999]">{t("chatHeader.shareSignedIn")}</TooltipContent>
                             </Tooltip>
                           )
                         }
-                        onSelect={() =>
-                          void fetch(`/sessions/${sessionId}/messages`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ prompt: "/share", sender_name: getUserDisplayName() }),
-                          })
-                        }
+                        onSelect={() => setShareOpen(true)}
                       />
-                      <BaseMenuItem
-                        index={1}
-                        icon={BellIcon}
-                        label={chatNotifyEnabled ? "Disable notification" : "Enable notification"}
-                        className="gap-[7px]"
-                        onSelect={() => {
-                          setChatNotificationsEnabled(sessionId, !chatNotifyEnabled);
-                          setChatNotifyEnabledState(!chatNotifyEnabled);
-                        }}
-                      />
-                      <BaseMenuItem
-                        index={2}
-                        icon={CheckIcon}
-                        label="Allowed commands"
-                        className="gap-[7px]"
-                        onSelect={() => setAllowedCommandsOpen(true)}
-                      />
+                      {/* Allowed commands removed entirely -- per explicit
+                          request. AllowedCommandsDialog (this file's own
+                          removed function) is gone too, since this was its
+                          only way to open. */}
                       <DropdownSeparator />
                       {/* Add to project -- per explicit request ("the chat
                           three dots at the sidebar and at the top right
@@ -1108,15 +1579,15 @@ export function AppLayout() {
                           submenu. */}
                       {recents.find((r) => r.id === sessionId)?.projectId ? (
                         <BaseMenuItem
-                          index={3}
+                          index={2}
                           icon={FolderIcon}
-                          label="Remove from project"
+                          label={t("nav.chat.removeFromProject")}
                           className="gap-[7px]"
                           onSelect={() => void assignChatToProject(null)}
                         />
                       ) : sidebarProjects.length > 0 ? (
-                        <DropdownSubMenuItem index={3} icon={FolderIcon} label="Add to project" className="gap-[7px] text-[12px]">
-                          <BaseDropdownLabel>Projects</BaseDropdownLabel>
+                        <DropdownSubMenuItem index={2} icon={FolderIcon} label={t("nav.chat.addToProject")} className="gap-[7px] text-[12px]">
+                          <BaseDropdownLabel>{t("nav.projects")}</BaseDropdownLabel>
                           {sidebarProjects.map((project) => (
                             <DropdownSubItem
                               key={project.id}
@@ -1131,69 +1602,13 @@ export function AppLayout() {
                         // Plain, disabled row, not a submenu -- same fix as
                         // sidebar-nav.tsx's own ChatRow (that file's own
                         // comment has the full reasoning/screenshot).
-                        <BaseMenuItem index={3} icon={FolderIcon} label="Add to project" className="gap-[7px]" disabled />
+                        <BaseMenuItem index={2} icon={FolderIcon} label={t("nav.chat.addToProject")} className="gap-[7px]" disabled />
                       )}
                     </BaseDropdownContent>
                   </BaseDropdownMenu>
+                  <ShareDialog sessionId={sessionId} open={shareOpen} onOpenChange={setShareOpen} />
+                  </>
                 )}
-                {sessionId && <AllowedCommandsDialog sessionId={sessionId} open={allowedCommandsOpen} onOpenChange={setAllowedCommandsOpen} />}
-                {/* Memory button removed -- per explicit request ("we won't
-                    do that now"), same decorative/placeholder status it
-                    always had, just not shipped for now. */}
-                {/* Right-hand sidebar toggle -- brought back per explicit
-                    report ("The right sidebar icon is missing at the top
-                    right row"), opening this *chat's own* file list per a
-                    later explicit follow-up ("that should open the
-                    library of this chat and show multiple files/ one per
-                    row file and when i click at it i should be able to
-                    see, edit and save changes to the file"). Restores
-                    wherever panelNav was left (a real file, mid-scroll,
-                    etc.) if there's already history for this chat --
-                    per a further explicit follow-up ("when collapsing the
-                    right sidebar that should save the state we were at...
-                    should be in the same place") -- only starting a fresh
-                    list when there's no history yet (a real chat switch
-                    already resets it, the effect above). Disabled only
-                    when there's no open chat to list files for at all
-                    (Home, Library, etc.). */}
-                <button
-                  type="button"
-                  aria-label="Chat files"
-                  disabled={!sessionId}
-                  onClick={() => {
-                    if (!sessionId) return;
-                    // Toggles closed when already open -- per explicit
-                    // request ("when we click at the icon of the right
-                    // sidebar when right is open, that should collapse
-                    // the sidebar again"), same open/close pairing every
-                    // other icon-toggled panel in this app already has.
-                    if (rightPanel) onRightPanelClose();
-                    else if (panelNav.history.length === 0) navigateRightPanel({ type: "list", chatId: sessionId });
-                    else setPanelVisible(true);
-                  }}
-                  // disabled:hover:text-muted-foreground -- real bug,
-                  // confirmed directly ("The button looks disabled as i
-                  // hover that changes color"): a disabled <button> still
-                  // matches CSS :hover (disabled only blocks click/focus,
-                  // not the pseudo-class), so hover:text-foreground was
-                  // firing regardless of the disabled state, reading as
-                  // "not actually disabled" even though clicking correctly
-                  // did nothing.
-                  //
-                  // text-foreground at rest, not text-muted-foreground --
-                  // real bug, confirmed directly ("the color of the right
-                  // sidebar icon does not match the three dot beside it"):
-                  // the "..." trigger right next to this one is MoreTrigger
-                  // with autoHide={false}, which per that shared
-                  // component's own comment rests at text-foreground (the
-                  // always-visible-icon convention every standalone header
-                  // icon in this app follows) -- this button was the one
-                  // standalone header icon still resting dimmer, at
-                  // text-muted-foreground, instead of matching it.
-                  className="flex size-7 shrink-0 items-center justify-center rounded-lg text-foreground transition-colors hover:bg-hover-2/50 disabled:text-muted-foreground disabled:opacity-40 disabled:hover:bg-transparent"
-                >
-                  <SidebarRightIcon className="size-3.5" />
-                </button>
               </div>
             </motion.header>
           )}
@@ -1242,7 +1657,17 @@ export function AppLayout() {
               of the page. */}
           <div className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col">
           <div className="relative z-10 min-h-0 flex-1">
-            <AnimatePresence initial={false}>
+            {/* onExitComplete -> setSettledPathname: real bug, confirmed
+                directly ("moving from new chat page to library... the
+                entire library page should be the one showing the fade
+                out of the new chat page and fading in the left panel and
+                right panel"): settledPathname (this file's own comment on
+                its declaration has the full reasoning) needs to know the
+                exact moment the outgoing page's own exit animation here
+                finishes, so Library's sidebar/panel layout squeeze
+                doesn't kick in and visibly squash that outgoing page
+                while it's still fading out. */}
+            <AnimatePresence initial={false} onExitComplete={() => setSettledPathname(location.pathname)}>
               <motion.div
                 key={location.pathname}
                 initial={{ opacity: 0 }}
@@ -1415,7 +1840,7 @@ export function AppLayout() {
             {sidebarFullyCollapsed && (
               <button
                 type="button"
-                aria-label="Expand sidebar"
+                aria-label={t("chatHeader.expandSidebar")}
                 onClick={() => setSidebarExpandSignal((n) => n + 1)}
                 className={`fixed top-2 ${trafficLightsVisible ? "left-[74px]" : "left-2"} z-20 flex size-5 shrink-0 items-center justify-center rounded-[6px] text-muted-foreground transition-colors duration-150 hover:bg-hover-2/50 hover:text-foreground active:scale-[0.98]`}
               >
@@ -1468,9 +1893,23 @@ export function AppLayout() {
             is defined once and referenced from both the always-mounted
             main column and this drawer's sibling position, so neither
             duplicates the whole content column's own JSX. */}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          {mainContent}
-        </div>
+        <div ref={contentRowRef} className="flex min-h-0 min-w-0 flex-1">
+          <div
+            ref={mainContentRef}
+            className={`flex min-h-0 min-w-0 flex-col overflow-hidden ${isLibraryRoute ? "flex-none" : "flex-1"}`}
+            style={
+              isLibraryRoute
+                ? {
+                    width: libraryFullPanel ? LIBRARY_SIDEBAR_WIDTH : contentRowWidth,
+                    transitionProperty: "width",
+                    transitionDuration: routeJustChanged ? "0ms" : `${SIDEBAR_MOTION_MS}ms`,
+                    transitionTimingFunction: SIDEBAR_EASING,
+                  }
+                : undefined
+            }
+          >
+            {mainContent}
+          </div>
         {/* relative z-10 -- real bug, confirmed directly ("Any of the
             buttons at the right sidebar is not working"): without an
             explicit position, this drawer was a plain in-flow element,
@@ -1486,34 +1925,52 @@ export function AppLayout() {
             react-resizable-panels Panel this replaced happened to apply
             position: relative internally, which is why this never
             surfaced before that swap. */}
-        <div
-          className="relative z-10 flex h-full shrink-0 overflow-hidden"
-          style={{
-            width: rightPanel ? rightPanelWidth : 0,
-            transitionProperty: "width",
-            transitionDuration: isResizingRightPanel ? "0ms" : `${SIDEBAR_MOTION_MS}ms`,
-            transitionTimingFunction: SIDEBAR_EASING,
-          }}
-        >
-          {rightPanel && (
-            <>
-              <div
-                onMouseDown={startRightPanelResize}
-                className="w-px shrink-0 cursor-col-resize bg-border transition-colors hover:bg-focus-accent"
-              />
-              <div style={{ width: rightPanelWidth }} className="h-full shrink-0">
-                <RightPanel
-                  state={rightPanel}
-                  onClose={onRightPanelClose}
-                  onSelectFile={(path) => navigateRightPanel({ type: "file", path })}
-                  onBack={rightPanelGoBack}
-                  onForward={rightPanelGoForward}
-                  canGoBack={panelNav.index > 0}
-                  canGoForward={panelNav.index < panelNav.history.length - 1}
+          <div
+            className={`relative z-10 flex h-full overflow-hidden ${isLibraryRoute ? "flex-none" : "shrink-0"}`}
+            style={{
+              width: rightPanelTargetWidth,
+              transitionProperty: "width",
+              transitionDuration: isResizingRightPanel || routeJustChanged ? "0ms" : `${SIDEBAR_MOTION_MS}ms`,
+              transitionTimingFunction: SIDEBAR_EASING,
+            }}
+          >
+            {rightPanel && (
+              <>
+                {/* Real bug, confirmed directly ("our right sidebar has a
+                    thick border because the left panel inside library has a
+                    right border already"): LibraryPage.tsx's own sidebar
+                    used to always draw its own border-r, which doubled up
+                    against this always-present strip into a visibly
+                    thicker line whenever a file was open there. Capping
+                    just this strip's own height to the header row (tried
+                    first) left a real gap instead -- LibraryPage's border-r
+                    starts a hair below the exact pixel this strip's own
+                    capped height ended at, however that's actually
+                    computed. Fixed at the actual source instead:
+                    LibraryPage.tsx now drops its own border-r whenever the
+                    right panel is open (rightPanelOpen, from this same
+                    outlet context), leaving this one full-height strip as
+                    the only vertical line -- same as a real chat's body
+                    already gets from it, nothing competing. */}
+                <div
+                  onMouseDown={libraryFullPanel ? undefined : startRightPanelResize}
+                  className={`w-px shrink-0 bg-border transition-colors ${libraryFullPanel ? "" : "cursor-col-resize hover:bg-focus-accent"}`}
                 />
-              </div>
-            </>
-          )}
+                <div style={{ width: rightPanelTargetWidth }} className="h-full shrink-0">
+                  <RightPanel
+                    state={rightPanel}
+                    onCloseFile={closeFileToLibrary}
+                    onSelectFile={(path) => navigateRightPanel({ type: "file", path })}
+                    onBack={rightPanelGoBack}
+                    onForward={rightPanelGoForward}
+                    canGoBack={panelNav.index > 0}
+                    canGoForward={panelNav.index < panelNav.history.length - 1}
+                    filesTouchedTick={filesTouchedTick}
+                  />
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
   );

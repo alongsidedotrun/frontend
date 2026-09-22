@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
@@ -191,15 +192,15 @@ export function formatResetCountdown(resetsAt: string): string {
   const resetMs = Date.parse(resetsAt);
   if (Number.isNaN(resetMs)) return "";
   const diffMs = resetMs - Date.now();
-  if (diffMs <= 0) return "Resets soon";
+  if (diffMs <= 0) return i18n.t("usage.resetsSoon");
   const totalMinutes = Math.floor(diffMs / 60_000);
   const days = Math.floor(totalMinutes / 1_440);
   const hours = Math.floor((totalMinutes % 1_440) / 60);
   const minutes = totalMinutes % 60;
-  if (days > 0) return `Resets in ${days}d ${hours}h`;
-  if (hours > 0) return `Resets in ${hours}h ${minutes}m`;
-  if (minutes > 0) return `Resets in ${minutes}m`;
-  return "Resets soon";
+  if (days > 0) return i18n.t("usage.resetsInDH", { d: days, h: hours });
+  if (hours > 0) return i18n.t("usage.resetsInHM", { h: hours, m: minutes });
+  if (minutes > 0) return i18n.t("usage.resetsInM", { m: minutes });
+  return i18n.t("usage.resetsSoon");
 }
 
 const USAGE_BAR_COUNT = 10;

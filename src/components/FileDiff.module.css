@@ -1,34 +1,134 @@
-.diff { border-radius: 12px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.02), 0 0 0 0.5px rgba(0,0,0,0.08); padding: 12px 16px 16px; overflow: hidden; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+/* width: 100% -- real bug, confirmed directly via screenshot ("the diff
+   has the content exiting boundary width"): this card's own parent (the
+   agent row's flex column) uses items-start, so a block child sizes to its
+   own content instead of being stretched to the column's width -- with
+   .diffLines below (at the time) sized to max-content, a genuinely long
+   code line grew the WHOLE card past the message column's edge. Fixed
+   here, and again below (.diffLines' own comment) for the same overflow
+   surfacing a second time once this card's own width was actually fixed. */
+.diff { width: 100%; border-radius: 12px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.02), 0 0 0 0.5px rgba(0,0,0,0.08); padding: 12px 16px 16px; overflow: hidden; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
 .diffHead {
   display: flex; align-items: center; gap: 8px;
   margin: -12px -16px 0; padding: 10px 12px 10px 16px;
   background: transparent; border-bottom: 0.5px solid #e6e8ec; font-size: 12.5px;
 }
-.diffFileWrap { display: inline-flex; align-items: center; gap: 7px; }
+/* Per-file header for a file that's one of SEVERAL in a multi-file group
+   (ResolvedFile's own `nested` comment has the full reasoning) -- real bug,
+   confirmed directly via screenshot ("New 3 files... gave me one with the
+   same but broken", three genuinely different Antigravity files rendered
+   with no way to tell them apart): .diffHead's own negative margins only
+   make sense as the very top of a `.diff` card; this sits inset in the
+   group's own body instead, separated from whatever came before it by a
+   top border rather than spanning edge-to-edge. */
+/* padding-right: 12px, matching .diffHead's own right padding exactly (not
+   16px, symmetric with the left side) -- real bug, confirmed directly via
+   screenshot ("Its more to the left than the top one"): a nested file's
+   own stat block sat 4px further left than the group header's own,
+   because this had 4px more right padding boxing it in. */
+.diffSubHead {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px 8px 16px; font-size: 12.5px;
+}
+/* margin/padding, not the card's own inherited 16px side padding -- real
+   bug, confirmed directly via screenshot ("some indentions to each file
+   row... the divider lines as well got the indention but should be full
+   width"): a nested file used to sit inside .diff's own side padding, so
+   both its own row content and its own divider line stopped short of the
+   card's true edges, unlike .diffHead (above), which already spans
+   edge-to-edge via the same negative-margin trick used here now. */
+.diffNestedFile { margin: 0 -16px; }
+/* Real bug, confirmed directly via screenshot ("two lines divider at the
+   bottom of the title and at the top of the first row... keep only the
+   title bottom line"): :first-of-type matches the first <div> among ALL
+   siblings regardless of class -- that's .diffHead itself (also a plain
+   div, always first), never the first actual file row, so this border
+   never got suppressed on any real file and doubled up with .diffHead's
+   own border-bottom. The adjacent-sibling form only matches a file that
+   directly follows ANOTHER file, which correctly excludes the one
+   following .diffHead without needing a first-child exception at all. */
+.diffNestedFile + .diffNestedFile { border-top: 0.5px solid #e6e8ec; }
+/* Real bug, confirmed directly via screenshot ("there's a bigger bottom
+   gap/padding/margin than the others, remove that"): .diff's own base
+   padding-bottom (16px) is meant to be canceled by a real diff body's own
+   negative margin (.diffBody, below) once content actually renders flush
+   to the card's true edge -- a COLLAPSED nested file (the common case;
+   it shows only its own header, no body at all) never renders that
+   canceling element, so the outer 16px padding showed through underneath
+   the last file specifically, on top of that header's own natural 8px --
+   nearly 3x the spacing between every OTHER pair of files. Driven from
+   ResolvedFile's own render (a `lastCollapsed` class, only applied when
+   this really is the last file AND it's genuinely rendering no body),
+   not a CSS-only :has() heuristic -- that would have also fired for a
+   last file that's actually expanded, double-canceling real diff content
+   flush against .diffBody's own already-correct negative margin. */
+.diffLastCollapsed { margin-bottom: -16px; }
+.diffHeadMain {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+}
+.diffFileWrap { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
 .diffIcon { display: block; width: 15px; height: 15px; color: #a1a1a1; flex: none; }
-.diffFile { color: #1a1a1a; line-height: 1; }
-.diffStat { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; font-size: 12px; line-height: 1; }
+/* line-height: 18px, not 1 -- real bug, confirmed directly via screenshot
+   ("numbers of add and delete and arrows do not match the title
+   vertically"): line-height: 1 computes to a different real pixel height
+   per font (.diffFile's own sans-serif name vs .diffStat's own monospace
+   digits, .diff's own font-family), so their line-boxes centered to
+   different heights even under the same align-items: center -- a fixed
+   18px for both instead matches DiffChevron's own real 18px box exactly,
+   so all three sit on the same center line regardless of font metrics. */
+.diffFile { overflow: hidden; color: #1a1a1a; line-height: 18px; text-overflow: ellipsis; white-space: nowrap; }
+.diffStat { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; font-size: 12px; line-height: 18px; }
 .diffStat .add { color: #15a06a; }
 .diffStat .del { color: #dc2626; }
+.diffChevron {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 4px;
+  color: #a1a1a1;
+  background: transparent;
+}
+.diffChevron:hover { color: #1a1a1a; background: rgba(0, 0, 0, 0.05); }
 .diffBody {
   position: relative;
-  margin: 0 -16px -16px; overflow-x: auto; overflow-y: hidden;
-  padding: 4px 0; font-size: 12.5px; line-height: 20px;
-  scrollbar-width: none; -ms-overflow-style: none;
+  margin: 0 -16px -16px; overflow: hidden;
+  /* Real bug, confirmed directly via screenshot ("It's the gap from the
+     green/red entire div to the bg of the editor") -- the colored add/del
+     background spans the full diff block with barely any room above it
+     (right against the header's own divider) or below it (right against
+     the card's own bottom edge). This is that outer gap, not per-row
+     spacing (a separate, wrong guess already reverted, above). */
+  padding: 20px 0; font-size: 12.5px; line-height: 20px;
 }
-.diffBody::-webkit-scrollbar { display: none; }
-.diffLines { position: relative; width: max-content; min-width: 100%; }
-/* full-height gutter divider at the line-number edge (32px + 32px).
-   Lives on the inner track so it stays aligned while the body scrolls. */
-.diffLines::before { content: ""; position: absolute; top: 0; bottom: 0; left: 64px; width: 0.5px; background: #e6e8eb; z-index: 1; pointer-events: none; }
+/* width: 100%, not max-content -- real bug, confirmed directly via
+   screenshot ("file diff still exiting the content width"): max-content
+   let this grow past .diffBody's own box on a long line, relying entirely
+   on horizontal scroll to contain it -- a scrollbar this app deliberately
+   hides (below), so there was no visible affordance telling a reader that
+   was even possible; it just read as broken. Long lines wrap in place
+   instead now (.diffRow code, below), the same way a chat-embedded diff
+   reads elsewhere in this app, rather than requiring a hidden scroll. */
+.diffLines { position: relative; width: 100%; }
+/* full-height gutter divider at the line-number edge. */
+.diffLines::before { content: ""; position: absolute; top: 0; bottom: 0; left: 34px; width: 0.5px; background: #e6e8eb; z-index: 1; pointer-events: none; }
 .diffRow {
   position: relative;
-  display: grid; grid-template-columns: 32px 32px 18px 1fr; align-items: stretch;
+  display: grid; grid-template-columns: 34px 18px 1fr; align-items: start;
 }
 .diffRow .ln, .diffRow .sign { user-select: none; color: #a1a1a1; font-size: 11px; }
-.diffRow .ln { text-align: right; padding: 0 7px; }
+.diffRow .ln { text-align: right; padding: 0 8px; }
 .diffRow .sign { text-align: center; }
-.diffRow code { white-space: pre; padding: 0 12px 0 8px; color: #a1a1a1; }
+.diffRow code { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; padding: 0 12px 0 8px; color: #a1a1a1; }
 /* left accent bar: solid green for additions, red hatch for deletions */
 .diffRow.add::before, .diffRow.del::before {
   content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 3px;
@@ -38,24 +138,33 @@
   background: repeating-linear-gradient(45deg, #dc2626 0, #dc2626 1.5px, transparent 1.5px, transparent 3px);
 }
 .diffRow.add { background: rgba(26, 127, 55, 0.09); }
-.diffRow.add .sign, .diffRow.add .new { color: #15a06a; }
+.diffRow.add .sign, .diffRow.add .ln { color: #15a06a; }
 .diffRow.add code { color: #1a1a1a; }
 .diffRow.del { background: rgba(207, 34, 46, 0.09); }
-.diffRow.del .sign, .diffRow.del .old { color: #dc2626; }
+.diffRow.del .sign, .diffRow.del .ln { color: #dc2626; }
 .diffRow.del code { color: #1a1a1a; }
 @media (prefers-color-scheme: dark) {
   .diff { background: #1a1a1a; box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.3), 0 0 0 0.5px rgba(255,255,255,0.12); }
   .diffHead { border-bottom-color: #303030; }
+  /* Real bug, confirmed directly via screenshot ("The line dividers are
+     now a different color that our usual one"): this override still
+     targeted the old .diffNestedFile selector, which no longer sets a
+     border at all (moved to the adjacent-sibling form, .diffNestedFile's
+     own comment has the full reasoning) -- it silently matched nothing,
+     so the light-mode hex leaked through in dark mode. */
+  .diffNestedFile + .diffNestedFile { border-top-color: #303030; }
   .diffFile { color: #f5f5f5; }
   .diffStat .add { color: #34d399; }
   .diffStat .del { color: #f87171; }
   .diffLines::before { background: #303030; }
   .diffRow.add { background: rgba(63, 185, 80, 0.15); }
   .diffRow.add::before { background: #34d399; }
-  .diffRow.add .sign, .diffRow.add .new { color: #34d399; }
+  .diffRow.add .sign, .diffRow.add .ln { color: #34d399; }
   .diffRow.add code { color: #f5f5f5; }
   .diffRow.del { background: rgba(248, 81, 73, 0.15); }
   .diffRow.del::before { background: repeating-linear-gradient(45deg, #f87171 0, #f87171 1.5px, transparent 1.5px, transparent 3px); }
-  .diffRow.del .sign, .diffRow.del .old { color: #f87171; }
+  .diffRow.del .sign, .diffRow.del .ln { color: #f87171; }
   .diffRow.del code { color: #f5f5f5; }
+  .diffChevron { color: #9ca3af; }
+  .diffChevron:hover { color: #f5f5f5; background: rgba(255, 255, 255, 0.08); }
 }

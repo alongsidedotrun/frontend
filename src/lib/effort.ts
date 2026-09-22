@@ -1,3 +1,5 @@
+import i18n from "@/i18n";
+
 // Real values only ("low"/"medium"/"high"/"xhigh"/"max"), confirmed via `claude
 // --help`'s own --effort flag -- not invented. Shared by compose-box.tsx (the
 // per-message slider), ChatPage.tsx (the reply's own EffortDial/tooltip), and
@@ -8,14 +10,14 @@ export type EffortLevel = (typeof EFFORT_LEVELS)[number];
 
 // Display labels only -- the wire value sent to --effort stays the CLI's own
 // exact string ("xhigh"), per explicit request only "Xhigh" (a bare capitalized
-// slug) reads oddly next to the other four, real words.
-export const EFFORT_LABELS: Record<EffortLevel, string> = {
-  low: "Low",
-  medium: "Medium",
-  high: "High",
-  xhigh: "Extra High",
-  max: "Max",
-};
+// slug) reads oddly next to the other four, real words. Function, not a plain
+// object (the shape every call site used before translation existed) -- i18n
+// singleton, not useTranslation()'s own hook-bound t, since several call
+// sites (compose-box.tsx's own tooltip text, this module itself) aren't
+// necessarily React components.
+export function effortLabel(level: EffortLevel): string {
+  return i18n.t(`effort.${level}`);
+}
 
 // Settings > Chats' own "Default effort" control -- a single shared value,
 // same shape as "Default provider" (settings-overlay.tsx's own

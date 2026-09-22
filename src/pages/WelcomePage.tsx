@@ -1,3 +1,4 @@
+import { Trans, useTranslation } from "react-i18next";
 import { useEffect } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import { useCliAvailability, type SettingsSection } from "@/components/settings-overlay";
@@ -42,7 +43,7 @@ type MenuRow = {
 // Matches a reference screenshot's layout: logo, then a vertical list of
 // icon + title + description rows -- replaces the earlier heading/install-
 // snippet layout entirely, not just restyled in place.
-function menuRows(initialSetupDone: boolean): MenuRow[] {
+function menuRows(initialSetupDone: boolean, t: (key: string) => string): MenuRow[] {
   return [
     {
       key: "initial-setup",
@@ -50,25 +51,23 @@ function menuRows(initialSetupDone: boolean): MenuRow[] {
       // explicit request -- still the same row (same icon, same
       // destination, Settings' own Providers section), just no longer
       // reads as "you haven't done this yet" once it's genuinely done.
-      title: initialSetupDone ? "Add new providers" : "Initial setup",
-      description: initialSetupDone
-        ? "Connect another AI provider."
-        : "Connect your first AI provider to get started.",
+      title: initialSetupDone ? t("welcome.addProviders.title") : t("welcome.initialSetup.title"),
+      description: initialSetupDone ? t("welcome.addProviders.description") : t("welcome.initialSetup.description"),
       icon: ComputerProgrammingIcon,
       settingsSection: "provider",
     },
     {
       key: "new-chat",
-      title: "New chat",
-      description: "Start a new conversation.",
+      title: t("common.newChat"),
+      description: t("welcome.newChat.description"),
       icon: PlusIcon,
       disabled: !initialSetupDone,
       to: "/new-chat",
     },
     {
       key: "learn-features",
-      title: "Discover more",
-      description: "Read our documentation to learn more about the features available.",
+      title: t("welcome.discover.title"),
+      description: t("welcome.discover.description"),
       icon: DocIcon,
       disabled: true,
       comingSoon: true,
@@ -77,6 +76,7 @@ function menuRows(initialSetupDone: boolean): MenuRow[] {
 }
 
 export function WelcomePage() {
+  const { t } = useTranslation();
   // openSettings comes from AppLayout.tsx's own outlet context (same
   // mechanism ChatPage.tsx already uses for chatName/
   // receiveChatNameFromServer) -- opens SettingsOverlay instead of a
@@ -91,11 +91,11 @@ export function WelcomePage() {
   const { available } = useCliAvailability("claude");
   const initialSetupDone = available === true;
   const { setShow: setShowGettingStarted } = useGettingStarted();
-  const MENU_ROWS = menuRows(initialSetupDone);
+  const MENU_ROWS = menuRows(initialSetupDone, t);
 
   useEffect(() => {
-    document.title = "Get Started";
-  }, []);
+    document.title = t("welcome.title");
+  }, [t]);
 
   return (
     // Vertically centered now, not a fixed pt-24 top offset -- per explicit
@@ -162,9 +162,9 @@ export function WelcomePage() {
             narrower parent, regardless of what that parent's actual
             computed width happens to be. */}
         <div className="mt-6 -ml-[50%] w-[200%] text-center">
-          <h1 className="text-[18px] font-normal text-foreground">A few things before getting started</h1>
+          <h1 className="text-[18px] font-normal text-foreground">{t("welcome.heading")}</h1>
           <p className="mt-2 text-[13px] font-normal text-muted-foreground">
-            Connect a provider and explore what you can do at Alongside.
+            {t("welcome.subheading")}
           </p>
         </div>
         {/* mt-6 (was mt-10) -- per explicit request ("bring the cards up a
@@ -236,7 +236,7 @@ export function WelcomePage() {
                     {row.title}
                     {row.comingSoon && (
                       <span className="ml-1.5 rounded-[4px] bg-hover-2 px-1 py-0.5 text-[10px] font-normal text-muted-foreground">
-                        Soon
+                        {t("compose.soon")}
                       </span>
                     )}
                   </CardTitle>
@@ -263,22 +263,21 @@ export function WelcomePage() {
             SettingsPage.tsx, an unrelated placeholder (literally a red
             block) that predates this modal and has nothing to do with it. */}
         <p className="mt-8 text-center text-xs text-muted-foreground">
-          You can hide this page by{" "}
-          <button
-            type="button"
-            onClick={() => {
-              setShowGettingStarted(false);
-              navigate("/new-chat");
-            }}
-            className="underline underline-offset-2"
-          >
-            clicking here
-          </button>
-          , or from{" "}
-          <button type="button" onClick={() => openSettings("general")} className="underline underline-offset-2">
-            Settings
-          </button>
-          .
+          <Trans
+            i18nKey="welcome.hide"
+            components={[
+              <button
+                key="0"
+                type="button"
+                onClick={() => {
+                  setShowGettingStarted(false);
+                  navigate("/new-chat");
+                }}
+                className="underline underline-offset-2"
+              />,
+              <button key="1" type="button" onClick={() => openSettings("general")} className="underline underline-offset-2" />,
+            ]}
+          />
         </p>
       </div>
       </div>

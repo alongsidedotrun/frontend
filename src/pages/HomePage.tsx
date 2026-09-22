@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useOutletContext } from "react-router-dom";
 import { QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
 import { ComposeBox, toImageInputs, type ImageAttachment } from "@/components/compose-box";
@@ -16,6 +17,7 @@ import { getUserDisplayName } from "@/lib/user";
 // still no real Settings UI to set the API key from inside this app, that
 // gap already exists independent of this page.
 export function HomePage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   // Set when this page was reached via a project row's own "+" (sidebar-nav.tsx) --
   // per explicit request ("we should get an + beside the > at projects to create a
@@ -80,8 +82,8 @@ export function HomePage() {
   const contextUsage = null;
 
   useEffect(() => {
-    document.title = "New chat";
-  }, []);
+    document.title = t("home.title");
+  }, [t]);
 
   useEffect(() => {
     if (pendingModel) {
@@ -126,7 +128,7 @@ export function HomePage() {
         body: JSON.stringify({ api_key: apiKey, model: model.value }),
       });
       if (!res.ok) {
-        window.alert(`Failed to create session (status ${res.status}). (ALS-008)`);
+        window.alert(t("home.createSessionFailed", { status: res.status }));
         return;
       }
       const data: { session_id: string } = await res.json();
@@ -269,10 +271,8 @@ export function HomePage() {
             the open page background, not a sidebar row, so it sets that
             same "dark mark in light mode, light mark in dark mode" look
             itself. */}
-          <h1 className="text-[18px] font-normal text-foreground">Ask anything</h1>
-          <p className="mt-2 text-[13px] font-normal text-muted-foreground">
-            Before you start a new chat, see some of our tips inside the compose box
-          </p>
+          <h1 className="text-[18px] font-normal text-foreground">{t("home.heading")}</h1>
+          <p className="mt-2 text-[13px] font-normal text-muted-foreground">{t("home.subheading")}</p>
         </div>
       </div>
       {/* ComposeBox pinned to the bottom of the page -- absolute now (was a
@@ -344,7 +344,7 @@ export function HomePage() {
           // placeholderCycle below). No "Start a new chat." lead-in any
           // more either (tried, reverted per explicit request) -- just
           // the instruction itself.
-          placeholder="Press space to enter compose box and escape to exit from it"
+          placeholder={t("home.composePlaceholder")}
           // HomePage-only rotating hint (compose-box.tsx's own
           // AnimatedPlaceholder) -- per explicit request, not passed on
           // ChatPage, which keeps a single static placeholder. No "Ask
@@ -354,9 +354,9 @@ export function HomePage() {
           // request: "after press space... have this new one"), ahead
           // of the existing @ / . tips.
           placeholderCycle={[
-            "Visit our docs for how to use multiplayer features",
-            "Use commands like @ for including colleagues to the chat",
-            "Use commands like / for available features commands",
+            t("home.placeholderCycle.multiplayer"),
+            t("home.placeholderCycle.mention"),
+            t("home.placeholderCycle.slash"),
           ]}
           onModelsChange={(models) => {
             selectedModelsRef.current = models;

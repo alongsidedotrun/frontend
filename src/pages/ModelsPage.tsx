@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useEffect } from "react";
 import { PageContent } from "@/components/page-content";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -58,6 +59,7 @@ function renderWithInlineCode(text: string) {
 // only what the provider's own response gives: percent used/left, and the
 // real reset time.
 function UsageLimitRow({ limit }: { limit: ProviderUsageLimit }) {
+  const { t } = useTranslation();
   const remainingPercent = Math.min(100, Math.max(0, limit.used_percent !== undefined ? 100 - limit.used_percent : 100));
   const remainingTone = usageRemainingTone(remainingPercent);
 
@@ -71,7 +73,7 @@ function UsageLimitRow({ limit }: { limit: ProviderUsageLimit }) {
         />
       </div>
       <div className="flex items-center justify-between text-[11px] tabular-nums text-muted-foreground">
-        <span>{Math.round(remainingPercent)}% left</span>
+        <span>{t("models.percentLeft", { percent: Math.round(remainingPercent) })}</span>
         {limit.resets_at && <span>{formatResetCountdown(limit.resets_at)}</span>}
       </div>
     </div>
@@ -124,9 +126,10 @@ function UsageCardSkeleton({ active = true }: { active?: boolean }) {
 }
 
 export function ModelsPage() {
+  const { t } = useTranslation();
   useEffect(() => {
-    document.title = "Provider usage";
-  }, []);
+    document.title = t("models.title");
+  }, [t]);
 
   const snapshots = useAllProviderUsage();
   const { error: usageError } = useUsageStats();
@@ -203,8 +206,8 @@ export function ModelsPage() {
                         snapshot. */}
                     <span className="text-[11px] font-normal text-muted-foreground">
                       {usageError || snapshot?.status === "needs_auth" || snapshot?.status === "error"
-                        ? "Disconnected"
-                        : "Connected"}
+                        ? t("common.disconnected")
+                        : t("common.connected")}
                     </span>
                   </div>
 
@@ -218,7 +221,7 @@ export function ModelsPage() {
                     // from "still loading" here and never resolved.
                     <div className="flex flex-col gap-3">
                       <p className="text-[12px] font-normal text-muted-foreground">
-                        No connection to the application, make sure the application is running, then try again. (ALS-002)
+                        {t("settings.providers.noConnection")}
                       </p>
                       {/* Static, not pulsing -- per explicit request ("that
                           should show the loading as inactive and not the
@@ -233,7 +236,7 @@ export function ModelsPage() {
                   ) : snapshot.status === "needs_auth" ? (
                     <p className="text-[12px] font-normal text-muted-foreground">
                       {renderWithInlineCode(
-                        snapshot.detail ?? `Sign in with your ${display?.primary ?? model.provider} account to see usage.`
+                        snapshot.detail ?? t("models.needsSignIn", { provider: display?.primary ?? model.provider })
                       )}
                     </p>
                   ) : snapshot.status === "error" ? (
@@ -253,8 +256,8 @@ export function ModelsPage() {
                         <ErrorText
                           message={
                             !navigator.onLine
-                              ? "No network connection available. (ALS-001)"
-                              : (snapshot.detail ?? "Couldn't load usage right now. (ALS-017)")
+                              ? t("models.noNetwork")
+                              : (snapshot.detail ?? t("models.loadFailed"))
                           }
                         />
                       </p>
@@ -270,7 +273,7 @@ export function ModelsPage() {
                   ) : (
                     <div className="flex flex-col gap-4">
                       {snapshot.limits.length === 0 && snapshot.usage_lines.length === 0 && (
-                        <p className="text-[12px] font-normal text-muted-foreground">No usage reported yet.</p>
+                        <p className="text-[12px] font-normal text-muted-foreground">{t("models.noUsage")}</p>
                       )}
                       {snapshot.limits.length > 0 && (
                         <div className="flex flex-col gap-3">
