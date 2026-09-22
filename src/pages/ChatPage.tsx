@@ -1640,9 +1640,9 @@ export function ChatPage() {
         awaitingReplyRef.current = false;
         setTurnInProgress(false);
         setWaitingPhase(null);
-        const text = event.ok
-          ? `Sharing is on. Guests join through the sharing gateway at ${event.gateway as string}. Shareable invite links arrive with invites.`
-          : (event.error as string);
+        // Story #412: the relay is the production path, so /share turns relay syncing on rather than
+        // the host-embedded gateway; an invite still comes from the Share dialog's own "Create invite".
+        const text = event.ok ? "Sharing is on. Open the Share menu to create an invite link." : (event.error as string);
         pushRow({ kind: "command", id: nextRowId(), text, time: messageTime() });
         return;
       }

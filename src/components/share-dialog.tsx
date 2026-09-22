@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-type Sharing = { shared: boolean; gateway: string | null };
+type Status = { syncing: boolean; relay_url: string | null };
 type Invite = { id: string; role: "editor" | "reader"; expires_at: number; max_uses: number | null; uses: number; status: "active" | "expired" | "used_up" | "revoked" };
 type Created = { link: string };
 
@@ -16,12 +16,21 @@ const EXPIRIES = [
 const SELECT_CLASS =
   "h-8 rounded-lg border border-border bg-background px-2 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:border-input dark:bg-input/30";
 
-// The host's sharing controls (Epic #378, story #380): start or stop sharing this chat, create an
-// invite (role, expiry, optional single use) and copy its link, list the chat's invites and
-// revoke them. The link is shown once, at creation: only the token's hash is stored.
+const START_ERRORS: Record<string, string> = {
+  sign_in_required: "share.errors.signIn",
+  already_syncing: "share.errors.alreadySharing",
+  relay_unavailable: "share.errors.relayUnavailable",
+  no_such_session: "share.errors.generic",
+};
+
+// The host's sharing controls (Epic #413, story #412): the relay is the production path, so this starts
+// or stops this chat's relay sync (never the host-embedded gateway, which stays available only through
+// ALONGSIDE_TRANSPORT for development), creates an invite (role, expiry, optional single use) and copies
+// its link, lists the chat's invites and revokes them. The link is shown once, at creation: only the
+// token's hash is ever stored, at the relay.
 export function ShareDialog({ sessionId, open, onOpenChange }: { sessionId: string; open: boolean; onOpenChange: (open: boolean) => void }) {
   const { t, i18n } = useTranslation();
-  const [sharing, setSharing] = useState<Sharing | null>(null);
+  const [status, setStatus] = useState<Status | null>(null);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -30,14 +39,19 @@ export function ShareDialog({ sessionId, open, onOpenChange }: { sessionId: stri
   const [singleUse, setSingleUse] = useState(false);
   const [created, setCreated] = useState<Created | null>(null);
   const [copied, setCopied] = useState(false);
+  // Story #409: the disclosure text a start attempt came back with, shown until the person agrees to it
+  // or cancels; null the rest of the time, including once a chat's consent is already on record and
+  // starting never needs to ask again.
+  const [disclosure, setDisclosure] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const status = (await (await fetch(`/sessions/${sessionId}/sharing`)).json()) as Sharing;
-      setSharing(status);
-      if (status.shared) {
-        const response = await fetch(`/sessions/${sessionId}/invites`);
-        setInvites(response.ok ? ((await response.json()) as Invite[]) : []);
+      const response = await fetch(`/sessions/${sessionId}/relay/status`);
+      const current = (await response.json()) as Status;
+      setStatus(current);
+      if (current.syncing) {
+        const invitesResponse = await fetch(`/sessions/${sessionId}/relay/invites`);
+        setInvites(invitesResponse.ok ? ((await invitesResponse.json()) as Invite[]) : []);
       } else {
         setInvites([]);
       }
@@ -51,25 +65,28 @@ export function ShareDialog({ sessionId, open, onOpenChange }: { sessionId: stri
     setError(null);
     setCreated(null);
     setCopied(false);
+    setDisclosure(null);
     void load();
   }, [open, load]);
 
-  const startErrors: Record<string, string> = {
-    sign_in_required: "share.errors.signIn",
-    not_entitled: "share.errors.notEntitled",
-    identity_unavailable: "share.errors.identity",
-    gateway_unavailable: "share.errors.gateway",
-    not_the_owner: "share.errors.notOwner",
-  };
-
-  async function startSharing() {
+  async function startSharing(acknowledgedDisclosure: boolean) {
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch("/host/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session_id: sessionId }) });
+      const response = await fetch(`/sessions/${sessionId}/relay/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(acknowledgedDisclosure ? { acknowledged_disclosure: true } : {}),
+      });
+      if (response.status === 428) {
+        const body = (await response.json().catch(() => ({}))) as { disclosure?: string };
+        setDisclosure(body.disclosure ?? null);
+        return;
+      }
+      setDisclosure(null);
       if (!response.ok) {
         const body = (await response.json().catch(() => ({}))) as { error?: string };
-        setError(t(startErrors[body.error ?? ""] ?? "share.errors.generic"));
+        setError(t(START_ERRORS[body.error ?? ""] ?? "share.errors.generic"));
       }
       await load();
     } catch {
@@ -83,7 +100,7 @@ export function ShareDialog({ sessionId, open, onOpenChange }: { sessionId: stri
     setBusy(true);
     setCreated(null);
     try {
-      await fetch("/host/stop", { method: "POST" });
+      await fetch(`/sessions/${sessionId}/relay/stop`, { method: "POST" });
       await load();
     } finally {
       setBusy(false);
@@ -95,7 +112,7 @@ export function ShareDialog({ sessionId, open, onOpenChange }: { sessionId: stri
     setError(null);
     setCopied(false);
     try {
-      const response = await fetch(`/sessions/${sessionId}/invites`, {
+      const response = await fetch(`/sessions/${sessionId}/relay/invites`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role, ttl_seconds: ttl, max_uses: singleUse ? 1 : null }),
@@ -114,7 +131,7 @@ export function ShareDialog({ sessionId, open, onOpenChange }: { sessionId: stri
   }
 
   async function revoke(id: string) {
-    await fetch(`/sessions/${sessionId}/invites/${id}/revoke`, { method: "POST" });
+    await fetch(`/sessions/${sessionId}/relay/invites/${id}/revoke`, { method: "POST" });
     await load();
   }
 
@@ -135,21 +152,36 @@ export function ShareDialog({ sessionId, open, onOpenChange }: { sessionId: stri
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        {sharing && !sharing.shared && (
+        {disclosure && (
+          <div className="flex flex-col gap-3">
+            <h3 className="text-sm font-medium text-foreground">{t("share.disclosure.title")}</h3>
+            <p className="text-sm text-muted-foreground">{disclosure}</p>
+            <div className="flex items-center gap-2">
+              <Button type="button" disabled={busy} onClick={() => void startSharing(true)}>
+                {t("share.disclosure.agree")}
+              </Button>
+              <Button type="button" variant="ghost" disabled={busy} onClick={() => setDisclosure(null)}>
+                {t("common.cancel")}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {!disclosure && status && !status.syncing && (
           <div className="flex flex-col gap-3">
             <p className="text-sm text-muted-foreground">{t("share.notSharing")}</p>
             <div>
-              <Button type="button" disabled={busy} onClick={() => void startSharing()}>
+              <Button type="button" disabled={busy} onClick={() => void startSharing(false)}>
                 {t("share.start")}
               </Button>
             </div>
           </div>
         )}
 
-        {sharing?.shared && (
+        {!disclosure && status?.syncing && (
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-sm text-muted-foreground">{t("share.on", { address: sharing.gateway ?? "" })}</p>
+              <p className="text-sm text-muted-foreground">{t("share.on")}</p>
               <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void stopSharing()}>
                 {t("share.stop")}
               </Button>
