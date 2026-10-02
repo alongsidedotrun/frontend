@@ -15,8 +15,19 @@ import { detectMac } from "@/hooks/use-platform";
 const SYSTEM_UI_FONT_KEY = "alongside_system_ui_font";
 const FONT_SMOOTHING_KEY = "alongside_font_smoothing";
 const CHAT_WIDTH_KEY = "alongside_chat_width";
+const SIDEBAR_COLLAPSE_MODE_KEY = "alongside_sidebar_collapse_mode";
 
 export type ChatWidth = "standard" | "expanded";
+export type SidebarCollapseMode = "parent" | "all";
+
+export function loadSidebarCollapseMode(): SidebarCollapseMode {
+  return localStorage.getItem(SIDEBAR_COLLAPSE_MODE_KEY) === "all" ? "all" : "parent";
+}
+
+export function saveSidebarCollapseMode(mode: SidebarCollapseMode) {
+  localStorage.setItem(SIDEBAR_COLLAPSE_MODE_KEY, mode);
+  window.dispatchEvent(new Event("alongside:sidebar-collapse-mode"));
+}
 
 // Default true (system font) -- matches Synara's own default (this
 // setting's own screenshot showed it already toggled on) and this app's

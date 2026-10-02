@@ -13,6 +13,9 @@ import {
   loadChatWidth,
   loadFontSmoothing,
   loadSystemUiFont,
+  loadSidebarCollapseMode,
+  saveSidebarCollapseMode,
+  type SidebarCollapseMode,
   type ChatWidth,
 } from "@/hooks/use-appearance-settings";
 import { spring } from "@/lib/springs";
@@ -52,6 +55,7 @@ import {
   ProviderUsageIcon,
   RotateCcwIcon,
   SearchIcon,
+  SidebarLeftIcon,
   SettingsIcon,
   SunIcon,
   SystemIcon,
@@ -68,6 +72,8 @@ import {
 } from "@/lib/user";
 import { signOut, useIsSignedIn } from "@/lib/auth";
 import { useIdentity } from "@/lib/identity";
+import { ShieldCheck } from "lucide-react";
+import { loadDataAcknowledgement, loadDataAcknowledgementTime } from "@/lib/data-acknowledgement";
 
 // Tips/Notifications/Usage are sub-sections *inside* General, not their
 // own routes -- per explicit request ("Not as items but as menu items
@@ -83,7 +89,7 @@ import { useIdentity } from "@/lib/identity";
 // stays its own separate top-level section instead, and Danger zone was
 // removed entirely rather than folded into a new section (SETTINGS_NAV_GROUPS'
 // own comment below has the full reasoning).
-export type SettingsSection = "profile" | "general" | "appearance" | "chat" | "provider" | "apps";
+export type SettingsSection = "profile" | "general" | "appearance" | "chat" | "security" | "provider" | "apps";
 
 // ---------------------------------------------------------------------------
 // Style pass -- matches a reference open-source app called Synara's own
@@ -210,6 +216,7 @@ const SECTIONS: { key: SettingsSection; label: string; labelKey: string; icon: R
   { key: "general", label: "General", labelKey: "settings.nav.general", icon: <SettingsIcon className="size-[14px]" /> },
   { key: "appearance", label: "Appearance", labelKey: "settings.nav.appearance", icon: <PaletteIcon className="size-[14px]" /> },
   { key: "chat", label: "Chat", labelKey: "settings.nav.chat", icon: <BubbleChatIcon className="size-[14px]" /> },
+  { key: "security", label: "Security", labelKey: "settings.nav.security", icon: <ShieldCheck className="size-[14px]" /> },
   { key: "provider", label: "Provider", labelKey: "settings.nav.provider", icon: <ProvidersIcon className="size-[14px]" /> },
   // Its own top-level section now, not a drill-in under Provider -- per
   // explicit correction ("Still inside providers its meant to be settings
@@ -235,7 +242,7 @@ const SECTIONS: { key: SettingsSection; label: string; labelKey: string; icon: R
 const SETTINGS_NAV_GROUPS: { labelKey: string; keys: SettingsSection[] }[] = [
   // General first, then the rest alphabetical (Appearance, Chat, Profile)
   // -- per explicit request.
-  { labelKey: "settings.nav.group.application", keys: ["general", "appearance", "chat", "profile"] },
+  { labelKey: "settings.nav.group.application", keys: ["general", "appearance", "chat", "profile", "security"] },
   { labelKey: "settings.nav.group.connections", keys: ["provider", "apps"] },
 ];
 
@@ -244,6 +251,7 @@ const SECTION_SUBTITLE_KEY: Record<SettingsSection, string> = {
   general: "settings.nav.subtitle.general",
   appearance: "settings.nav.subtitle.appearance",
   chat: "settings.nav.subtitle.chat",
+  security: "settings.nav.subtitle.security",
   provider: "settings.nav.subtitle.provider",
   apps: "settings.nav.subtitle.apps",
 };
@@ -279,6 +287,7 @@ const SETTINGS_SEARCH_ENTRIES: SettingsSearchEntry[] = [
   { id: "font-smoothing", section: "appearance", title: "Font smoothing", keywords: "antialiased crisp text rendering mac appearance", target: "setting-font-smoothing" },
   { id: "notify-turn-complete", section: "general", title: "Receive a notification from every chat when a turn completes", keywords: "notification toast turn complete finished notify", target: "setting-notify-turn-complete" },
   { id: "chat-usage", section: "chat", title: "Chat usage", keywords: "usage sessions count local", target: "setting-chat-usage" },
+  { id: "data-acknowledgement", section: "security", title: "Data acknowledgement", keywords: "security encryption local data recovery key responsibility privacy", target: "setting-data-acknowledgement" },
 ];
 
 // Simple substring ranking: a title match ranks above a keyword match,
@@ -1822,6 +1831,63 @@ function GeneralSection() {
   );
 }
 
+function SecuritySection() {
+  const navigate = useNavigate();
+  const [acknowledged, setAcknowledged] = useState(loadDataAcknowledgement);
+  const [acknowledgedAt, setAcknowledgedAt] = useState(loadDataAcknowledgementTime);
+
+  const refreshAcknowledgement = useCallback(() => {
+    setAcknowledged(loadDataAcknowledgement());
+    setAcknowledgedAt(loadDataAcknowledgementTime());
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener("focus", refreshAcknowledgement);
+    window.addEventListener("storage", refreshAcknowledgement);
+    return () => {
+      window.removeEventListener("focus", refreshAcknowledgement);
+      window.removeEventListener("storage", refreshAcknowledgement);
+    };
+  }, [refreshAcknowledgement]);
+
+  const acknowledgementStatus = acknowledged
+    ? acknowledgedAt
+      ? `Acknowledged ${new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(acknowledgedAt))}`
+      : "Acknowledged on this device"
+    : "Required";
+
+  return (
+    <div className="flex flex-col">
+      <SettingsSection title="Data protection">
+        <SettingsRow
+          id="setting-data-acknowledgement"
+          title="Data acknowledgement"
+          description="Review your responsibility for local data, encryption keys, and recovery phrases."
+        >
+          <span className={`text-[11px] ${acknowledged ? "text-emerald-600 dark:text-emerald-300" : "text-muted-foreground"}`}>
+            {acknowledgementStatus}
+          </span>
+          <button
+            type="button"
+            className={SETTINGS_ACTION_BUTTON_CLASS}
+            onClick={() => navigate("/onboard/getting-started?manage=data-acknowledgement")}
+          >
+            Manage
+          </button>
+        </SettingsRow>
+        <SettingsRow
+          title="Local conversation data"
+          description="Your conversations are stored locally on this device."
+        />
+        <SettingsRow
+          title="Encryption"
+          description="Encryption is recommended to reduce exposure if your device or local storage is compromised."
+        />
+      </SettingsSection>
+    </div>
+  );
+}
+
 // Its own top-level section now, not a General sub-section -- per
 // explicit request ("we should get an appearance menu at the sidebar as
 // well as palette icon and move from general").
@@ -1844,6 +1910,7 @@ function AppearanceSection() {
   const [systemUiFont, setSystemUiFontState] = useState(loadSystemUiFont);
   const [fontSmoothing, setFontSmoothingState] = useState(loadFontSmoothing);
   const [chatWidth, setChatWidthState] = useState<ChatWidth>(loadChatWidth);
+  const [sidebarCollapseMode, setSidebarCollapseMode] = useState<SidebarCollapseMode>(loadSidebarCollapseMode);
 
   // Applies the real Rust-side effect on mount (so reopening Settings, or a
   // fresh launch with transparency already turned on from a previous session,
@@ -1876,6 +1943,11 @@ function AppearanceSection() {
     applyChatWidth(next);
   }
 
+  function setSidebarCollapse(next: SidebarCollapseMode) {
+    setSidebarCollapseMode(next);
+    saveSidebarCollapseMode(next);
+  }
+
   // The raw icon component, not pre-rendered JSX -- BaseMenuItem's own
   // `icon` prop (menu-item.tsx) calls this itself with its own size/
   // strokeWidth/className (the invisible-sizer-plus-visible-icon grid
@@ -1898,18 +1970,25 @@ function AppearanceSection() {
     { value: "expanded", label: t("settings.appearance.chatWidth.expanded"), icon: ExpandedWidthIcon },
   ];
   const currentChatWidth = chatWidthOptions.find((o) => o.value === chatWidth) ?? chatWidthOptions[0];
+  const sidebarCollapseOptions: { value: SidebarCollapseMode; label: string; compactLabel: string; icon: IconComponent }[] = [
+    { value: "parent", label: "Close only parent sidebar", compactLabel: "Close only…", icon: SidebarLeftIcon },
+    { value: "all", label: "Close all sidebars", compactLabel: "Close all", icon: SidebarLeftIcon },
+  ];
+  const currentSidebarCollapse = sidebarCollapseOptions.find((o) => o.value === sidebarCollapseMode) ?? sidebarCollapseOptions[0];
 
   const transparencyChanged = transparencyEnabled !== false;
   const systemUiFontChanged = systemUiFont !== true;
   const fontSmoothingChanged = fontSmoothing !== true;
   const chatWidthChanged = chatWidth !== "standard";
-  const anyChanged = transparencyChanged || systemUiFontChanged || fontSmoothingChanged || chatWidthChanged;
+  const sidebarCollapseChanged = sidebarCollapseMode !== "parent";
+  const anyChanged = transparencyChanged || systemUiFontChanged || fontSmoothingChanged || chatWidthChanged || sidebarCollapseChanged;
 
   function restoreDefaults() {
     updateTransparency(false);
     setSystemUiFont(true);
     setFontSmoothing(true);
     setChatWidth("standard");
+    setSidebarCollapse("parent");
   }
 
   return (
@@ -2032,6 +2111,36 @@ function AppearanceSection() {
             <Switch checked={transparencyEnabled} onToggle={() => updateTransparency(!transparencyEnabled)} aria-label="Enable transparency" />
           </SettingsRow>
         )}
+      </SettingsSection>
+
+      <SettingsSection title="Collapse">
+        <SettingsRow id="setting-sidebar-collapse" title="Collapse parent bar" description="Choose which sidebars close when the parent bar is collapsed.">
+          <BaseDropdownMenu size="compact">
+            <BaseDropdownTrigger
+              render={
+                <button type="button" className={SETTINGS_DROPDOWN_TRIGGER_CLASS}>
+                  <span className="flex items-center gap-1.5">
+                    <currentSidebarCollapse.icon size={14} />
+                    {currentSidebarCollapse.compactLabel}
+                  </span>
+                  <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                </button>
+              }
+            />
+            <BaseDropdownContent align="end" checkedIndex={sidebarCollapseOptions.findIndex((option) => option.value === sidebarCollapseMode)}>
+              {sidebarCollapseOptions.map((option, i) => (
+                <BaseMenuItem
+                  key={option.value}
+                  index={i}
+                  icon={option.icon}
+                  label={option.label}
+                  checked={sidebarCollapseMode === option.value}
+                  onSelect={() => setSidebarCollapse(option.value)}
+                />
+              ))}
+            </BaseDropdownContent>
+          </BaseDropdownMenu>
+        </SettingsRow>
       </SettingsSection>
 
       <SettingsSection title={t("settings.appearance.caution")}>
@@ -2778,6 +2887,18 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
   const accountTriggerRef = useRef<HTMLButtonElement>(null);
   const helpTriggerRef = useRef<HTMLButtonElement>(null);
 
+  // Settings navigation is an isolated history session. Clear the module
+  // stack when this sidebar leaves the settings route so its arrows can
+  // never walk back into the page that opened Settings.
+  useEffect(() => {
+    settingsHistoryState = { stack: [], index: -1 };
+    notifySettingsHistory();
+    return () => {
+      settingsHistoryState = { stack: [], index: -1 };
+      notifySettingsHistory();
+    };
+  }, []);
+
   // pathname + search, not pathname alone -- confirmed directly as a real
   // bug ("the < to return to the providers is not working"): opening a
   // provider's connection view is a `?provider=<name>` query-string change
@@ -2788,12 +2909,14 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
   // first path of a fresh stack -- pushSettingsHistory's own comment above
   // covers both).
   useEffect(() => {
-    pushSettingsHistory(location.pathname + location.search);
+    const path = location.pathname + location.search;
+    if (path.startsWith("/settings")) pushSettingsHistory(path);
   }, [location.pathname, location.search]);
 
   function goBackInSettings() {
     if (settingsHistory.index <= 0) return;
     const target = settingsHistory.stack[settingsHistory.index - 1];
+    if (!target.startsWith("/settings")) return;
     settingsHistoryState = { ...settingsHistoryState, index: settingsHistoryState.index - 1 };
     notifySettingsHistory();
     navigate(target, { replace: true });
@@ -2802,6 +2925,7 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
   function goForwardInSettings() {
     if (settingsHistory.index >= settingsHistory.stack.length - 1) return;
     const target = settingsHistory.stack[settingsHistory.index + 1];
+    if (!target.startsWith("/settings")) return;
     settingsHistoryState = { ...settingsHistoryState, index: settingsHistoryState.index + 1 };
     notifySettingsHistory();
     navigate(target, { replace: true });
@@ -3042,7 +3166,10 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
           itself flex-col) pins it to the bottom regardless of how tall
           the nav list above happens to be, since that list's own
           wrapper is shrink-0, not flex-1. */}
-      <div className="mt-auto shrink-0 pb-4">
+      {/* pb-2 matches the parent sidebar's own py-2 footer inset, so the
+          Alongside return row sits on the same bottom baseline as the
+          parent settings trigger. */}
+      <div className="mt-auto shrink-0 pb-2">
         <GlideGroup>
           <RailButton
             // size-[13px], not the row's usual 14px, and no hardcoded
@@ -3060,9 +3187,10 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
             // visibly heavier than every other row icon at the same box).
             icon={<AlongsideLogo className="size-[13px]" />}
             label={t("settings.returnToAlongside")}
-            onClick={() => navigate("/new-chat")}
+            onClick={() => navigate("/new/chat")}
           />
         </GlideGroup>
+        {false && (
         <div className="mx-2 mt-1 flex h-7 shrink-0 items-center gap-1 overflow-hidden rounded-[var(--row-radius)]" style={{ width: SIDEBAR_ROW_WIDTH }}>
           <BaseDropdownMenu
             size="compact"
@@ -3159,6 +3287,7 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
             </BaseDropdownContent>
           </BaseDropdownMenu>
         </div>
+        )}
       </div>
     </aside>
   );
@@ -3232,6 +3361,7 @@ export function SettingsSectionContent({ section }: { section: SettingsSection }
           {section === "general" && <GeneralSection />}
           {section === "appearance" && <AppearanceSection />}
           {section === "chat" && <ChatSection />}
+          {section === "security" && <SecuritySection />}
           {section === "provider" && <ProvidersSection />}
           {section === "apps" && <AppsSection />}
         </PageContent>

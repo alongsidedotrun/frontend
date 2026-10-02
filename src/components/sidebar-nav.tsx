@@ -4,12 +4,10 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { useIsMobile } from "@/hooks/use-media-query";
 import { useDebounce } from "@/hooks/use-debounce";
-import { useGettingStarted } from "@/hooks/use-getting-started";
 import { useIsMac } from "@/hooks/use-platform";
 import { markTooltipTruncated } from "@/lib/tooltip";
 import { spring } from "@/lib/springs";
 import { Input } from "@/components/ui/input";
-import { Kbd } from "@/components/ui/kbd";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 // The fluidfunctionalism.com reference dropdown (Base UI Menu +
@@ -30,7 +28,6 @@ import { MenuItem as BaseMenuItem } from "@/components/ui/menu-item";
 import { MoreTrigger } from "@/components/ui/more-trigger";
 import { AccountMenuItems, HelpMenuItems } from "@/components/nav-user";
 import { DefaultAvatar } from "@/components/ui/avatar";
-import { AlongsideLogo } from "@/components/icons/alongside-logo";
 import { getUserDisplayName, useUserDisplayName } from "@/lib/user";
 import { hideChatLocally } from "@/lib/locally-hidden-chats";
 import { QUICK_CHAT_MODELS, ProviderIcon } from "@/lib/quick-chat-models";
@@ -39,19 +36,17 @@ import { QUICK_CHAT_MODELS, ProviderIcon } from "@/lib/quick-chat-models";
 // discoverable from one place.
 import {
   ArchiveIcon,
-  BlankPageIcon,
   BubbleChatIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   DeleteIcon,
   EditIcon,
+  Edit05Icon,
   FolderIcon,
   HelpCircleIcon,
-  InboxIcon,
   PlusIcon,
   SearchIcon,
-  SettingsIcon,
   SidebarLeftIcon,
   XIcon,
 } from "@/components/icons/untitled-ui";
@@ -110,7 +105,7 @@ export const SIDEBAR_COLLAPSED_WIDTH = 48;
 // sidebar be in the same width and location at the main page one") so its
 // own row width can't drift independently from this sidebar's.
 export const SIDEBAR_ROW_WIDTH = 204;
-export const SIDEBAR_COLLAPSED_ROW_WIDTH = 32;
+export const SIDEBAR_COLLAPSED_ROW_WIDTH = 28;
 export const SIDEBAR_MOTION_MS = 280;
 // Same easing reference implementations of this pattern use for a sidebar
 // collapse -- decelerates smoothly into the resting width instead of a
@@ -126,7 +121,7 @@ export const SIDEBAR_EASING = "cubic-bezier(0.16, 1, 0.3, 1)";
 // key: "home" retired -- Welcome now has its own destination
 // (/getting-started, which is also the app's overall default landing page
 // now -- see App.tsx's own "/" redirect), separate from New Chat's own
-// page (moved to /new-chat for the same reason), so it needs its own key
+// page (moved to /new/chat for the same reason), so it needs its own key
 // rather than sharing New's own for active-row highlighting.
 // size-[13px], not the row's usual 14px (FolderIcon etc. just below use
 // 14) -- the Hugeicons glyphs those use are drawn with real breathing
@@ -135,17 +130,14 @@ export const SIDEBAR_EASING = "cubic-bezier(0.16, 1, 0.3, 1)";
 // box it reads visibly heavier/bigger than every other row icon despite
 // being numerically close. 13px is what actually matches their *optical*
 // weight, not their box size.
-const WELCOME_ITEM = { key: "welcome", label: "Getting started", url: "/getting-started", icon: <AlongsideLogo className="size-[13px]" /> };
 // Sidebar's own Inbox row -- per explicit request. New chat/New
 // project/New agent/New app no longer have their own standalone rows
 // (NEW_CHAT_KEY/NAV_ITEMS retired) -- they're all one popup on the New
 // row now (see GlideGroup's own comment below), "reducing the amount of
 // buttons at the sidebar".
-const INBOX_ITEM = { key: "inbox", label: "Inbox", url: "/inbox", icon: <InboxIcon className="size-[14px]" /> };
 // Library (issue #286) -- every file the agent has actually touched,
 // grouped per-project/per-chat. Directly under Inbox, per explicit request
 // ("the library feature should be a menu under inbox").
-const LIBRARY_ITEM = { key: "library", label: "Library", url: "/library", icon: <FolderIcon className="size-[14px]" /> };
 
 // Positions a .t-tt-fixed tooltip (index.css's own "Transitions.dev —
 // Tooltip open/close" section) against the trigger's real on-screen rect
@@ -239,6 +231,90 @@ type SearchResult = {
   model?: (typeof QUICK_CHAT_MODELS)[number];
 };
 
+function SidebarSearchPopover({
+  query,
+  results,
+  position,
+  onQueryChange,
+  onPick,
+  onClose,
+}: {
+  query: string;
+  results: SearchResult[];
+  position: { top: number; left: number };
+  onQueryChange: (value: string) => void;
+  onPick: (result: SearchResult) => void;
+  onClose: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  useEffect(() => inputRef.current?.focus(), []);
+  useEffect(() => {
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (popoverRef.current?.contains(target) || target.closest("[data-search-trigger]")) return;
+      onClose();
+    };
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    return () => document.removeEventListener("pointerdown", closeOnOutsideClick);
+  }, [onClose]);
+
+  return (
+    <div
+      ref={popoverRef}
+      className="fixed z-[200] flex min-h-[160px] w-72 flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-lg"
+      style={{ top: position.top, left: position.left }}
+    >
+      <div className="flex h-10 items-center gap-2 border-b border-border px-3">
+        <SearchIcon className="size-4 shrink-0 text-ink-3" />
+        <input
+          ref={inputRef}
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              onClose();
+            }
+          }}
+          placeholder="Search"
+          aria-label="Search previous chats and files"
+          className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-ink-3"
+        />
+        <button
+          type="button"
+          aria-label="Close search"
+          onClick={onClose}
+          className="flex size-6 shrink-0 items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-hover-2/70 hover:text-foreground"
+        >
+          <XIcon className="size-3" />
+        </button>
+      </div>
+      <div className="max-h-56 overflow-y-auto p-1">
+        {results.length === 0 ? (
+          <div className="px-2 py-3 text-xs text-ink-3">No results</div>
+        ) : (
+          <GlideMenu className="flex flex-col gap-px">
+            {results.map((result) => (
+              <button
+                key={`${result.kind}-${result.id}`}
+                data-menu-row
+                type="button"
+                onClick={() => onPick(result)}
+                className="relative z-10 flex min-h-8 w-full flex-col justify-center rounded-[6px] px-2 py-1 text-left text-[13px] text-foreground hover:bg-hover-2/50"
+              >
+                <span className="truncate">{result.label}</span>
+                {result.snippet && <span className="truncate text-[11px] text-ink-3">{result.snippet}</span>}
+              </button>
+            ))}
+          </GlideMenu>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Sidebar's own search entry point -- moved here from top-bar.tsx (that
 // file's own former TopBarSearch), per explicit request: search is now the
 // sidebar's first row instead of a box centered in the top bar, and
@@ -264,14 +340,15 @@ function SidebarSearch({
   onChange,
   collapsed,
   onExpandSidebar,
+  onCloseSearch,
 }: {
   value: string;
   onChange: (value: string) => void;
   collapsed: boolean;
   onExpandSidebar: () => void;
+  onCloseSearch?: () => void;
 }) {
   const { t } = useTranslation();
-  const isMac = useIsMac();
   const searchRef = useRef<HTMLInputElement>(null);
 
   // Cmd+F on macOS, Ctrl+F everywhere else -- was Cmd/Ctrl+S (for
@@ -438,7 +515,7 @@ function SidebarSearch({
         // placeholder:text-foreground too now, not text-muted-foreground --
         // per explicit follow-up ("the search and command f should be
         // updated to the new color").
-        className="h-7 rounded-[var(--row-radius-sm)] border border-border bg-transparent pl-[30px] text-xs font-normal text-foreground placeholder:text-foreground placeholder:opacity-100 placeholder:transition-opacity placeholder:duration-200 focus:placeholder:opacity-0 focus-visible:border-focus-accent md:text-xs"
+        className="h-7 rounded-[var(--row-radius-sm)] border-0 bg-transparent pl-[30px] text-xs font-normal text-foreground placeholder:text-foreground placeholder:opacity-100 placeholder:transition-opacity placeholder:duration-200 focus:placeholder:opacity-0 focus-visible:border-0 md:text-xs"
       />
       {/* left-[9px], not left-1.5 -- matches RailButton's own icon
           *visible* left edge exactly, recomputed for its own current
@@ -476,11 +553,15 @@ function SidebarSearch({
           </motion.button>
         ) : (
           <motion.button
-            key="kbd"
+            key="close"
             type="button"
-            aria-label={t("nav.search.findAriaLabel")}
+            aria-label={t("nav.search.clearAriaLabel")}
             tabIndex={-1}
-            onClick={() => searchRef.current?.focus()}
+            onClick={() => {
+              onChange("");
+              onCloseSearch?.();
+              searchRef.current?.blur();
+            }}
             initial={{ y: -8, opacity: 0 }}
             animate={{ y: 0, opacity: 1, transition: spring.fast }}
             exit={{ y: 8, opacity: 0, transition: spring.fast.exit }}
@@ -496,7 +577,7 @@ function SidebarSearch({
             // tabIndex={-1} -- this duplicates the Find input's own focus
             // (Cmd/Ctrl+F, or clicking directly into the input itself),
             // not a second real tab stop for the same action.
-            className="absolute top-1/2 right-1 flex -translate-y-1/2 items-center rounded-[4px] transition-colors hover:bg-hover-2/50"
+            className="absolute top-1/2 right-1 flex size-4 -translate-y-1/2 items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-hover-2/50 hover:text-ink"
           >
             {/* Combined chip ("⌘F"/"Ctrl+F") -- per explicit request
                 ("remove the command k border and make then together but
@@ -509,9 +590,7 @@ function SidebarSearch({
                 request ("the search and command f should be updated to
                 the new color"), matching the rest of the sidebar's own
                 move off text-muted-foreground. */}
-            <Kbd className="h-5 min-w-0 gap-0 rounded-[4px] border-none bg-transparent px-1 text-2xs leading-none font-normal text-foreground">
-              {isMac ? "⌘F" : "Ctrl+F"}
-            </Kbd>
+            <XIcon className="size-[10px]" />
           </motion.button>
         )}
       </AnimatePresence>
@@ -520,6 +599,8 @@ function SidebarSearch({
 }
 
 type SidebarNavProps = {
+  variant?: "chat" | "inbox" | "code";
+  hideTopBar?: boolean;
   className?: string;
   fill?: boolean;
   onNewChat?: () => void;
@@ -548,13 +629,10 @@ type SidebarNavProps = {
   // this is a one-way trigger, not a mirrored value, so external code
   // still can't read or drive collapsed the rest of the time.
   expandSignal?: number;
-  // Threaded down to the sidebar's own standalone Settings row (below)
-  // -- navigates straight to /settings/general (AppLayout.tsx's own
-  // openSettings) instead of that row's own plain navigate("/settings")
-  // fallback, so it lands on a real section immediately rather than
-  // bouncing through the /settings -> /settings/general redirect
-  // (App.tsx) first.
-  onOpenSettings?: () => void;
+  // One-way trigger used by the primary rail's "Collapse all sidebars"
+  // action. The sidebar remains internally self-managed; this only gives
+  // the outer layout a way to request the same collapse animation.
+  collapseSignal?: number;
   // True on any route that isn't one of this sidebar's own real
   // destinations (Home, Welcome, Projects, Apps, an actual chat) -- the
   // top bar's Agent/Code/Design tabs, the avatar dropdown's Settings/Docs/
@@ -1321,9 +1399,9 @@ export function RailButton({
   // the collapsed rail's own icon-sized real estate. overflow-hidden here
   // is what clips the label as this row's own box narrows around it, on
   // top of the label's own opacity fade below -- both effects together.
-  const className = `relative z-10 flex h-7 shrink-0 transform-gpu items-center overflow-hidden rounded-[var(--row-radius)] px-1.5 text-left ${pressEffect ? "active:scale-[0.98]" : ""} ${
+  const className = `relative z-10 flex h-7 shrink-0 transform-gpu items-center overflow-hidden rounded-xl px-1.5 text-left ${pressEffect ? "active:scale-[0.98]" : ""} ${
     fullWidth ? "mx-2" : "min-w-0 flex-1"
-  } ${danger ? "hover:bg-destructive/10" : active ? "bg-accent" : ""}`;
+  } ${danger ? "hover:bg-destructive/10" : active ? "bg-hover-2/70" : ""}`;
   const style = fullWidth
     ? {
         width: collapsed ? SIDEBAR_COLLAPSED_ROW_WIDTH : rowWidth,
@@ -1349,9 +1427,13 @@ export function RailButton({
           help button... this will match our font color at the chat"):
           active/inactive read via the row's own background highlight
           (bg-accent/bg-hover-2) already, not a separate dimmer text tone. */}
-      <span className={`relative flex size-5 shrink-0 items-center justify-center ${danger ? "text-destructive" : "text-foreground"}`}>
+      <motion.span
+        animate={{ x: collapsed ? -2 : 0 }}
+        transition={{ duration: SIDEBAR_MOTION_MS / 1000, ease: [0.16, 1, 0.3, 1] }}
+        className={`relative flex size-5 shrink-0 items-center justify-center ${danger ? "text-destructive" : "text-foreground"}`}
+      >
         {icon}
-      </span>
+      </motion.span>
       {/* flex items-center size-5, same box as the icon span above -- a
           plain inline text node here centers on its own line-height/font
           metrics, not on box height, which put it a couple px off from the
@@ -1370,7 +1452,7 @@ export function RailButton({
           defines gap: "gap-1" for a dense sidebar's icon-to-label spacing,
           against our own hand-picked 8px. */}
       <span
-        className={`ml-1 flex h-5 min-w-0 flex-1 items-center truncate text-xs leading-none font-normal transition-opacity duration-[280ms] ${collapsed ? "opacity-0" : "opacity-100"} ${danger ? "text-destructive" : "text-foreground"}`}
+        className={`${collapsed ? "m-0" : "ml-1"} flex h-5 min-w-0 items-center truncate text-xs leading-none font-normal transition-[max-width,opacity] duration-[280ms] ${collapsed ? "pointer-events-none max-w-0 flex-none opacity-0" : "max-w-[160px] flex-1 opacity-100"} ${danger ? "text-destructive" : "text-foreground"}`}
       >
         {label}
       </span>
@@ -1392,17 +1474,18 @@ export function RailButton({
 }
 
 export default function SidebarNav({
+  variant = "chat",
+  hideTopBar = false,
   className = "",
   fill = false,
   onNewChat,
   activeNav,
-  onNavigate,
   projects = [],
   recents = [],
   onRecentsChanged,
   onCollapsedChange,
   expandSignal,
-  onOpenSettings,
+  collapseSignal,
   placeholderNav = false,
 }: SidebarNavProps) {
   const { t } = useTranslation();
@@ -1470,6 +1553,32 @@ export default function SidebarNav({
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [creatingProject, setCreatingProject] = useState(false);
+
+  // Workspace switcher -- kept local for now until workspace persistence is
+  // backed by the account API. It gives the empty header space a real
+  // workspace affordance and keeps newly created names across reloads.
+  const [workspaces, setWorkspaces] = useState<string[]>(() => {
+    try {
+      const saved = window.localStorage.getItem("alongside_workspaces");
+      const parsed = saved ? JSON.parse(saved) : null;
+      return Array.isArray(parsed) && parsed.every((item) => typeof item === "string") && parsed.length
+        ? parsed
+        : ["Personal"];
+    } catch {
+      return ["Personal"];
+    }
+  });
+  const [activeWorkspace, setActiveWorkspace] = useState("Personal");
+
+  function createWorkspace() {
+    const name = window.prompt("Workspace name");
+    const trimmed = name?.trim();
+    if (!trimmed || workspaces.includes(trimmed)) return;
+    const next = [...workspaces, trimmed];
+    setWorkspaces(next);
+    setActiveWorkspace(trimmed);
+    window.localStorage.setItem("alongside_workspaces", JSON.stringify(next));
+  }
 
   async function handleCreateProject() {
     const name = newProjectName.trim();
@@ -1546,6 +1655,9 @@ export default function SidebarNav({
   // does the same, swapping the Projects/Chats sections below for a flat
   // results list while a query is active.
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchButtonRef = useRef<HTMLButtonElement>(null);
+  const [searchPopoverPosition, setSearchPopoverPosition] = useState({ top: 0, left: 0 });
   const debouncedSearchQuery = useDebounce(searchQuery, 200);
   const trimmedSearchQuery = debouncedSearchQuery.trim();
   const searching = trimmedSearchQuery.length > 0;
@@ -1557,21 +1669,14 @@ export default function SidebarNav({
   // old filter could only ever match a chat's own name, never anything
   // actually said inside it.
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  // Models aren't chat/project rows in the backend's own search (there's
-  // no per-model row to index), so per explicit request ("we should be
-  // able to search for specific models as well") they're matched
-  // client-side against the same QUICK_CHAT_MODELS list the compose box's
-  // own model picker already uses -- label or provider name, substring,
-  // same dynamic-search behavior the backend now gives chats/projects.
+  // The backend result is intentionally the complete search scope: chats
+  // outside projects, chats inside projects, message text, chat names, and
+  // project names. Models are not search results here.
   useEffect(() => {
     if (!searching) {
       setSearchResults([]);
       return;
     }
-    const needle = trimmedSearchQuery.toLowerCase();
-    const modelMatches: SearchResult[] = QUICK_CHAT_MODELS.filter(
-      (m) => m.configured && (m.label.toLowerCase().includes(needle) || m.provider.toLowerCase().includes(needle))
-    ).map((m) => ({ kind: "model", id: m.value, label: m.label, model: m }));
     let cancelled = false;
     fetch(`/search?q=${encodeURIComponent(trimmedSearchQuery)}`)
       .then((res) => (res.ok ? res.json() : []))
@@ -1586,20 +1691,17 @@ export default function SidebarNav({
           }[]
         ) => {
           if (cancelled) return;
-          setSearchResults([
-            ...modelMatches,
-            ...rows.map((row) => ({
+          setSearchResults(rows.map((row) => ({
               kind: "chat" as const,
               id: row.chat_id,
               label: row.chat_name,
               matchedIn: row.matched_in,
               snippet: row.matched_in === "message" ? row.snippet : undefined,
-            })),
-          ]);
+            })));
         }
       )
       .catch(() => {
-        if (!cancelled) setSearchResults(modelMatches);
+        if (!cancelled) setSearchResults([]);
       });
     return () => {
       cancelled = true;
@@ -1748,6 +1850,7 @@ export default function SidebarNav({
     setCollapsed(next);
     onCollapsedChange?.(next);
   };
+  const searchCollapsed = collapsed || !searchOpen;
   // expandSignal: a one-way external trigger (this prop's own comment has
   // the full reasoning) -- any *new* value re-expands the sidebar.
   // Skips the very first render (the ref guard) so passing an initial
@@ -1760,7 +1863,13 @@ export default function SidebarNav({
     toggleCollapsed(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expandSignal]);
-  const { show: showGettingStarted } = useGettingStarted();
+  const seenCollapseSignal = useRef(collapseSignal);
+  useEffect(() => {
+    if (collapseSignal === undefined || collapseSignal === seenCollapseSignal.current) return;
+    seenCollapseSignal.current = collapseSignal;
+    toggleCollapsed(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collapseSignal]);
   // Matches `collapsed` on every non-mobile platform now -- per explicit
   // request ("our collapsed sidebar should be like the collapsed one at
   // tauri where gets hidden... tauri and web should be the exact same"):
@@ -1776,7 +1885,9 @@ export default function SidebarNav({
   // state, with its own mobileDrawerOpen-gated backdrop below) rather
   // than a push-layout rail/hidden choice, so it keeps its existing
   // persistent-narrow-rail-when-closed behavior unchanged.
-  const fullyCollapsed = collapsed && !isMobile;
+  // Keep the narrow rail mounted so the child sidebar's own collapse control
+  // remains available as the expand control after collapsing.
+  const fullyCollapsed = false;
   // Real drag-resize, matching AppLayout.tsx's own right-panel drag handle
   // (that file's own startRightPanelResize has the identical shape) --
   // per explicit request ("make the left sidebar to be draggable like the
@@ -1828,11 +1939,7 @@ export default function SidebarNav({
     action();
     if (isMobile) toggleCollapsed(true);
   };
-  // Refocus-blur fix for the account dropdown's own trigger -- see that
-  // DropdownMenu's own onOpenChange comment below.
   const accountTriggerRef = useRef<HTMLButtonElement>(null);
-  // Same refocus-blur fix, for the new Help dropdown's own trigger
-  // (below, alongside the account trigger in the same row).
   const helpTriggerRef = useRef<HTMLButtonElement>(null);
   // True only while the mobile drawer is actually open (expanded on a
   // mobile viewport) -- drives the backdrop below and the <aside>'s own
@@ -1894,7 +2001,7 @@ export default function SidebarNav({
       // above describes, instead of needing a separate dimming overlay
       // over the rest of the page to hide that content some other way.
       // Harmless on desktop too, where nothing ever renders underneath it.
-      className={`relative flex shrink-0 overflow-hidden bg-sidebar transition-[width] ${fullyCollapsed ? "" : "border-r border-border"} ${isMobile ? "fixed top-0 left-0 z-50 h-dvh" : `relative ${fill ? "h-full" : "h-[600px]"}`} ${className}`}
+      className={`relative flex shrink-0 overflow-hidden border-r border-border bg-sidebar transition-[width] ${isMobile ? "fixed top-0 left-0 z-50 h-dvh" : `relative ${fill ? "h-full" : "h-[600px]"}`} ${className}`}
       style={{
         width: fullyCollapsed ? 0 : collapsed ? SIDEBAR_COLLAPSED_WIDTH : width,
         transitionDuration: isResizingWidth ? "0ms" : `${SIDEBAR_MOTION_MS}ms`,
@@ -1946,13 +2053,14 @@ export default function SidebarNav({
           move the lights to match the toolbar, not nudge the toolbar
           hoping to land on wherever the OS defaulted the lights. */}
       <div
-        className="flex min-h-0 shrink-0 flex-col pt-2 transition-[width]"
+        className="relative flex min-h-0 shrink-0 flex-col pt-2 transition-[width]"
         style={{
           width: fullyCollapsed ? 0 : collapsed ? SIDEBAR_COLLAPSED_WIDTH : width,
           transitionDuration: isResizingWidth ? "0ms" : `${SIDEBAR_MOTION_MS}ms`,
           transitionTimingFunction: SIDEBAR_EASING,
         }}
       >
+        {!hideTopBar && <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 z-0 h-10 bg-white/[0.035] backdrop-blur-xl" />}
         <GlideGroup>
         {/* Collapse toggle -- its own row, above Search.
             No border-b any more -- per explicit request ("remove the
@@ -1988,12 +2096,84 @@ export default function SidebarNav({
             this isn't a RailButton). */}
         <div className="h-[32px]">
         <div
-          className="mx-2 flex h-6 shrink-0 items-center overflow-hidden"
+          className={`relative mx-2 flex h-6 shrink-0 items-center ${hideTopBar ? "justify-end overflow-hidden" : "overflow-hidden"}`}
           style={{
             width: collapsed ? SIDEBAR_COLLAPSED_ROW_WIDTH : rowWidth,
             transition: `width ${SIDEBAR_MOTION_MS}ms ${SIDEBAR_EASING}`,
           }}
         >
+          {hideTopBar && !collapsed && variant !== "chat" && (
+            <div className="absolute left-1 flex h-7 max-w-[160px] items-center px-2 text-sm font-medium text-foreground">
+              {variant === "inbox" ? "Inbox" : "Code"}
+            </div>
+          )}
+          {hideTopBar && !collapsed && variant === "chat" && (
+            <BaseDropdownMenu size="compact">
+              <BaseDropdownTrigger
+                render={
+                  <button
+                    type="button"
+                    aria-label="Switch workspace"
+                    className="absolute left-1 flex h-7 max-w-[160px] items-center rounded-[6px] px-2 text-sm font-medium text-foreground transition-colors hover:bg-hover-2/50"
+                  >
+                    <span className="truncate">{activeWorkspace}</span>
+                    <ChevronDownIcon className="ml-1 size-3 shrink-0 text-ink-3" />
+                  </button>
+                }
+              />
+              <BaseDropdownContent align="start" sideOffset={6} className="w-48 min-w-0 rounded-2xl font-normal">
+                <BaseDropdownLabel>Workspaces</BaseDropdownLabel>
+                {workspaces.map((workspace, index) => (
+                  <BaseMenuItem
+                    key={workspace}
+                    index={index}
+                    icon={FolderIcon}
+                    label={workspace}
+                    onSelect={() => setActiveWorkspace(workspace)}
+                  />
+                ))}
+                <DropdownSeparator />
+                <BaseMenuItem index={workspaces.length + 1} icon={PlusIcon} label="Create workspace" onSelect={createWorkspace} />
+              </BaseDropdownContent>
+            </BaseDropdownMenu>
+          )}
+          {false && hideTopBar && (
+            <motion.div
+              className="ml-auto min-w-0 flex-none overflow-visible"
+              initial={false}
+              animate={{ width: searchCollapsed ? 48 : Math.max(48, rowWidth - 20) }}
+              transition={{ type: "spring", stiffness: 260, damping: 26 }}
+            >
+              <SidebarSearch
+                value={searchQuery}
+                onChange={setSearchQuery}
+                collapsed={searchCollapsed}
+                onExpandSidebar={() => (collapsed ? toggleCollapsed(false) : setSearchOpen(true))}
+                onCloseSearch={() => setSearchOpen(false)}
+              />
+            </motion.div>
+          )}
+          {hideTopBar && (
+            <button
+              ref={searchButtonRef}
+              type="button"
+              data-search-trigger
+              aria-label={variant === "inbox" ? "Search inbox" : variant === "code" ? "Search code" : "Search previous chats and files"}
+              onClick={() => {
+                if (variant === "inbox") {
+                  document.getElementById("inbox-search")?.focus();
+                  return;
+                }
+                const rect = searchButtonRef.current?.getBoundingClientRect();
+                if (rect) setSearchPopoverPosition({ top: rect.bottom + 4, left: rect.left });
+                setSearchQuery("");
+                setSearchOpen(true);
+              }}
+              className={`absolute top-1/2 right-7 flex h-7 w-7 shrink-0 -translate-y-1/2 items-center justify-center rounded-[6px] text-foreground transition-opacity duration-[280ms] hover:bg-hover-2/50 active:scale-[0.98] ${collapsed ? "pointer-events-none opacity-0" : "opacity-100"}`}
+            >
+              <SearchIcon className="size-[14px]" />
+            </button>
+          )}
           {/* Reserved space for macOS's own native traffic-light buttons
               (titleBarStyle: "Overlay", src-tauri/tauri.conf.json), which
               float on top of this row's own top-left corner when running
@@ -2011,11 +2191,11 @@ export default function SidebarNav({
               un-collapsed, or collapsed somewhere the lights aren't a
               problem (web, or the desktop app fullscreen) -- both cases
               this reserve going to 0 while collapsed is exactly right. */}
-          <span
+          {!hideTopBar && <span
             className="block h-full shrink-0"
             style={{ width: collapsed || !isMac ? 0 : 62, transition: `width ${SIDEBAR_MOTION_MS}ms ${SIDEBAR_EASING}` }}
             aria-hidden
-          />
+          />}
           {/* ml-1, not ml-auto, while collapsed -- per explicit request
               (confirmed via screenshot: this icon sat visibly off from
               the rest of the collapsed rail's own icon column). ml-auto
@@ -2037,7 +2217,7 @@ export default function SidebarNav({
               desktop-app-not-fullscreen case that *does* have them
               skips this narrow rail entirely. */}
           {/* Restored as the collapse toggle -- briefly replaced with a
-              Home button (navigate to /new-chat), reverted per explicit
+              Home button (navigate to /new/chat), reverted per explicit
               request ("the sidebar at homepage got broken... please
               restore our previous collapse feature to the homepage
               sidebar and keep the settings sidebar as it is"): the
@@ -2049,7 +2229,7 @@ export default function SidebarNav({
             type="button"
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             onClick={() => toggleCollapsed(!collapsed)}
-            className={`${collapsed ? "ml-1" : "ml-auto"} flex size-5 shrink-0 transform-gpu items-center justify-center rounded-[6px] text-foreground transition-[background-color,color] duration-150 hover:bg-hover-2/50 active:scale-[0.98]`}
+            className={`${hideTopBar ? "ml-auto" : collapsed ? "ml-1" : "ml-auto"} flex size-7 shrink-0 transform-gpu items-center justify-center rounded-[6px] text-foreground transition-[background-color,color] duration-150 hover:bg-hover-2/50 active:scale-[0.98]`}
           >
             <SidebarLeftIcon className="size-[14px]" />
           </button>
@@ -2081,7 +2261,7 @@ export default function SidebarNav({
               a rail with no room for these can't still register clicks
               on them mid-fade. */}
           <div
-            className={`flex shrink-0 items-center gap-0.5 transition-opacity duration-[280ms] ${collapsed ? "pointer-events-none opacity-0" : "opacity-100"}`}
+            className={`${hideTopBar ? "hidden" : "flex"} shrink-0 items-center gap-0.5 transition-opacity duration-[280ms] ${collapsed ? "pointer-events-none opacity-0" : "opacity-100"}`}
           >
             <button
               type="button"
@@ -2104,6 +2284,19 @@ export default function SidebarNav({
           </div>
         </div>
         </div>
+        {hideTopBar && variant !== "inbox" && searchOpen && (
+          <SidebarSearchPopover
+            query={searchQuery}
+            results={searchResults}
+            position={searchPopoverPosition}
+            onQueryChange={setSearchQuery}
+            onPick={pickSearchResult}
+            onClose={() => {
+              setSearchQuery("");
+              setSearchOpen(false);
+            }}
+          />
+        )}
         {/* mb-2, on top of GlideGroup's own shared gap-1 (4px) between every
             other row -- per explicit request ("add a bigger gap between
             getting started and search bar"): only this one gap needed to
@@ -2111,56 +2304,27 @@ export default function SidebarNav({
             chat too, so it's added here on Search's own wrapper rather than
             raising GlideGroup's shared gap (which an earlier explicit
             request specifically set for every row in the sidebar at once). */}
-        <div className="mb-2">
+        <div className="hidden">
         {collapsed ? (
-          <SidebarSearch value={searchQuery} onChange={setSearchQuery} collapsed={collapsed} onExpandSidebar={() => toggleCollapsed(false)} />
+          <SidebarSearch
+            value={searchQuery}
+            onChange={setSearchQuery}
+            collapsed={searchCollapsed}
+            onExpandSidebar={() => (collapsed ? toggleCollapsed(false) : setSearchOpen(true))}
+          />
         ) : (
           <div className="mx-2 flex h-7 items-center" style={{ width: rowWidth }}>
-            <SidebarSearch value={searchQuery} onChange={setSearchQuery} collapsed={collapsed} onExpandSidebar={() => toggleCollapsed(false)} />
+            <SidebarSearch
+              value={searchQuery}
+              onChange={setSearchQuery}
+              collapsed={searchCollapsed}
+              onExpandSidebar={() => (collapsed ? toggleCollapsed(false) : setSearchOpen(true))}
+            />
           </div>
         )}
         </div>
-          {/* Search, Getting started, Inbox, New -- this exact order, per
-              explicit request. New (below) replaces the old standalone New
-              Chat/Agents/Apps rows with one popup covering every "create"
-              action (New chat/New project/New agent/New app), "reducing
-              the amount of buttons at the sidebar" -- Getting started and
-              Inbox aren't creation actions, so they stay real nav rows
-              rather than folding into that popup. Hidden entirely (not
-              just disabled) once use-getting-started.tsx's own toggle is
-              off -- settings-overlay.tsx's General section, or
-              WelcomePage's own "hide this page" control -- matching "hide
-              this page" meaning the page and its nav entry are both gone,
-              not just unreachable via one of the two. */}
-          {showGettingStarted && (
-            <RailButton
-              collapsed={collapsed}
-              rowWidth={rowWidth}
-              icon={placeholderNav ? <BlankPageIcon className="size-[14px]" /> : WELCOME_ITEM.icon}
-              label={placeholderNav ? t("common.placeholder") : t("nav.welcome")}
-              url={WELCOME_ITEM.url}
-              active={activeNav === WELCOME_ITEM.key}
-              onClick={() => navigateAndClose(() => onNavigate?.(WELCOME_ITEM.key))}
-            />
-          )}
-          <RailButton
-            collapsed={collapsed}
-            rowWidth={rowWidth}
-            icon={placeholderNav ? <BlankPageIcon className="size-[14px]" /> : INBOX_ITEM.icon}
-            label={placeholderNav ? t("common.placeholder") : t("nav.inbox")}
-            url={INBOX_ITEM.url}
-            active={activeNav === INBOX_ITEM.key}
-            onClick={() => navigateAndClose(() => onNavigate?.(INBOX_ITEM.key))}
-          />
-          <RailButton
-            collapsed={collapsed}
-            rowWidth={rowWidth}
-            icon={placeholderNav ? <BlankPageIcon className="size-[14px]" /> : LIBRARY_ITEM.icon}
-            label={placeholderNav ? t("common.placeholder") : t("nav.library")}
-            url={LIBRARY_ITEM.url}
-            active={activeNav === LIBRARY_ITEM.key}
-            onClick={() => navigateAndClose(() => onNavigate?.(LIBRARY_ITEM.key))}
-          />
+          {/* The Alongside/welcome entry belongs to the parent rail. The
+              child rail starts with New chat and its project/chat sections. */}
           {/* New chat -- a plain RailButton now (its own no-url branch
               renders a plain <button>), not a dropdown, per explicit
               request ("remove new agent, we will create in another way
@@ -2175,15 +2339,57 @@ export default function SidebarNav({
               is not centralised in line with Getting started and Inbox")
               -- guarantees byte-identical markup with its neighbors
               instead of two copies of the same classes drifting apart. */}
-          <RailButton
+          {variant === "chat" && <RailButton
             collapsed={collapsed}
             rowWidth={rowWidth}
-            icon={<PlusIcon className="size-[14px]" />}
+            icon={<Edit05Icon className="size-[14px]" />}
             label={t("common.newChat")}
             active={activeNav === "home"}
             onClick={() => navigateAndClose(() => onNewChat?.())}
-          />
+          />}
+          {variant === "code" && (
+            <RailButton
+              collapsed={collapsed}
+              rowWidth={rowWidth}
+              icon={<PlusIcon className="size-[14px]" />}
+              label="New repository"
+              active={false}
+              onClick={() => {}}
+            />
+          )}
         </GlideGroup>
+
+        {variant !== "chat" && (
+          <div
+            className={`mt-3 min-h-0 flex-1 overflow-y-auto transition-opacity duration-[280ms] ${collapsed ? "pointer-events-none opacity-0" : "opacity-100"}`}
+          >
+            <div className="mx-2 mb-0.5 flex h-5 items-center px-2 text-xs font-normal text-foreground select-none">
+              <span className="opacity-50">{variant === "code" ? "All repositories" : "All"}</span>
+            </div>
+            <GlideGroup>
+              {(variant === "code" || recents.length === 0) && (
+                <div className="mx-2 flex h-7 shrink-0 items-center overflow-hidden whitespace-nowrap px-2 text-xs font-normal text-muted-foreground opacity-50">
+                  No results
+                </div>
+              )}
+              {variant === "inbox" && recents.map((item) => (
+                <ChatRow
+                  key={item.id}
+                  item={item}
+                  active={selectedRecent === item.id}
+                  projects={projects}
+                  rowWidth={rowWidth}
+                  menuOpen={menuOpenId === item.id}
+                  onMenuOpenChange={(open) => setMenuOpenId(open ? item.id : null)}
+                  onSelect={() => navigateAndClose(() => navigate(`/chat/${item.id}`))}
+                  onArchive={() => void handleArchiveRecent(item.id)}
+                  onDeleteRequest={() => void handleConfirmDelete(item.id)}
+                  onAssignToProject={(projectId) => void assignChatToProject(item.id, projectId)}
+                />
+              ))}
+            </GlideGroup>
+          </div>
+        )}
 
         {/* Projects/Recents fade out while collapsed instead of instantly
             unmounting -- same opacity transition, same duration, as
@@ -2201,7 +2407,7 @@ export default function SidebarNav({
             re-attempting without a way to visually verify the collapse
             transition frame by frame first. */}
         <div
-          className={`mt-3 min-h-0 flex-1 overflow-y-auto transition-opacity duration-[280ms] ${collapsed ? "pointer-events-none opacity-0" : "opacity-100"}`}
+          className={`${variant !== "chat" ? "hidden" : ""} mt-3 min-h-0 flex-1 overflow-y-auto transition-opacity duration-[280ms] ${collapsed ? "pointer-events-none opacity-0" : "opacity-100"}`}
         >
           {/* Search results swap in for the whole Projects/Chats body below
               -- per explicit request ("sidebar at main should not have the
@@ -2210,11 +2416,11 @@ export default function SidebarNav({
               same in-place swap Settings' own search already does
               (settings-overlay.tsx: `searching ? <results> : <nav list>`)
               instead of a floating popup layered on top of the sidebar. */}
-          {searching ? (
+          {searching && !searchOpen ? (
             <div className="mx-2 flex flex-col gap-0.5">
               {searchResults.length === 0 ? (
                 <p className="px-2 py-2 text-[12px] font-normal text-muted-foreground opacity-50">
-                  No matches found for "{searchQuery}"
+                  No results
                 </p>
               ) : (
                 searchResults.map((item) => {
@@ -2428,7 +2634,7 @@ export default function SidebarNav({
                 state instead of a blank gap that could pass for a loading
                 glitch. */}
             {projects.length === 0 && (
-              <div className="mx-2 flex h-7 items-center px-2 text-xs font-normal text-muted-foreground opacity-50">{t("nav.projects.empty")}</div>
+              <div className="mx-2 flex h-7 shrink-0 items-center overflow-hidden whitespace-nowrap px-2 text-xs font-normal text-muted-foreground opacity-50">{t("nav.projects.empty")}</div>
             )}
             {projects.map((item) => {
                 const projectChats = chatsForProject(item.id);
@@ -2463,7 +2669,7 @@ export default function SidebarNav({
                       // reasoning (no real session exists to assign a
                       // project_id to until one is actually created there).
                       onNewChat={() =>
-                        navigateAndClose(() => navigate("/new-chat", { state: { projectId: item.id } }))
+                        navigateAndClose(() => navigate("/new/chat", { state: { projectId: item.id } }))
                       }
                       menuOpen={projectMenuOpenId === item.id}
                       onMenuOpenChange={(open) => setProjectMenuOpenId(open ? item.id : null)}
@@ -2537,7 +2743,7 @@ export default function SidebarNav({
                   label uses above (that block's own comment has the full
                   opacity/color/select-none/group-hover reasoning -- reused
                   verbatim here). */}
-              <div className="group mx-2 mt-3 mb-0.5 flex h-5 items-center justify-between px-2 text-xs font-normal text-foreground select-none">
+                  <div className="group mx-2 mt-3 mb-0.5 flex h-5 shrink-0 items-center justify-between overflow-hidden whitespace-nowrap px-2 text-xs font-normal text-foreground select-none">
                 {/* "Chats", not "Recent chats" -- per explicit request. */}
                 <span className="opacity-50">{t("nav.chats")}</span>
                 <div className="flex items-center gap-0.5">
@@ -2557,7 +2763,7 @@ export default function SidebarNav({
                     above -- see that block's own comment for the full
                     reasoning. */}
                 {rootChats.length === 0 && (
-                  <div className="mx-2 flex h-7 items-center px-2 text-xs font-normal text-muted-foreground opacity-50">{t("nav.chats.empty")}</div>
+                  <div className="mx-2 flex h-7 shrink-0 items-center overflow-hidden whitespace-nowrap px-2 text-xs font-normal text-muted-foreground opacity-50">{t("nav.chats.empty")}</div>
                 )}
                 {rootChats.map((item) => (
                   <ChatRow
@@ -2609,25 +2815,8 @@ export default function SidebarNav({
             same "space before this row" role mt-1.5 plays for the compose
             toolbar row, so both rows are the same real height (28px, h-7)
             framed the same way, not just centered on the same point. */}
-        {!placeholderNav && (
-        <div className="mt-3 shrink-0 pb-4">
-          {/* Settings -- a standalone nav row now, directly above the
-              avatar+Help row below, per explicit request ("Settings go
-              abover the avatar as a sidebar menu but at the bottom and
-              top of the avatar and help row"). Plain RailButton, same as
-              every other top-level nav row -- its own single-row
-              GlideGroup gives it the same magnetic hover highlight those
-              rows share, even though it's the only row in this
-              particular group. */}
-          <GlideGroup>
-            <RailButton
-              collapsed={collapsed}
-              rowWidth={rowWidth}
-              icon={<SettingsIcon className="size-[14px]" />}
-              label={t("nav.settings")}
-              onClick={() => (onOpenSettings ? onOpenSettings() : navigate("/settings"))}
-            />
-          </GlideGroup>
+        {false && !placeholderNav && !collapsed && (
+        <div className="mt-3 shrink-0 pb-2">
           {/* mx-2/width/transition: same fullWidth row pattern every other
               row in this rail uses (RailButton's own style prop, mirrored
               by hand since the triggers here need their own DropdownMenu
@@ -2806,7 +2995,7 @@ export default function SidebarNav({
                 dropdown like synara's for Docs,Keybindings"). Hidden while
                 collapsed (see the row wrapper's own comment above) -- no
                 room for a second icon in the 32px collapsed rail. */}
-            {!collapsed && (
+            {false && !collapsed && (
               <BaseDropdownMenu
                 size="compact"
                 onOpenChange={(nowOpen) => {

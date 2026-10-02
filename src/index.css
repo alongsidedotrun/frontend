@@ -17,6 +17,22 @@
    package (that app's own Markdown.tsx). */
 @import "streamdown/styles.css";
 
+@keyframes onboarding-word-in {
+  from {
+    opacity: 0;
+    transform: translateY(-1.1em);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes onboarding-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -709,7 +725,8 @@
      softens that instant into a brief reveal instead -- this only smooths
      the transition, it doesn't shrink the underlying load time. */
   #root > * {
-    animation: app-mount-in 320ms ease-out;
+    animation: none;
+    opacity: 1;
     }
   @keyframes app-mount-in {
     from {
