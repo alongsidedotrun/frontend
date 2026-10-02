@@ -25,7 +25,6 @@ import {
   ClearIcon,
   CompareIcon,
   DocIcon,
-  FileSearchIcon,
   IntegrationsIcon,
   MicIcon,
   PlusIcon,
@@ -190,11 +189,9 @@ type SlashRow = {
 // real roster, and this app already has a dedicated "Select model" picker
 // (below) for the one thing @ might otherwise have been for. Each / row
 // renamed to its own short /word label per explicit request (was full
-// phrases like "Create tasks"/"Find previous chats"), and the old two-row
-// Find pair (previous chats + previous files) collapsed into one combined
-// row (/find) rather than staying split. /research (connected apps & the
-// web) removed per a later explicit request. Plus a couple of technical
-// ones with no command backend behind them yet.
+// phrases like "Create tasks"/"Find previous chats"). /research (connected
+// apps & the web) removed per a later explicit request. Plus a couple of
+// technical ones with no command backend behind them yet.
 const SLASH_ROWS: SlashRow[] = [
   { key: "clear", kind: "command", label: "/clear", desc: "Clear the draft", icon: <ClearIcon className="size-4" /> },
   // Real, but not a pick()-time action like /clear above -- picking this
@@ -209,7 +206,6 @@ const SLASH_ROWS: SlashRow[] = [
   { key: "summarize", kind: "placeholder", label: "/summarize", desc: "Summarize this chat", icon: <SummarizeIcon className="size-4" /> },
   { key: "task", kind: "placeholder", label: "/task", desc: "Turn this into a task list", icon: <TaskIcon className="size-4" /> },
   { key: "docs", kind: "placeholder", label: "/docs", desc: "Draft a new document", icon: <DocIcon className="size-4" /> },
-  { key: "find", kind: "placeholder", label: "/find", desc: "Search your previous chats & files", icon: <FileSearchIcon className="size-4" /> },
 ];
 
 // The last /word being typed, if any. + is gone from this (used to open
@@ -1697,8 +1693,8 @@ export function ComposeBox({
             <DropdownSubItem className="text-[12px] whitespace-nowrap" disabled>
               <SkillIcon className="mr-2 inline size-3.5 shrink-0 align-[-3px]" />
               {t("compose.skills")}
-              <span className="ml-1.5 shrink-0 rounded-[4px] bg-hover-2 px-1 py-0.5 text-[10px] font-normal text-muted-foreground">
-                {t("compose.soon")}
+              <span className="ml-2 shrink-0 text-[10px] font-normal text-muted-foreground/60">
+                Coming Soon
               </span>
             </DropdownSubItem>
           </BaseDropdownContent>

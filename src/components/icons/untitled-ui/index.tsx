@@ -5,6 +5,7 @@ import {
   DotsHorizontal,
   DotsVertical,
   Edit02,
+  Edit05,
   Bell01,
   Archive,
   Trash01,
@@ -17,6 +18,7 @@ import {
   Square,
   ArrowUp,
   ArrowLeft,
+  ArrowRight,
   Upload01,
   File01,
   File02,
@@ -27,6 +29,7 @@ import {
   Settings02,
   AlertCircle,
   Code01,
+  CodeBrowser,
   HelpCircle,
   InfoCircle,
   BookClosed,
@@ -62,6 +65,7 @@ import {
   Keyboard01,
   HomeLine,
   MessageCircle02,
+  MessageChatCircle,
   Palette,
   BarChartSquare02,
   ChevronSelectorHorizontal,
@@ -97,6 +101,7 @@ export {
   Download01 as DownloadIcon,
   Check as CheckIcon,
   Edit02 as EditIcon,
+  Edit05 as Edit05Icon,
   Microphone01 as MicIcon,
   Plus as PlusIcon,
   // Compose box's own attach-file button.
@@ -105,10 +110,12 @@ export {
   MessagePlusCircle as BubbleChatAddIcon,
   // Settings sidebar's own Chat row (settings-overlay.tsx) -- its only call site.
   MessageCircle02 as BubbleChatIcon,
+  MessageChatCircle as MessageChatCircleIcon,
   Square as SquareIcon,
   ArrowUp as ArrowUpIcon,
   // settings-overlay.tsx's own provider connection view back button.
   ArrowLeft as ArrowLeftIcon,
+  ArrowRight as ArrowRightIcon,
   // AppLayout.tsx's own chat-header Share icon button.
   Upload01 as ArrowUp03Icon,
   // AppLayout.tsx's own chat-header Memory icon button.
@@ -121,6 +128,7 @@ export {
   AlertCircle as AlertCircleIcon,
   // WelcomePage's own "Initial setup" row.
   Code01 as ComputerProgrammingIcon,
+  CodeBrowser as CodeBrowserIcon,
   HelpCircle as HelpCircleIcon,
   InfoCircle as InfoCircleIcon,
   // Docs rows (nav-user.tsx) -- was Edit02, per explicit request ("docs

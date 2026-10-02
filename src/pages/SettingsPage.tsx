@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { SettingsSectionContent, type SettingsSection } from "@/components/settings-overlay";
 
-const VALID_SECTIONS: SettingsSection[] = ["profile", "general", "appearance", "chat", "provider", "apps"];
+const VALID_SECTIONS: SettingsSection[] = ["profile", "general", "appearance", "chat", "security", "provider", "apps"];
 
 // Full page now, not a modal -- per explicit request ("we need to update
 // our settings to be exactly like it... i want a full page setting page"),

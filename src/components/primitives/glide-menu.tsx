@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 type GlideMenuProps = {
   children: ReactNode;
@@ -15,6 +15,7 @@ export default function GlideMenu({
   rowSelector = "[data-menu-row]",
 }: GlideMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const activeRowRef = useRef<HTMLElement | null>(null);
   const [box, setBox] = useState<{ top: number; height: number; left: number; width: number } | null>(null);
   const [visible, setVisible] = useState(false);
 
@@ -47,8 +48,21 @@ export default function GlideMenu({
       left: rowRect.left - containerRect.left,
       width: rowRect.width,
     });
+    activeRowRef.current = row;
     setVisible(true);
   };
+
+  useEffect(() => {
+    if (!visible) return;
+    const container = ref.current;
+    const row = activeRowRef.current;
+    if (!container || !row || typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(() => moveTo(row));
+    observer.observe(container);
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, [visible]);
 
   return (
     <div

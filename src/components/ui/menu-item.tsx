@@ -118,6 +118,8 @@ interface MenuItemProps extends HTMLAttributes<HTMLDivElement> {
   /** Trailing pill after the label, e.g. "Coming soon" on a disabled row --
    *  purely visual, not part of the accessible name. */
   badge?: ReactNode;
+  /** Keeps the badge directly beside the label instead of at the row edge. */
+  badgeInline?: boolean;
   /** Forces the icon/label into their active (text-foreground) color at
    *  rest, without the checked-only checkmark or radio semantics --
    *  e.g. "+ Add provider", a plain action row that should read as full
@@ -137,6 +139,7 @@ const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
       closeOnClick,
       destructive,
       badge,
+      badgeInline,
       forceActive,
       className,
       onClick,
@@ -235,7 +238,7 @@ const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
         )}
         {/* Both stacked spans carry the text-box trim so the invisible bold
             sizer and the visible label keep identical boxes. */}
-        <span className={cn("inline-grid flex-1", sizeClasses.text)}>
+        <span className={cn("inline-grid", badgeInline ? "flex-none" : "flex-1", sizeClasses.text)}>
           <span
             className="col-start-1 row-start-1 invisible [text-box:trim-both_cap_alphabetic]"
             style={{ fontVariationSettings: fontWeights.semibold }}

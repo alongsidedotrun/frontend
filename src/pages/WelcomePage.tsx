@@ -1,79 +1,12 @@
 import { Trans, useTranslation } from "react-i18next";
 import { useEffect } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
-import { useCliAvailability, type SettingsSection } from "@/components/settings-overlay";
+import type { SettingsSection } from "@/components/settings-overlay";
 import { PAGE_CONTENT_WIDTH } from "@/components/page-content";
 import { AlongsideLogo } from "@/components/icons/alongside-logo";
+import { PRIMARY_SIDEBAR_WIDTH } from "@/components/primary-sidebar";
+import { GettingStartedRows } from "@/components/getting-started-rows";
 import { useGettingStarted } from "@/hooks/use-getting-started";
-import { Card, CardGroup, CardMedia, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { SizeProvider } from "@/lib/size-context";
-import type { IconComponent } from "@/lib/icon-context";
-import { ComputerProgrammingIcon, DocIcon, PlusIcon } from "@/components/icons/untitled-ui";
-
-type MenuRow = {
-  key: string;
-  title: string;
-  description: string;
-  icon: IconComponent;
-  disabled?: boolean;
-  // Shows a small "Coming soon" badge next to the title -- per explicit
-  // request, disabling this row ahead of the docs actually existing.
-  comingSoon?: boolean;
-  // Opens Settings' own Providers section (settings-overlay.tsx) instead
-  // of navigating, per explicit request ("providers should bring us to
-  // the settings page at the providers menu").
-  settingsSection?: SettingsSection;
-  // Real destinations now, matching exactly what the sidebar's own old
-  // New-chat/New-project/New-agent dropdown rows used to navigate to
-  // (AppLayout.tsx's own onNewChat -> navigate("/new-chat"); the others were
-  // plain navigate("/projects")/navigate("/agent") calls) before that
-  // dropdown was removed -- and /docs (App.tsx's own real route) for
-  // Learn the features. Was `disabled` + no real action at all, even once
-  // "enabled" -- confirmed directly as the actual root cause of a
-  // separate, stubborn bug ("the other cards are text seletable... why
-  // the first card works and the other don't"): only a Card with a real
-  // onClick/href gets Card's own stretched overlay button (ui/card.tsx),
-  // which is what was ACTUALLY preventing selection on Initial setup by
-  // sitting on top of its text in paint order -- CSS user-select/
-  // preventDefault on ancestors, tried repeatedly first, never touches
-  // that; only giving every row here a genuine destination does.
-  to?: string;
-};
-
-// Matches a reference screenshot's layout: logo, then a vertical list of
-// icon + title + description rows -- replaces the earlier heading/install-
-// snippet layout entirely, not just restyled in place.
-function menuRows(initialSetupDone: boolean, t: (key: string) => string): MenuRow[] {
-  return [
-    {
-      key: "initial-setup",
-      // Flips to "Add new providers" once a provider is connected, per
-      // explicit request -- still the same row (same icon, same
-      // destination, Settings' own Providers section), just no longer
-      // reads as "you haven't done this yet" once it's genuinely done.
-      title: initialSetupDone ? t("welcome.addProviders.title") : t("welcome.initialSetup.title"),
-      description: initialSetupDone ? t("welcome.addProviders.description") : t("welcome.initialSetup.description"),
-      icon: ComputerProgrammingIcon,
-      settingsSection: "provider",
-    },
-    {
-      key: "new-chat",
-      title: t("common.newChat"),
-      description: t("welcome.newChat.description"),
-      icon: PlusIcon,
-      disabled: !initialSetupDone,
-      to: "/new-chat",
-    },
-    {
-      key: "learn-features",
-      title: t("welcome.discover.title"),
-      description: t("welcome.discover.description"),
-      icon: DocIcon,
-      disabled: true,
-      comingSoon: true,
-    },
-  ];
-}
 
 export function WelcomePage() {
   const { t } = useTranslation();
@@ -81,17 +14,12 @@ export function WelcomePage() {
   // mechanism ChatPage.tsx already uses for chatName/
   // receiveChatNameFromServer) -- opens SettingsOverlay instead of a
   // route navigation, since Settings is a modal now.
-  const { openSettings } = useOutletContext<{ openSettings: (section: SettingsSection) => void }>();
+  const { openSettings, primarySidebarCollapsed } = useOutletContext<{
+    openSettings: (section: SettingsSection) => void;
+    primarySidebarCollapsed: boolean;
+  }>();
   const navigate = useNavigate();
-  // Real now -- was a hardcoded INITIAL_SETUP_DONE = false constant. Same
-  // live check settings-overlay.tsx's own provider cards use (is the
-  // claude CLI on PATH); "claude" specifically, not every provider in
-  // PROVIDERS, since claude is the only one this app's backend actually
-  // launches today (quick-chat-models.tsx's own comment on this).
-  const { available } = useCliAvailability("claude");
-  const initialSetupDone = available === true;
   const { setShow: setShowGettingStarted } = useGettingStarted();
-  const MENU_ROWS = menuRows(initialSetupDone, t);
 
   useEffect(() => {
     document.title = t("welcome.title");
@@ -116,18 +44,27 @@ export function WelcomePage() {
     // they only center the logo, then offset everything else by a fixed
     // amount from it), but this page has no sibling page it needs to
     // line up with, so centering the whole block is simplest here.
-    // top: calc(50% - 20px), not a plain top-1/2 -- confirmed directly via
+    // top: calc(50% - 63px), not a plain top-1/2 -- confirmed directly via
     // the debug-background screenshot: 50% here measures against this
     // component's own box, which already excludes AppLayout.tsx's always-
     // mounted ~40px chat-scoped header above it (a real, space-reserving
     // element, just invisible when no chat is open) -- so centering
     // "within" this box actually lands the content ~20px (half that
     // header's height) below the *window's* true vertical center, not on
-    // it. Shifting up by that same 20px compensates for the header eating
-    // space only off the top, with nothing reserved at the bottom to
-    // balance it.
+    // it. Forty pixels compensate for the parent top bar and reserved child
+    // header above this outlet. The additional 23px
+    // aligns this shorter three-row block with /onboard/getting-started,
+    // whose otherwise-identical content has one extra 42px acknowledgement
+    // row plus a 4px group gap; half of that height difference is 23px.
     <div className="absolute inset-0 overflow-y-auto px-4">
-      <div className="absolute left-1/2 w-full -translate-x-1/2 -translate-y-1/2" style={{ maxWidth: PAGE_CONTENT_WIDTH, top: "calc(50% - 20px)" }}>
+      <div
+        className="absolute w-full -translate-x-1/2 -translate-y-1/2"
+        style={{
+          maxWidth: PAGE_CONTENT_WIDTH,
+          top: "calc(50% - 63px)",
+          left: `calc(50% - ${primarySidebarCollapsed ? 0 : PRIMARY_SIDEBAR_WIDTH / 2}px)`,
+        }}
+      >
       <div className="mx-auto w-1/2">
         {/* AlongsideLogo (components/icons/alongside-logo.tsx) -- inline
             SVG, not <img src="/logo.svg">, so its own color actually
@@ -150,18 +87,10 @@ export function WelcomePage() {
             heading/subheading treatment HomePage.tsx's own "Ask anything"
             uses, so this page reads consistently with the rest of the app
             instead of jumping straight from the logo to the row list.
-            w-[200%] -ml-[50%] -- this div's own parent is the narrower
-            w-1/2 column the rows below share, but the subheading sentence
-            needs the *full* 800px column's width to stay on one line --
-            confirmed directly as wrapping to two lines specifically in
-            the desktop app's own (narrower) default window width. Percent
-            width/margin, not a fixed px override, so this stays correct
-            at any window size: CSS resolves both against the parent's
-            own width, so this always widens back out to exactly the
-            *outer* w-full column's width and re-centers within the
-            narrower parent, regardless of what that parent's actual
-            computed width happens to be. */}
-        <div className="mt-6 -ml-[50%] w-[200%] text-center">
+            max-w-[390px] -- intentionally matches
+            DataAcknowledgementPage's onboarding heading block so both
+            subheadings wrap at the same width during navigation. */}
+        <div className="mx-auto mt-6 max-w-[390px] text-center">
           <h1 className="text-[18px] font-normal text-foreground">{t("welcome.heading")}</h1>
           <p className="mt-2 text-[13px] font-normal text-muted-foreground">
             {t("welcome.subheading")}
@@ -200,52 +129,10 @@ export function WelcomePage() {
             it"), the hairline dividers a borderless, non-separated
             CardGroup draws between adjacent rows by default. */}
         <div className="mt-6">
-          <SizeProvider size="compact">
-          {/* gap-1 (4px) -- matches the sidebar's own GlideGroup row gap
-              exactly (sidebar-nav.tsx), per explicit request ("increase
-              the gaps in these items to match the gaps between menu at
-              sidebar"): without dividers (divided={false}, above) the
-              rows were flush against each other (CardGroup's own default
-              gap-0 for a non-separated group), reading as cramped. */}
-          <CardGroup orientation="inline" highlightClassName="bg-hover-2/50 rounded-[7px]" divided={false} className="gap-1">
-            {MENU_ROWS.map((row) => (
-              <Card
-                key={row.key}
-                disabled={row.disabled}
-                label={row.title}
-                // Every row gets a real onClick now -- the settingsSection
-                // one still opens Settings, the rest navigate to their own
-                // real `to` destination (MenuRow's own comment has the
-                // full reasoning: this is also what actually fixes the
-                // text-selection bug, not any of the CSS-level patches
-                // tried first). Card's own select-none (ui/card.tsx) only
-                // ever applied `clickable && "select-none"` -- every row
-                // is genuinely clickable now, so that already covers it
-                // without needing an override here.
-                onClick={
-                  row.settingsSection
-                    ? () => openSettings(row.settingsSection!)
-                    : row.to
-                      ? () => navigate(row.to!)
-                      : undefined
-                }
-              >
-                <CardMedia icon={row.icon} />
-                <CardHeader>
-                  <CardTitle>
-                    {row.title}
-                    {row.comingSoon && (
-                      <span className="ml-1.5 rounded-[4px] bg-hover-2 px-1 py-0.5 text-[10px] font-normal text-muted-foreground">
-                        {t("compose.soon")}
-                      </span>
-                    )}
-                  </CardTitle>
-                  <CardDescription>{row.description}</CardDescription>
-                </CardHeader>
-              </Card>
-            ))}
-          </CardGroup>
-          </SizeProvider>
+          <GettingStartedRows
+            onSetupProvider={() => openSettings("provider")}
+            onCreateChat={() => navigate("/new/chat")}
+          />
         </div>
         {/* Matches AuthPage.tsx's own FieldDescription footer line (same
             text-xs/text-muted-foreground/text-center treatment), per
@@ -253,7 +140,7 @@ export function WelcomePage() {
             page (use-getting-started.tsx's own toggle), no longer gated on
             Initial setup being done first (that gating only ever existed
             because there was nothing real to wire up yet). Navigates to
-            /new-chat after hiding -- staying on a page that was just told to
+            /new/chat after hiding -- staying on a page that was just told to
             hide itself would be a dead end (this page can't render itself
             hidden, and the sidebar's own Getting started row -- also now
             gone -- was the only other way back to it). "Settings" opens
@@ -271,7 +158,7 @@ export function WelcomePage() {
                 type="button"
                 onClick={() => {
                   setShowGettingStarted(false);
-                  navigate("/new-chat");
+                  navigate("/new/chat");
                 }}
                 className="underline underline-offset-2"
               />,

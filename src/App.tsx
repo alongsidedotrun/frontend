@@ -1,7 +1,6 @@
 import { BrowserRouter, Navigate, useLocation, useRoutes, type RouteObject } from "react-router-dom";
+import { useEffect, useState } from "react";
 import * as Sentry from "@sentry/react";
-import { AnimatePresence, motion } from "motion/react";
-import { spring } from "@/lib/springs";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { GettingStartedProvider, useGettingStarted } from "@/hooks/use-getting-started";
 import { ThemeProvider } from "@/hooks/use-theme";
@@ -10,6 +9,7 @@ import { AppLayout } from "@/layouts/AppLayout";
 import { AppsPage } from "@/pages/AppsPage";
 import { AuthPage } from "@/pages/AuthPage";
 import { ChatPage } from "@/pages/ChatPage";
+import { DataAcknowledgementPage } from "@/pages/DataAcknowledgementPage";
 import { DocsPage } from "@/pages/DocsPage";
 import { HelpPage } from "@/pages/HelpPage";
 import { HomePage } from "@/pages/HomePage";
@@ -17,14 +17,17 @@ import { InboxPage } from "@/pages/InboxPage";
 import { JoinPage } from "@/pages/JoinPage";
 import { LibraryPage } from "@/pages/LibraryPage";
 import { ModelsPage } from "@/pages/ModelsPage";
+import { OnboardingPage } from "@/pages/OnboardingPage";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
 import { ProjectsPage } from "@/pages/ProjectsPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { WelcomePage } from "@/pages/WelcomePage";
+import { loadDataAcknowledgement } from "@/lib/data-acknowledgement";
+import { diagnose_onboarding, hasCompletedOnboardingIntro } from "@/lib/onboarding";
 
 // "/" itself is just a redirect -- Getting started is the app's real default
 // landing page (per explicit request), not New Chat, which moved to its own
-// "/new-chat" so it's still a real, reachable destination (the sidebar's own
+// "/new/chat" so it's still a real, reachable destination (the sidebar's own
 // New Chat row, AppLayout.tsx's various "start fresh" actions) rather than
 // being displaced by the redirect. Its own component now (was a plain
 // <Navigate> with a hardcoded target), since the target itself needs to be
@@ -33,13 +36,61 @@ import { WelcomePage } from "@/pages/WelcomePage";
 // New Chat instead of a page the user just chose to hide. replace: a visit
 // to "/" shouldn't leave "/" itself in browser history as a page you can
 // land back on via the back button, only whichever real page it resolved to.
-function RootRedirect() {
+function AppRoot() {
+  const { show: showGettingStarted } = useGettingStarted();
+  const complete = hasCompletedOnboardingIntro();
+  if (!complete) return <OnboardingPage />;
+  return <Navigate to={loadDataAcknowledgement() ? (showGettingStarted ? "/getting-started" : "/new/chat") : "/onboard/getting-started"} replace />;
+}
+
+function GettingStartedRoute() {
   const { show } = useGettingStarted();
-  return <Navigate to={show ? "/getting-started" : "/new-chat"} replace />;
+  return show ? <WelcomePage /> : <Navigate to="/" replace />;
+}
+
+function OnboardGettingStartedRoute() {
+  const location = useLocation();
+  const openedFromSettings = new URLSearchParams(location.search).get("manage") === "data-acknowledgement";
+  const [backendAcknowledged, setBackendAcknowledged] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    void fetch("/storage/status")
+      .then(async (response) => response.ok ? response.json() as Promise<{ acknowledged: boolean }> : { acknowledged: false })
+      .then((status) => setBackendAcknowledged(status.acknowledged))
+      .catch(() => setBackendAcknowledged(false));
+  }, []);
+
+  const onboardingComplete = hasCompletedOnboardingIntro() && backendAcknowledged === true;
+
+  if (!diagnose_onboarding && onboardingComplete && !openedFromSettings) {
+    return <Navigate to="/getting-started" replace />;
+  }
+
+  return <DataAcknowledgementPage />;
+}
+
+function SecureAppRoute() {
+  const [acknowledged, setAcknowledged] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    void fetch("/storage/status")
+      .then(async (response) => {
+        if (!response.ok) throw new Error("storage status unavailable");
+        return response.json() as Promise<{ acknowledged: boolean }>;
+      })
+      .then((status) => setAcknowledged(status.acknowledged))
+      .catch(() => setAcknowledged(false));
+  }, []);
+
+  if (acknowledged === null) return <main className="min-h-dvh bg-background" />;
+  return acknowledged ? <AppLayout /> : <Navigate to="/onboard/getting-started" replace />;
 }
 
 const ROUTES: RouteObject[] = [
   { path: "/auth", element: <AuthPage /> },
+  { path: "/", element: <AppRoot /> },
+  { path: "/onboard", element: <OnboardingPage /> },
+  { path: "/onboard/getting-started", element: <OnboardGettingStartedRoute /> },
   {
     // No RequireAuth gate any more -- per explicit request ("I'd like for
     // us to open Alongside and be able to navigate without being signed
@@ -51,11 +102,11 @@ const ROUTES: RouteObject[] = [
     // useIsSignedIn is what the few features that genuinely need an
     // identity (sharing a chat, AppLayout.tsx's chat-header "..." menu)
     // check instead.
-    element: <AppLayout />,
+    element: <SecureAppRoute />,
     children: [
-      { path: "/", element: <RootRedirect /> },
-      { path: "/new-chat", element: <HomePage /> },
-      { path: "/getting-started", element: <WelcomePage /> },
+      { path: "/getting-started", element: <GettingStartedRoute /> },
+      { path: "/new/chat", element: <HomePage /> },
+      { path: "/new-chat", element: <Navigate to="/" replace /> },
       { path: "/chat/:sessionId", element: <ChatPage /> },
       // Joining a chat someone else hosts, from an invite link (JoinPage.tsx).
       { path: "/join", element: <JoinPage /> },
@@ -98,11 +149,12 @@ const ROUTES: RouteObject[] = [
       // Library (issue #286) -- every file the agent has actually touched,
       // sidebar-nav.tsx's own LIBRARY_ITEM row directly under Inbox.
       { path: "/library", element: <LibraryPage /> },
-      { path: "/agent", element: <PlaceholderPage title="Agent" /> },
+      { path: "/agents", element: <Navigate to="/" replace /> },
       { path: "/code", element: <PlaceholderPage title="Code" /> },
       { path: "/design", element: <PlaceholderPage title="Design" /> },
     ],
   },
+  { path: "*", element: <Navigate to="/" replace /> },
 ];
 
 // Fades from the sign-in page into the real app shell (Home, the default
@@ -135,19 +187,14 @@ function AppRoutes() {
   const element = useRoutes(ROUTES);
   const isAuthPage = location.pathname === "/auth";
 
+  // Keep the route boundary as a plain layer. The app shell owns its own
+  // transitions; an animated ancestor creates a composited layer that can
+  // leave the desktop shell unpainted while the route is settling.
   return (
     <div className="relative h-dvh min-h-0">
-      <AnimatePresence initial={false}>
-        <motion.div
-          key={isAuthPage ? "auth" : "app"}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1, transition: spring.moderate }}
-          exit={{ opacity: 0, transition: spring.moderate.exit }}
-          className="absolute inset-0"
-        >
-          {element}
-        </motion.div>
-      </AnimatePresence>
+      <div key={isAuthPage ? "auth" : "app"} className="absolute inset-0">
+        {element}
+      </div>
     </div>
   );
 }

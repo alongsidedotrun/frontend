@@ -4,18 +4,19 @@ import { useNavigate, useOutlet, useLocation, useParams } from "react-router-dom
 import { AnimatePresence, motion } from "motion/react";
 import { RightPanel } from "@/components/right-panel";
 import { spring } from "@/lib/springs";
-import { BellIcon, CheckIcon, FolderIcon, InfoCircleIcon, ShareIcon, SidebarLeftIcon, SidebarRightIcon, XIcon } from "@/components/icons/untitled-ui";
-import SidebarNav, { SIDEBAR_EASING, SIDEBAR_MOTION_MS } from "@/components/sidebar-nav";
+import { BellIcon, CheckIcon, FolderIcon, InfoCircleIcon, ShareIcon, SidebarRightIcon, XIcon } from "@/components/icons/untitled-ui";
+import SidebarNav, { SIDEBAR_EASING, SIDEBAR_MOTION_MS, SIDEBAR_WIDTH } from "@/components/sidebar-nav";
+import { PrimarySidebar } from "@/components/primary-sidebar";
+import { WorkspaceSurface } from "@/components/workspace-surface";
+import { AppTopBar } from "@/components/app-top-bar";
 import { SettingsSidebarNav, type SettingsSection } from "@/components/settings-overlay";
-import { useIsFullscreen, useIsTauri } from "@/hooks/use-tauri";
-import { useIsMac } from "@/hooks/use-platform";
-import { useIsMobile } from "@/hooks/use-media-query";
 import { preloadProviderIcons, QUICK_CHAT_MODELS, ProviderIcon } from "@/lib/quick-chat-models";
 import { pushTurnNotification } from "@/lib/turn-notifications";
 import { loadNotifyTurnComplete, requestNotificationPermission, saveNotifyTurnComplete } from "@/lib/notify-turn-complete";
 import { loadLocallyHiddenChatIds } from "@/lib/locally-hidden-chats";
 import { isChatNotificationsEnabled, setChatNotificationsEnabled } from "@/lib/chat-notifications";
 import { useIsSignedIn } from "@/lib/auth";
+import { loadSidebarCollapseMode, type SidebarCollapseMode } from "@/hooks/use-appearance-settings";
 import { ShareDialog } from "@/components/share-dialog";
 import { PresenceStack } from "@/components/presence-stack";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from "@/components/ui/breadcrumb";
@@ -488,10 +489,14 @@ const PLACEHOLDER_NAV_ROUTES = ["/code", "/design"];
 // request), so isSettingsRoute's own sidebar swap covers it now instead
 // of this list.
 const SIDEBAR_HIDDEN_ROUTES = ["/docs", "/help"];
+// These destinations use the main workspace surface but provide their own
+// content structure, so the chat/navigation child sidebar must stay hidden.
+const CHILD_SIDEBAR_HIDDEN_ROUTES = ["/getting-started"];
+const EMPTY_CHILD_SIDEBAR_ROUTES: string[] = [];
 // The four real SettingsSection nav destinations -- same list
 // SettingsPage.tsx's own VALID_SECTIONS keeps, duplicated rather than
 // shared since each file's own fallback behavior differs slightly.
-const SETTINGS_NAV_SECTIONS: SettingsSection[] = ["profile", "general", "appearance", "chat", "provider", "apps"];
+const SETTINGS_NAV_SECTIONS: SettingsSection[] = ["profile", "general", "appearance", "chat", "security", "provider", "apps"];
 
 export function AppLayout() {
   const { t } = useTranslation();
@@ -503,6 +508,88 @@ export function AppLayout() {
   const { sessionId } = useParams();
   const hasOpenChat = Boolean(sessionId);
   const location = useLocation();
+  const navigate = useNavigate();
+  const arrivedFromOnboarding = Boolean((location.state as { fromOnboarding?: boolean } | null)?.fromOnboarding);
+  const [onboardingCurtainVisible, setOnboardingCurtainVisible] = useState(arrivedFromOnboarding);
+  const [navigationCurtainMounted, setNavigationCurtainMounted] = useState(false);
+  const [navigationCurtainVisible, setNavigationCurtainVisible] = useState(false);
+  const navigationCurtainActiveRef = useRef(false);
+  const navigationCurtainFrameRef = useRef(0);
+  const navigationCurtainSwapTimerRef = useRef<number | null>(null);
+  const navigationCurtainRevealTimerRef = useRef<number | null>(null);
+  const navigationCurtainUnmountTimerRef = useRef<number | null>(null);
+  const appHistoryRef = useRef<string[]>([location.pathname + location.search]);
+  const appHistoryIndexRef = useRef(0);
+  const appHistoryNavigationRef = useRef(false);
+  const [, setAppHistoryVersion] = useState(0);
+  const currentAppPath = location.pathname + location.search;
+  useEffect(() => {
+    const history = appHistoryRef.current;
+    const index = appHistoryIndexRef.current;
+    if (appHistoryNavigationRef.current) {
+      appHistoryNavigationRef.current = false;
+      return;
+    }
+    if (history[index] === currentAppPath) return;
+    const nextHistory = [...history.slice(0, index + 1), currentAppPath];
+    appHistoryRef.current = nextHistory;
+    appHistoryIndexRef.current = nextHistory.length - 1;
+    setAppHistoryVersion((version) => version + 1);
+  }, [currentAppPath]);
+  const goBackInApp = () => {
+    if (navigationCurtainActiveRef.current) return;
+    const nextIndex = appHistoryIndexRef.current - 1;
+    if (nextIndex < 0) return;
+    appHistoryNavigationRef.current = true;
+    appHistoryIndexRef.current = nextIndex;
+    setAppHistoryVersion((version) => version + 1);
+    navigateWithBackgroundFade(appHistoryRef.current[nextIndex], true);
+  };
+  const goForwardInApp = () => {
+    if (navigationCurtainActiveRef.current) return;
+    const nextIndex = appHistoryIndexRef.current + 1;
+    if (nextIndex >= appHistoryRef.current.length) return;
+    appHistoryNavigationRef.current = true;
+    appHistoryIndexRef.current = nextIndex;
+    setAppHistoryVersion((version) => version + 1);
+    navigateWithBackgroundFade(appHistoryRef.current[nextIndex], true);
+  };
+  const navigateWithBackgroundFade = (path: string, replace = false) => {
+    if (navigationCurtainActiveRef.current || currentAppPath === path) return;
+
+    navigationCurtainActiveRef.current = true;
+    setNavigationCurtainMounted(true);
+    setNavigationCurtainVisible(false);
+    navigationCurtainFrameRef.current = window.requestAnimationFrame(() => {
+      navigationCurtainFrameRef.current = window.requestAnimationFrame(() => {
+        setNavigationCurtainVisible(true);
+      });
+    });
+
+    navigationCurtainSwapTimerRef.current = window.setTimeout(() => {
+      navigate(path, { replace });
+      // Keep the curtain fully opaque for a brief settling window. The
+      // destination's sidebar/chrome can then swap underneath it without
+      // showing a one-frame flash before the single reveal fade begins.
+      navigationCurtainRevealTimerRef.current = window.setTimeout(() => {
+        navigationCurtainFrameRef.current = window.requestAnimationFrame(() => {
+          navigationCurtainFrameRef.current = window.requestAnimationFrame(() => {
+            setNavigationCurtainVisible(false);
+            navigationCurtainUnmountTimerRef.current = window.setTimeout(() => {
+              setNavigationCurtainMounted(false);
+              navigationCurtainActiveRef.current = false;
+            }, 320);
+          });
+        });
+      }, 100);
+    }, 320);
+  };
+  useEffect(() => () => {
+    window.cancelAnimationFrame(navigationCurtainFrameRef.current);
+    if (navigationCurtainSwapTimerRef.current !== null) window.clearTimeout(navigationCurtainSwapTimerRef.current);
+    if (navigationCurtainRevealTimerRef.current !== null) window.clearTimeout(navigationCurtainRevealTimerRef.current);
+    if (navigationCurtainUnmountTimerRef.current !== null) window.clearTimeout(navigationCurtainUnmountTimerRef.current);
+  }, []);
   // The route the page-level crossfade has actually *settled* on -- only
   // updates once the outgoing page's own exit animation genuinely
   // finishes (the outlet's own AnimatePresence onExitComplete, below),
@@ -512,6 +599,12 @@ export function AppLayout() {
   // panel restoring) key off this instead of the raw route -- see that
   // effect's own comment for the real bug this fixes.
   const [settledPathname, setSettledPathname] = useState(location.pathname);
+  const childSidebarHidden = CHILD_SIDEBAR_HIDDEN_ROUTES.includes(location.pathname);
+  const settledChildSidebarHidden = CHILD_SIDEBAR_HIDDEN_ROUTES.includes(settledPathname);
+  const childSidebarEmpty = EMPTY_CHILD_SIDEBAR_ROUTES.includes(location.pathname);
+  const settledChildSidebarEmpty = EMPTY_CHILD_SIDEBAR_ROUTES.includes(settledPathname);
+  const sidebarHidden = SIDEBAR_HIDDEN_ROUTES.includes(location.pathname);
+  const settledSidebarHidden = SIDEBAR_HIDDEN_ROUTES.includes(settledPathname);
   // Real bug, confirmed directly (pasted rendered HTML showing this
   // header at opacity: 0 on Library): this header stays mounted and
   // reserved-but-invisible on every page without an open chat, so a
@@ -522,7 +615,6 @@ export function AppLayout() {
   // of building a second one, so this header needs to actually show
   // (not just reserve space) on that route too.
   const showChatHeader = hasOpenChat || location.pathname === "/library";
-  const navigate = useNavigate();
   // Gates only the chat header's own Share action below -- per explicit
   // request/correction ("we should not gate the send because they don't
   // have an account. We will gate only share because that requires an
@@ -668,26 +760,58 @@ export function AppLayout() {
   // comment has the full reasoning); this and that value need to keep
   // agreeing on when the sidebar is actually gone (width 0), since the
   // standalone toggle exists specifically to undo that.
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   // !isMobile -- must agree with SidebarNav's own fullyCollapsed (that
   // component's own comment has the full reasoning): mobile's "collapsed"
   // means its drawer is closed, not fully hidden to width 0, so this
   // layout's own standalone re-expand button below must stay hidden
   // there too, not just on desktop.
-  const isMobile = useIsMobile();
-  const sidebarFullyCollapsed = sidebarCollapsed && !isMobile;
   // Only still needed for the standalone re-expand button's own left
   // offset below (clearing macOS's real traffic lights on the desktop
   // app) -- no longer part of deciding *whether* the sidebar fully
   // collapses, which now happens the same way on every platform.
-  const isTauriApp = useIsTauri();
-  const isMac = useIsMac();
-  const fullscreen = useIsFullscreen();
-  const trafficLightsVisible = isTauriApp && isMac && !fullscreen;
   // Bumped to re-expand SidebarNav from outside it -- see that
   // component's own expandSignal prop comment for why a signal, not a
   // controlled value.
-  const [sidebarExpandSignal, setSidebarExpandSignal] = useState(0);
+  const [primarySidebarCollapsed, setPrimarySidebarCollapsed] = useState(false);
+  const [sidebarCollapseSignal, setSidebarCollapseSignal] = useState(0);
+  const [sidebarCollapseMode, setSidebarCollapseMode] = useState<SidebarCollapseMode>(loadSidebarCollapseMode);
+  useEffect(() => {
+    if (!arrivedFromOnboarding) return;
+
+    setOnboardingCurtainVisible(true);
+    let secondFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => setOnboardingCurtainVisible(false));
+    });
+
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      if (secondFrame) window.cancelAnimationFrame(secondFrame);
+    };
+  }, [arrivedFromOnboarding, location.key]);
+  useEffect(() => {
+    const syncCollapseMode = () => setSidebarCollapseMode(loadSidebarCollapseMode());
+    window.addEventListener("alongside:sidebar-collapse-mode", syncCollapseMode);
+    window.addEventListener("storage", syncCollapseMode);
+    return () => {
+      window.removeEventListener("alongside:sidebar-collapse-mode", syncCollapseMode);
+      window.removeEventListener("storage", syncCollapseMode);
+    };
+  }, []);
+  const collapsePrimarySidebar = () => {
+    setPrimarySidebarCollapsed(true);
+    if (sidebarCollapseMode === "all") setSidebarCollapseSignal((signal) => signal + 1);
+  };
+  // The existing child sidebar and content are temporarily hidden while the
+  // new parent-shell layout is established across every route.
+  const showWorkspaceChildren = true;
+  // Enable the child navigation as the first staged workspace component.
+  // The page/content column remains disabled until the workspace composition
+  // is approved visually.
+  const showWorkspaceContent = true;
+  useEffect(() => {
+    setPrimarySidebarCollapsed(false);
+  }, []);
   // Settings is a real route now (/settings/:section, App.tsx), not a modal
   // -- per explicit request ("i want a full page setting page", matching
   // Synara's own structure exactly). openSettings just navigates there;
@@ -696,6 +820,22 @@ export function AppLayout() {
   // (WelcomePage's own "Initial setup" row opens straight to "provider").
   // isSettingsRoute drives the sidebar swap further down.
   const isSettingsRoute = location.pathname.startsWith("/settings");
+  const settledIsSettingsRoute = settledPathname.startsWith("/settings");
+  const workspaceChromeChanged =
+    childSidebarHidden !== settledChildSidebarHidden ||
+    childSidebarEmpty !== settledChildSidebarEmpty ||
+    sidebarHidden !== settledSidebarHidden ||
+    isSettingsRoute !== settledIsSettingsRoute;
+  // Inbox and Settings should read as deliberate page changes, including
+  // transitions between two Settings sections where the surrounding chrome
+  // happens to stay the same. Waiting for the outgoing page prevents the two
+  // opaque surfaces from overlapping and visually cancelling the fade.
+  const routeTransitionShouldWait =
+    workspaceChromeChanged ||
+    location.pathname === "/inbox" ||
+    settledPathname === "/inbox" ||
+    isSettingsRoute ||
+    settledIsSettingsRoute;
   // /settings/provider/usage (the Provider usage page, ModelsPage.tsx) is
   // a real settings route but not one of SettingsSection's own values --
   // it's a drill-in page reached from the Provider page's own Usage card,
@@ -716,7 +856,11 @@ export function AppLayout() {
   const activeSettingsSection = SETTINGS_NAV_SECTIONS.includes(rawSettingsSegment as SettingsSection)
     ? (rawSettingsSegment as SettingsSection)
     : "general";
-  const openSettings = (section: SettingsSection) => navigate(`/settings/${section}`);
+  const settledSettingsSegment = settledPathname.split("/")[2];
+  const settledSettingsSection = SETTINGS_NAV_SECTIONS.includes(settledSettingsSegment as SettingsSection)
+    ? (settledSettingsSegment as SettingsSection)
+    : activeSettingsSection;
+  const openSettings = (section: SettingsSection) => navigateWithBackgroundFade(`/settings/${section}`);
   // Lifted up from ChatPage (per explicit request -- see PageBreadcrumb's
   // own comment above): this is the one place a chat's name now lives,
   // since it's rendered here (the breadcrumb) rather than in a second bar
@@ -1211,6 +1355,7 @@ export function AppLayout() {
     openFile: (path: string) => navigateRightPanel({ type: "file", path }),
     renameOpenFile,
     notifyFilesTouched,
+    primarySidebarCollapsed,
     // Per explicit request ("The right sidebar is not expanding enough, it
     // should expand to compact the chat message so instead of being 800px
     // default that be 400px with the sidebar open") -- ChatPage.tsx reads
@@ -1277,7 +1422,12 @@ export function AppLayout() {
               layout of its own with nothing chat-scoped to show here, so
               it skips this row (and the space it reserves) entirely
               instead of just fading it to invisible. */}
-          {!isSettingsRoute && (
+          {/* Use the settled route here, not the URL's new route. Removing
+              this reserved row as soon as navigation starts changes the
+              outgoing page's height and makes Getting Started jump upward
+              while it is still fading. The settled route changes only after
+              that outgoing page has completed its exit. */}
+          {!settledIsSettingsRoute && (
               // border-b border-border added back -- per a later explicit
             // follow-up ("Our chat name as well has a top bar together with
             // the buttons at the top right so we need to add a topbar
@@ -1324,6 +1474,7 @@ export function AppLayout() {
             // matches the sidebar's own real stacking level (that div's
             // own comment), safely above the drag region's z-0.
             <motion.header
+              initial={{ opacity: showChatHeader ? 1 : 0 }}
               animate={{ opacity: showChatHeader ? 1 : 0, transition: spring.slow }}
               className={`relative z-10 flex h-10 shrink-0 items-center justify-between gap-2 border-b border-border pr-3 pl-2 ${showChatHeader ? "" : "pointer-events-none"}`}
             >
@@ -1619,12 +1770,12 @@ export function AppLayout() {
               own mode-switching (what this was asked for), but also
               Welcome/Projects/Apps and the avatar dropdown's Settings/
               Docs/Help/Models pages, since they all flow through here too.
-              No mode="wait" (tried first, reverted per explicit request) --
-              that fully unmounted the outgoing page, held on a blank gap,
-              then faded the new one in from scratch, which read as two
-              separate fades with a dead pause between them rather than one
-              continuous dissolve. Default mode instead lets both animate at
-              once: outgoing fades out while incoming fades in, overlapping.
+              Routes with the same surrounding layout use the default sync
+              mode, so outgoing and incoming pages overlap as one continuous
+              dissolve. Getting Started is the exception because it hides the
+              child sidebar: transitions into or out of it use wait mode so
+              the sidebar can reach its final layout before the incoming page
+              becomes visible, avoiding a narrow-column-to-centered snap.
               relative on this wrapper + absolute inset-0 on the animated
               child is what makes that overlap safe -- both pages can differ
               in content height and briefly coexist without fighting each
@@ -1667,12 +1818,22 @@ export function AppLayout() {
                 finishes, so Library's sidebar/panel layout squeeze
                 doesn't kick in and visibly squash that outgoing page
                 while it's still fading out. */}
-            <AnimatePresence initial={false} onExitComplete={() => setSettledPathname(location.pathname)}>
+            <AnimatePresence
+              initial={false}
+              mode={routeTransitionShouldWait ? "wait" : "sync"}
+              onExitComplete={() => setSettledPathname(location.pathname)}
+            >
               <motion.div
                 key={location.pathname}
                 initial={{ opacity: 0 }}
-                animate={{ opacity: 1, transition: spring.slow }}
-                exit={{ opacity: 0, transition: spring.slow.exit }}
+                animate={{
+                  opacity: 1,
+                  transition: navigationCurtainMounted ? { duration: 0 } : spring.slow,
+                }}
+                exit={{
+                  opacity: 0,
+                  transition: navigationCurtainMounted ? { duration: 0 } : spring.slow.exit,
+                }}
                 className="absolute inset-0 flex flex-col"
               >
                 {outlet}
@@ -1700,7 +1861,14 @@ export function AppLayout() {
     // now (/settings/:section, App.tsx), rendered through the normal
     // Outlet below like every other page, so there's nothing left needing
     // a second sibling slot.
-    <div className="relative flex h-dvh min-h-0">
+    <div className="relative flex h-dvh min-h-0 w-full bg-[#1a1a1a]">
+      <div aria-hidden className="absolute inset-0 z-0 bg-[#1a1a1a]" />
+      {arrivedFromOnboarding && (
+        <div
+          aria-hidden="true"
+          className={`pointer-events-none fixed inset-0 z-[200] bg-background transition-opacity duration-700 ease-in-out ${onboardingCurtainVisible ? "opacity-100" : "opacity-0"}`}
+        />
+      )}
       {/* The decorative bg-sidebar/border-b strip that used to span this
           row (matching where a native title bar would sit) is gone
           entirely, per explicit request -- matching dray's own "no top
@@ -1742,11 +1910,16 @@ export function AppLayout() {
           window -- the webview's own default mousedown behavior (start
           selecting) wins the race against Tauri's native drag-start
           unless user-select is explicitly turned off here. */}
-      <div
-        data-tauri-drag-region
-        className="pointer-events-auto fixed inset-x-0 top-0 z-0 h-[40px] select-none"
-        aria-hidden
+      <AppTopBar
+        collapsed={primarySidebarCollapsed}
+        canGoBack={appHistoryIndexRef.current > 0}
+        canGoForward={appHistoryIndexRef.current < appHistoryRef.current.length - 1}
+        onBack={goBackInApp}
+        onForward={goForwardInApp}
+        onCollapseAll={collapsePrimarySidebar}
+        onExpand={() => setPrimarySidebarCollapsed(false)}
       />
+      <div className="absolute inset-0 z-20 flex min-h-0 min-w-0">
       {/* DesktopOnlyOverlay (components/desktop-only-overlay.tsx) disabled,
           not removed -- top-bar.tsx's own responsive work (icon-only
           tabs/compression, the mobile hamburger menu below the xs
@@ -1772,8 +1945,26 @@ export function AppLayout() {
             fade. mode="wait" so the two never both render mid-transition
             (they're two real, differently-behaved sidebars, not one
             resizing) -- spring.fast, this app's own plain-fade tier. */}
-        <AnimatePresence mode="wait" initial={false}>
-          {isSettingsRoute ? (
+        {!settledSidebarHidden && (
+          <PrimarySidebar
+            collapsed={primarySidebarCollapsed}
+            onOpenSettings={() => openSettings("general")}
+            onNavigate={navigateWithBackgroundFade}
+          />
+        )}
+        <div className="mt-10 flex min-h-0 min-w-0 flex-1">
+        <WorkspaceSurface collapsed={primarySidebarCollapsed}>
+        {navigationCurtainMounted && (
+          // Scoped to WorkspaceSurface: the persistent app top bar and
+          // primary sidebar sit outside this boundary and never fade.
+          <div
+            aria-hidden="true"
+            className={`pointer-events-none absolute inset-0 z-[210] bg-background transition-opacity duration-300 ease-in-out ${navigationCurtainVisible ? "opacity-100" : "opacity-0"}`}
+          />
+        )}
+        {showWorkspaceChildren && <>
+        <AnimatePresence mode="popLayout" initial={false}>
+          {settledIsSettingsRoute ? (
             <motion.div
               key="settings-sidebar"
               initial={{ opacity: 0 }}
@@ -1781,72 +1972,65 @@ export function AppLayout() {
               exit={{ opacity: 0, transition: spring.fast.exit }}
               className="relative z-10 flex"
             >
-              <SettingsSidebarNav section={activeSettingsSection} />
+              <SettingsSidebarNav section={settledSettingsSection} />
             </motion.div>
-          ) : !SIDEBAR_HIDDEN_ROUTES.includes(location.pathname) && (
+          ) : !settledSidebarHidden && !settledChildSidebarHidden && (
           <motion.div
-            key="app-sidebar"
+            key="workspace-child-sidebar"
             initial={{ opacity: 0 }}
-            animate={{ opacity: 1, transition: spring.fast }}
-            exit={{ opacity: 0, transition: spring.fast.exit }}
-            className="relative z-10 flex"
+            animate={{ opacity: 1, transition: spring.slow }}
+            exit={{ opacity: 0, transition: spring.slow.exit }}
+            className="relative z-10 flex shrink-0 overflow-hidden"
+            style={{ width: SIDEBAR_WIDTH }}
           >
-            <SidebarNav
-              fill
-              placeholderNav={PLACEHOLDER_NAV_ROUTES.includes(location.pathname)}
-              activeNav={
-                location.pathname === "/new-chat"
-                  ? "home"
-                  : location.pathname === "/getting-started"
-                    ? "welcome"
-                    : location.pathname === "/inbox"
-                      ? "inbox"
-                      : location.pathname === "/library"
-                        ? "library"
-                        : location.pathname === "/agent"
-                        ? "agents"
-                        : location.pathname === "/apps"
-                          ? "integrations"
-                          : undefined
-              }
-              onNewChat={() => navigate("/new-chat")}
-              onNavigate={(key) => {
-                if (key === "home") navigate("/new-chat");
-              }}
-              projects={sidebarProjects}
-              recents={recents}
-              onRecentsChanged={refreshSidebarLists}
-              onCollapsedChange={setSidebarCollapsed}
-              expandSignal={sidebarExpandSignal}
-              onOpenSettings={() => openSettings("general")}
-            />
-            {/* Standalone re-expand toggle -- only exists while the
-                sidebar is fully collapsed to width 0 (every platform now,
-                per explicit request -- sidebar-nav.tsx's own
-                fullyCollapsed comment has the full reasoning), since that
-                sidebar's own internal toggle button collapses away along
-                with everything else in it then, same as dray's own
-                SidebarToggle living outside its Sidebar for the same
-                reason. left-[74px] only while real macOS traffic lights
-                are actually on screen to clear (the desktop app, not
-                fullscreen) -- past this file's own known-good 62px
-                reserve (sidebar-nav.tsx's own collapse-toggle row uses
-                the same number) plus this button's own small inset;
-                left-2 everywhere else (web, Tauri fullscreen), where
-                there's nothing to clear and 74px would just be an
-                oversized, unexplained gap from the window's own edge.
-                top-2 matches where the sidebar's own internal toggle sits
-                (that row's own pt-2). */}
-            {sidebarFullyCollapsed && (
-              <button
-                type="button"
-                aria-label={t("chatHeader.expandSidebar")}
-                onClick={() => setSidebarExpandSignal((n) => n + 1)}
-                className={`fixed top-2 ${trafficLightsVisible ? "left-[74px]" : "left-2"} z-20 flex size-5 shrink-0 items-center justify-center rounded-[6px] text-muted-foreground transition-colors duration-150 hover:bg-hover-2/50 hover:text-foreground active:scale-[0.98]`}
-              >
-                <SidebarLeftIcon className="size-[16px]" />
-              </button>
-            )}
+            <AnimatePresence mode="popLayout" initial={false}>
+              {settledChildSidebarEmpty ? (
+                <motion.aside
+                  key="empty-sidebar-content"
+                  aria-label="Empty workspace sidebar"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1, transition: spring.fast }}
+                  exit={{ opacity: 0, transition: spring.fast.exit }}
+                  className="relative h-full shrink-0 border-r border-border bg-sidebar"
+                  style={{ width: SIDEBAR_WIDTH }}
+                />
+              ) : (
+                <motion.div
+                  key="chat-sidebar-content"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1, transition: spring.fast }}
+                  exit={{ opacity: 0, transition: spring.fast.exit }}
+                  className="flex h-full shrink-0"
+                  style={{ width: SIDEBAR_WIDTH }}
+                >
+                  <SidebarNav
+                    variant={settledPathname === "/inbox" ? "inbox" : settledPathname === "/code" ? "code" : "chat"}
+                    hideTopBar
+                    fill
+                    placeholderNav={PLACEHOLDER_NAV_ROUTES.includes(settledPathname)}
+                    activeNav={
+                      settledPathname === "/new/chat"
+                        ? "home"
+                        : settledPathname === "/getting-started"
+                          ? "welcome"
+                          : settledPathname === "/inbox"
+                            ? "inbox"
+                            : settledPathname === "/apps"
+                                ? "integrations"
+                                : undefined
+                    }
+                    onNewChat={() => navigate("/new/chat")}
+                    onNavigate={(key) => {
+                      if (key === "home") navigate("/new/chat");
+                    }}
+                    projects={sidebarProjects}
+                    recents={recents}
+                    onRecentsChanged={refreshSidebarLists}
+                    collapseSignal={sidebarCollapseSignal}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
           )}
         </AnimatePresence>
@@ -1893,7 +2077,7 @@ export function AppLayout() {
             is defined once and referenced from both the always-mounted
             main column and this drawer's sibling position, so neither
             duplicates the whole content column's own JSX. */}
-        <div ref={contentRowRef} className="flex min-h-0 min-w-0 flex-1">
+        <div ref={contentRowRef} className={`${showWorkspaceContent ? "flex" : "hidden"} min-h-0 min-w-0 flex-1`}>
           <div
             ref={mainContentRef}
             className={`flex min-h-0 min-w-0 flex-col overflow-hidden ${isLibraryRoute ? "flex-none" : "flex-1"}`}
@@ -1972,6 +2156,11 @@ export function AppLayout() {
             )}
           </div>
         </div>
+        </>
+        }
+        </WorkspaceSurface>
+        </div>
+      </div>
       </div>
   );
 }

@@ -15,7 +15,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { DropdownLabel as BaseDropdownLabel, DropdownSeparator } from "@/components/ui/dropdown"
+import { DropdownLabel as BaseDropdownLabel } from "@/components/ui/dropdown"
 import { MenuItem as BaseMenuItem, CustomMenuItem, useDropdownMaybe } from "@/components/ui/menu-item"
 import { DocsIcon, HelpCircleIcon, KeybindingsIcon, LogInIcon, LogOutIcon, SettingsIcon, UserIcon, XIcon } from "@/components/icons/untitled-ui"
 import { ProviderIcon } from "@/lib/quick-chat-models"
@@ -187,11 +187,10 @@ export function NavUserMenuItems({ onOpenSettings }: { onOpenSettings?: () => vo
 // home elsewhere, so this dropdown no longer duplicates them. The top
 // bar's own NavUser/mobile hamburger menu keep the full NavUserMenuItems
 // above unchanged -- this split is sidebar-specific.
-export function AccountMenuItems() {
+export function NotificationsMenuItems() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const notifications = useTurnNotifications()
-  const isSignedIn = useIsSignedIn()
   // Clears (and stops recomputing) the shared proximity hover while the
   // pointer is over the notification list below -- real bug, confirmed
   // directly ("when i scroll through the notifications, the hover is
@@ -310,43 +309,38 @@ export function AccountMenuItems() {
           ))}
         </div>
       )}
-      {/* Sign in/Log out, after Notifications with a divider -- per
-          explicit request ("the avatar dropdown should have the signin
-          after notifications... with a line separator, when the dropdown
-          should flip to logout when signed in"). Same account-state flip
-          Settings' own Caution row (settings-overlay.tsx) already uses.
-          Plain BaseMenuItem now -- the shared proximity-hover system
-          itself was made edge-to-edge/no-radius app-wide (ui/dropdown.tsx's
-          own panels dropped their p-1/gap-0.5, shape-context.tsx's
-          "rounded" variant dropped its item/bg radius), per explicit
-          follow-up request ("apply the same hover fix... every item in
-          every dropdown"), so the earlier per-item CustomMenuItem/negative-
-          margin patch here is no longer needed -- every row gets this for
-          free now, including this one. */}
-      <DropdownSeparator />
-      {/* Profile, above Sign in/Log out -- per explicit request ("the
-          avatar dropdown should have a Profile menu above Sign in/Sign
-          out that brings to the settings profile"). Plain navigate, same
-          as settings-overlay.tsx's own "Provider usage" row does for a
-          specific section, rather than threading a new onOpenSettings
-          argument through SidebarNav/AppLayout just for this one row. */}
+    </>
+  )
+}
+
+// The user-profile dropdown now contains account actions only. Notifications
+// live in their own bell dropdown in the persistent parent top bar.
+export function AccountMenuItems({
+  startIndex = 0,
+  showProfile = true,
+}: {
+  startIndex?: number
+  showProfile?: boolean
+} = {}) {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const isSignedIn = useIsSignedIn()
+
+  return (
+    <>
+      {showProfile && (
+        <BaseMenuItem
+          index={startIndex}
+          icon={UserIcon}
+          label={t("settings.nav.profile")}
+          className="gap-[7px] pl-2.5"
+          onSelect={() => navigate("/settings/profile")}
+        />
+      )}
       <BaseMenuItem
-        index={notifications.length}
-        icon={UserIcon}
-        label={t("settings.nav.profile")}
-        className="gap-[7px] pl-2.5"
-        onSelect={() => navigate("/settings/profile")}
-      />
-      <BaseMenuItem
-        index={notifications.length + 1}
+        index={startIndex + (showProfile ? 1 : 0)}
         icon={isSignedIn ? LogOutIcon : LogInIcon}
         label={isSignedIn ? "Log out" : "Sign in"}
-        // pl-2.5, matching the model picker's own "Add provider" row
-        // (compose-box.tsx, a DropdownSubItem there) -- per explicit
-        // request ("the + Add provider inside model looks good with the
-        // spacing, apply the same to sign in and sign out at the avatar
-        // dropdown"): that row's own pl-2.5/pr-2.5 sits slightly further
-        // from the panel edge than MenuItem's own baked-in px-2 default.
         className="gap-[7px] pl-2.5"
         onSelect={() => (isSignedIn ? signOut() : navigate("/auth"))}
       />
