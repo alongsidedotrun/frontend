@@ -1221,16 +1221,16 @@ export function ChatPage() {
         return;
       }
 
-      // Real event now (backend's own claude_direct.rs, plain-text chats only --
-      // image-bearing turns still send the older "rate_limited" ping above), not a
-      // fake assistant reply -- rendered as a "command" row (Alongside's own mark),
+      // Provider rate-limit events are rendered as a "command" row (Alongside's
+      // own mark), not as a fake assistant reply. The legacy Claude event remains
+      // accepted so persisted conversations from older builds still replay cleanly.
       // same treatment /share's own reply gets, since this notice is from Alongside
       // noticing the CLI's own real rate_limit_info, not the model itself talking.
       // resets_at is real Unix seconds from that event when the CLI actually
       // reported one (claude_direct.rs's own top comment has the source for the
       // field shape) -- formatted here in the viewer's own local time, same as
       // every other timestamp this page already shows (messageTime()).
-      if (type === "claude_rate_limit") {
+      if (type === "provider_rate_limit" || type === "claude_rate_limit") {
         const resetsAt = typeof event.resets_at === "number" ? event.resets_at : null;
         const resetsAtLabel = resetsAt
           ? new Date(resetsAt * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
@@ -3616,4 +3616,3 @@ function AgentMessageActions({
     </div>
   );
 }
-
