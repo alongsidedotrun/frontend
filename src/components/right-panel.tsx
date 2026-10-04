@@ -441,6 +441,7 @@ type AgentRun = {
   completed_at: string | null;
   changed_files: string[];
   commit_sha: string | null;
+  parent_run_id: string | null;
 };
 
 function AgentRunLog({ chatId }: { chatId: string }) {
@@ -449,6 +450,7 @@ function AgentRunLog({ chatId }: { chatId: string }) {
   const [error, setError] = useState(false);
   const [gitError, setGitError] = useState<string | null>(null);
   const [committing, setCommitting] = useState<string | null>(null);
+  const [reviewing, setReviewing] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -500,6 +502,26 @@ function AgentRunLog({ chatId }: { chatId: string }) {
     }
   }
 
+  async function securityReview(run: AgentRun) {
+    const allowed = window.prompt("Files to review (comma-separated)", run.changed_files.join(", "));
+    if (!allowed?.trim()) return;
+    setReviewing(run.id);
+    setGitError(null);
+    try {
+      const response = await fetch(`/agent-runs/${encodeURIComponent(run.id)}/security-review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ allowed_paths: allowed.split(",").map((path) => path.trim()).filter(Boolean) }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error ?? "Unable to start the security review.");
+    } catch (err) {
+      setGitError(err instanceof Error ? err.message : "Unable to start the security review.");
+    } finally {
+      setReviewing(null);
+    }
+  }
+
   if (error) return <p className="p-2 text-[13px] text-muted-foreground">{t("rightPanel.loadRunsFailed")}</p>;
   if (runs === null) return <p className="p-2 text-[13px] text-muted-foreground">{t("rightPanel.loading")}</p>;
   if (runs.length === 0) return <p className="p-2 text-[13px] text-muted-foreground">{t("rightPanel.noRuns")}</p>;
@@ -537,6 +559,13 @@ function AgentRunLog({ chatId }: { chatId: string }) {
                   </button>
                 </div>
               ) : null}
+            </div>
+          )}
+          {!run.parent_run_id && run.status !== "running" && (
+            <div className="mt-2 border-t border-border/60 pt-2">
+              <button type="button" disabled={reviewing === run.id} onClick={() => void securityReview(run)} className="rounded-md border border-border px-2 py-1 text-[10px] text-foreground hover:bg-hover-2/50 disabled:opacity-50">
+                {reviewing === run.id ? "Starting review…" : "Security review"}
+              </button>
             </div>
           )}
         </div>
