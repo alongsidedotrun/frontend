@@ -47,7 +47,7 @@ export function GettingStartedRows({
                 <Status>Required</Status>
               </CardTitle>
               <CardDescription>
-                {acknowledgement.complete ? "Encrypted storage and data responsibility confirmed." : "Secure your local data and save your recovery phrase."}
+                {acknowledgement.complete ? "Data responsibility confirmed." : "Review how your local data is stored and protected."}
               </CardDescription>
             </CardHeader>
           </Card>

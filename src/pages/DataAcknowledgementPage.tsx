@@ -47,7 +47,7 @@ export function DataAcknowledgementPage() {
         return response.json() as Promise<{ encrypted: boolean; recovery_confirmed: boolean; acknowledged: boolean }>;
       })
       .then((status) => {
-        setEncrypted(status.recovery_confirmed);
+        setEncrypted(status.encrypted);
         if (status.acknowledged) {
           if (!loadDataAcknowledgement()) saveDataAcknowledgement();
         } else {
@@ -107,8 +107,7 @@ export function DataAcknowledgementPage() {
       setStorageError(response.status === 422 ? "The recovery phrase does not match. Copy it exactly and try again." : "Could not confirm secure local storage.");
       return;
     }
-    setEncrypted(true);
-    setActiveStep(2);
+    setStorageError("Encryption will be enabled after you restart Alongside. Keep your recovery phrase somewhere safe.");
   }
 
   async function acknowledgeData() {
@@ -185,7 +184,7 @@ export function DataAcknowledgementPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         title="Acknowledge your data"
-        description="Your conversations are stored locally in an encrypted SQLCipher database. Alongside uses a key held by your OS keychain to access them."
+        description="Your conversations are stored locally. You decide whether to encrypt your local database."
         contentClassName="space-y-5"
       >
               <div className="relative pl-10">
@@ -201,7 +200,7 @@ export function DataAcknowledgementPage() {
                 <span className="absolute top-10 bottom-[-1.25rem] left-[15px] border-l border-dashed border-border" />
                 <h3 className="pt-1 text-base font-medium">
                   Encrypt your data
-                  <span className="ml-2 text-[10px] font-normal text-muted-foreground/60">Required</span>
+                  <span className="ml-2 text-[10px] font-normal text-muted-foreground/60">Optional</span>
                 </h3>
                 <div
                   aria-hidden={activeStep !== 1}
@@ -211,7 +210,7 @@ export function DataAcknowledgementPage() {
                   <div className="min-h-0 overflow-hidden">
                   <div className="mt-1.5">
                     <p className="text-[11px] leading-4 text-muted-foreground">
-                      Alongside encrypts local data with SQLCipher. Save this recovery phrase somewhere secure: Alongside cannot restore your data without it if your OS keychain is lost.
+                      By default, Alongside does not encrypt your data locally, so you can decide how to protect it. We recommend encryption. If you enable it, save your key and recovery phrase somewhere safe: losing both can permanently lock access to your data.
                     </p>
 
                     <div className="mt-3 space-y-2">
@@ -222,17 +221,20 @@ export function DataAcknowledgementPage() {
                           onClick={() => void generateRecoveryPhrase()}
                           className="inline-flex items-center gap-1.5 rounded-full bg-foreground px-3 py-1.5 text-xs font-medium text-background transition hover:bg-foreground/85 disabled:cursor-not-allowed disabled:opacity-45"
                         >
-                          <KeyRound className="size-4" /> Generate your recovery phrase
+                          <KeyRound className="size-4" /> Generate recovery phrase
                         </button>
                         {encryptionKey && (
-                          <div className="mt-2 flex items-center gap-1.5 rounded-lg border border-border bg-background/60 p-2">
-                            <code className="min-w-0 flex-1 break-all text-[10px] leading-3.5 text-foreground/75">{encryptionKey}</code>
-                            <button type="button" onClick={copyKey} aria-label="Copy encryption key" className="rounded-md p-1.5 text-muted-foreground hover:bg-hover-2/50 hover:text-foreground">
-                              <Copy className="size-4" />
-                            </button>
-                            <button type="button" onClick={deleteKey} aria-label="Delete encryption key" className="rounded-md p-1.5 text-muted-foreground hover:bg-red-400/10 hover:text-red-500 dark:hover:text-red-200">
-                              <Trash2 className="size-4" />
-                            </button>
+                          <div className="mt-2">
+                            <div className="flex items-center gap-1.5 rounded-lg border border-border bg-background/60 p-2">
+                              <code className="min-w-0 flex-1 break-all text-[10px] leading-3.5 text-foreground/75">{encryptionKey}</code>
+                              <button type="button" onClick={copyKey} aria-label="Copy recovery phrase" className="rounded-md p-1.5 text-muted-foreground hover:bg-hover-2/50 hover:text-foreground">
+                                <Copy className="size-4" />
+                              </button>
+                              <button type="button" onClick={deleteKey} aria-label="Delete recovery phrase" className="rounded-md p-1.5 text-muted-foreground hover:bg-red-400/10 hover:text-red-500 dark:hover:text-red-200">
+                                <Trash2 className="size-4" />
+                              </button>
+                            </div>
+                            <p className="mt-1.5 text-[11px] leading-4 text-muted-foreground">Copy it and save it outside Alongside before continuing.</p>
                           </div>
                         )}
                         {copied && <p className="mt-2 text-xs text-emerald-300">Key copied</p>}
@@ -245,7 +247,7 @@ export function DataAcknowledgementPage() {
                           value={recoveryPhrase}
                           onChange={(event) => setRecoveryPhrase(event.target.value)}
                           disabled={!encryptionKey}
-                          placeholder="Paste the saved recovery phrase"
+                          placeholder="Paste the recovery phrase you saved"
                           className="mt-1 h-8 w-full rounded-lg border border-input bg-background px-2.5 text-xs text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-focus-accent disabled:cursor-not-allowed disabled:opacity-45"
                         />
                       </label>
@@ -256,7 +258,7 @@ export function DataAcknowledgementPage() {
                         onClick={() => void configureEncryption()}
                         className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-hover-2/50 disabled:cursor-not-allowed disabled:opacity-35"
                       >
-                        {encrypted ? "Encrypted storage confirmed" : "Confirm encrypted storage"}
+                        {encrypted ? "Encryption is enabled" : "Enable encryption"}
                       </button>
                       {activeStep === 1 && storageError && <p role="alert" className="text-[11px] text-red-500 dark:text-red-300">{storageError}</p>}
                     </div>
@@ -292,7 +294,7 @@ export function DataAcknowledgementPage() {
                     {storageError && <p role="alert" className="mt-2 text-[11px] text-red-500 dark:text-red-300">{storageError}</p>}
                     <button
                       type="button"
-                      disabled={!encrypted}
+                      disabled={false}
                       onClick={() => void acknowledgeData()}
                       className="mt-3 rounded-full bg-foreground px-3 py-1.5 text-xs font-medium text-background transition hover:bg-foreground/85 disabled:cursor-not-allowed disabled:opacity-35"
                     >
