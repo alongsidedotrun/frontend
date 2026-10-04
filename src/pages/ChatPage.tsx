@@ -1907,6 +1907,21 @@ export function ChatPage() {
     const trimmed = prompt.trim();
     if (!trimmed) return;
     setPrompt("");
+    if (trimmed === "/summarize") {
+      if (!sessionId) return;
+      void fetch(`/sessions/${sessionId}/summarize`, { method: "POST" })
+        .then(async (response) => {
+          const body = await response.json().catch(() => ({}));
+          pushRow({
+            kind: "command",
+            id: nextRowId(),
+            text: response.ok ? "Earlier messages were summarized for future context." : (body.error ?? "Unable to summarize this chat."),
+            time: messageTime(),
+          });
+        })
+        .catch(() => pushRow({ kind: "command", id: nextRowId(), text: "Unable to summarize this chat.", time: messageTime() }));
+      return;
+    }
     // Real branching only happens now, right as the edited text actually
     // goes out -- not the moment Edit was clicked (pendingEditEventId's
     // own comment, above, has the full reasoning). sendMessage's own
