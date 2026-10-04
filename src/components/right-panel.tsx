@@ -15,7 +15,7 @@ import { EditorKit } from "@/components/editor/editor-kit";
 import { Editor, EditorContainer } from "@/components/ui/editor";
 import { FixedToolbar } from "@/components/ui/fixed-toolbar";
 import { FixedToolbarButtons } from "@/components/ui/fixed-toolbar-buttons";
-import { XIcon, File02Icon, ChevronLeftIcon, ChevronRightIcon, FolderIcon, TerminalIcon, DotsVerticalIcon } from "@/components/icons/untitled-ui";
+import { XIcon, File02Icon, ChevronLeftIcon, ChevronRightIcon, FolderIcon, TerminalIcon, DotsVerticalIcon, ClockIcon } from "@/components/icons/untitled-ui";
 import { Button } from "@/components/ui/button";
 import { LibraryFileNameCell } from "@/components/library-file-row";
 import { formatRelativeTime } from "@/lib/relative-time";
@@ -252,6 +252,7 @@ function ChatFileListPanel({
   // correctly; this one was just missing the same real error path.
   const [error, setError] = useState<string | null>(null);
   const prevChatIdRef = useRef<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"library" | "runs">("library");
 
   useEffect(() => {
     let cancelled = false;
@@ -344,10 +345,22 @@ function ChatFileListPanel({
             next to that icon size -- per the same follow-up ("reduce the
             font size to match the new size of the icons"). */}
         <div className="flex min-w-0 flex-1 items-center gap-1">
-          <span className="flex items-center gap-1 truncate rounded-md bg-hover-2/50 px-2 py-1 text-[11px] font-medium text-foreground">
+          <button
+            type="button"
+            onClick={() => setActiveTab("library")}
+            className={`flex items-center gap-1 truncate rounded-md px-2 py-1 text-[11px] font-medium ${activeTab === "library" ? "bg-hover-2/50 text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          >
             <FolderIcon className="size-3.5 shrink-0" />
             {t("library.title")}
-          </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("runs")}
+            className={`flex items-center gap-1 truncate rounded-md px-2 py-1 text-[11px] font-medium ${activeTab === "runs" ? "bg-hover-2/50 text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <ClockIcon className="size-3.5 shrink-0" />
+            {t("rightPanel.runs")}
+          </button>
           <span
             aria-disabled
             title={t("rightPanel.terminalUnavailable")}
@@ -369,7 +382,9 @@ function ChatFileListPanel({
         </span>
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-2">
-        {error ? (
+        {activeTab === "runs" ? (
+          <AgentRunLog chatId={chatId} />
+        ) : error ? (
           <p className="p-2 text-[13px] text-muted-foreground">{error}</p>
         ) : files === null ? (
           <p className="p-2 text-[13px] text-muted-foreground">{t("rightPanel.loading")}</p>
@@ -412,6 +427,72 @@ function ChatFileListPanel({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+type AgentRun = {
+  id: string;
+  provider: string;
+  model: string;
+  status: string;
+  stop_reason: string | null;
+  started_at: string;
+  completed_at: string | null;
+};
+
+function AgentRunLog({ chatId }: { chatId: string }) {
+  const { t } = useTranslation();
+  const [runs, setRuns] = useState<AgentRun[] | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      fetch(`/sessions/${chatId}/runs`)
+        .then((res) => {
+          if (!res.ok) throw new Error(String(res.status));
+          return res.json();
+        })
+        .then((rows: AgentRun[]) => {
+          if (!cancelled) {
+            setRuns([...rows].reverse());
+            setError(false);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setError(true);
+        });
+    };
+    load();
+    const interval = window.setInterval(load, 2000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [chatId]);
+
+  if (error) return <p className="p-2 text-[13px] text-muted-foreground">{t("rightPanel.loadRunsFailed")}</p>;
+  if (runs === null) return <p className="p-2 text-[13px] text-muted-foreground">{t("rightPanel.loading")}</p>;
+  if (runs.length === 0) return <p className="p-2 text-[13px] text-muted-foreground">{t("rightPanel.noRuns")}</p>;
+
+  return (
+    <div className="flex flex-col gap-1">
+      {runs.map((run) => (
+        <div key={run.id} className="rounded-[6px] border border-border/70 px-2.5 py-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="truncate text-xs font-medium text-foreground">{run.model || run.provider}</span>
+            <span className={`shrink-0 text-[10px] capitalize ${run.status === "completed" ? "text-emerald-500" : run.status === "running" ? "text-blue-500" : "text-muted-foreground"}`}>
+              {run.status}
+            </span>
+          </div>
+          <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
+            <span className="capitalize">{run.provider}</span>
+            <span>{formatRelativeTime(run.started_at)}</span>
+          </div>
+          {run.stop_reason && <p className="mt-1.5 line-clamp-2 text-[10px] text-muted-foreground">{run.stop_reason}</p>}
+        </div>
+      ))}
     </div>
   );
 }
