@@ -439,12 +439,16 @@ type AgentRun = {
   stop_reason: string | null;
   started_at: string;
   completed_at: string | null;
+  changed_files: string[];
+  commit_sha: string | null;
 };
 
 function AgentRunLog({ chatId }: { chatId: string }) {
   const { t } = useTranslation();
   const [runs, setRuns] = useState<AgentRun[] | null>(null);
   const [error, setError] = useState(false);
+  const [gitError, setGitError] = useState<string | null>(null);
+  const [committing, setCommitting] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -472,12 +476,37 @@ function AgentRunLog({ chatId }: { chatId: string }) {
     };
   }, [chatId]);
 
+  async function commitRun(run: AgentRun, push: boolean) {
+    const message = window.prompt(t("rightPanel.commitMessage"), `Alongside agent run: ${run.model || run.provider}`)?.trim();
+    if (!message) return;
+    const action = push ? t("rightPanel.commitAndPush") : t("rightPanel.commit");
+    if (!window.confirm(t("rightPanel.confirmCommit", { action, count: run.changed_files.length }))) return;
+    setCommitting(run.id);
+    setGitError(null);
+    try {
+      const response = await fetch(`/agent-runs/${encodeURIComponent(run.id)}/commit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message, push, confirmed: true }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || t("rightPanel.commitFailed"));
+      setRuns((current) => current?.map((item) => (item.id === run.id ? { ...item, commit_sha: body.commit_sha } : item)) ?? current);
+      if (body.push_error) setGitError(`${t("rightPanel.pushFailed")} ${body.push_error}`);
+    } catch (err) {
+      setGitError(err instanceof Error ? err.message : t("rightPanel.commitFailed"));
+    } finally {
+      setCommitting(null);
+    }
+  }
+
   if (error) return <p className="p-2 text-[13px] text-muted-foreground">{t("rightPanel.loadRunsFailed")}</p>;
   if (runs === null) return <p className="p-2 text-[13px] text-muted-foreground">{t("rightPanel.loading")}</p>;
   if (runs.length === 0) return <p className="p-2 text-[13px] text-muted-foreground">{t("rightPanel.noRuns")}</p>;
 
   return (
     <div className="flex flex-col gap-1">
+      {gitError && <p className="rounded-[6px] border border-destructive/30 px-2.5 py-2 text-[10px] text-destructive">{gitError}</p>}
       {runs.map((run) => (
         <div key={run.id} className="rounded-[6px] border border-border/70 px-2.5 py-2">
           <div className="flex items-center justify-between gap-2">
@@ -491,6 +520,25 @@ function AgentRunLog({ chatId }: { chatId: string }) {
             <span>{formatRelativeTime(run.started_at)}</span>
           </div>
           {run.stop_reason && <p className="mt-1.5 line-clamp-2 text-[10px] text-muted-foreground">{run.stop_reason}</p>}
+          {run.changed_files.length > 0 && (
+            <div className="mt-2 border-t border-border/60 pt-2">
+              <p className="truncate text-[10px] text-muted-foreground" title={run.changed_files.join("\n")}>
+                {t("rightPanel.changedFiles", { count: run.changed_files.length })}
+              </p>
+              {run.commit_sha ? (
+                <p className="mt-1 font-mono text-[10px] text-muted-foreground">{run.commit_sha.slice(0, 8)}</p>
+              ) : run.status !== "running" ? (
+                <div className="mt-1.5 flex gap-1.5">
+                  <button type="button" disabled={committing === run.id} onClick={() => void commitRun(run, false)} className="rounded-md border border-border px-2 py-1 text-[10px] text-foreground hover:bg-hover-2/50 disabled:opacity-50">
+                    {t("rightPanel.commit")}
+                  </button>
+                  <button type="button" disabled={committing === run.id} onClick={() => void commitRun(run, true)} className="rounded-md border border-border px-2 py-1 text-[10px] text-foreground hover:bg-hover-2/50 disabled:opacity-50">
+                    {t("rightPanel.commitAndPush")}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          )}
         </div>
       ))}
     </div>
