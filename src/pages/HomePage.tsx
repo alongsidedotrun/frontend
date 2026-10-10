@@ -229,7 +229,7 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
   return (
     // @container: makes the compose box's own width tiers react to THIS
     // box's own actual rendered width instead of the browser viewport.
-    <div className="relative flex flex-1 flex-col overflow-hidden @container">
+    <div className="relative flex flex-1 flex-col overflow-hidden bg-background @container">
       {/* Heading + subheading -- real vertical centering now, but within
           the space *above* the compose box specifically, not the page's
           full height (which visually includes the box's own footprint at
