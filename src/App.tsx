@@ -5,7 +5,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { GettingStartedProvider, useGettingStarted } from "@/hooks/use-getting-started";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { useApplyAppearanceSettings } from "@/hooks/use-appearance-settings";
-import { AppLayout } from "@/layouts/AppLayout";
 import { AppsPage } from "@/pages/AppsPage";
 import { AuthPage } from "@/pages/AuthPage";
 import { ChatPage } from "@/pages/ChatPage";
@@ -18,30 +17,19 @@ import { JoinPage } from "@/pages/JoinPage";
 import { LibraryPage } from "@/pages/LibraryPage";
 import { ModelsPage } from "@/pages/ModelsPage";
 import { OnboardingPage } from "@/pages/OnboardingPage";
+import { OverviewPage } from "@/pages/OverviewPage";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
 import { ProjectsPage } from "@/pages/ProjectsPage";
 import { RedesignPage } from "@/pages/RedesignPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { WelcomePage } from "@/pages/WelcomePage";
-import { loadDataAcknowledgement } from "@/lib/data-acknowledgement";
 import { diagnose_onboarding, hasCompletedOnboardingIntro } from "@/lib/onboarding";
 
-// "/" itself is just a redirect -- Getting started is the app's real default
-// landing page (per explicit request), not New Chat, which moved to its own
-// "/new/chat" so it's still a real, reachable destination (the sidebar's own
-// New Chat row, AppLayout.tsx's various "start fresh" actions) rather than
-// being displaced by the redirect. Its own component now (was a plain
-// <Navigate> with a hardcoded target), since the target itself needs to be
-// conditional -- once Getting started is hidden (use-getting-started.tsx's
-// own toggle, settings-overlay.tsx's General section), "/" should land on
-// New Chat instead of a page the user just chose to hide. replace: a visit
-// to "/" shouldn't leave "/" itself in browser history as a page you can
-// land back on via the back button, only whichever real page it resolved to.
+// Opening the app should always enter the redesigned workspace. Onboarding is
+// still available at its explicit routes, but it must not block normal use of
+// the local app shell.
 function AppRoot() {
-  const { show: showGettingStarted } = useGettingStarted();
-  const complete = hasCompletedOnboardingIntro();
-  if (!complete) return <OnboardingPage />;
-  return <Navigate to={loadDataAcknowledgement() ? (showGettingStarted ? "/getting-started" : "/new/chat") : "/onboard/getting-started"} replace />;
+  return <Navigate to="/overview" replace />;
 }
 
 function GettingStartedRoute() {
@@ -71,9 +59,9 @@ function OnboardGettingStartedRoute() {
 }
 
 function SecureAppRoute() {
-  // Onboarding remains available as an explicit route, but must not block
-  // normal navigation such as opening a new chat from the redesign.
-  return <AppLayout />;
+  // The redesign is now the production shell. Existing routed pages remain
+  // available as the right-side content through RedesignPage's Outlet.
+  return <RedesignPage />;
 }
 
 const ROUTES: RouteObject[] = [
@@ -81,9 +69,9 @@ const ROUTES: RouteObject[] = [
   { path: "/", element: <AppRoot /> },
   { path: "/onboard", element: <OnboardingPage /> },
   { path: "/onboard/getting-started", element: <OnboardGettingStartedRoute /> },
-  // Isolated workspace for the next UI system. It intentionally bypasses the
-  // production app shell and onboarding gate while the redesign is in flight.
-  { path: "/redesign", element: <RedesignPage /> },
+  // Kept as a compatibility alias while the redesign is now the production
+  // shell for every authenticated route.
+  { path: "/redesign", element: <Navigate to="/inbox" replace /> },
   {
     // No RequireAuth gate any more -- per explicit request ("I'd like for
     // us to open Alongside and be able to navigate without being signed
@@ -97,6 +85,7 @@ const ROUTES: RouteObject[] = [
     // check instead.
     element: <SecureAppRoute />,
     children: [
+      { path: "/overview", element: <OverviewPage /> },
       { path: "/getting-started", element: <GettingStartedRoute /> },
       { path: "/new/chat", element: <HomePage /> },
       { path: "/new-chat", element: <Navigate to="/" replace /> },

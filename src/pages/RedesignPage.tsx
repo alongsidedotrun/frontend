@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import { Bot, CircleArrowUp, CircleHelp, Plus, Search } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate, useOutlet } from "react-router-dom";
+import { Bot, CircleArrowUp, CircleHelp, LayoutDashboard, Plus, Search } from "lucide-react";
 import { AlongsideLogo } from "@/components/icons/alongside-logo";
 import { InboxIcon, IntegrationsIcon, LogInIcon, MessageChatCircleIcon, Settings01Icon, Settings04Icon } from "@/components/icons/untitled-ui";
 import { SplitView } from "@/components/design-system/split-view";
@@ -80,6 +81,7 @@ const PROFILE_ACTION_SECTIONS: readonly (readonly WorkspaceMenuAction[])[] = [
 ];
 
 const QUICK_ACTIONS: readonly QuickActionItem[] = [
+  { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "inbox", label: "Inbox", icon: InboxIcon },
   { id: "chats", label: "Chats", icon: MessageChatCircleIcon },
   { id: "agents", label: "Agents", icon: Bot },
@@ -93,12 +95,37 @@ const GETTING_STARTED_STEPS: readonly GettingStartedStep[] = [
   { id: "chat", label: "Create a chat", description: "Start a new conversation in your workspace." },
 ];
 
+function quickActionForPath(pathname: string) {
+  if (pathname === "/overview") return "overview";
+  if (pathname.startsWith("/chat/") || pathname === "/new/chat") return "chats";
+  if (pathname === "/apps") return "apps";
+  if (pathname === "/agents") return "agents";
+  return "inbox";
+}
+
 /**
  * An intentionally isolated workspace for the next Alongside design system.
  * It does not inherit the production app shell, allowing the redesign to be
  * built and evaluated without changing the current application.
  */
 export function RedesignPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const appHistoryRef = useRef<string[]>([location.pathname + location.search]);
+  const appHistoryIndexRef = useRef(0);
+  const appHistoryNavigationRef = useRef(false);
+  const [, setAppHistoryVersion] = useState(0);
+  const routedContent = useOutlet({
+    chatName: "Untitled chat",
+    receiveChatNameFromServer: () => {},
+    refreshSidebarLists: () => {},
+    openSettings: (section: string) => navigate(`/settings/${section}`),
+    openFile: () => {},
+    renameOpenFile: () => {},
+    notifyFilesTouched: () => {},
+    primarySidebarCollapsed: false,
+    rightPanelOpen: false,
+  });
   const [workspaces, setWorkspaces] = useState<WorkspaceRecord[]>([DEFAULT_WORKSPACE]);
   const [workspaceId, setWorkspaceId] = useState(DEFAULT_WORKSPACE.id);
   const [newWorkspaceOpen, setNewWorkspaceOpen] = useState(false);
@@ -108,7 +135,6 @@ export function RedesignPage() {
   const [saving, setSaving] = useState(false);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [activeQuickAction, setActiveQuickAction] = useState("inbox");
   const [inboxItems, setInboxItems] = useState<InboxItem[]>([]);
   const [inboxMentions, setInboxMentions] = useState<InboxMention[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -118,7 +144,43 @@ export function RedesignPage() {
   const [newProjectName, setNewProjectName] = useState("");
   const [projectError, setProjectError] = useState<string | null>(null);
 
+  const currentAppPath = location.pathname + location.search;
+  const routeQuickAction = quickActionForPath(location.pathname);
+
+  const activeQuickAction = routeQuickAction;
+
   const workspaceOptions = workspaces.map(toWorkspaceOption);
+
+  useEffect(() => {
+    const history = appHistoryRef.current;
+    const index = appHistoryIndexRef.current;
+    if (appHistoryNavigationRef.current) {
+      appHistoryNavigationRef.current = false;
+      return;
+    }
+    if (history[index] === currentAppPath) return;
+    appHistoryRef.current = [...history.slice(0, index + 1), currentAppPath];
+    appHistoryIndexRef.current = appHistoryRef.current.length - 1;
+    setAppHistoryVersion((version) => version + 1);
+  }, [currentAppPath]);
+
+  function goBackInApp() {
+    const nextIndex = appHistoryIndexRef.current - 1;
+    if (nextIndex < 0) return;
+    appHistoryNavigationRef.current = true;
+    appHistoryIndexRef.current = nextIndex;
+    setAppHistoryVersion((version) => version + 1);
+    navigate(appHistoryRef.current[nextIndex], { replace: true });
+  }
+
+  function goForwardInApp() {
+    const nextIndex = appHistoryIndexRef.current + 1;
+    if (nextIndex >= appHistoryRef.current.length) return;
+    appHistoryNavigationRef.current = true;
+    appHistoryIndexRef.current = nextIndex;
+    setAppHistoryVersion((version) => version + 1);
+    navigate(appHistoryRef.current[nextIndex], { replace: true });
+  }
 
   function syncWorkspaces(next: WorkspaceRecord[]) {
     setWorkspaces(next);
@@ -232,6 +294,7 @@ export function RedesignPage() {
   const activeSidebarSurface = activeQuickAction === "inbox" || activeQuickAction === "chats"
     ? activeQuickAction
     : null;
+  const redesignSurfaceKey = `${location.pathname}:${location.key}`;
 
   async function createProject() {
     const name = newProjectName.trim();
@@ -324,11 +387,15 @@ export function RedesignPage() {
     <SplitView
       topBar={
         <AppTopBar
-          className="border-b border-[var(--redesign-sidebar-border)] bg-[var(--redesign-primary-surface)]"
+          className="border-b border-[var(--redesign-sidebar-border)] bg-background"
           controlsClassName="absolute right-[var(--redesign-top-bar-controls-right)] gap-1"
           showNotifications={false}
           collapseButtonHover={false}
           collapsed={sidebarCollapsed}
+          canGoBack={appHistoryIndexRef.current > 0}
+          canGoForward={appHistoryIndexRef.current < appHistoryRef.current.length - 1}
+          onBack={goBackInApp}
+          onForward={goForwardInApp}
           onCollapseAll={() => setSidebarCollapsed(true)}
           onExpand={() => setSidebarCollapsed(false)}
         />
@@ -363,19 +430,24 @@ export function RedesignPage() {
               onActionSelect={(actionId) => {
                 if (actionId === "chats") {
                   setActiveChatId(null);
-                  setActiveQuickAction("chats");
+                  navigate("/new/chat");
                   return;
                 }
-                setActiveQuickAction(actionId);
+                if (actionId === "inbox") navigate("/inbox");
+                if (actionId === "overview") navigate("/overview");
+                if (actionId === "apps") navigate("/apps");
               }}
             />
           {activeSidebarSurface && (
-            <SidebarSurfaceTransition surfaceKey={activeSidebarSurface}>
+            <SidebarSurfaceTransition surfaceKey={redesignSurfaceKey}>
               <SidebarSections
                 sections={activeSidebarSurface === "inbox" ? inboxSidebarSections : chatsSidebarSections}
                 activeItemId={activeSidebarSurface === "chats" ? activeChatId ?? undefined : undefined}
                 onItemSelect={activeSidebarSurface === "chats" ? (itemId) => {
-                  if (chats.some((chat) => chat.id === itemId)) setActiveChatId(itemId);
+                  if (chats.some((chat) => chat.id === itemId)) {
+                    setActiveChatId(itemId);
+                    navigate(`/chat/${itemId}`);
+                  }
                 } : undefined}
               />
             </SidebarSurfaceTransition>
@@ -389,17 +461,23 @@ export function RedesignPage() {
           </footer>
         </div>
       }
-      contentClassName="flex min-h-0 overflow-hidden"
+      contentClassName="flex min-h-0 overflow-hidden bg-background"
     >
-      {activeQuickAction === "chats" && activeChat && redesignChatContext ? (
-        <ChatPage key={activeChat.id} sessionIdOverride={activeChat.id} shellContextOverride={redesignChatContext} />
-      ) : activeQuickAction === "chats" ? (
-        <HomePage shellContextOverride={redesignHomeContext} onSessionCreated={openCreatedChat} />
-      ) : (
-        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-          {null}
-        </div>
-      )}
+      <SidebarSurfaceTransition
+        className="flex min-h-0 flex-1 bg-background"
+        contentClassName="flex min-h-0 w-full flex-1 bg-background"
+        surfaceKey={redesignSurfaceKey}
+      >
+        {routedContent ?? (activeQuickAction === "chats" && activeChat && redesignChatContext ? (
+          <ChatPage key={activeChat.id} sessionIdOverride={activeChat.id} shellContextOverride={redesignChatContext} />
+        ) : activeQuickAction === "chats" ? (
+          <HomePage shellContextOverride={redesignHomeContext} onSessionCreated={openCreatedChat} />
+        ) : (
+          <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+            {null}
+          </div>
+        ))}
+      </SidebarSurfaceTransition>
       <Dialog open={newWorkspaceOpen} onOpenChange={setNewWorkspaceOpen}>
         <DialogContent>
           <DialogHeader>

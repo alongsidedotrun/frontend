@@ -17,6 +17,31 @@
    package (that app's own Markdown.tsx). */
 @import "streamdown/styles.css";
 
+@font-face {
+  font-family: "Geist";
+  src: url("/fonts/Geist-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@layer base {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "Geist", var(--font-sans);
+    font-weight: 500;
+  }
+
+  p {
+    font-family: "Inter Variable", sans-serif;
+    letter-spacing: -0.03em;
+  }
+}
+
 @keyframes onboarding-word-in {
   from {
     opacity: 0;
@@ -57,8 +82,9 @@
 :root {
   --redesign-font-size-xs: 0.75rem;
   --redesign-font-size-compact: clamp(0.625rem, 0.86vw, 0.6875rem);
-  --redesign-font-size-base: 0.8125rem;
-  --redesign-dropdown-font-size: 0.8125rem;
+  /* Keep sidebar copy responsive, but cap small-screen reduction at 2px. */
+  --redesign-font-size-base: clamp(0.6875rem, 1vw, 0.8125rem);
+  --redesign-dropdown-font-size: clamp(0.6875rem, 1vw, 0.8125rem);
   --redesign-font-size-sm: 0.875rem;
   --redesign-font-size-md: 1rem;
   --redesign-font-size-lg: 1.125rem;
@@ -68,21 +94,22 @@
   --redesign-control-height: 1.6875rem;
   --redesign-control-padding-inline: 0.5625rem;
   --redesign-control-gap: 0.375rem;
-  --redesign-control-radius: 8px;
-  --redesign-dropdown-row-radius: 6px;
+  --redesign-hover-radius: 6px;
+  --redesign-control-radius: var(--redesign-hover-radius);
+  --redesign-dropdown-row-radius: var(--redesign-hover-radius);
   /* These values use the sidebar's container width (cqw), not viewport or
      fixed pixels. At a 1280px viewport (31vw sidebar) they resolve to the
-     supplied 146×28 selector, 97px space, and 9px search icon. */
-  --redesign-workspace-trigger-width: 49.12cqw;
+     supplied 70% workspace name, 20% space, and 10% search layout. */
+  --redesign-workspace-trigger-width: 70cqw;
   --redesign-workspace-trigger-height: clamp(1.5rem, 9.32cqw, 1.875rem);
   --redesign-workspace-trigger-radius: 9999px;
   --redesign-workspace-trigger-padding: 3.02cqw;
-  --redesign-workspace-trigger-gap: 2.02cqw;
-  --redesign-workspace-chevron-size: 4.03cqw;
+  --redesign-workspace-trigger-gap: 7px;
+  --redesign-workspace-chevron-size: clamp(0.875rem, 4.03cqw, 1rem);
   --redesign-workspace-avatar-size: min(6.05cqw, 0.875rem);
   --redesign-workspace-brand-surface-size: 1rem;
   --redesign-workspace-brand-mark-size: 0.75rem;
-  --redesign-workspace-brand-radius: 0.1875rem;
+  --redesign-workspace-brand-radius: 0.3125rem;
   --redesign-workspace-brand-padding: 0.125rem;
   --redesign-workspace-search-gap: 32.51cqw;
   --redesign-search-control-size: clamp(0.875rem, 4.7cqw, 1.125rem);
@@ -110,17 +137,14 @@
   --redesign-sidebar-footer-upgrade-padding: 0.5rem;
   --redesign-sidebar-footer-chevron-size: 0.75rem;
   --redesign-sidebar-footer-step-indicator-size: 0.4375rem;
-  --redesign-sidebar-footer-steps-side-padding: var(--redesign-menu-horizontal-padding);
-  --redesign-sidebar-footer-content-inset: calc(var(--redesign-sidebar-footer-steps-side-padding) + var(--redesign-quick-actions-padding));
-  --redesign-sidebar-footer-steps-top-padding: 0.5rem;
-  --redesign-sidebar-footer-steps-bottom-padding: var(--redesign-sidebar-footer-steps-side-padding);
-  --redesign-sidebar-footer-onboarding-radius: 1rem;
+  --redesign-sidebar-footer-onboarding-padding: calc(var(--redesign-menu-horizontal-padding) + 8px);
+  --redesign-sidebar-footer-onboarding-radius: var(--redesign-workspace-menu-radius);
   --redesign-sidebar-footer-onboarding-trigger-radius: 0.875rem;
   --redesign-sidebar-footer-onboarding-collapsed-radius: 0.5rem;
-  --redesign-sidebar-footer-onboarding-collapsed-trigger-radius: 0.375rem;
+  --redesign-sidebar-footer-onboarding-collapsed-trigger-radius: var(--redesign-hover-radius);
   --redesign-sidebar-footer-progress-size: 1rem;
-  --redesign-sidebar-footer-progress-inset: 0.125rem;
-  --redesign-sidebar-footer-task-row-height: 2rem;
+  --redesign-sidebar-footer-progress-inset: 1px;
+  --redesign-sidebar-footer-task-row-height: clamp(1.5rem, 2.25vw, 1.8rem);
   --redesign-sidebar-footer-task-indicator-size: 0.875rem;
   --redesign-sidebar-footer-task-popover-width: clamp(17rem, 24vw, 22rem);
   --redesign-sidebar-footer-task-popover-padding: var(--redesign-menu-horizontal-padding);
@@ -129,39 +153,42 @@
   --redesign-sidebar-footer-task-image-icon-size: 1.125rem;
   --redesign-sidebar-footer-task-description-gap: 0.25rem;
   --redesign-sidebar-footer-task-action-height: 1.625rem;
-  /* Dropdown content is portalled outside the sidebar, so these mirror the
-     sidebar's responsive clamp in viewport units. At 1280px they resolve to
-     the reduced 222×283 menu. */
-  --redesign-workspace-menu-width: clamp(10.5rem, 17.33vw, 19.82rem);
+  /* The dropdown is portalled outside the sidebar, so match the sidebar's
+     inner content width exactly. */
+  --redesign-workspace-menu-width: clamp(10.25rem, calc(var(--redesign-sidebar-width) - var(--redesign-sidebar-edge-padding) - var(--redesign-sidebar-edge-padding)), 19.82rem);
   /* The menu follows its content. Only the workspace collection is capped
      so the static actions remain visible while longer collections scroll. */
   --redesign-workspace-list-max-height: clamp(7.5rem, 12.5vw, 10rem);
   --redesign-workspace-menu-radius: 0.875rem;
-  --redesign-menu-horizontal-padding: clamp(0.4375rem, 0.703125vw, 0.7875rem);
+  --redesign-workspace-menu-padding: calc(var(--redesign-menu-horizontal-padding) - 2px);
+  --redesign-workspace-menu-vertical-padding: var(--redesign-workspace-menu-padding);
+  --redesign-menu-horizontal-padding: clamp(0.5625rem, 0.78125vw, 0.875rem);
   --redesign-menu-row-padding: clamp(0.25rem, 0.546875vw, 0.65625rem);
   --redesign-menu-row-gap: clamp(0.125rem, 0.15625vw, 0.1953125rem);
-  --redesign-menu-section-block-padding: clamp(0.1875rem, 0.234375vw, 0.28125rem);
-  --redesign-menu-first-section-top-padding: clamp(0.28125rem, 0.46875vw, 0.46875rem);
-  --redesign-menu-last-section-bottom-padding: clamp(0.28125rem, 0.46875vw, 0.46875rem);
+  --redesign-menu-section-block-padding: clamp(0.25rem, 0.3125vw, 0.375rem);
+  --redesign-menu-first-section-top-padding: clamp(0.5rem, 0.625vw, 0.75rem);
+  --redesign-menu-last-section-bottom-padding: clamp(0.5rem, 0.625vw, 0.75rem);
   --redesign-workspace-row-height: clamp(1.25rem, 1.640625vw, 1.6875rem);
-  --redesign-menu-avatar-size: clamp(0.5625rem, 1.09375vw, 0.875rem);
+  --redesign-menu-avatar-size: 0.875rem;
   --redesign-workspace-check-size: clamp(0.625rem, 0.9375vw, 0.975rem);
   /* Keep the check on whole pixels. A percentage of the responsive circle
      produced a 7.8px glyph at the reference width, which antialiases unevenly. */
   --redesign-workspace-checkmark-size: 0.5rem;
-  --redesign-workspace-action-icon-size: clamp(0.5rem, 0.9375vw, 0.975rem);
-  --redesign-primary-surface: #ffffff;
+  --redesign-workspace-action-icon-size: 0.875rem;
+  --redesign-primary-surface: var(--background);
   --redesign-sidebar-overlay-surface: #f8f8f8;
+  --redesign-overlay-border: rgba(13, 13, 13, 0.16);
   --redesign-progress-track: rgba(13, 13, 13, 0.3);
   --redesign-sidebar-border: rgba(13, 13, 13, 0.12);
   --redesign-sidebar-width: clamp(12.25rem, 18vw, 22rem);
 }
 
 .dark {
-  --redesign-primary-surface: #1a1a1a;
+  --redesign-primary-surface: var(--background);
   --redesign-sidebar-overlay-surface: #212121;
   --redesign-progress-track: rgba(252, 252, 252, 0.3);
     --redesign-sidebar-border: #232323;
+    --redesign-overlay-border: #282828;
 }
 
 @theme inline {
@@ -182,7 +209,7 @@
        Sidebar's own "describer" text (Projects/Recents section labels,
        sidebar-nav.tsx) is the first real caller. */
     --text-2xs: 0.625rem;
-    --font-heading: var(--font-sans);
+    --font-heading: "Geist", var(--font-sans);
     /* Native system font stack, not a bundled web font -- per explicit
        request ("the reason synara's looks so crisp is because of these
        settings"), matching a setting Synara's own Settings ->
@@ -644,12 +671,9 @@
        same toggle, so native scrollbars/form controls switch to their
        dark rendering along with everything else this app styles itself. */
     color-scheme: dark;
-    /* Main content/pages background -- codex's own dark "surface" value
-       exactly, same "actual Synara theme, not their 'synara' theme"
-       correction as :root's own --background comment above explains. Was
-       #0e0e0e (this app's own earlier, wrong-theme value), before that
-       #151515. */
-    --background: #111111;
+    /* The redesign is now the production shell. Keep legacy bg-background,
+       bg-sidebar, and bg-card surfaces on the same dark surface as it. */
+    --background: #1a1a1a;
     /* This is the "active" text color -- hovered/selected menu items,
        headings, primary body text. --muted-foreground below is the
        resting/inactive one. codex's own dark "ink" value exactly, same
@@ -658,7 +682,7 @@
        :root's own comment above explains -- was #f5f5f5, before that
        #cecece. */
     --foreground: #fcfcfc;
-    --card: #111111;
+    --card: #1a1a1a;
     --card-foreground: #fcfcfc;
     --popover: var(--background);
     --popover-foreground: var(--foreground);

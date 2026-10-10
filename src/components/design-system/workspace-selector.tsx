@@ -2,13 +2,12 @@ import type { ReactNode } from "react";
 import { ChevronsUpDown, Check } from "lucide-react";
 import {
   DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { DropdownActionRow, DropdownActionSection, type DropdownAction } from "@/components/design-system/dropdown-action-list";
+import { RedesignDropdownContent, RedesignDropdownSeparator } from "@/components/design-system/redesign-dropdown";
 
 export type WorkspaceOption = {
   id: string;
@@ -62,27 +61,19 @@ export function WorkspaceSelector({
           <ChevronsUpDown aria-hidden="true" strokeWidth={1.5} className="size-[var(--redesign-workspace-chevron-size)] shrink-0 text-muted-foreground" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent
+      <RedesignDropdownContent
         align="start"
         sideOffset={4}
-        className="w-[var(--redesign-workspace-menu-width)] max-h-[calc(100vh-2rem)] rounded-[var(--redesign-workspace-menu-radius)] border !shadow-none"
-        style={{
-          backgroundColor: "var(--redesign-sidebar-overlay-surface)",
-          borderColor: "var(--redesign-sidebar-border)",
-          boxShadow: "none",
-        }}
-        viewportClassName="max-h-[calc(100vh-2rem)] overflow-visible rounded-[var(--redesign-workspace-menu-radius)] p-0"
       >
-        <div className="flex min-h-full flex-col px-[var(--redesign-menu-horizontal-padding)]">
-          <div className="max-h-[var(--redesign-workspace-list-max-height)] overflow-y-auto overscroll-contain">
-            <DropdownActionSection className="pt-[var(--redesign-menu-first-section-top-padding)]">
+        <div className="max-h-[var(--redesign-workspace-list-max-height)] overflow-y-auto overscroll-contain">
+          <DropdownActionSection className="gap-[var(--redesign-quick-actions-row-gap)] py-0">
               {workspaces.map((workspace) => {
                 const selected = workspace.id === value;
                 return (
                   <DropdownMenuItem
                     key={workspace.id}
                     onSelect={() => onValueChange(workspace.id)}
-                    className="h-[var(--redesign-workspace-row-height)] rounded-[var(--redesign-dropdown-row-radius)] px-[var(--redesign-menu-row-padding)] text-[length:var(--redesign-dropdown-font-size)] font-normal text-foreground/70"
+                    className="mx-[-var(--redesign-workspace-menu-padding)] h-[var(--redesign-sidebar-footer-task-row-height)] gap-[var(--redesign-workspace-trigger-gap)] rounded-[var(--redesign-dropdown-row-radius)] px-[var(--redesign-menu-horizontal-padding)] text-[length:var(--redesign-dropdown-font-size)] font-normal text-foreground/70"
                   >
                     <WorkspaceAvatar
                       icon={workspace.icon}
@@ -104,21 +95,27 @@ export function WorkspaceSelector({
                   </DropdownMenuItem>
                 );
               })}
-            </DropdownActionSection>
-          </div>
+          </DropdownActionSection>
+        </div>
 
           {workspaceSectionActions && workspaceSectionActions.length > 0 && (
             <>
-              <DropdownMenuSeparator />
-              <DropdownActionSection>
-                {workspaceSectionActions.map((action) => <DropdownActionRow key={action.id} action={action} />)}
+              <RedesignDropdownSeparator />
+              <DropdownActionSection className="gap-[var(--redesign-quick-actions-row-gap)] py-0">
+                {workspaceSectionActions.map((action) => (
+                  <DropdownActionRow
+                    key={action.id}
+                    action={action}
+                    className="mx-[-var(--redesign-workspace-menu-padding)] h-[var(--redesign-sidebar-footer-task-row-height)] px-[var(--redesign-menu-horizontal-padding)]"
+                  />
+                ))}
               </DropdownActionSection>
             </>
           )}
 
           {actionSections.map((section, sectionIndex) => (
             <div key={section.map((action) => action.id).join("-")}>
-              <DropdownMenuSeparator />
+              <RedesignDropdownSeparator />
               <DropdownActionSection
                 className={
                   sectionIndex === actionSections.length - 1
@@ -130,8 +127,7 @@ export function WorkspaceSelector({
               </DropdownActionSection>
             </div>
           ))}
-        </div>
-      </DropdownMenuContent>
+      </RedesignDropdownContent>
     </DropdownMenu>
   );
 }
