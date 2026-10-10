@@ -38,7 +38,7 @@ export function OverviewPage() {
           {greetingForHour(now.getHours())}, {userName}
         </h1>
         <div className="mt-1 flex items-baseline gap-1.5">
-          <h2 className="text-[14px] tracking-normal text-muted-foreground">{dateLabel}</h2>
+          <h2 className="text-[14px] font-normal tracking-normal text-muted-foreground">{dateLabel}</h2>
           <p className="text-[14px] text-muted-foreground/70">
             {tasksDueToday === 0
               ? "No tasks due today"
