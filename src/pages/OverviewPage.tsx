@@ -130,7 +130,7 @@ export function OverviewPage() {
         key={task.id}
         type="button"
         onClick={() => toggleTask(task.id)}
-        className="flex h-12 w-full items-center gap-2.5 border-t border-border px-4 text-left text-[16px] transition-colors hover:bg-muted/40"
+        className="flex h-10 w-full items-center gap-2.5 border-t border-border px-3 text-left text-[15px] transition-colors hover:bg-muted/40"
       >
         {task.completed
           ? <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-foreground text-background"><Check className="size-3" strokeWidth={2.5} /></span>
@@ -159,31 +159,31 @@ export function OverviewPage() {
         <section className="mt-8" aria-labelledby="overview-tasks-heading">
           <h2 id="overview-tasks-heading" className="text-[18px] tracking-normal text-foreground">My tasks</h2>
           <div className="mt-3 overflow-hidden rounded-2xl border border-border">
-            <button type="button" onClick={() => setTodayOpen((open) => !open)} className="flex h-12 w-full items-center gap-2.5 px-4 text-left text-[18px] hover:bg-muted/30">
+            <button type="button" onClick={() => setTodayOpen((open) => !open)} className="flex h-10 w-full items-center gap-2.5 px-3 text-left text-[16px] hover:bg-muted/30">
               <ChevronDown className={`size-4 text-muted-foreground transition-transform ${todayOpen ? "" : "-rotate-90"}`} />
               <span className="flex-1">Today</span>
               <TaskCount count={todayTasks.filter((task) => !task.completed).length} />
             </button>
             {todayOpen && <>
-              <div className="flex h-12 items-center gap-2.5 border-t border-border px-4">
+              <div className="flex h-10 items-center gap-2.5 border-t border-border px-3">
                 <Plus className="size-4 shrink-0 text-muted-foreground/60" />
                 <input
                   value={taskTitle}
                   onChange={(event) => setTaskTitle(event.target.value)}
                   onKeyDown={(event) => { if (event.key === "Enter") addTodayTask(); }}
                   placeholder="Add a task for today and press Enter"
-                  className="min-w-0 flex-1 bg-transparent text-[16px] text-foreground outline-none placeholder:text-muted-foreground/60"
+                  className="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground/60"
                 />
               </div>
               {taskRows(todayTasks)}
             </>}
-            <button type="button" onClick={() => setWeekOpen((open) => !open)} className="flex h-12 w-full items-center gap-2.5 border-t border-border px-4 text-left text-[18px] hover:bg-muted/30">
+            <button type="button" onClick={() => setWeekOpen((open) => !open)} className="flex h-10 w-full items-center gap-2.5 border-t border-border px-3 text-left text-[16px] hover:bg-muted/30">
               <ChevronRight className={`size-4 text-muted-foreground transition-transform ${weekOpen ? "rotate-90" : ""}`} />
               <span className="flex-1">This week</span>
               <TaskCount count={weekTasks.filter((task) => !task.completed).length} />
             </button>
             {weekOpen && taskRows(weekTasks)}
-            <button type="button" onClick={() => setLaterOpen((open) => !open)} className="flex h-12 w-full items-center gap-2.5 border-t border-border px-4 text-left text-[18px] hover:bg-muted/30">
+            <button type="button" onClick={() => setLaterOpen((open) => !open)} className="flex h-10 w-full items-center gap-2.5 border-t border-border px-3 text-left text-[16px] hover:bg-muted/30">
               <ChevronRight className={`size-4 text-muted-foreground transition-transform ${laterOpen ? "rotate-90" : ""}`} />
               <span className="flex-1">Later</span>
               <TaskCount count={laterTasks.filter((task) => !task.completed).length} />
