@@ -39,7 +39,7 @@ export function OverviewPage() {
         </h1>
         <div className="mt-1 flex items-baseline gap-1.5">
           <h2 className="text-[14px] font-normal tracking-normal text-muted-foreground">{dateLabel}</h2>
-          <p className="text-[14px] text-muted-foreground/70">
+          <p className="text-[12px] text-muted-foreground/70">
             {tasksDueToday === 0
               ? "No tasks due today"
               : `${tasksDueToday} ${tasksDueToday === 1 ? "task" : "tasks"} due today`}
