@@ -17,6 +17,9 @@ function nextHourDelay(now: Date) {
 export function OverviewPage() {
   const userName = useUserDisplayName();
   const [now, setNow] = useState(() => new Date());
+  // Task persistence has not landed yet. Keep the view ready for it without
+  // presenting made-up tasks in the new workspace overview.
+  const tasksDueToday = 0;
 
   useEffect(() => {
     const timer = window.setTimeout(() => setNow(new Date()), nextHourDelay(now));
@@ -34,9 +37,15 @@ export function OverviewPage() {
         <h1 className="text-[20px] tracking-normal text-foreground">
           {greetingForHour(now.getHours())}, {userName}
         </h1>
-        <h2 className="mt-1 text-[14px] tracking-normal text-muted-foreground">
-          {dateLabel}
-        </h2>
+        <div className="mt-1 flex items-baseline gap-1.5">
+          <h2 className="text-[14px] tracking-normal text-muted-foreground">{dateLabel}</h2>
+          <span aria-hidden="true" className="text-[14px] text-muted-foreground/30">·</span>
+          <p className="text-[14px] text-muted-foreground/30">
+            {tasksDueToday === 0
+              ? "No tasks due today"
+              : `${tasksDueToday} ${tasksDueToday === 1 ? "task" : "tasks"} due today`}
+          </p>
+        </div>
       </div>
     </main>
   );
