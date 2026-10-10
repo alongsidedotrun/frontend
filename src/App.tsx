@@ -23,16 +23,13 @@ import { ProjectsPage } from "@/pages/ProjectsPage";
 import { RedesignPage } from "@/pages/RedesignPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { WelcomePage } from "@/pages/WelcomePage";
-import { loadDataAcknowledgement } from "@/lib/data-acknowledgement";
 import { diagnose_onboarding, hasCompletedOnboardingIntro } from "@/lib/onboarding";
 
-// The redesign is now the production shell and the app's default landing page.
-// Keep its explicit URL useful for visual/deep-link access, while the root
-// route opens the same shell directly so users never need to know that path.
+// Opening the app should always enter the redesigned workspace. Onboarding is
+// still available at its explicit routes, but it must not block normal use of
+// the local app shell.
 function AppRoot() {
-  const complete = hasCompletedOnboardingIntro();
-  if (!complete) return <OnboardingPage />;
-  return <Navigate to={loadDataAcknowledgement() ? "/inbox" : "/onboard/getting-started"} replace />;
+  return <Navigate to="/overview" replace />;
 }
 
 function GettingStartedRoute() {
