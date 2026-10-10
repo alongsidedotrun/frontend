@@ -69,7 +69,7 @@ export function PrimarySidebar({ collapsed, onOpenSettings, onNavigate }: Primar
         paddingLeft: collapsed ? 0 : 8,
         paddingRight: collapsed ? 0 : 8,
       }}
-      className="relative z-[100] flex h-full shrink-0 flex-col items-center overflow-hidden bg-[#1a1a1a] py-2 text-white transition-[width,padding] duration-[280ms] ease-[cubic-bezier(0.16,1,0.3,1)]"
+      className="relative z-[100] flex h-full shrink-0 flex-col items-center overflow-hidden bg-[#111111] py-2 text-white transition-[width,padding] duration-[280ms] ease-[cubic-bezier(0.16,1,0.3,1)]"
     >
       <div className="flex w-full flex-col items-center">
         <div aria-hidden className="size-7" />

@@ -45,7 +45,9 @@ export default defineConfig({
       // ever reaching the backend -- broken since the moment each was
       // built, not a new regression today.
       "/projects": "http://127.0.0.1:3000",
+      "/workspaces": "http://127.0.0.1:3000",
       "/inbox-items": "http://127.0.0.1:3000",
+      "/inbox-mentions": "http://127.0.0.1:3000",
       "/search": "http://127.0.0.1:3000",
       // /usage, /provider-usage/* -- ModelsPage.tsx/nav-user.tsx's own
       // real usage data (backend/src/provider_usage.rs): same exact gap

@@ -16,7 +16,17 @@ import { getUserDisplayName } from "@/lib/user";
 // and the same alongside_api_key/alongside_user_name localStorage keys -- there's
 // still no real Settings UI to set the API key from inside this app, that
 // gap already exists independent of this page.
-export function HomePage() {
+export type HomePageShellContext = {
+  openSettings: (section: SettingsSection) => void;
+};
+
+type HomePageProps = {
+  /** Allows the redesign to reuse New Chat inside its own shell. */
+  shellContextOverride?: HomePageShellContext;
+  onSessionCreated?: (sessionId: string) => void;
+};
+
+export function HomePage({ shellContextOverride, onSessionCreated }: HomePageProps = {}) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   // Set when this page was reached via a project row's own "+" (sidebar-nav.tsx) --
@@ -36,7 +46,8 @@ export function HomePage() {
   // same mechanism WelcomePage.tsx's own Initial setup row already uses to
   // open the real SettingsOverlay modal directly, threaded down to
   // ComposeBox's own "Add provider" row.
-  const { openSettings } = useOutletContext<{ openSettings: (section: SettingsSection) => void }>();
+  const outletContext = useOutletContext<HomePageShellContext>();
+  const { openSettings } = shellContextOverride ?? outletContext;
   const [prompt, setPrompt] = useState("");
   const [sending, setSending] = useState(false);
   // ComposeBox owns which models are selected (supports multi-select /
@@ -205,7 +216,11 @@ export function HomePage() {
       // meaningful for the one chat being landed on right now.
       sessionStorage.setItem("alongside_model_label", model.label);
       sessionStorage.setItem("alongside_model_value", model.value);
-      navigate(`/chat/${data.session_id}`);
+      if (onSessionCreated) {
+        onSessionCreated(data.session_id);
+      } else {
+        navigate(`/chat/${data.session_id}`);
+      }
     } finally {
       setSending(false);
     }

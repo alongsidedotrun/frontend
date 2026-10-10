@@ -319,9 +319,26 @@ function nextRowId() {
 // interactive behavior (send, retry, stop, copy, read aloud, rename) all
 // is; that's the part actually worth porting, the typing animation was
 // pure flourish on top of it.
-export function ChatPage() {
+export type ChatPageShellContext = {
+  chatName: string;
+  receiveChatNameFromServer: (name: string) => void;
+  refreshSidebarLists: () => void;
+  openSettings: (section: SettingsSection) => void;
+  openFile: (path: string) => void;
+  rightPanelOpen: boolean;
+  notifyFilesTouched: () => void;
+};
+
+type ChatPageProps = {
+  /** Lets the redesign embed the real chat surface without changing routes. */
+  sessionIdOverride?: string;
+  shellContextOverride?: ChatPageShellContext;
+};
+
+export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPageProps = {}) {
   const { t } = useTranslation();
-  const { sessionId } = useParams<{ sessionId: string }>();
+  const { sessionId: routeSessionId } = useParams<{ sessionId: string }>();
+  const sessionId = sessionIdOverride ?? routeSessionId;
   // Lifted to AppLayout now (per explicit request -- the chat's name lives
   // in the top bar's breadcrumb, not a second bar this page rendered
   // itself). chatName is read-only here (document.title below);
@@ -336,16 +353,9 @@ export function ChatPage() {
   // own auto-naming happened to fail (chat_name_failed, not
   // chat_name_updated) -- receiveChatNameFromServer's own existing refresh
   // call only fires on a successful rename, not on every real message.
+  const outletContext = useOutletContext<ChatPageShellContext>();
   const { chatName, receiveChatNameFromServer, refreshSidebarLists, openSettings, openFile, rightPanelOpen, notifyFilesTouched } =
-    useOutletContext<{
-      chatName: string;
-      receiveChatNameFromServer: (name: string) => void;
-      refreshSidebarLists: () => void;
-      openSettings: (section: SettingsSection) => void;
-      openFile: (path: string) => void;
-      rightPanelOpen: boolean;
-      notifyFilesTouched: () => void;
-    }>();
+    shellContextOverride ?? outletContext;
   // Real correction, per explicit follow-up ("we reduce to 400px but
   // there's so much space around it, instead of reducing the content to
   // 400px, keep that as 800px and reduce the outside paddings on left and

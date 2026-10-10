@@ -27,6 +27,8 @@ import {
   FileSearch01,
   User01,
   Settings02,
+  Settings01,
+  Settings04,
   AlertCircle,
   Code01,
   CodeBrowser,
@@ -124,6 +126,8 @@ export {
   FilePlus02 as FilePlusIcon,
   User01 as UserIcon,
   Settings02 as SettingsIcon,
+  Settings01 as Settings01Icon,
+  Settings04 as Settings04Icon,
   // SettingsOverlay's own "Danger zone" section row.
   AlertCircle as AlertCircleIcon,
   // WelcomePage's own "Initial setup" row.
