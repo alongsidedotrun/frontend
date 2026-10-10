@@ -34,7 +34,7 @@ export function OverviewPage() {
         <h1 className="text-[24px] font-semibold tracking-[-0.03em] text-foreground">
           {greetingForHour(now.getHours())}, {userName}
         </h1>
-        <p className="mt-2 text-[16px] text-muted-foreground">{dateLabel}</p>
+        <p className="mt-1 text-[16px] text-muted-foreground">{dateLabel}</p>
       </div>
     </main>
   );
