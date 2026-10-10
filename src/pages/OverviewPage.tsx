@@ -221,68 +221,68 @@ export function OverviewPage() {
         key={task.id}
         type="button"
         onClick={() => toggleTask(task.id)}
-        className="flex h-9 w-full items-center gap-2 border-t border-border px-2.5 text-left text-[14px] transition-colors hover:bg-muted/40"
+        className="flex h-8 w-full items-center gap-1.5 border-t border-border px-2 text-left text-[13px] transition-colors hover:bg-muted/40"
       >
         {task.completed
-          ? <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-foreground text-background"><Check className="size-2.5" strokeWidth={2.5} /></span>
-          : <Circle className="size-4 shrink-0 text-muted-foreground/55" strokeWidth={1.8} />}
+          ? <span className="flex size-3.5 shrink-0 items-center justify-center rounded-full bg-foreground text-background"><Check className="size-2" strokeWidth={2.5} /></span>
+          : <Circle className="size-3.5 shrink-0 text-muted-foreground/55" strokeWidth={1.8} />}
         <span className={`min-w-0 truncate ${task.completed ? "text-muted-foreground line-through" : "text-foreground"}`}>{task.title}</span>
-        {task.due && <span className="ml-auto shrink-0 text-[11px] text-muted-foreground/70">{task.due}</span>}
+        {task.due && <span className="ml-auto shrink-0 text-[10px] text-muted-foreground/70">{task.due}</span>}
       </button>
     ));
   }
 
   return (
     <main className="flex min-h-0 flex-1 overflow-y-auto bg-background">
-      <div className="mx-auto flex w-full max-w-[48rem] flex-col px-5 pt-5 pb-12 sm:px-8 sm:pt-7">
-        <h1 className="text-[18px] tracking-normal text-foreground">
+      <div className="mx-auto flex w-full max-w-[46rem] flex-col px-4 pt-4 pb-10 sm:px-7 sm:pt-6">
+        <h1 className="text-[17px] tracking-normal text-foreground">
           {greetingForHour(now.getHours())}, {userName}
         </h1>
         <div className="mt-0.5 flex items-baseline gap-1.5">
-          <p className="text-[13px] text-muted-foreground">{dateLabel}</p>
-          <span aria-hidden="true" className="text-[13px] text-muted-foreground/70">·</span>
-          <p className="text-[13px] text-muted-foreground/70">
+          <p className="text-[12px] text-muted-foreground">{dateLabel}</p>
+          <span aria-hidden="true" className="text-[12px] text-muted-foreground/70">·</span>
+          <p className="text-[12px] text-muted-foreground/70">
             {tasksDueToday === 0
               ? "No tasks due today"
               : `${tasksDueToday} ${tasksDueToday === 1 ? "task" : "tasks"} due today`}
           </p>
         </div>
 
-        <section className="mt-7" aria-labelledby="overview-tasks-heading">
-          <h2 id="overview-tasks-heading" className="text-[17px] tracking-normal text-foreground">My tasks</h2>
-          <div className="mt-2.5 overflow-hidden rounded-xl border border-border">
-            <button type="button" onClick={() => setTodayOpen((open) => !open)} className="flex h-9 w-full items-center gap-2 px-2.5 text-left text-[15px] hover:bg-muted/30">
-              <ChevronDown className={`size-3.5 text-muted-foreground transition-transform ${todayOpen ? "" : "-rotate-90"}`} />
+        <section className="mt-6" aria-labelledby="overview-tasks-heading">
+          <h2 id="overview-tasks-heading" className="text-[16px] tracking-normal text-foreground">My tasks</h2>
+          <div className="mt-2 overflow-hidden rounded-xl border border-border">
+            <button type="button" onClick={() => setTodayOpen((open) => !open)} className="flex h-8 w-full items-center gap-1.5 px-2 text-left text-[14px] hover:bg-muted/30">
+              <ChevronDown className={`size-3 text-muted-foreground transition-transform ${todayOpen ? "" : "-rotate-90"}`} />
               <span className="flex-1">Today</span>
               <TaskCount count={todayTasks.filter((task) => !task.completed).length} />
             </button>
             <TaskSectionContent open={todayOpen}>
-              <div className="flex h-9 items-center gap-2 border-t border-border px-2.5">
-                <Plus className="size-3.5 shrink-0 text-muted-foreground/60" />
+              <div className="flex h-8 items-center gap-1.5 border-t border-border px-2">
+                <Plus className="size-3 shrink-0 text-muted-foreground/60" />
                 <input
                   value={taskTitle}
                   onChange={(event) => setTaskTitle(event.target.value)}
                   onKeyDown={(event) => { if (event.key === "Enter") addTodayTask(); }}
                   placeholder="Add a task for today and press Enter"
-                  className="min-w-0 flex-1 bg-transparent text-[14px] text-foreground outline-none placeholder:text-muted-foreground/60"
+                  className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground/60"
                 />
               </div>
               {taskRows(todayTasks)}
             </TaskSectionContent>
-            <button type="button" onClick={() => setWeekOpen((open) => !open)} className="flex h-9 w-full items-center gap-2 border-t border-border px-2.5 text-left text-[15px] hover:bg-muted/30">
-              <ChevronRight className={`size-3.5 text-muted-foreground transition-transform ${weekOpen ? "rotate-90" : ""}`} />
+            <button type="button" onClick={() => setWeekOpen((open) => !open)} className="flex h-8 w-full items-center gap-1.5 border-t border-border px-2 text-left text-[14px] hover:bg-muted/30">
+              <ChevronRight className={`size-3 text-muted-foreground transition-transform ${weekOpen ? "rotate-90" : ""}`} />
               <span className="flex-1">This week</span>
               <TaskCount count={weekTasks.filter((task) => !task.completed).length} />
             </button>
             <TaskSectionContent open={weekOpen}>
-              <div className="flex h-9 items-center gap-2 border-t border-border px-2.5">
-                <Plus className="size-3.5 shrink-0 text-muted-foreground/60" />
+              <div className="flex h-8 items-center gap-1.5 border-t border-border px-2">
+                <Plus className="size-3 shrink-0 text-muted-foreground/60" />
                 <input
                   value={weekTaskTitle}
                   onChange={(event) => setWeekTaskTitle(event.target.value)}
                   onKeyDown={(event) => { if (event.key === "Enter") addWeekTask(); }}
                   placeholder="Add a task for this week"
-                  className="min-w-0 flex-1 bg-transparent text-[14px] text-foreground outline-none placeholder:text-muted-foreground/60"
+                  className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground/60"
                 />
                 <BaseDropdownMenu size="compact">
                   <BaseDropdownTrigger
@@ -316,20 +316,20 @@ export function OverviewPage() {
               </div>
               {taskRows(weekTasks)}
             </TaskSectionContent>
-            <button type="button" onClick={() => setLaterOpen((open) => !open)} className="flex h-9 w-full items-center gap-2 border-t border-border px-2.5 text-left text-[15px] hover:bg-muted/30">
-              <ChevronRight className={`size-3.5 text-muted-foreground transition-transform ${laterOpen ? "rotate-90" : ""}`} />
+            <button type="button" onClick={() => setLaterOpen((open) => !open)} className="flex h-8 w-full items-center gap-1.5 border-t border-border px-2 text-left text-[14px] hover:bg-muted/30">
+              <ChevronRight className={`size-3 text-muted-foreground transition-transform ${laterOpen ? "rotate-90" : ""}`} />
               <span className="flex-1">Later</span>
               <TaskCount count={laterTasks.filter((task) => !task.completed).length} />
             </button>
             <TaskSectionContent open={laterOpen}>
-              <div className="flex h-9 items-center gap-2 border-t border-border px-2.5">
-                <Plus className="size-3.5 shrink-0 text-muted-foreground/60" />
+              <div className="flex h-8 items-center gap-1.5 border-t border-border px-2">
+                <Plus className="size-3 shrink-0 text-muted-foreground/60" />
                 <input
                   value={laterTaskTitle}
                   onChange={(event) => setLaterTaskTitle(event.target.value)}
                   onKeyDown={(event) => { if (event.key === "Enter") addLaterTask(); }}
                   placeholder="Add a task for later"
-                  className="min-w-0 flex-1 bg-transparent text-[14px] text-foreground outline-none placeholder:text-muted-foreground/60"
+                  className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground/60"
                 />
                 <Popover open={laterDueOpen} onOpenChange={setLaterDuePickerOpen}>
                   <PopoverTrigger asChild>
@@ -360,36 +360,36 @@ export function OverviewPage() {
           </div>
         </section>
 
-        <section className="mt-7" aria-labelledby="overview-recent-heading">
-          <h2 id="overview-recent-heading" className="text-[17px] tracking-normal text-foreground">Recently visited</h2>
+        <section className="mt-6" aria-labelledby="overview-recent-heading">
+          <h2 id="overview-recent-heading" className="text-[16px] tracking-normal text-foreground">Recently visited</h2>
           {recentSessions.length > 0 ? (
-            <div className="mt-3 flex gap-3 overflow-x-auto pb-1">
+            <div className="mt-2 flex gap-2.5 overflow-x-auto pb-1">
               {recentSessions.map((session) => (
-                <button key={session.id} type="button" onClick={() => navigate(`/chat/${session.id}`)} className="w-[14rem] shrink-0 rounded-xl border border-border p-3 text-left transition-colors hover:bg-muted/30">
-                  <span className="flex size-7 items-center justify-center rounded-md bg-focus-accent/15 text-[13px] font-medium text-focus-accent">{session.name.slice(0, 1).toUpperCase()}</span>
-                  <p className="mt-4 truncate text-[15px] text-foreground">{session.name}</p>
-                  <p className="mt-0.5 text-[13px] text-muted-foreground/70">Chat</p>
+                <button key={session.id} type="button" onClick={() => navigate(`/chat/${session.id}`)} className="w-[13rem] shrink-0 rounded-xl border border-border p-2.5 text-left transition-colors hover:bg-muted/30">
+                  <span className="flex size-6 items-center justify-center rounded-md bg-focus-accent/15 text-[12px] font-medium text-focus-accent">{session.name.slice(0, 1).toUpperCase()}</span>
+                  <p className="mt-3 truncate text-[14px] text-foreground">{session.name}</p>
+                  <p className="mt-0.5 text-[12px] text-muted-foreground/70">Chat</p>
                 </button>
               ))}
             </div>
-          ) : <p className="mt-3 text-[13px] text-muted-foreground/70">Chats you open will appear here.</p>}
+          ) : <p className="mt-2 text-[12px] text-muted-foreground/70">Chats you open will appear here.</p>}
         </section>
 
-        <section className="mt-7" aria-labelledby="overview-mentions-heading">
-          <h2 id="overview-mentions-heading" className="text-[17px] tracking-normal text-foreground">Recent mentions</h2>
+        <section className="mt-6" aria-labelledby="overview-mentions-heading">
+          <h2 id="overview-mentions-heading" className="text-[16px] tracking-normal text-foreground">Recent mentions</h2>
           {mentions.length > 0 ? (
-            <div className="mt-2.5 overflow-hidden rounded-xl border border-border">
+            <div className="mt-2 overflow-hidden rounded-xl border border-border">
               {mentions.map((mention, index) => (
-                <button key={mention.id} type="button" onClick={() => navigate(`/chat/${mention.chat_id}`)} className={`flex w-full items-center gap-2.5 p-3 text-left transition-colors hover:bg-muted/30 ${index ? "border-t border-border" : ""}`}>
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-focus-accent/15 text-[12px] text-focus-accent">{initials(mention.sender)}</span>
+                <button key={mention.id} type="button" onClick={() => navigate(`/chat/${mention.chat_id}`)} className={`flex w-full items-center gap-2 p-2.5 text-left transition-colors hover:bg-muted/30 ${index ? "border-t border-border" : ""}`}>
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-focus-accent/15 text-[11px] text-focus-accent">{initials(mention.sender)}</span>
                   <span className="min-w-0">
-                    <span className="block truncate text-[14px] text-foreground">{mention.sender} in {mention.chat_name}</span>
-                    <span className="mt-0.5 block truncate text-[13px] text-muted-foreground/70">{mention.content}</span>
+                    <span className="block truncate text-[13px] text-foreground">{mention.sender} in {mention.chat_name}</span>
+                    <span className="mt-px block truncate text-[12px] text-muted-foreground/70">{mention.content}</span>
                   </span>
                 </button>
               ))}
             </div>
-          ) : <p className="mt-3 text-[13px] text-muted-foreground/70">New mentions will appear here.</p>}
+          ) : <p className="mt-2 text-[12px] text-muted-foreground/70">New mentions will appear here.</p>}
         </section>
       </div>
     </main>
