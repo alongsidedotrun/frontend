@@ -11,18 +11,28 @@ export type DropdownAction = {
 };
 
 /** Shared compact action rows for the workspace and account dropdowns. */
-export function DropdownActionRow({ action }: { action: DropdownAction }) {
+export function DropdownActionRow({ action, className }: { action: DropdownAction; className?: string }) {
   const Icon = action.icon;
   return (
     <DropdownMenuItem
       onSelect={action.onSelect}
       className={cn(
         "h-[var(--redesign-workspace-row-height)] rounded-[var(--redesign-dropdown-row-radius)] px-[var(--redesign-menu-row-padding)] text-[length:var(--redesign-dropdown-font-size)] font-normal text-foreground/70",
-        action.tone === "accent" && "text-focus-accent focus:text-focus-accent",
+        action.tone === "accent" && "!text-focus-accent hover:!text-focus-accent focus:!text-focus-accent",
+        className,
       )}
     >
-      <Icon aria-hidden="true" strokeWidth={1.5} className="size-[var(--redesign-workspace-action-icon-size)] shrink-0" />
-      <span className="min-w-0 flex-1 truncate">{action.label}</span>
+      <Icon
+        aria-hidden="true"
+        strokeWidth={1.5}
+        className={cn(
+          "size-[var(--redesign-workspace-action-icon-size)] shrink-0",
+          action.tone === "accent" && "!text-focus-accent",
+        )}
+      />
+      <span className={cn("min-w-0 flex-1 truncate", action.tone === "accent" && "!text-focus-accent")}>
+        {action.label}
+      </span>
     </DropdownMenuItem>
   );
 }

@@ -28,7 +28,7 @@ export function SplitView({
   contentClassName,
 }: SplitViewProps) {
   return (
-    <main className={cn("relative h-dvh overflow-hidden bg-[var(--redesign-primary-surface)]", className)}>
+    <main className={cn("relative h-dvh overflow-hidden bg-background", className)}>
       {topBar}
       <div className="flex h-full pt-10">
         <aside
