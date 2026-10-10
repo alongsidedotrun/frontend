@@ -150,7 +150,7 @@ export function OverviewPage() {
     [now],
   );
   const weekDueOptions = useMemo(() => dueOptionsForWeek(now), [now]);
-  const [weekTaskDue, setWeekTaskDue] = useState(() => dueOptionsForWeek(new Date())[0]);
+  const [weekTaskDue, setWeekTaskDue] = useState<string | null>(null);
   const byBucket = (bucket: TaskBucket) => tasks.filter((task) => task.bucket === bucket);
   const todayTasks = byBucket("today");
   const weekTasks = byBucket("week");
@@ -171,7 +171,7 @@ export function OverviewPage() {
 
   function addWeekTask() {
     const title = weekTaskTitle.trim();
-    if (!title) return;
+    if (!title || !weekTaskDue) return;
     setTasks((current) => [...current, {
       id: crypto.randomUUID(),
       title,
@@ -273,14 +273,12 @@ export function OverviewPage() {
                   <BaseDropdownTrigger
                     render={
                       <button type="button" className="flex shrink-0 items-center gap-1 rounded-[var(--redesign-hover-radius)] px-1.5 py-1 text-[12px] text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                        <span>Due</span>
-                        <span aria-hidden="true" className="text-muted-foreground/60">·</span>
-                        <span>{weekTaskDue}</span>
+                        <span>{weekTaskDue ?? "Due"}</span>
                         <ChevronDown aria-hidden="true" className="size-3" />
                       </button>
                     }
                   />
-                  <BaseDropdownContent side="bottom" align="end" sideOffset={4} checkedIndex={weekDueOptions.indexOf(weekTaskDue)} className="w-32 min-w-0">
+                  <BaseDropdownContent side="bottom" align="end" sideOffset={4} checkedIndex={weekTaskDue ? weekDueOptions.indexOf(weekTaskDue) : undefined} className="w-32 min-w-0">
                     {weekDueOptions.map((due, index) => (
                       <BaseMenuItem
                         key={due}
