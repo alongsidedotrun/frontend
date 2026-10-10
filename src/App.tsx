@@ -20,6 +20,7 @@ import { ModelsPage } from "@/pages/ModelsPage";
 import { OnboardingPage } from "@/pages/OnboardingPage";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
 import { ProjectsPage } from "@/pages/ProjectsPage";
+import { RedesignPage } from "@/pages/RedesignPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { WelcomePage } from "@/pages/WelcomePage";
 import { loadDataAcknowledgement } from "@/lib/data-acknowledgement";
@@ -70,20 +71,9 @@ function OnboardGettingStartedRoute() {
 }
 
 function SecureAppRoute() {
-  const [acknowledged, setAcknowledged] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    void fetch("/storage/status")
-      .then(async (response) => {
-        if (!response.ok) throw new Error("storage status unavailable");
-        return response.json() as Promise<{ acknowledged: boolean }>;
-      })
-      .then((status) => setAcknowledged(status.acknowledged))
-      .catch(() => setAcknowledged(false));
-  }, []);
-
-  if (acknowledged === null) return <main className="min-h-dvh bg-background" />;
-  return acknowledged ? <AppLayout /> : <Navigate to="/onboard/getting-started" replace />;
+  // Onboarding remains available as an explicit route, but must not block
+  // normal navigation such as opening a new chat from the redesign.
+  return <AppLayout />;
 }
 
 const ROUTES: RouteObject[] = [
@@ -91,6 +81,9 @@ const ROUTES: RouteObject[] = [
   { path: "/", element: <AppRoot /> },
   { path: "/onboard", element: <OnboardingPage /> },
   { path: "/onboard/getting-started", element: <OnboardGettingStartedRoute /> },
+  // Isolated workspace for the next UI system. It intentionally bypasses the
+  // production app shell and onboarding gate while the redesign is in flight.
+  { path: "/redesign", element: <RedesignPage /> },
   {
     // No RequireAuth gate any more -- per explicit request ("I'd like for
     // us to open Alongside and be able to navigate without being signed

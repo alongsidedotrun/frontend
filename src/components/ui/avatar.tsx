@@ -128,7 +128,9 @@ function DefaultAvatar({ name }: { name: string }) {
       className="flex size-full items-center justify-center overflow-hidden rounded-full"
       style={{ backgroundColor: bg, color: fg }}
     >
-      <AlongsideLogo className="size-[58%]" />
+      <span className="relative block size-[58%]" aria-hidden="true">
+        <AlongsideLogo className="absolute left-1/2 top-1/2 block size-full -translate-x-1/2 -translate-y-1/2" />
+      </span>
     </div>
   )
 }

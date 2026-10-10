@@ -39,12 +39,13 @@ export function GettingStartedRows({
             label="Acknowledge your data"
             onClick={acknowledgement.onManage}
             className={`min-h-9 transition-colors ${acknowledgement.complete ? "!border-focus-accent" : ""}`}
+            style={acknowledgement.complete ? { borderColor: "var(--focus-accent)" } : undefined}
           >
             <CardMedia icon={ShieldCheck} className="size-5" />
             <CardHeader className="py-1.5">
               <CardTitle>
                 Acknowledge your data
-                <Status>Required</Status>
+                <Status>{acknowledgement.complete ? "Completed" : "Required"}</Status>
               </CardTitle>
               <CardDescription>
                 {acknowledgement.complete ? "Data responsibility confirmed." : "Review how your local data is stored and protected."}

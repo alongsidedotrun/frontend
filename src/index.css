@@ -33,7 +33,136 @@
   to { opacity: 1; }
 }
 
+@keyframes redesign-progress-ring {
+  from {
+    opacity: 0.35;
+    transform: rotate(-90deg) scale(0.82);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(0) scale(1);
+  }
+}
+
 @custom-variant dark (&:is(.dark *));
+
+/*
+ * Redesign foundations
+ *
+ * New component work reads these semantic values instead of introducing
+ * page-level colours or dimensions. At a 1280px viewport the sidebar is
+ * approximately 256px (20vw); the bounds retain a usable navigation area on smaller
+ * and much larger screens.
+ */
+:root {
+  --redesign-font-size-xs: 0.75rem;
+  --redesign-font-size-compact: clamp(0.625rem, 0.86vw, 0.6875rem);
+  --redesign-font-size-base: 0.8125rem;
+  --redesign-dropdown-font-size: 0.8125rem;
+  --redesign-font-size-sm: 0.875rem;
+  --redesign-font-size-md: 1rem;
+  --redesign-font-size-lg: 1.125rem;
+  --redesign-font-size-xl: 1.5rem;
+  --redesign-sidebar-edge-padding: 0.9375rem;
+  --redesign-sidebar-top-padding: 0.9375rem;
+  --redesign-control-height: 1.6875rem;
+  --redesign-control-padding-inline: 0.5625rem;
+  --redesign-control-gap: 0.375rem;
+  --redesign-control-radius: 8px;
+  --redesign-dropdown-row-radius: 6px;
+  /* These values use the sidebar's container width (cqw), not viewport or
+     fixed pixels. At a 1280px viewport (31vw sidebar) they resolve to the
+     supplied 146×28 selector, 97px space, and 9px search icon. */
+  --redesign-workspace-trigger-width: 49.12cqw;
+  --redesign-workspace-trigger-height: clamp(1.5rem, 9.32cqw, 1.875rem);
+  --redesign-workspace-trigger-radius: 9999px;
+  --redesign-workspace-trigger-padding: 3.02cqw;
+  --redesign-workspace-trigger-gap: 2.02cqw;
+  --redesign-workspace-chevron-size: 4.03cqw;
+  --redesign-workspace-avatar-size: min(6.05cqw, 0.875rem);
+  --redesign-workspace-brand-surface-size: 1rem;
+  --redesign-workspace-brand-mark-size: 0.75rem;
+  --redesign-workspace-brand-radius: 0.1875rem;
+  --redesign-workspace-brand-padding: 0.125rem;
+  --redesign-workspace-search-gap: 32.51cqw;
+  --redesign-search-control-size: clamp(0.875rem, 4.7cqw, 1.125rem);
+  --redesign-search-icon-size: clamp(0.875rem, 4.7cqw, 1.125rem);
+  /* Top-bar controls sit outside the sidebar's query container, so this
+     mirrors its responsive search size in viewport units. */
+  --redesign-search-control-half-size-top-bar: clamp(0.4375rem, 0.47vw, 0.5625rem);
+  --redesign-top-bar-control-half-size: 0.875rem;
+  --redesign-top-bar-controls-right: calc(100% - var(--redesign-sidebar-width) + var(--redesign-sidebar-edge-padding) + var(--redesign-search-control-half-size-top-bar) - var(--redesign-top-bar-control-half-size));
+  --redesign-quick-actions-gap: 0.75rem;
+  --redesign-quick-actions-trigger-height: 2rem;
+  --redesign-quick-actions-row-height: 1.75rem;
+  --redesign-quick-actions-padding: 0.5rem;
+  --redesign-quick-actions-icon-size: 0.875rem;
+  --redesign-quick-actions-command-icon-size: 12px;
+  --redesign-quick-actions-icon-gap: 0.5rem;
+  --redesign-quick-actions-row-gap: 0.1875rem;
+  --redesign-quick-actions-shortcut-gap: 0.1875rem;
+  --redesign-sidebar-section-gap: 0.75rem;
+  --redesign-sidebar-section-row-offset: 0.25rem;
+  --redesign-sidebar-footer-row-height: 2.25rem;
+  --redesign-sidebar-footer-account-row-height: 2rem;
+  --redesign-sidebar-footer-avatar-size: 1rem;
+  --redesign-sidebar-footer-upgrade-height: 1.375rem;
+  --redesign-sidebar-footer-upgrade-padding: 0.5rem;
+  --redesign-sidebar-footer-chevron-size: 0.75rem;
+  --redesign-sidebar-footer-step-indicator-size: 0.4375rem;
+  --redesign-sidebar-footer-steps-side-padding: var(--redesign-menu-horizontal-padding);
+  --redesign-sidebar-footer-content-inset: calc(var(--redesign-sidebar-footer-steps-side-padding) + var(--redesign-quick-actions-padding));
+  --redesign-sidebar-footer-steps-top-padding: 0.5rem;
+  --redesign-sidebar-footer-steps-bottom-padding: var(--redesign-sidebar-footer-steps-side-padding);
+  --redesign-sidebar-footer-onboarding-radius: 1rem;
+  --redesign-sidebar-footer-onboarding-trigger-radius: 0.875rem;
+  --redesign-sidebar-footer-onboarding-collapsed-radius: 0.5rem;
+  --redesign-sidebar-footer-onboarding-collapsed-trigger-radius: 0.375rem;
+  --redesign-sidebar-footer-progress-size: 1rem;
+  --redesign-sidebar-footer-progress-inset: 0.125rem;
+  --redesign-sidebar-footer-task-row-height: 2rem;
+  --redesign-sidebar-footer-task-indicator-size: 0.875rem;
+  --redesign-sidebar-footer-task-popover-width: clamp(17rem, 24vw, 22rem);
+  --redesign-sidebar-footer-task-popover-padding: var(--redesign-menu-horizontal-padding);
+  --redesign-sidebar-footer-task-popover-gap: 0.625rem;
+  --redesign-sidebar-footer-task-image-ratio: 16 / 9;
+  --redesign-sidebar-footer-task-image-icon-size: 1.125rem;
+  --redesign-sidebar-footer-task-description-gap: 0.25rem;
+  --redesign-sidebar-footer-task-action-height: 1.625rem;
+  /* Dropdown content is portalled outside the sidebar, so these mirror the
+     sidebar's responsive clamp in viewport units. At 1280px they resolve to
+     the reduced 222×283 menu. */
+  --redesign-workspace-menu-width: clamp(10.5rem, 17.33vw, 19.82rem);
+  /* The menu follows its content. Only the workspace collection is capped
+     so the static actions remain visible while longer collections scroll. */
+  --redesign-workspace-list-max-height: clamp(7.5rem, 12.5vw, 10rem);
+  --redesign-workspace-menu-radius: 0.875rem;
+  --redesign-menu-horizontal-padding: clamp(0.4375rem, 0.703125vw, 0.7875rem);
+  --redesign-menu-row-padding: clamp(0.25rem, 0.546875vw, 0.65625rem);
+  --redesign-menu-row-gap: clamp(0.125rem, 0.15625vw, 0.1953125rem);
+  --redesign-menu-section-block-padding: clamp(0.1875rem, 0.234375vw, 0.28125rem);
+  --redesign-menu-first-section-top-padding: clamp(0.28125rem, 0.46875vw, 0.46875rem);
+  --redesign-menu-last-section-bottom-padding: clamp(0.28125rem, 0.46875vw, 0.46875rem);
+  --redesign-workspace-row-height: clamp(1.25rem, 1.640625vw, 1.6875rem);
+  --redesign-menu-avatar-size: clamp(0.5625rem, 1.09375vw, 0.875rem);
+  --redesign-workspace-check-size: clamp(0.625rem, 0.9375vw, 0.975rem);
+  /* Keep the check on whole pixels. A percentage of the responsive circle
+     produced a 7.8px glyph at the reference width, which antialiases unevenly. */
+  --redesign-workspace-checkmark-size: 0.5rem;
+  --redesign-workspace-action-icon-size: clamp(0.5rem, 0.9375vw, 0.975rem);
+  --redesign-primary-surface: #ffffff;
+  --redesign-sidebar-overlay-surface: #f8f8f8;
+  --redesign-progress-track: rgba(13, 13, 13, 0.3);
+  --redesign-sidebar-border: rgba(13, 13, 13, 0.12);
+  --redesign-sidebar-width: clamp(12.25rem, 18vw, 22rem);
+}
+
+.dark {
+  --redesign-primary-surface: #1a1a1a;
+  --redesign-sidebar-overlay-surface: #212121;
+  --redesign-progress-track: rgba(252, 252, 252, 0.3);
+    --redesign-sidebar-border: #232323;
+}
 
 @theme inline {
     /* Custom breakpoint below Tailwind's default sm (640px) -- sm already

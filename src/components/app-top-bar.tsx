@@ -5,6 +5,7 @@ import {
   DropdownContent as BaseDropdownContent,
 } from "@/components/ui/dropdown";
 import { NotificationsMenuItems } from "@/components/nav-user";
+import { cn } from "@/lib/utils";
 
 export function AppTopBar({
   collapsed = false,
@@ -14,6 +15,10 @@ export function AppTopBar({
   onForward,
   onCollapseAll,
   onExpand,
+  className,
+  controlsClassName,
+  showNotifications = true,
+  collapseButtonHover = true,
 }: {
   collapsed?: boolean;
   canGoBack?: boolean;
@@ -22,6 +27,10 @@ export function AppTopBar({
   onForward?: () => void;
   onCollapseAll?: () => void;
   onExpand?: () => void;
+  className?: string;
+  controlsClassName?: string;
+  showNotifications?: boolean;
+  collapseButtonHover?: boolean;
 }) {
   return (
     <div
@@ -31,9 +40,12 @@ export function AppTopBar({
         if (!("__TAURI_INTERNALS__" in window)) return;
         void import("@tauri-apps/api/core").then(({ invoke }) => invoke("start_window_drag")).catch(() => undefined);
       }}
-      className="pointer-events-auto absolute inset-x-0 top-0 z-[110] flex h-[40px] w-full shrink-0 select-none items-center justify-between bg-[#1a1a1a] pr-3 pl-[74px]"
+      className={cn(
+        "pointer-events-auto absolute inset-x-0 top-0 z-[110] flex h-[40px] w-full shrink-0 select-none items-center justify-between pr-3 pl-[74px]",
+        className ?? "bg-[#111111]",
+      )}
     >
-      <div className="pointer-events-auto flex items-center gap-2 text-muted-foreground">
+      <div className={cn("pointer-events-auto flex items-center gap-2 text-muted-foreground", controlsClassName)}>
         <button type="button" aria-label="Go back" disabled={!canGoBack} onClick={onBack} className="flex size-7 items-center justify-center rounded-md hover:bg-hover-2/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-30">
           <ArrowLeftIcon className="size-[14px]" />
         </button>
@@ -44,12 +56,15 @@ export function AppTopBar({
           type="button"
           aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
           onClick={collapsed ? onExpand : onCollapseAll}
-          className="flex size-7 items-center justify-center rounded-md hover:bg-hover-2/50 hover:text-foreground"
+          className={cn(
+            "flex size-7 items-center justify-center rounded-md hover:text-foreground",
+            collapseButtonHover && "hover:bg-hover-2/50",
+          )}
         >
           <SidebarLeftIcon className="size-[14px]" />
         </button>
       </div>
-      <BaseDropdownMenu size="compact">
+      {showNotifications && <BaseDropdownMenu size="compact">
         <BaseDropdownTrigger
           render={
             <button
@@ -64,7 +79,7 @@ export function AppTopBar({
         <BaseDropdownContent side="bottom" align="end" sideOffset={6} className="w-72 min-w-0 rounded-3xl font-normal">
           <NotificationsMenuItems />
         </BaseDropdownContent>
-      </BaseDropdownMenu>
+      </BaseDropdownMenu>}
     </div>
   );
 }

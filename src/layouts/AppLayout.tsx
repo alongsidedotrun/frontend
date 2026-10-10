@@ -1861,8 +1861,8 @@ export function AppLayout() {
     // now (/settings/:section, App.tsx), rendered through the normal
     // Outlet below like every other page, so there's nothing left needing
     // a second sibling slot.
-    <div className="relative flex h-dvh min-h-0 w-full bg-[#1a1a1a]">
-      <div aria-hidden className="absolute inset-0 z-0 bg-[#1a1a1a]" />
+    <div className="relative flex h-dvh min-h-0 w-full bg-[#111111]">
+      <div aria-hidden className="absolute inset-0 z-0 bg-[#111111]" />
       {arrivedFromOnboarding && (
         <div
           aria-hidden="true"
