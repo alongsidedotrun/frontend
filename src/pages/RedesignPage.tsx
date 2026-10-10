@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useOutlet } from "react-router-dom";
 import { Bot, CircleArrowUp, CircleHelp, LayoutDashboard, Plus, Search } from "lucide-react";
 import { AlongsideLogo } from "@/components/icons/alongside-logo";
@@ -111,6 +111,10 @@ function quickActionForPath(pathname: string) {
 export function RedesignPage() {
   const location = useLocation();
   const navigate = useNavigate();
+  const appHistoryRef = useRef<string[]>([location.pathname + location.search]);
+  const appHistoryIndexRef = useRef(0);
+  const appHistoryNavigationRef = useRef(false);
+  const [, setAppHistoryVersion] = useState(0);
   const routedContent = useOutlet({
     chatName: "Untitled chat",
     receiveChatNameFromServer: () => {},
@@ -140,11 +144,43 @@ export function RedesignPage() {
   const [newProjectName, setNewProjectName] = useState("");
   const [projectError, setProjectError] = useState<string | null>(null);
 
+  const currentAppPath = location.pathname + location.search;
   const routeQuickAction = quickActionForPath(location.pathname);
 
   const activeQuickAction = routeQuickAction;
 
   const workspaceOptions = workspaces.map(toWorkspaceOption);
+
+  useEffect(() => {
+    const history = appHistoryRef.current;
+    const index = appHistoryIndexRef.current;
+    if (appHistoryNavigationRef.current) {
+      appHistoryNavigationRef.current = false;
+      return;
+    }
+    if (history[index] === currentAppPath) return;
+    appHistoryRef.current = [...history.slice(0, index + 1), currentAppPath];
+    appHistoryIndexRef.current = appHistoryRef.current.length - 1;
+    setAppHistoryVersion((version) => version + 1);
+  }, [currentAppPath]);
+
+  function goBackInApp() {
+    const nextIndex = appHistoryIndexRef.current - 1;
+    if (nextIndex < 0) return;
+    appHistoryNavigationRef.current = true;
+    appHistoryIndexRef.current = nextIndex;
+    setAppHistoryVersion((version) => version + 1);
+    navigate(appHistoryRef.current[nextIndex], { replace: true });
+  }
+
+  function goForwardInApp() {
+    const nextIndex = appHistoryIndexRef.current + 1;
+    if (nextIndex >= appHistoryRef.current.length) return;
+    appHistoryNavigationRef.current = true;
+    appHistoryIndexRef.current = nextIndex;
+    setAppHistoryVersion((version) => version + 1);
+    navigate(appHistoryRef.current[nextIndex], { replace: true });
+  }
 
   function syncWorkspaces(next: WorkspaceRecord[]) {
     setWorkspaces(next);
@@ -356,6 +392,10 @@ export function RedesignPage() {
           showNotifications={false}
           collapseButtonHover={false}
           collapsed={sidebarCollapsed}
+          canGoBack={appHistoryIndexRef.current > 0}
+          canGoForward={appHistoryIndexRef.current < appHistoryRef.current.length - 1}
+          onBack={goBackInApp}
+          onForward={goForwardInApp}
           onCollapseAll={() => setSidebarCollapsed(true)}
           onExpand={() => setSidebarCollapsed(false)}
         />
