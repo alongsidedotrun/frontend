@@ -31,6 +31,8 @@ type Mention = {
 };
 
 const OVERVIEW_TASKS_KEY = "alongside_overview_tasks";
+// A week stays a simple seven-day choice, consistently ordered from Monday.
+const WEEK_DUE_OPTIONS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
 
 function greetingForHour(hour: number) {
   if (hour < 12) return "Good morning";
@@ -42,16 +44,6 @@ function nextHourDelay(now: Date) {
   const nextHour = new Date(now);
   nextHour.setHours(now.getHours() + 1, 0, 0, 0);
   return nextHour.getTime() - now.getTime();
-}
-
-function dueOptionsForWeek(now: Date) {
-  // This composer intentionally offers only the next seven calendar days.
-  // Anything later belongs in the dedicated Later section's date picker.
-  return Array.from({ length: 7 }, (_, index) => {
-    const due = new Date(now);
-    due.setDate(now.getDate() + index + 1);
-    return new Intl.DateTimeFormat(undefined, { weekday: "long" }).format(due);
-  });
 }
 
 function formatLaterDue(value: string) {
@@ -149,7 +141,6 @@ export function OverviewPage() {
     () => new Intl.DateTimeFormat(undefined, { weekday: "long", month: "long", day: "numeric" }).format(now),
     [now],
   );
-  const weekDueOptions = useMemo(() => dueOptionsForWeek(now), [now]);
   const [weekTaskDue, setWeekTaskDue] = useState<string | null>(null);
   const byBucket = (bucket: TaskBucket) => tasks.filter((task) => task.bucket === bucket);
   const todayTasks = byBucket("today");
@@ -278,8 +269,16 @@ export function OverviewPage() {
                       </button>
                     }
                   />
-                  <BaseDropdownContent side="bottom" align="end" sideOffset={4} checkedIndex={weekTaskDue ? weekDueOptions.indexOf(weekTaskDue) : undefined} className="w-32 min-w-0">
-                    {weekDueOptions.map((due, index) => (
+                  <BaseDropdownContent
+                    side="bottom"
+                    align="end"
+                    sideOffset={4}
+                    checkedIndex={weekTaskDue ? WEEK_DUE_OPTIONS.indexOf(weekTaskDue as typeof WEEK_DUE_OPTIONS[number]) : undefined}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    exitTransition={{ duration: 0.16, ease: "easeIn" }}
+                    className="w-32 min-w-0"
+                  >
+                    {WEEK_DUE_OPTIONS.map((due, index) => (
                       <BaseMenuItem
                         key={due}
                         index={index}
