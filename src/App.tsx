@@ -17,6 +17,7 @@ import { JoinPage } from "@/pages/JoinPage";
 import { LibraryPage } from "@/pages/LibraryPage";
 import { ModelsPage } from "@/pages/ModelsPage";
 import { OnboardingPage } from "@/pages/OnboardingPage";
+import { OverviewPage } from "@/pages/OverviewPage";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
 import { ProjectsPage } from "@/pages/ProjectsPage";
 import { RedesignPage } from "@/pages/RedesignPage";
@@ -87,6 +88,7 @@ const ROUTES: RouteObject[] = [
     // check instead.
     element: <SecureAppRoute />,
     children: [
+      { path: "/overview", element: <OverviewPage /> },
       { path: "/getting-started", element: <GettingStartedRoute /> },
       { path: "/new/chat", element: <HomePage /> },
       { path: "/new-chat", element: <Navigate to="/" replace /> },
