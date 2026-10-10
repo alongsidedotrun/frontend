@@ -8,6 +8,8 @@ import {
   DropdownTrigger as BaseDropdownTrigger,
 } from "@/components/ui/dropdown";
 import { MenuItem as BaseMenuItem } from "@/components/ui/menu-item";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useUserDisplayName } from "@/lib/user";
 
 type TaskBucket = "today" | "week" | "later";
@@ -52,6 +54,13 @@ function formatLaterDue(value: string) {
   return Number.isNaN(due.getTime())
     ? value
     : new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(due);
+}
+
+function localDateValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function loadTasks(): OverviewTask[] {
@@ -107,6 +116,7 @@ export function OverviewPage() {
   const [weekTaskTitle, setWeekTaskTitle] = useState("");
   const [laterTaskTitle, setLaterTaskTitle] = useState("");
   const [laterTaskDue, setLaterTaskDue] = useState("");
+  const [laterDueOpen, setLaterDueOpen] = useState(false);
   const [todayOpen, setTodayOpen] = useState(true);
   const [weekOpen, setWeekOpen] = useState(false);
   const [laterOpen, setLaterOpen] = useState(false);
@@ -140,6 +150,15 @@ export function OverviewPage() {
   const dateLabel = useMemo(
     () => new Intl.DateTimeFormat(undefined, { weekday: "long", month: "long", day: "numeric" }).format(now),
     [now],
+  );
+  const todayValue = useMemo(() => localDateValue(now), [now]);
+  const todayDate = useMemo(
+    () => new Date(now.getFullYear(), now.getMonth(), now.getDate()),
+    [now],
+  );
+  const selectedLaterDue = useMemo(
+    () => new Date(`${laterTaskDue || todayValue}T12:00:00`),
+    [laterTaskDue, todayValue],
   );
   const [weekTaskDue, setWeekTaskDue] = useState<string | null>(null);
   const byBucket = (bucket: TaskBucket) => tasks.filter((task) => task.bucket === bucket);
@@ -185,6 +204,11 @@ export function OverviewPage() {
     }]);
     setLaterTaskTitle("");
     setLaterTaskDue("");
+  }
+
+  function setLaterDuePickerOpen(open: boolean) {
+    if (open && !laterTaskDue) setLaterTaskDue(todayValue);
+    setLaterDueOpen(open);
   }
 
   function toggleTask(id: string) {
@@ -307,15 +331,29 @@ export function OverviewPage() {
                   placeholder="Add a task for later"
                   className="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground/60"
                 />
-                <label className="relative shrink-0 text-[12px] text-muted-foreground">
-                  <span className="sr-only">Due date</span>
-                  <input
-                    type="date"
-                    value={laterTaskDue}
-                    onChange={(event) => setLaterTaskDue(event.target.value)}
-                    className="h-7 w-[8.25rem] rounded-[var(--redesign-hover-radius)] bg-transparent px-1.5 text-[12px] text-muted-foreground outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring [color-scheme:dark]"
-                  />
-                </label>
+                <Popover open={laterDueOpen} onOpenChange={setLaterDuePickerOpen}>
+                  <PopoverTrigger asChild>
+                    <button type="button" className="ml-auto flex h-7 shrink-0 items-center gap-1 rounded-[var(--redesign-hover-radius)] px-1.5 text-[12px] text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                      <span>{laterTaskDue ? formatLaterDue(laterTaskDue) : "Due"}</span>
+                      <ChevronDown aria-hidden="true" className={`size-3 transition-transform duration-200 ${laterDueOpen ? "rotate-180" : ""}`} />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" sideOffset={4} className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={selectedLaterDue}
+                      onSelect={(date) => {
+                        if (!date) return;
+                        setLaterTaskDue(localDateValue(date));
+                        setLaterDueOpen(false);
+                      }}
+                      disabled={{ before: todayDate }}
+                      captionLayout="dropdown"
+                      startMonth={todayDate}
+                      endMonth={new Date(todayDate.getFullYear() + 10, 11)}
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
               {taskRows(laterTasks)}
             </TaskSectionContent>
