@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check, ChevronDown, ChevronRight, Circle, Plus } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   DropdownContent as BaseDropdownContent,
   DropdownMenu as BaseDropdownMenu,
@@ -84,6 +85,24 @@ function initials(name: string) {
 
 function TaskCount({ count }: { count: number }) {
   return <span className="rounded-md border border-border px-1.5 py-px text-xs text-muted-foreground">{count}</span>;
+}
+
+function TaskSectionContent({ open, children }: { open: boolean; children: React.ReactNode }) {
+  return (
+    <AnimatePresence initial={false}>
+      {open && (
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: "auto", opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          transition={{ height: { duration: 0.2, ease: "easeInOut" }, opacity: { duration: 0.14 } }}
+          className="overflow-hidden"
+        >
+          {children}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 }
 
 /** The redesign's workspace landing page. */
@@ -222,7 +241,7 @@ export function OverviewPage() {
               <span className="flex-1">Today</span>
               <TaskCount count={todayTasks.filter((task) => !task.completed).length} />
             </button>
-            {todayOpen && <>
+            <TaskSectionContent open={todayOpen}>
               <div className="flex h-10 items-center gap-2.5 border-t border-border px-3">
                 <Plus className="size-4 shrink-0 text-muted-foreground/60" />
                 <input
@@ -234,13 +253,13 @@ export function OverviewPage() {
                 />
               </div>
               {taskRows(todayTasks)}
-            </>}
+            </TaskSectionContent>
             <button type="button" onClick={() => setWeekOpen((open) => !open)} className="flex h-10 w-full items-center gap-2.5 border-t border-border px-3 text-left text-[16px] hover:bg-muted/30">
               <ChevronRight className={`size-4 text-muted-foreground transition-transform ${weekOpen ? "rotate-90" : ""}`} />
               <span className="flex-1">This week</span>
               <TaskCount count={weekTasks.filter((task) => !task.completed).length} />
             </button>
-            {weekOpen && <>
+            <TaskSectionContent open={weekOpen}>
               <div className="flex h-10 items-center gap-2.5 border-t border-border px-3">
                 <Plus className="size-4 shrink-0 text-muted-foreground/60" />
                 <input
@@ -275,13 +294,13 @@ export function OverviewPage() {
                 </BaseDropdownMenu>
               </div>
               {taskRows(weekTasks)}
-            </>}
+            </TaskSectionContent>
             <button type="button" onClick={() => setLaterOpen((open) => !open)} className="flex h-10 w-full items-center gap-2.5 border-t border-border px-3 text-left text-[16px] hover:bg-muted/30">
               <ChevronRight className={`size-4 text-muted-foreground transition-transform ${laterOpen ? "rotate-90" : ""}`} />
               <span className="flex-1">Later</span>
               <TaskCount count={laterTasks.filter((task) => !task.completed).length} />
             </button>
-            {laterOpen && <>
+            <TaskSectionContent open={laterOpen}>
               <div className="flex h-10 items-center gap-2.5 border-t border-border px-3">
                 <Plus className="size-4 shrink-0 text-muted-foreground/60" />
                 <input
@@ -303,7 +322,7 @@ export function OverviewPage() {
               </div>
               {laterTasks.length === 0 && <p className="border-t border-border px-3 py-2 text-[12px] text-muted-foreground/60">Choose a due date, then press Enter to add the task.</p>}
               {taskRows(laterTasks)}
-            </>}
+            </TaskSectionContent>
           </div>
         </section>
 
