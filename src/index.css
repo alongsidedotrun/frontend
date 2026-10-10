@@ -17,6 +17,31 @@
    package (that app's own Markdown.tsx). */
 @import "streamdown/styles.css";
 
+@font-face {
+  font-family: "Geist";
+  src: url("/fonts/Geist-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@layer base {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "Geist", var(--font-sans);
+    font-weight: 500;
+  }
+
+  p {
+    font-family: "Inter Variable", sans-serif;
+    letter-spacing: -0.03em;
+  }
+}
+
 @keyframes onboarding-word-in {
   from {
     opacity: 0;
@@ -184,7 +209,7 @@
        Sidebar's own "describer" text (Projects/Recents section labels,
        sidebar-nav.tsx) is the first real caller. */
     --text-2xs: 0.625rem;
-    --font-heading: var(--font-sans);
+    --font-heading: "Geist", var(--font-sans);
     /* Native system font stack, not a bundled web font -- per explicit
        request ("the reason synara's looks so crisp is because of these
        settings"), matching a setting Synara's own Settings ->

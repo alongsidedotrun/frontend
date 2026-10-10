@@ -31,10 +31,12 @@ export function OverviewPage() {
   return (
     <main className="flex min-h-0 flex-1 overflow-y-auto bg-background">
       <div className="mx-auto flex w-full max-w-[52rem] flex-col px-6 pt-4 pb-14 sm:px-10 sm:pt-5 sm:pb-20">
-        <h1 className="text-[20px] font-normal tracking-[-0.03em] text-foreground">
+        <h1 className="text-[20px] tracking-normal text-foreground">
           {greetingForHour(now.getHours())}, {userName}
         </h1>
-        <p className="mt-1 text-[14px] text-muted-foreground">{dateLabel}</p>
+        <h2 className="mt-1 text-[14px] tracking-normal text-muted-foreground">
+          {dateLabel}
+        </h2>
       </div>
     </main>
   );
