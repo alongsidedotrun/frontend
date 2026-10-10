@@ -15,7 +15,7 @@ import {
   type ComponentProps,
 } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, type Transition } from "framer-motion";
 import { Menu } from "@base-ui/react/menu";
 import type { MenuTriggerProps } from "@base-ui/react/menu";
 import {
@@ -397,6 +397,9 @@ interface DropdownContentProps {
    *  `{ side: "none", align: "none" }` for a trigger like that to rule
    *  the flip/shift middleware out entirely. */
   collisionAvoidance?: MenuPositionerProps["collisionAvoidance"];
+  /** Optional motion overrides for a menu that needs a more deliberate reveal. */
+  transition?: Transition;
+  exitTransition?: Transition;
 }
 
 const DropdownContent = forwardRef<HTMLDivElement, DropdownContentProps>(
@@ -409,6 +412,8 @@ const DropdownContent = forwardRef<HTMLDivElement, DropdownContentProps>(
       align = "start",
       sideOffset = 6,
       collisionAvoidance,
+      transition,
+      exitTransition,
     },
     ref
   ) => {
@@ -556,7 +561,7 @@ const DropdownContent = forwardRef<HTMLDivElement, DropdownContentProps>(
                 ? { opacity: 1, y: 0, scaleY: 1 }
                 : { opacity: 0, y: side === "top" ? 4 : -4, scaleY: 0.96 }
             }
-            transition={open ? spring.fast : spring.fast.exit}
+            transition={open ? transition ?? spring.fast : exitTransition ?? spring.fast.exit}
             style={{
               transformOrigin: side === "top" ? "bottom center" : "top center",
             }}
