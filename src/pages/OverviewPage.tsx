@@ -318,7 +318,6 @@ export function OverviewPage() {
                   />
                 </label>
               </div>
-              {laterTasks.length === 0 && <p className="border-t border-border px-3 py-2 text-[12px] text-muted-foreground/60">Choose a due date, then press Enter to add the task.</p>}
               {taskRows(laterTasks)}
             </TaskSectionContent>
           </div>
