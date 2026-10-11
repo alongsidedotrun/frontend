@@ -78,7 +78,7 @@ export function GettingStartedSummary({
           "w-full text-[length:var(--redesign-font-size-base)] text-foreground/70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           triggerRadius,
           expanded
-            ? "flex min-h-[var(--redesign-sidebar-footer-row-height)] flex-col items-stretch gap-2 p-0"
+            ? "flex min-h-[var(--redesign-sidebar-footer-row-height)] flex-col items-stretch gap-1.5 p-0"
             : "flex h-[var(--redesign-sidebar-footer-row-height)] items-center gap-[var(--redesign-quick-actions-icon-gap)] px-[var(--redesign-quick-actions-padding)]",
           !expanded && "hover:bg-muted/50 hover:text-foreground",
         )}
@@ -90,7 +90,7 @@ export function GettingStartedSummary({
               <span className="ml-auto shrink-0 text-[length:var(--redesign-font-size-compact)] text-foreground/70">{count}</span>
               <ChevronDown aria-hidden="true" strokeWidth={2} className="ml-[var(--redesign-quick-actions-icon-gap)] size-[var(--redesign-sidebar-footer-chevron-size)] shrink-0 rotate-180 transition-transform duration-200" />
             </span>
-            <span className="min-w-0 truncate py-2 text-left">{label}</span>
+            <span className="min-w-0 truncate py-1.5 text-left">{label}</span>
           </>
         ) : (
           <>
@@ -143,7 +143,7 @@ export function GettingStartedSummary({
               <button
                 type="button"
                 onClick={onViewAll}
-                className="h-auto self-start rounded-[var(--redesign-control-radius)] pt-2 text-[length:var(--redesign-font-size-base)] font-medium leading-none text-[var(--focus-accent)] transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-auto self-start rounded-[var(--redesign-control-radius)] pt-1.5 text-[length:var(--redesign-font-size-base)] font-medium leading-none text-[var(--focus-accent)] transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {viewAllLabel}
               </button>
