@@ -246,7 +246,7 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
       >
         <div className="t-chat-width mx-auto w-full" style={{ maxWidth: "var(--chat-max-width)" }}>
           <div
-            className={`flex items-center justify-center gap-2 overflow-hidden text-center transition-[max-height,margin,opacity,transform] duration-200 ${transitioningToChat ? "pointer-events-none mb-0 max-h-0 -translate-y-2 opacity-0" : "mb-5 max-h-8 translate-y-0 opacity-100"}`}
+            className={`flex items-center justify-center gap-2 overflow-hidden text-center transition-[max-height,margin,transform] duration-200 ${transitioningToChat ? "pointer-events-none invisible mb-0 max-h-0 -translate-y-2" : "mb-5 max-h-8 translate-y-0"}`}
           >
             <h1 className="text-[18px] font-normal text-foreground">{t("home.workspacePrompt")}</h1>
             <span className="flex size-6 items-center justify-center rounded-[6px] bg-white" aria-hidden="true">
