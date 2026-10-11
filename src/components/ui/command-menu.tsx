@@ -1548,7 +1548,7 @@ function CommandMenuDialog({
         container={container}
         showCloseButton={false}
         className={cn(
-          "!z-[120] flex max-h-[min(440px,76dvh)] flex-col overflow-hidden p-0",
+          "!z-[120] !rounded-3xl flex max-h-[min(440px,76dvh)] flex-col overflow-hidden p-0",
           className
         )}
       >
