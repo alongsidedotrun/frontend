@@ -102,7 +102,7 @@ export function GettingStartedSummary({
         )}
       </button>
       <div className={cn("grid transition-[grid-template-rows,opacity] duration-200 ease-out", expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")}>
-        <div className="min-h-0 overflow-hidden">
+        <div className="-ml-[var(--redesign-sidebar-footer-task-hover-bleed)] min-h-0 w-[calc(100%+var(--redesign-sidebar-footer-task-hover-bleed))] overflow-hidden pl-[var(--redesign-sidebar-footer-task-hover-bleed)]">
           <div className="flex flex-col gap-[var(--redesign-quick-actions-row-gap)] p-0">
             {steps.map((step) => (
               <Popover key={step.id}>
