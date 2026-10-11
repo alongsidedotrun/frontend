@@ -1621,10 +1621,6 @@ export function ComposeBox({
             </DropdownSubItem>
           </BaseDropdownContent>
         </BaseDropdownMenu>
-      </div>
-      {/* Keep the model controls contiguous with effort, dictation, and send.
-          The attachment affordance is intentionally the only leading action. */}
-      <div className="ml-auto flex items-center gap-1">
         <BaseDropdownMenu
           size="compact"
           onOpenChange={(nowOpen) => {
