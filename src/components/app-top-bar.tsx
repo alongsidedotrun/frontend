@@ -66,24 +66,26 @@ export function AppTopBar({
         >
           <SidebarLeftIcon className="size-[14px]" />
         </button>
-        {title && <span className="ml-2 max-w-56 truncate text-[13px] font-medium text-foreground">{title}</span>}
       </div>
-      {showNotifications && <BaseDropdownMenu size="compact">
-        <BaseDropdownTrigger
-          render={
-            <button
-              type="button"
-              aria-label="Notifications"
-              className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-hover-2/50 hover:text-foreground"
-            >
-              <BellIcon className="size-[14px]" />
-            </button>
-          }
-        />
-        <BaseDropdownContent side="bottom" align="end" sideOffset={6} className="w-72 min-w-0 rounded-3xl font-normal">
-          <NotificationsMenuItems />
-        </BaseDropdownContent>
-      </BaseDropdownMenu>}
+      <div className="pointer-events-auto flex items-center gap-2">
+        {title && <span className="max-w-56 truncate text-[13px] font-medium text-foreground">{title}</span>}
+        {showNotifications && <BaseDropdownMenu size="compact">
+          <BaseDropdownTrigger
+            render={
+              <button
+                type="button"
+                aria-label="Notifications"
+                className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-hover-2/50 hover:text-foreground"
+              >
+                <BellIcon className="size-[14px]" />
+              </button>
+            }
+          />
+          <BaseDropdownContent side="bottom" align="end" sideOffset={6} className="w-72 min-w-0 rounded-3xl font-normal">
+            <NotificationsMenuItems />
+          </BaseDropdownContent>
+        </BaseDropdownMenu>}
+      </div>
     </div>
   );
 }

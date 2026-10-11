@@ -428,7 +428,7 @@ export function RedesignPage() {
           onForward={goForwardInApp}
           onCollapseAll={() => setSidebarCollapsed(true)}
           onExpand={() => setSidebarCollapsed(false)}
-          title={activeProjectName}
+          title={activeProjectName ?? activeWorkspace.name}
         />
       }
       sidebarCollapsed={sidebarCollapsed}
