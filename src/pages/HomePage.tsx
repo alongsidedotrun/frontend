@@ -258,6 +258,7 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
           value={prompt}
           onChange={setPrompt}
           onSubmit={createSession}
+          initialHeight={!transitioningToChat}
           contextUsage={contextUsage}
           // ContextDropdown never actually renders here (contextUsage is always null
           // pre-chat), so these two are dead props in practice -- kept simple, static

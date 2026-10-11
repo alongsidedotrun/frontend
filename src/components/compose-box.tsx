@@ -619,6 +619,7 @@ export function ComposeBox({
   onSubmit,
   placeholder,
   placeholderCycle,
+  initialHeight,
   autoFocus,
   awaitingReply,
   onStop,
@@ -658,6 +659,9 @@ export function ComposeBox({
   // a single static placeholder. See AnimatedPlaceholder below for the
   // actual swap sequence/timing.
   placeholderCycle?: string[];
+  // New-chat only: gives the centred composer a more generous writing area
+  // before it transitions into the standard compact chat composer.
+  initialHeight?: boolean;
   autoFocus?: boolean;
   // Chat-only: while true, the send button becomes a stop button.
   awaitingReply?: boolean;
@@ -1396,7 +1400,8 @@ export function ComposeBox({
           void addImageFiles(event.dataTransfer.files);
         }}
         className={cn(
-          "flex flex-col rounded-[var(--row-radius)] border border-border bg-background px-2 py-2 transition-[padding,border-color] duration-200 [contain:layout_style] @[420px]:px-3 @[420px]:py-3",
+          "flex flex-col rounded-[var(--row-radius)] border border-border bg-background px-2 py-2 transition-[min-height,padding,border-color] duration-200 [contain:layout_style] @[420px]:px-3 @[420px]:py-3",
+          initialHeight && "min-h-32 justify-end",
           dragActive && "border-ring",
           // border-focus-accent -- matches the sidebar/inbox search inputs'
           // own focus-visible:border-focus-accent exactly (sidebar-nav.tsx's
