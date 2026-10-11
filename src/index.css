@@ -150,6 +150,9 @@
   --redesign-sidebar-footer-progress-inset: 1px;
   --redesign-sidebar-footer-task-row-height: clamp(1.4375rem, 2.1vw, 1.6875rem);
   --redesign-sidebar-footer-task-indicator-size: 0.8125rem;
+  /* Task content aligns with the expanded panel header, while its hover
+     surface reaches into the panel's left padding. */
+  --redesign-sidebar-footer-task-hover-bleed: 0.5rem;
   --redesign-sidebar-footer-task-popover-width: clamp(17rem, 24vw, 22rem);
   --redesign-sidebar-footer-task-popover-padding: var(--redesign-menu-horizontal-padding);
   --redesign-sidebar-footer-task-popover-gap: 0.625rem;
