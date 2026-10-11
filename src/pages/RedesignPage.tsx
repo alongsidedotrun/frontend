@@ -151,9 +151,13 @@ export function RedesignPage() {
   }
 
   const activeWorkspace = workspaces.find((workspace) => workspace.id === workspaceId) ?? DEFAULT_WORKSPACE;
+  const routeChatId = location.pathname.startsWith("/chat/")
+    ? decodeURIComponent(location.pathname.slice("/chat/".length))
+    : null;
+  const activeChat = chats.find((chat) => chat.id === (routeChatId ?? activeChatId)) ?? null;
   const routedContent = useOutlet({
-    chatName: "Untitled chat",
-    contextLabel: activeWorkspace.name,
+    chatName: activeChat?.name ?? "Untitled chat",
+    contextLabel: activeChat?.name ?? "Untitled chat",
     receiveChatNameFromServer: () => {},
     refreshSidebarLists: () => {},
     openSettings: (section: string) => navigate(`/settings/${section}`),
@@ -256,13 +260,9 @@ export function RedesignPage() {
       });
   }, [activeQuickAction]);
 
-  const activeChat = chats.find((chat) => chat.id === activeChatId) ?? null;
-  const activeProjectName = activeChat?.project_id
-    ? projects.find((project) => project.id === activeChat.project_id)?.name
-    : undefined;
   const redesignChatContext: ChatPageShellContext | undefined = activeChat ? {
     chatName: activeChat.name,
-    contextLabel: activeProjectName ?? activeWorkspace.name,
+    contextLabel: activeChat.name,
     receiveChatNameFromServer: (name) => {
       setChats((current) => current.map((chat) => chat.id === activeChat.id ? { ...chat, name } : chat));
     },
