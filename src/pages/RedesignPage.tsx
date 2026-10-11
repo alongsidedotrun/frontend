@@ -132,6 +132,22 @@ export function RedesignPage() {
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [projectError, setProjectError] = useState<string | null>(null);
+  // A session exists before its first message, while GET /sessions
+  // deliberately lists only chats with real content. Keep that short-lived
+  // local row so the newly-created chat can mount, send its queued message,
+  // and be visible in the sidebar straight away.
+  const pendingChatIdsRef = useRef(new Set<string>());
+
+  function applyLoadedChats(loadedChats: Chat[]) {
+    setChats((current) => {
+      const loadedIds = new Set(loadedChats.map((chat) => chat.id));
+      for (const id of loadedIds) pendingChatIdsRef.current.delete(id);
+      const pending = current.filter(
+        (chat) => pendingChatIdsRef.current.has(chat.id) && !loadedIds.has(chat.id),
+      );
+      return [...pending, ...loadedChats];
+    });
+  }
 
   const activeWorkspace = workspaces.find((workspace) => workspace.id === workspaceId) ?? DEFAULT_WORKSPACE;
   const routedContent = useOutlet({
@@ -224,8 +240,12 @@ export function RedesignPage() {
     ])
       .then(([loadedProjects, loadedChats]) => {
         setProjects(loadedProjects);
-        setChats(loadedChats);
-        setActiveChatId((current) => loadedChats.some((chat) => chat.id === current) ? current : null);
+        applyLoadedChats(loadedChats);
+        setActiveChatId((current) =>
+          current && (loadedChats.some((chat) => chat.id === current) || pendingChatIdsRef.current.has(current))
+            ? current
+            : null,
+        );
       })
       .catch(() => {
         setProjects([]);
@@ -243,7 +263,7 @@ export function RedesignPage() {
     refreshSidebarLists: () => {
       void fetch("/sessions")
         .then((response) => response.ok ? response.json() as Promise<Chat[]> : [])
-        .then(setChats);
+        .then(applyLoadedChats);
     },
     openSettings: () => {},
     openFile: () => {},
@@ -256,12 +276,14 @@ export function RedesignPage() {
   };
 
   function openCreatedChat(sessionId: string) {
+    pendingChatIdsRef.current.add(sessionId);
+    setChats((current) => current.some((chat) => chat.id === sessionId)
+      ? current
+      : [{ id: sessionId, name: "Untitled chat" }, ...current]);
+    setActiveChatId(sessionId);
     void fetch("/sessions")
       .then((response) => response.ok ? response.json() as Promise<Chat[]> : [])
-      .then((loadedChats) => {
-        setChats(loadedChats);
-        setActiveChatId(sessionId);
-      });
+      .then(applyLoadedChats);
   }
 
   const inboxSidebarSections: readonly SidebarSection[] = [
