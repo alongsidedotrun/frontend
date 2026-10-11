@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useOutlet } from "react-router-dom";
 import { CircleArrowUp, CircleHelp, Plus, Search } from "lucide-react";
 import { AlongsideLogo } from "@/components/icons/alongside-logo";
-import { LogInIcon, MessageChatCircleIcon, Settings01Icon, Settings04Icon } from "@/components/icons/untitled-ui";
+import { Edit05Icon, LogInIcon, Settings01Icon, Settings04Icon } from "@/components/icons/untitled-ui";
 import { SplitView } from "@/components/design-system/split-view";
 import { AppTopBar } from "@/components/app-top-bar";
 import { QuickActions, type QuickActionItem } from "@/components/design-system/quick-actions";
@@ -82,7 +82,7 @@ const PROFILE_ACTION_SECTIONS: readonly (readonly WorkspaceMenuAction[])[] = [
 ];
 
 const QUICK_ACTIONS: readonly QuickActionItem[] = [
-  { id: "chats", label: "New chat", icon: MessageChatCircleIcon },
+  { id: "chats", label: "New chat", icon: Edit05Icon },
 ];
 
 const GETTING_STARTED_STEPS: readonly GettingStartedStep[] = [
