@@ -1566,88 +1566,6 @@ export function ComposeBox({
           className="max-h-[40vh] min-h-0 resize-none overflow-y-auto border-none bg-transparent px-1 py-1 font-normal shadow-none transition-[height] duration-150 ease-out [field-sizing:fixed] placeholder:text-ink-3 placeholder:opacity-100 placeholder:transition-opacity placeholder:duration-200 focus:placeholder:opacity-0 dark:bg-transparent"
         />
         </div>
-        {/* Attach button moved out entirely (per explicit request) -- it
-            now sits to the left of the Select model trigger in the row
-            below the box's own closing tag, not in here any more.
-            shrink-0: this group keeps its own natural width when the
-            textarea sibling (above) is the one that grows/shrinks with the
-            box's own width. */}
-        <div className="flex shrink-0 items-center gap-1">
-          {/* Speech-to-text via the browser's built-in SpeechRecognition --
-              same "real browser API, not an AI feature" honesty as
-              ChatPage's own read-aloud (Web Speech API's other half).
-              Equalizer bars while listening (index.css's own eq-bounce
-              keyframe), instead of a static mic glyph, so it actually
-              reads as "recording" rather than just a toggled color. */}
-          <Button
-            size="icon"
-            variant={listening ? "default" : "ghost"}
-            onClick={toggleSpeechToText}
-            aria-label={listening ? t("compose.dictation.stop") : t("compose.dictation.start")}
-            // text-foreground, not text-ink-2 -- per explicit request ("the
-            // compose box... tools needs to be updated to the new color"),
-            // matching the sidebar's own move off its dimmer resting tone.
-            className={cn("size-[30px]", !listening && "text-foreground")}
-          >
-            {listening ? (
-              <span className="flex h-3.5 items-end gap-[2.5px]">
-                {[0, 1, 2].map((i) => (
-                  <span
-                    key={i}
-                    className="w-[2.5px] rounded-full bg-current"
-                    style={{ height: "100%", animation: `eq-bounce 900ms ease-in-out ${i * 150}ms infinite` }}
-                  />
-                ))}
-              </span>
-            ) : (
-              // strokeWidth 1.5, not the icon's own default 2 -- per
-              // explicit request ("reduce the stroke of the mic to 1.5?
-              // for some reason looks too strong").
-              <MicIcon className="size-[18px]" strokeWidth={1.5} />
-            )}
-          </Button>
-          {awaitingReply ? (
-            <Button size="icon" variant="outline" onClick={onStop} aria-label={t("compose.stop")} className="size-[30px]">
-              <SquareIcon className="fill-current" />
-            </Button>
-          ) : (
-            <Button
-              size="icon"
-              variant="ghost"
-              // disabled only on empty text, not on missing model any more
-              // -- a disabled button swallows its own click entirely, which
-              // is what made "tried to send with no model" produce no
-              // feedback at all before. Still clickable with no model
-              // selected so the onClick below can actually see the attempt
-              // and shake the model trigger instead.
-              disabled={!value.trim()}
-              onClick={() => {
-                if (selectedModels.length === 0) {
-                  triggerModelShake();
-                  return;
-                }
-                onSubmit(images, effort);
-                setImages([]);
-              }}
-              aria-label={t("compose.send")}
-              // hover/active reference index.css's own
-              // --send-button-bg-hover/-active tokens (color-mix computed
-              // there, in plain CSS, not inline here -- see that token's
-              // own comment for why: an inline color-mix(...) arbitrary
-              // value silently never applied at all). This had no hover/
-              // click feedback at all before (hover:bg was set to the
-              // exact same value as the resting bg, which silently
-              // canceled ghost's own hover:bg-muted instead of replacing
-              // it with anything). active darkens further than hover so a
-              // press still reads as a press even with the cursor sitting
-              // in the hover state already; Button's own base class
-              // already adds a 1px active:translate-y-px on top of this.
-              className="relative size-[30px] rounded-full bg-[var(--send-button-bg)] hover:bg-[var(--send-button-bg-hover)] active:bg-[var(--send-button-bg-active)] disabled:opacity-100"
-            >
-              <ArrowUpIcon className="absolute top-1/2 left-1/2 size-[14px] -translate-x-1/2 -translate-y-1/2 text-white" strokeWidth={2} />
-            </Button>
-          )}
-        </div>
         </div>
       {/* Attach + access mode (left group) / model + effort (right group),
           one row at the bottom of the bordered composer (moved out of the
@@ -2145,6 +2063,46 @@ export function ComposeBox({
             />
           </BaseDropdownContent>
         </BaseDropdownMenu>
+        <Button
+          size="icon"
+          variant={listening ? "default" : "ghost"}
+          onClick={toggleSpeechToText}
+          aria-label={listening ? t("compose.dictation.stop") : t("compose.dictation.start")}
+          className={cn("size-[30px]", !listening && "text-foreground")}
+        >
+          {listening ? (
+            <span className="flex h-3.5 items-end gap-[2.5px]">
+              {[0, 1, 2].map((i) => (
+                <span key={i} className="w-[2.5px] rounded-full bg-current" style={{ height: "100%", animation: `eq-bounce 900ms ease-in-out ${i * 150}ms infinite` }} />
+              ))}
+            </span>
+          ) : (
+            <MicIcon className="size-[18px]" strokeWidth={1.5} />
+          )}
+        </Button>
+        {awaitingReply ? (
+          <Button size="icon" variant="outline" onClick={onStop} aria-label={t("compose.stop")} className="size-[30px]">
+            <SquareIcon className="fill-current" />
+          </Button>
+        ) : (
+          <Button
+            size="icon"
+            variant="ghost"
+            disabled={!value.trim()}
+            onClick={() => {
+              if (selectedModels.length === 0) {
+                triggerModelShake();
+                return;
+              }
+              onSubmit(images, effort);
+              setImages([]);
+            }}
+            aria-label={t("compose.send")}
+            className="relative size-[30px] rounded-full bg-[var(--send-button-bg)] hover:bg-[var(--send-button-bg-hover)] active:bg-[var(--send-button-bg-active)] disabled:opacity-100"
+          >
+            <ArrowUpIcon className="absolute top-1/2 left-1/2 size-[14px] -translate-x-1/2 -translate-y-1/2 text-white" strokeWidth={2} />
+          </Button>
+        )}
       </div>
     </div>
     </div>
