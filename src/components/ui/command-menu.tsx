@@ -1068,7 +1068,7 @@ const CommandMenuList = forwardRef<HTMLDivElement, CommandMenuListProps>(
       // land on the panel's own bottom edge and double it, so it is dropped.
       <ScrollArea
         className="scroll-divider flex min-h-0 flex-1 flex-col border-t border-border/60 [&::before]:!-top-px [&:last-child::after]:!hidden"
-        viewportClassName="min-h-0 flex-1 [&>div[style]]:!block [&>div[style]]:!min-w-0 [--scroll-fade-size:32px] scroll-fade"
+        viewportClassName="min-h-0 flex-1 [&>div[style]]:!block [&>div[style]]:!min-w-0"
       >
         <div
           ref={(node) => {
