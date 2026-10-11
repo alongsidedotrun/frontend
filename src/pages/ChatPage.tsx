@@ -576,6 +576,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // its own top-level `let` variables directly.
   const awaitingReplyRef = useRef(false);
   const historyReplayedRef = useRef(false);
+  // The first human row is the continuation of HomePage's composer handoff,
+  // not an independently arriving message. Keep it solid when the composer
+  // lands; ordinary live rows still use their entrance animation.
+  const suppressInitialHandoffHumanEntranceRef = useRef(false);
+  const noEntranceRowIdsRef = useRef<Set<string>>(new Set());
   const lastHumanPromptRef = useRef("");
   // Real bug, confirmed via a real transcript ("the retry did not do at the
   // first message but it sent a second message"): retryLastMessage (below)
@@ -955,7 +960,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         if (effort) sentEffortRef.current = effort;
         const myName = getUserDisplayName();
         const senderName = sender || myName;
-        pushRow({
+        const humanRow: Extract<ChatRow, { kind: "human" }> = {
           kind: "human",
           id: nextRowId(),
           text,
@@ -978,7 +983,12 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           time: turnStartedAtRef.current !== null ? formatMessageTimestamp(turnStartedAtRef.current) : messageTime(),
           eventId: event.event_id as number | undefined,
           branch: event.branch as { group: string; index: number; total: number } | undefined,
-        });
+        };
+        if (suppressInitialHandoffHumanEntranceRef.current) {
+          noEntranceRowIdsRef.current.add(humanRow.id);
+          suppressInitialHandoffHumanEntranceRef.current = false;
+        }
+        pushRow(humanRow);
         // Only show the waiting indicator for a live message, not while
         // replaying history -- otherwise every replayed human message
         // spawns its own indicator ahead of a reply that already exists a
@@ -1194,6 +1204,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             if (pending.sessionId === sessionId) {
               sessionStorage.removeItem("alongside_pending_message");
               lastHumanPromptRef.current = pending.prompt;
+              suppressInitialHandoffHumanEntranceRef.current = true;
               // No local sentEffortRef write here any more -- the server's own
               // human_message broadcast (which this POST triggers) is what sets
               // it now, the same authoritative path every other send uses.
@@ -1217,6 +1228,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                   images: pending.images,
                   effort: pending.effort,
                 }),
+              }).then((response) => {
+                // POST only resolves after the human event is persisted, so
+                // refresh now as well as on the WebSocket event below. This
+                // keeps the sidebar live even if that broadcast is delayed.
+                if (response.ok) refreshSidebarLists();
               });
             }
           } catch {
@@ -2229,7 +2245,9 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             if (skipIds.has(row.id)) return null;
             const isHistorical = historicalRowIdsRef.current.has(row.id);
             const rowClassName = !isHistorical
-              ? "t-row-in"
+              ? noEntranceRowIdsRef.current.has(row.id)
+                ? "opacity-100"
+                : "t-row-in"
               : !historicalRowsRevealed
                 ? "opacity-0"
                 : viewportVisibleRowIds.has(row.id)
