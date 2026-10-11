@@ -40,7 +40,7 @@ export function SidebarSections({ sections, activeItemId, onItemSelect, classNam
           <div className="flex h-[var(--redesign-quick-actions-row-height)] items-center px-[var(--redesign-quick-actions-padding)]">
             <h2
               id={`sidebar-section-${section.id}`}
-              className="text-[length:var(--redesign-font-size-compact)] font-medium text-muted-foreground"
+              className="text-[length:var(--redesign-font-size-base)] font-medium text-muted-foreground"
             >
               {section.label}
             </h2>
