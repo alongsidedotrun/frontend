@@ -1653,10 +1653,9 @@ export function ComposeBox({
         >
           <BaseDropdownTrigger
             render={
-            <Button
+            <button
+              type="button"
               ref={modelTriggerRef}
-              variant="ghost"
-              size="sm"
               // whitespace-nowrap + max-w-[160px] truncate: without a
               // nowrap guard, this label wrapped letter-by-letter (flex
               // items don't get a natural min-width from text alone).
@@ -1668,7 +1667,7 @@ export function ComposeBox({
               // cramped line with mic/send inside the box; out here on its
               // own row, this trigger has the box's own full width to
               // itself.
-              className="t-input !inline-flex h-[28px] max-w-[160px] shrink-0 flex-row flex-nowrap whitespace-nowrap pr-1 pl-1.5 text-xs font-normal text-foreground hover:bg-hover-2/50 aria-expanded:bg-hover-2/50 [&>span]:!inline-flex [&>span]:flex-row [&>span]:flex-nowrap [&>span]:whitespace-nowrap"
+              className="t-input inline-flex h-[28px] max-w-[160px] shrink-0 flex-row flex-nowrap items-center justify-center gap-1 whitespace-nowrap rounded-lg pr-1 pl-1.5 text-xs font-normal text-foreground outline-none transition-colors hover:bg-hover-2/50 aria-expanded:bg-hover-2/50 focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]"
             >
               {/* size-3.5 (14px), not size-4 (16px) -- per an app-wide
                   compact-scale audit: this trigger's own h-[28px] already
@@ -1677,7 +1676,7 @@ export function ComposeBox({
               {selectedModels.length === 1 && <ProviderIcon model={selectedModels[0]} className="size-3.5 shrink-0" />}
               <span className="truncate whitespace-nowrap">{modelSelectionLabel(selectedModels)}</span>
               <ChevronDownIcon className="size-3.5 shrink-0" />
-            </Button>
+            </button>
             }
           />
           {/* border + shadow-sm, not this component's own default
@@ -1948,18 +1947,17 @@ export function ComposeBox({
         >
           <BaseDropdownTrigger
             render={
-              <Button
+              <button
+                type="button"
                 ref={modeTriggerRef}
-                variant="ghost"
-                size="sm"
-                className="!inline-flex h-[28px] shrink-0 flex-row flex-nowrap whitespace-nowrap px-1.5 text-xs font-normal text-foreground hover:bg-hover-2/50 aria-expanded:bg-hover-2/50 [&>span]:!inline-flex [&>span]:flex-row [&>span]:flex-nowrap [&>span]:whitespace-nowrap"
+                className="inline-flex h-[28px] shrink-0 flex-row flex-nowrap items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1.5 text-xs font-normal text-foreground outline-none transition-colors hover:bg-hover-2/50 aria-expanded:bg-hover-2/50 focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]"
               >
                 {(() => {
                   const found = modes.find((m) => m.value === mode);
                   return found ? t(found.labelKey) : null;
                 })()}
                 <ChevronDownIcon className="size-3.5 shrink-0" />
-              </Button>
+              </button>
             }
           />
           {/* DropdownSubItem, not BaseMenuItem -- per explicit request ("do
@@ -2042,18 +2040,17 @@ export function ComposeBox({
         >
           <BaseDropdownTrigger
             render={
-              <Button
+              <button
+                type="button"
                 ref={effortTriggerRef}
-                variant="ghost"
-                size="sm"
-                className="!inline-flex h-[28px] shrink-0 flex-row flex-nowrap whitespace-nowrap px-1.5 text-xs font-normal text-foreground hover:bg-hover-2/50 aria-expanded:bg-hover-2/50 [&>span]:!inline-flex [&>span]:flex-row [&>span]:flex-nowrap [&>span]:whitespace-nowrap"
+                className="inline-flex h-[28px] shrink-0 flex-row flex-nowrap items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1.5 text-xs font-normal text-foreground outline-none transition-colors hover:bg-hover-2/50 aria-expanded:bg-hover-2/50 focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]"
               >
                 {/* Shows the current choice (e.g. "Low"), not a static
                     "Effort" label -- per explicit request ("it should
                     update from effort to the choice we did"). */}
                 {effortLabel(effort)}
                 <ChevronDownIcon className="size-3.5 shrink-0" />
-              </Button>
+              </button>
             }
           />
           <BaseDropdownContent side="top" align="end" sideOffset={6} className="w-56 min-w-0 p-3">
