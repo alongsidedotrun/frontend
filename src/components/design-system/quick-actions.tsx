@@ -29,11 +29,11 @@ export function QuickActions({ label, shortcut, actions, activeId, onActionSelec
       <button
         type="button"
         onClick={onOpen}
-        className="group/quick-actions-trigger flex h-[var(--redesign-quick-actions-trigger-height)] w-full items-center rounded-[var(--redesign-control-radius)] border border-[var(--redesign-sidebar-border)] px-[var(--redesign-quick-actions-padding)] text-[length:var(--redesign-font-size-base)] text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="group/quick-actions-trigger flex h-[var(--redesign-quick-actions-trigger-height)] w-full items-center rounded-[var(--redesign-control-radius)] border border-[var(--redesign-sidebar-border)] px-[var(--redesign-quick-actions-padding)] text-[length:var(--redesign-sidebar-primary-font-size)] text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <span className="flex items-center gap-[var(--redesign-quick-actions-shortcut-gap)] text-[length:var(--redesign-font-size-base)] text-muted-foreground transition-colors group-hover/quick-actions-trigger:text-foreground group-focus-visible/quick-actions-trigger:text-foreground" aria-label={`Command ${shortcut}`}>
+        <span className="flex items-center gap-[var(--redesign-quick-actions-shortcut-gap)] text-[length:var(--redesign-sidebar-primary-font-size)] text-muted-foreground transition-colors group-hover/quick-actions-trigger:text-foreground group-focus-visible/quick-actions-trigger:text-foreground" aria-label={`Command ${shortcut}`}>
           <Command aria-hidden="true" strokeWidth={2} className="size-[var(--redesign-quick-actions-command-icon-size)]" />
-          <span className="text-[length:var(--redesign-font-size-base)]">{shortcut}</span>
+          <span className="text-[length:var(--redesign-sidebar-primary-font-size)]">{shortcut}</span>
         </span>
         <span className="ml-[var(--redesign-quick-actions-icon-gap)] min-w-0 flex-1 text-left">{label}</span>
       </button>
@@ -51,7 +51,7 @@ export function QuickActions({ label, shortcut, actions, activeId, onActionSelec
               }}
               aria-current={isActive ? "page" : undefined}
               className={cn(
-                "flex h-[var(--redesign-quick-actions-row-height)] items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-[length:var(--redesign-font-size-base)] text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "flex h-[var(--redesign-quick-actions-row-height)] items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-[length:var(--redesign-sidebar-primary-font-size)] text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 isActive && "bg-muted text-foreground",
               )}
             >

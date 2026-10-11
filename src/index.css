@@ -84,6 +84,10 @@
   --redesign-font-size-compact: clamp(0.625rem, 0.86vw, 0.6875rem);
   /* Keep sidebar copy responsive, but cap small-screen reduction at 2px. */
   --redesign-font-size-base: clamp(0.6875rem, 1vw, 0.8125rem);
+  /* Primary navigation is deliberately one step larger than supporting
+     sidebar copy, so the workspace, main menu, and profile don't read
+     undersized next to the app content. */
+  --redesign-sidebar-primary-font-size: clamp(0.75rem, 1.05vw, 0.875rem);
   --redesign-dropdown-font-size: clamp(0.6875rem, 1vw, 0.8125rem);
   --redesign-font-size-sm: 0.875rem;
   --redesign-font-size-md: 1rem;
@@ -101,14 +105,14 @@
      fixed pixels. At a 1280px viewport (31vw sidebar) they resolve to the
      supplied 70% workspace name, 20% space, and 10% search layout. */
   --redesign-workspace-trigger-width: 70cqw;
-  --redesign-workspace-trigger-height: clamp(1.5rem, 9.32cqw, 1.875rem);
+  --redesign-workspace-trigger-height: clamp(1.75rem, 10cqw, 2.125rem);
   --redesign-workspace-trigger-radius: 9999px;
   --redesign-workspace-trigger-padding: 3.02cqw;
-  --redesign-workspace-trigger-gap: 7px;
-  --redesign-workspace-chevron-size: clamp(0.875rem, 4.03cqw, 1rem);
-  --redesign-workspace-avatar-size: min(6.05cqw, 0.875rem);
-  --redesign-workspace-brand-surface-size: 1rem;
-  --redesign-workspace-brand-mark-size: 0.75rem;
+  --redesign-workspace-trigger-gap: 0.5rem;
+  --redesign-workspace-chevron-size: clamp(1rem, 4.1cqw, 1.125rem);
+  --redesign-workspace-avatar-size: min(6.5cqw, 1rem);
+  --redesign-workspace-brand-surface-size: 1.125rem;
+  --redesign-workspace-brand-mark-size: 0.875rem;
   --redesign-workspace-brand-radius: 0.3125rem;
   --redesign-workspace-brand-padding: 0.125rem;
   --redesign-workspace-search-gap: 32.51cqw;
@@ -120,19 +124,19 @@
   --redesign-top-bar-control-half-size: 0.875rem;
   --redesign-top-bar-controls-right: calc(100% - var(--redesign-sidebar-width) + var(--redesign-sidebar-edge-padding) + var(--redesign-search-control-half-size-top-bar) - var(--redesign-top-bar-control-half-size));
   --redesign-quick-actions-gap: 0.75rem;
-  --redesign-quick-actions-trigger-height: 2rem;
-  --redesign-quick-actions-row-height: 1.75rem;
-  --redesign-quick-actions-padding: 0.5rem;
-  --redesign-quick-actions-icon-size: 0.875rem;
-  --redesign-quick-actions-command-icon-size: 12px;
-  --redesign-quick-actions-icon-gap: 0.5rem;
+  --redesign-quick-actions-trigger-height: 2.25rem;
+  --redesign-quick-actions-row-height: 2rem;
+  --redesign-quick-actions-padding: 0.625rem;
+  --redesign-quick-actions-icon-size: 1rem;
+  --redesign-quick-actions-command-icon-size: 0.875rem;
+  --redesign-quick-actions-icon-gap: 0.625rem;
   --redesign-quick-actions-row-gap: 0.1875rem;
   --redesign-quick-actions-shortcut-gap: 0.1875rem;
   --redesign-sidebar-section-gap: 0.75rem;
   --redesign-sidebar-section-row-offset: 0.25rem;
   --redesign-sidebar-footer-row-height: 2.25rem;
-  --redesign-sidebar-footer-account-row-height: 2rem;
-  --redesign-sidebar-footer-avatar-size: 1rem;
+  --redesign-sidebar-footer-account-row-height: 2.25rem;
+  --redesign-sidebar-footer-avatar-size: 1.125rem;
   --redesign-sidebar-footer-upgrade-height: 1.375rem;
   --redesign-sidebar-footer-upgrade-padding: 0.5rem;
   --redesign-sidebar-footer-chevron-size: 0.75rem;

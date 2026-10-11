@@ -52,7 +52,7 @@ export function WorkspaceSelector({
           type="button"
           aria-label={ariaLabel}
           className={cn(
-            "flex h-[var(--redesign-workspace-trigger-height)] w-[var(--redesign-workspace-trigger-width)] max-w-full items-center gap-[var(--redesign-workspace-trigger-gap)] px-[var(--redesign-workspace-trigger-padding)] text-left text-[length:var(--redesign-font-size-base)] font-normal text-foreground/70 outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "flex h-[var(--redesign-workspace-trigger-height)] w-[var(--redesign-workspace-trigger-width)] max-w-full items-center gap-[var(--redesign-workspace-trigger-gap)] px-[var(--redesign-workspace-trigger-padding)] text-left text-[length:var(--redesign-sidebar-primary-font-size)] font-normal text-foreground/70 outline-none focus-visible:ring-2 focus-visible:ring-ring",
             className,
           )}
         >
