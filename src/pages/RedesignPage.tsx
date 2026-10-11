@@ -435,6 +435,28 @@ export function RedesignPage() {
         navigate("/new/chat");
       },
     },
+    {
+      value: "new-project",
+      label: "New project",
+      description: "Organise related chats",
+      icon: Plus,
+      keywords: ["create", "organise", "workspace"],
+      group: "Actions",
+      onSelect: () => {
+        setProjectError(null);
+        setNewProjectOpen(true);
+      },
+    },
+    {
+      value: "settings",
+      label: "Settings",
+      description: "Account and workspace preferences",
+      icon: Settings04Icon,
+      shortcut: "mod+,",
+      keywords: ["preferences", "account"],
+      group: "Settings",
+      onSelect: () => navigate("/settings/general"),
+    },
     ...chats.map((chat) => ({
       value: `chat-${chat.id}`,
       label: chat.name,
