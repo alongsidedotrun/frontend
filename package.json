@@ -11,7 +11,7 @@
   "dependencies": {
     "@ai-sdk/react": "^4.0.105",
     "@ariakit/react": "^0.4.40",
-    "@base-ui/react": "^1.7.0",
+    "@base-ui/react": "^1.9.0",
     "@codemirror/lang-css": "^6.3.1",
     "@codemirror/lang-html": "^6.4.12",
     "@codemirror/lang-javascript": "^6.2.5",

@@ -451,35 +451,35 @@
   @keyframes sf-reveal-start {
   from {
     --sf-start: 1;
-        }
+    }
   to {
     --sf-start: 0;
-        }
     }
+  }
   @keyframes sf-reveal-end {
   from {
     --sf-end: 0;
-        }
+    }
   to {
     --sf-end: 1;
-        }
     }
+  }
   @keyframes sf-divider-start {
   from {
     opacity: 0;
-        }
+    }
   to {
     opacity: 1;
-        }
     }
+  }
   @keyframes sf-divider-end {
   from {
     opacity: 1;
-        }
+    }
   to {
     opacity: 0;
-        }
     }
+  }
   @keyframes spinner-move {
   to {
     stroke-dashoffset: -100;
@@ -1761,4 +1761,21 @@ html.transitioning *, html.transitioning *::before, html.transitioning *::after 
     syntax: "<number>";
     inherits: false;
     initial-value: 1;
+}
+  @property --sf-start {
+    syntax: "<number>";
+    inherits: false;
+    initial-value: 1;
+}
+  @property --sf-end {
+    syntax: "<number>";
+    inherits: false;
+    initial-value: 1;
+}
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
 }
