@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useOutlet } from "react-router-dom";
 import { CircleArrowUp, CircleHelp, Plus, Search } from "lucide-react";
 import { AlongsideLogo } from "@/components/icons/alongside-logo";
-import { Edit05Icon, LogInIcon, Settings01Icon, Settings04Icon } from "@/components/icons/untitled-ui";
+import { Edit05Icon, LogInIcon, MessageChatCircleIcon, Settings01Icon, Settings04Icon } from "@/components/icons/untitled-ui";
 import { SplitView } from "@/components/design-system/split-view";
 import { AppTopBar } from "@/components/app-top-bar";
 import { QuickActions, type QuickActionItem } from "@/components/design-system/quick-actions";
@@ -15,6 +15,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { ChatPage, type ChatPageShellContext } from "@/pages/ChatPage";
 import { HomePage, type HomePageShellContext } from "@/pages/HomePage";
+import { CommandMenuDemo } from "@/components/command-menu-demo";
+import type { CommandMenuItemData } from "@/components/ui/command-menu";
 import {
   WorkspaceSelector,
   type WorkspaceMenuAction,
@@ -129,6 +131,7 @@ export function RedesignPage() {
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [projectError, setProjectError] = useState<string | null>(null);
+  const [quickActionsOpen, setQuickActionsOpen] = useState(false);
   // A session exists before its first message, while GET /sessions
   // deliberately lists only chats with real content. Keep that short-lived
   // local row so the newly-created chat can mount, send its queued message,
@@ -418,8 +421,37 @@ export function RedesignPage() {
     { id: "new-workspace", label: "New Workspace", icon: Plus, onSelect: () => { setWorkspaceError(null); setNewWorkspaceOpen(true); } },
     { id: "manage-workspace", label: "Manage workspace", icon: Settings01Icon, onSelect: () => { setWorkspaceError(null); setManageWorkspacesOpen(true); } },
   ];
+  const commandMenuItems = useMemo<CommandMenuItemData[]>(() => [
+    {
+      value: "new-chat",
+      label: "New chat",
+      description: "Start a new conversation",
+      icon: Edit05Icon,
+      shortcut: "mod+n",
+      keywords: ["compose", "start", "conversation"],
+      group: "Actions",
+      onSelect: () => {
+        setActiveChatId(null);
+        navigate("/new/chat");
+      },
+    },
+    ...chats.map((chat) => ({
+      value: `chat-${chat.id}`,
+      label: chat.name,
+      description: "Open chat",
+      icon: MessageChatCircleIcon,
+      keywords: ["conversation", "recent"],
+      group: "Chats",
+      onSelect: () => {
+        if (chat.id === (routeChatId ?? activeChatId)) return;
+        setActiveChatId(chat.id);
+        navigate(`/chat/${chat.id}`);
+      },
+    })),
+  ], [activeChatId, chats, navigate, routeChatId]);
 
   return (
+    <>
     <SplitView
       topBar={
         <AppTopBar
@@ -463,15 +495,12 @@ export function RedesignPage() {
               shortcut="K"
               actions={QUICK_ACTIONS}
               activeId={location.pathname === "/new/chat" ? "chats" : undefined}
+              onOpen={() => setQuickActionsOpen(true)}
               onActionSelect={(actionId) => {
                 if (actionId === "chats") {
                   setActiveChatId(null);
                   navigate("/new/chat");
-                  return;
                 }
-                if (actionId === "inbox") navigate("/inbox");
-                if (actionId === "overview") navigate("/overview");
-                if (actionId === "apps") navigate("/apps");
               }}
             />
           {/* A chat route and the new-chat composer share this exact sidebar.
@@ -585,5 +614,11 @@ export function RedesignPage() {
         </DialogContent>
       </Dialog>
     </SplitView>
+    <CommandMenuDemo
+      open={quickActionsOpen}
+      onOpenChange={setQuickActionsOpen}
+      items={commandMenuItems}
+    />
+    </>
   );
 }
