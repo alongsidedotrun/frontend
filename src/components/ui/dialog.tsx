@@ -34,6 +34,8 @@ interface DialogProps {
   defaultOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
   modal?: boolean;
+  /** Extra classes for the viewport-covering backdrop. */
+  backdropClassName?: string;
   children?: ReactNode;
 }
 
@@ -82,6 +84,7 @@ function Dialog({
   defaultOpen = false,
   onOpenChange,
   modal,
+  backdropClassName,
 }: DialogProps) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
   const open = openProp ?? uncontrolledOpen;
@@ -103,11 +106,15 @@ function Dialog({
         actionsRef={actionsRef}
         modal={modal}
       >
-        {children}
+        <DialogBackdropClassContext.Provider value={backdropClassName}>
+          {children}
+        </DialogBackdropClassContext.Provider>
       </DialogPrimitive.Root>
     </DialogExitContext.Provider>
   );
 }
+
+const DialogBackdropClassContext = createContext<string | undefined>(undefined);
 
 // Trigger and Close compose either way — `render={<Button/>}` (the
 // library's composition API, shared with DropdownTrigger) or Radix-style
@@ -198,6 +205,7 @@ const DialogContent = forwardRef<HTMLDivElement, DialogContentProps>(
     // exit spring ends. This timeout is the fallback for throttled tabs,
     // where rAF-driven animation callbacks can stall.
     const exit = useContext(DialogExitContext);
+    const backdropClassName = useContext(DialogBackdropClassContext);
     const exitOpen = exit?.open ?? true;
     const exitActionsRef = exit?.actionsRef;
     useEffect(() => {
@@ -229,7 +237,8 @@ const DialogContent = forwardRef<HTMLDivElement, DialogContentProps>(
                 {...rest}
                 className={cn(
                   container ? "absolute" : "fixed",
-                  "inset-0 z-50 bg-black/40 dark:bg-black/80"
+                  "inset-0 z-50 bg-black/40 dark:bg-black/80",
+                  backdropClassName,
                 )}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: exiting ? 0 : 1 }}

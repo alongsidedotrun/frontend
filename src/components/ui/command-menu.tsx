@@ -1542,18 +1542,13 @@ function CommandMenuDialog({
   const dialogCtx = useMemo(() => ({ close: () => setOpen(false) }), [setOpen]);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen} modal={modal}>
+    <Dialog open={open} onOpenChange={setOpen} modal={modal} backdropClassName="!z-[120]">
       <DialogContent
         size="lg"
         container={container}
         showCloseButton={false}
-        // Opens centered at its cap and keeps that top edge: the top is where
-        // a panel at the cap height, min(440px, 76dvh), sits centered, so
-        // the field stays put while the rows under it filter down. Below
-        // 580px of height the cap is 76dvh and the top lands on 12dvh.
-        position="top"
         className={cn(
-          "top-[max(12dvh,calc(50dvh-220px))] flex max-h-[min(440px,76dvh)] flex-col overflow-hidden p-0",
+          "!z-[120] flex max-h-[min(440px,76dvh)] flex-col overflow-hidden p-0",
           className
         )}
       >
