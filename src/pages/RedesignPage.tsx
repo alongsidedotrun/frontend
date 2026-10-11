@@ -464,8 +464,12 @@ export function RedesignPage() {
                 if (actionId === "apps") navigate("/apps");
               }}
             />
+          {/* A chat route and the new-chat composer share this exact sidebar.
+              Keying it by the route made clicking Chats fade and rebuild an
+              unchanged list; only switch its surface when the section itself
+              changes. */}
           {activeSidebarSurface && (
-            <SidebarSurfaceTransition surfaceKey={redesignSurfaceKey}>
+            <SidebarSurfaceTransition surfaceKey={activeSidebarSurface}>
               <SidebarSections
                 sections={activeSidebarSurface === "inbox" ? inboxSidebarSections : chatsSidebarSections}
                 activeItemId={activeSidebarSurface === "chats" ? activeChatId ?? undefined : undefined}
