@@ -14,6 +14,8 @@ import {
 type ShapeVariant = "pill" | "rounded";
 
 interface ShapeClasses {
+  /** The variant these classes belong to — handy for conditionals. */
+  variant: ShapeVariant;
   item: string;
   bg: string;
   focusRing: string;
@@ -25,11 +27,30 @@ interface ShapeClasses {
   // corners are animated (e.g. the selected-background merge/split animation),
   // which requires per-corner numeric border-radii rather than a class.
   bgRadius: number;
+  /** Numeric counterpart of `container`. Popup shells use a 4px inset, so
+   *  containerRadius = bgRadius + 4 keeps their curves concentric. */
+  containerRadius: number;
   mergedRadius: number;
+}
+
+/**
+ * Radius for a surface inset inside another rounded surface.
+ *
+ * `inset` is the interior spacing (usually parent padding); pass the parent's
+ * border separately as `borderWidth`. Together they form the visible
+ * edge-to-edge distance. Clamping at zero prevents an invalid negative radius.
+ */
+function nestedRadius(
+  outerRadius: number,
+  inset: number,
+  borderWidth = 0
+) {
+  return Math.max(0, outerRadius - inset - borderWidth);
 }
 
 const shapeMap: Record<ShapeVariant, ShapeClasses> = {
   pill: {
+    variant: "pill",
     item: "rounded-[20px]",
     bg: "rounded-[20px]",
     // +2px over `item` because the focus ring sits 2px outside the element
@@ -41,25 +62,21 @@ const shapeMap: Record<ShapeVariant, ShapeClasses> = {
     button: "rounded-[20px]",
     input: "rounded-[20px]",
     bgRadius: 20,
+    containerRadius: 24,
     mergedRadius: 16,
   },
   rounded: {
-    // item/bg/mergedBg: rounded-none, not rounded-lg -- per explicit
-    // request ("apply the same hover fix... to look like the screenshot...
-    // full width full height and no rounded borders at the hover,
-    // respecting the dropdown rounded borders"): every row's hover/
-    // selected fill now spans its full row edge-to-edge with no corner
-    // radius of its own, so only the panel's own outer corner (container,
-    // below -- clipped by its own overflow) reads as rounded at all.
-    item: "rounded-none",
-    bg: "rounded-none",
+    variant: "rounded",
+    item: "rounded-lg",
+    bg: "rounded-lg",
     focusRing: "rounded-[10px]",
-    mergedBg: "rounded-none",
+    mergedBg: "rounded-lg",
     container: "rounded-xl",
     button: "rounded-lg",
     input: "rounded-lg",
-    bgRadius: 0,
-    mergedRadius: 0,
+    bgRadius: 8,
+    containerRadius: 12,
+    mergedRadius: 8,
   },
 };
 
@@ -71,9 +88,13 @@ interface ShapeContextValue {
 
 const ShapeContext = createContext<ShapeContextValue | null>(null);
 
+// Rounded is the default on every path: the site demos render under
+// <ShapeProvider defaultShape="rounded">, the shipped :focus-visible fallback
+// ring assumes its 8px radius, and the preset generators only emit a provider
+// for pill. A consumer with no provider gets the corners the docs show.
 function useShape(): ShapeClasses {
   const ctx = useContext(ShapeContext);
-  if (!ctx) return shapeMap.pill;
+  if (!ctx) return shapeMap.rounded;
   return ctx.classes;
 }
 
@@ -85,7 +106,7 @@ function useShapeContext() {
 
 function ShapeProvider({
   children,
-  defaultShape = "pill",
+  defaultShape = "rounded",
 }: {
   children: ReactNode;
   defaultShape?: ShapeVariant;
@@ -138,5 +159,5 @@ function ShapeProvider({
   );
 }
 
-export { ShapeProvider, useShape, useShapeContext, shapeMap };
+export { ShapeProvider, useShape, useShapeContext, shapeMap, nestedRadius };
 export type { ShapeVariant, ShapeClasses };
