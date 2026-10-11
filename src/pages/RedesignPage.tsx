@@ -153,6 +153,7 @@ export function RedesignPage() {
   const activeWorkspace = workspaces.find((workspace) => workspace.id === workspaceId) ?? DEFAULT_WORKSPACE;
   const routedContent = useOutlet({
     chatName: "Untitled chat",
+    contextLabel: activeWorkspace.name,
     receiveChatNameFromServer: () => {},
     refreshSidebarLists: () => {},
     openSettings: (section: string) => navigate(`/settings/${section}`),
