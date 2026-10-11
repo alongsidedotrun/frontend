@@ -1668,7 +1668,7 @@ export function ComposeBox({
               // cramped line with mic/send inside the box; out here on its
               // own row, this trigger has the box's own full width to
               // itself.
-              className="t-input h-[28px] max-w-[160px] min-w-0 pr-1 pl-1.5 text-xs font-normal text-foreground hover:bg-hover-2/50 aria-expanded:bg-hover-2/50"
+              className="t-input !inline-flex h-[28px] max-w-[160px] shrink-0 flex-row flex-nowrap whitespace-nowrap pr-1 pl-1.5 text-xs font-normal text-foreground hover:bg-hover-2/50 aria-expanded:bg-hover-2/50 [&>span]:!inline-flex [&>span]:flex-row [&>span]:flex-nowrap [&>span]:whitespace-nowrap"
             >
               {/* size-3.5 (14px), not size-4 (16px) -- per an app-wide
                   compact-scale audit: this trigger's own h-[28px] already
@@ -1952,7 +1952,7 @@ export function ComposeBox({
                 ref={modeTriggerRef}
                 variant="ghost"
                 size="sm"
-                className="h-[28px] px-1.5 text-xs font-normal text-foreground hover:bg-hover-2/50 aria-expanded:bg-hover-2/50"
+                className="!inline-flex h-[28px] shrink-0 flex-row flex-nowrap whitespace-nowrap px-1.5 text-xs font-normal text-foreground hover:bg-hover-2/50 aria-expanded:bg-hover-2/50 [&>span]:!inline-flex [&>span]:flex-row [&>span]:flex-nowrap [&>span]:whitespace-nowrap"
               >
                 {(() => {
                   const found = modes.find((m) => m.value === mode);
@@ -2046,7 +2046,7 @@ export function ComposeBox({
                 ref={effortTriggerRef}
                 variant="ghost"
                 size="sm"
-                className="h-[28px] px-1.5 text-xs font-normal text-foreground hover:bg-hover-2/50 aria-expanded:bg-hover-2/50"
+                className="!inline-flex h-[28px] shrink-0 flex-row flex-nowrap whitespace-nowrap px-1.5 text-xs font-normal text-foreground hover:bg-hover-2/50 aria-expanded:bg-hover-2/50 [&>span]:!inline-flex [&>span]:flex-row [&>span]:flex-nowrap [&>span]:whitespace-nowrap"
               >
                 {/* Shows the current choice (e.g. "Low"), not a static
                     "Effort" label -- per explicit request ("it should
