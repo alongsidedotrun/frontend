@@ -321,6 +321,8 @@ function nextRowId() {
 // pure flourish on top of it.
 export type ChatPageShellContext = {
   chatName: string;
+  /** The workspace/project context displayed at the chat canvas's top edge. */
+  contextLabel?: string;
   receiveChatNameFromServer: (name: string) => void;
   refreshSidebarLists: () => void;
   openSettings: (section: SettingsSection) => void;
@@ -354,7 +356,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // chat_name_updated) -- receiveChatNameFromServer's own existing refresh
   // call only fires on a successful rename, not on every real message.
   const outletContext = useOutletContext<ChatPageShellContext>();
-  const { chatName, receiveChatNameFromServer, refreshSidebarLists, openSettings, openFile, rightPanelOpen, notifyFilesTouched } =
+  const { chatName, contextLabel, receiveChatNameFromServer, refreshSidebarLists, openSettings, openFile, rightPanelOpen, notifyFilesTouched } =
     shellContextOverride ?? outletContext;
   // Real correction, per explicit follow-up ("we reduce to 400px but
   // there's so much space around it, instead of reducing the content to
@@ -2114,7 +2116,12 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     (waitingPhase === "working" && liveElapsedSec !== null ? ` ${formatWorkedDuration(liveElapsedSec)}` : "");
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-background">
+    <div className="relative flex min-h-0 flex-1 flex-col bg-background">
+      {contextLabel && (
+        <div className={`pointer-events-none absolute top-3 right-0 left-0 z-10 ${chatSidePadding}`}>
+          <h1 className="text-[14px] font-medium text-foreground">{contextLabel}</h1>
+        </div>
+      )}
       <ScrollArea className="min-h-0 flex-1" viewportRef={chatLogRef} viewportClassName={chatSidePadding}>
         {/* max-w-[45rem] (720px) replaced with the shared PAGE_CONTENT_WIDTH
             (800px, page-content.tsx) -- same fix as the compose box below

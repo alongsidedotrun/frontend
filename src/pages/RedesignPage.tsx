@@ -261,6 +261,7 @@ export function RedesignPage() {
     : undefined;
   const redesignChatContext: ChatPageShellContext | undefined = activeChat ? {
     chatName: activeChat.name,
+    contextLabel: activeProjectName ?? activeWorkspace.name,
     receiveChatNameFromServer: (name) => {
       setChats((current) => current.map((chat) => chat.id === activeChat.id ? { ...chat, name } : chat));
     },
@@ -428,10 +429,6 @@ export function RedesignPage() {
           onForward={goForwardInApp}
           onCollapseAll={() => setSidebarCollapsed(true)}
           onExpand={() => setSidebarCollapsed(false)}
-          title={activeProjectName ?? activeWorkspace.name}
-          titleClassName={sidebarCollapsed
-            ? "pointer-events-none absolute top-0 left-3 flex h-full items-center"
-            : "pointer-events-none absolute top-0 left-[calc(var(--redesign-sidebar-width)+0.75rem)] flex h-full items-center"}
         />
       }
       sidebarCollapsed={sidebarCollapsed}
