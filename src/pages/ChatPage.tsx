@@ -21,12 +21,22 @@ import { DefaultAvatar } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  DropdownMenu as BaseDropdownMenu,
+  DropdownTrigger as BaseDropdownTrigger,
+  DropdownContent as BaseDropdownContent,
+  DropdownLabel as BaseDropdownLabel,
+  DropdownSubMenuItem,
+  DropdownSubItem,
+} from "@/components/ui/dropdown";
+import { MoreTrigger } from "@/components/ui/more-trigger";
+import {
   CheckIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   CopyIcon,
   EditIcon,
+  FolderIcon,
   ResearchIcon,
   RotateCcwIcon,
   ThumbsDownIcon,
@@ -372,7 +382,47 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // least 100px maybe? 50px on left and 50px right? because now its too
   // close to the borders").
   const chatSidePadding = rightPanelOpen ? "px-[50px]" : "px-3 sm:px-5";
+  const [chatHeaderMenuOpen, setChatHeaderMenuOpen] = useState(false);
+  const [chatHeaderRenaming, setChatHeaderRenaming] = useState(false);
+  const [chatHeaderName, setChatHeaderName] = useState(contextLabel ?? chatName);
+  const [headerProjects, setHeaderProjects] = useState<Array<{ id: string; name: string }>>([]);
   const [rows, setRows] = useState<ChatRow[]>([]);
+
+  useEffect(() => {
+    setChatHeaderName(contextLabel ?? chatName);
+  }, [chatName, contextLabel]);
+
+  useEffect(() => {
+    if (!chatHeaderMenuOpen) return;
+    void fetch("/projects")
+      .then((response) => response.ok ? response.json() as Promise<Array<{ id: string; name: string }>> : [])
+      .then(setHeaderProjects)
+      .catch(() => setHeaderProjects([]));
+  }, [chatHeaderMenuOpen]);
+
+  async function saveChatHeaderName(nextName: string) {
+    const name = nextName.trim() || "Untitled chat";
+    setChatHeaderRenaming(false);
+    setChatHeaderName(name);
+    if (!sessionId || name === chatName) return;
+
+    const response = await fetch(`/sessions/${sessionId}/name`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    if (response.ok) receiveChatNameFromServer(name);
+  }
+
+  async function assignChatHeaderProject(projectId: string) {
+    if (!sessionId) return;
+    const response = await fetch(`/sessions/${sessionId}/project`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project_id: projectId }),
+    });
+    if (response.ok) refreshSidebarLists();
+  }
   // People waiting for this chat's host to let them in (components/join-requests.tsx).
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
   // Real bug, confirmed via a real CI build failure (TS6133, "awaitingReply declared
@@ -2118,8 +2168,73 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   return (
     <div className="relative flex min-h-0 flex-1 flex-col bg-background">
       {contextLabel && (
-        <div className={`pointer-events-none absolute top-3 right-0 left-0 z-10 ${chatSidePadding}`}>
-          <h1 className="text-[14px] font-medium text-foreground">{contextLabel}</h1>
+        <div className={`absolute top-3 right-0 left-0 z-10 ${chatSidePadding}`}>
+          <div className="group/chat-context inline-flex items-center gap-0.5">
+            {chatHeaderRenaming ? (
+              <input
+                autoFocus
+                aria-label="Chat name"
+                value={chatHeaderName}
+                onChange={(event) => setChatHeaderName(event.target.value)}
+                onBlur={(event) => void saveChatHeaderName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") event.currentTarget.blur();
+                  if (event.key === "Escape") {
+                    setChatHeaderName(contextLabel);
+                    setChatHeaderRenaming(false);
+                  }
+                }}
+                className="h-5 w-44 rounded-sm border border-border bg-transparent px-1 text-[12px] font-normal text-foreground outline-none focus:border-ring"
+              />
+            ) : (
+              <h1 className="max-w-56 truncate text-[12px] font-normal text-muted-foreground/60 transition-colors duration-150 group-hover/chat-context:text-foreground group-focus-within/chat-context:text-foreground">
+                {contextLabel}
+              </h1>
+            )}
+            <BaseDropdownMenu size="compact" open={chatHeaderMenuOpen} onOpenChange={setChatHeaderMenuOpen}>
+              <BaseDropdownTrigger
+                render={
+                  <MoreTrigger
+                    aria-label={`Options for ${contextLabel}`}
+                    active={chatHeaderMenuOpen}
+                    className="group-hover/chat-context:opacity-100"
+                  />
+                }
+              />
+              <BaseDropdownContent side="bottom" align="start" className="w-40 overflow-hidden">
+                <BaseDropdownLabel>Chat</BaseDropdownLabel>
+                <DropdownSubItem
+                  className="gap-2 text-[12px]"
+                  onClick={() => {
+                    setChatHeaderMenuOpen(false);
+                    setChatHeaderRenaming(true);
+                  }}
+                >
+                  <EditIcon className="size-3.5" />
+                  Rename
+                </DropdownSubItem>
+                {headerProjects.length > 0 ? (
+                  <DropdownSubMenuItem index={1} icon={FolderIcon} label="Add to project" className="gap-[7px] text-[12px]">
+                    <BaseDropdownLabel>Projects</BaseDropdownLabel>
+                    {headerProjects.map((project) => (
+                      <DropdownSubItem
+                        key={project.id}
+                        className="py-1.5 pl-2.5 text-[12px]"
+                        onClick={() => void assignChatHeaderProject(project.id)}
+                      >
+                        {project.name}
+                      </DropdownSubItem>
+                    ))}
+                  </DropdownSubMenuItem>
+                ) : (
+                  <DropdownSubItem className="gap-2 text-[12px]" disabled>
+                    <FolderIcon className="size-3.5" />
+                    Add to project
+                  </DropdownSubItem>
+                )}
+              </BaseDropdownContent>
+            </BaseDropdownMenu>
+          </div>
         </div>
       )}
       <ScrollArea className="min-h-0 flex-1" viewportRef={chatLogRef} viewportClassName={chatSidePadding}>

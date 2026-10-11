@@ -158,8 +158,16 @@ export function RedesignPage() {
   const routedContent = useOutlet({
     chatName: activeChat?.name ?? "Untitled chat",
     contextLabel: activeChat?.name ?? "Untitled chat",
-    receiveChatNameFromServer: () => {},
-    refreshSidebarLists: () => {},
+    receiveChatNameFromServer: (name: string) => {
+      const chatId = routeChatId ?? activeChatId;
+      if (!chatId) return;
+      setChats((current) => current.map((chat) => chat.id === chatId ? { ...chat, name } : chat));
+    },
+    refreshSidebarLists: () => {
+      void fetch("/sessions")
+        .then((response) => response.ok ? response.json() as Promise<Chat[]> : [])
+        .then(applyLoadedChats);
+    },
     openSettings: (section: string) => navigate(`/settings/${section}`),
     openFile: () => {},
     renameOpenFile: () => {},
