@@ -486,8 +486,12 @@ export function RedesignPage() {
             <SidebarSurfaceTransition surfaceKey={activeSidebarSurface}>
               <SidebarSections
                 sections={activeSidebarSurface === "inbox" ? inboxSidebarSections : chatsSidebarSections}
-                activeItemId={activeSidebarSurface === "chats" ? activeChatId ?? undefined : undefined}
+                activeItemId={activeSidebarSurface === "chats" ? routeChatId ?? activeChatId ?? undefined : undefined}
                 onItemSelect={activeSidebarSurface === "chats" ? (itemId) => {
+                  // Navigating to the exact same chat creates a new location key,
+                  // which in turn replays the routed chat surface. An active row
+                  // is already open, so it is deliberately a no-op.
+                  if (itemId === (routeChatId ?? activeChatId)) return;
                   if (chats.some((chat) => chat.id === itemId)) {
                     setActiveChatId(itemId);
                     navigate(`/chat/${itemId}`);
