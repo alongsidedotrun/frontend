@@ -20,6 +20,7 @@ export function AppTopBar({
   showNotifications = true,
   collapseButtonHover = true,
   title,
+  titleClassName,
 }: {
   collapsed?: boolean;
   canGoBack?: boolean;
@@ -34,6 +35,7 @@ export function AppTopBar({
   collapseButtonHover?: boolean;
   /** Contextual name for the active content, such as its project. */
   title?: string;
+  titleClassName?: string;
 }) {
   return (
     <div
@@ -68,7 +70,7 @@ export function AppTopBar({
         </button>
       </div>
       <div className="pointer-events-auto flex items-center gap-2">
-        {title && <span className="max-w-56 truncate text-[13px] font-medium text-foreground">{title}</span>}
+        {title && <span className={cn("max-w-56 truncate text-[13px] font-medium text-foreground", titleClassName)}>{title}</span>}
         {showNotifications && <BaseDropdownMenu size="compact">
           <BaseDropdownTrigger
             render={
