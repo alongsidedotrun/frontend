@@ -1637,7 +1637,7 @@ export function ComposeBox({
               // press still reads as a press even with the cursor sitting
               // in the hover state already; Button's own base class
               // already adds a 1px active:translate-y-px on top of this.
-              className="relative size-[30px] rounded-lg bg-[var(--send-button-bg)] hover:bg-[var(--send-button-bg-hover)] active:bg-[var(--send-button-bg-active)] disabled:opacity-100"
+              className="relative size-[30px] rounded-full bg-[var(--send-button-bg)] hover:bg-[var(--send-button-bg-hover)] active:bg-[var(--send-button-bg-active)] disabled:opacity-100"
             >
               <ArrowUpIcon className="absolute top-1/2 left-1/2 size-[14px] -translate-x-1/2 -translate-y-1/2 text-white" strokeWidth={2} />
             </Button>
