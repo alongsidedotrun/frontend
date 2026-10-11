@@ -1,6 +1,6 @@
 import { Trans, useTranslation } from "react-i18next";
 import i18n from "@/i18n";
-import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useOutletContext, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { spring } from "@/lib/springs";
@@ -842,6 +842,50 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // disappears, then rebuilds" flash confirmed directly ("the < return is
   // glitched when i come back, it flashes/disappears the message").
   const pendingBranchReplayRef = useRef<ChatRow[] | null>(null);
+  // ChatPage stays mounted while the redesign swaps routes, so its local
+  // transcript must be treated as session-scoped rather than component-scoped.
+  // This ref also lets an old socket discard a final event in the tiny window
+  // before React runs that effect's cleanup for the previous session.
+  const activeSessionIdRef = useRef(sessionId);
+
+  useLayoutEffect(() => {
+    activeSessionIdRef.current = sessionId;
+    lastEventIdRef.current = 0;
+    awaitingReplyRef.current = false;
+    historyReplayedRef.current = false;
+    suppressInitialHandoffHumanEntranceRef.current = false;
+    noEntranceRowIdsRef.current = new Set();
+    historicalRowIdsRef.current = new Set();
+    rowElsRef.current = new Map();
+    pendingBranchReplayRef.current = null;
+    lastHumanPromptRef.current = "";
+    lastHumanEventIdRef.current = undefined;
+    turnStartedAtRef.current = null;
+    firstAgentRowIdRef.current = null;
+    pausedAtRef.current = null;
+    pausedTotalMsRef.current = 0;
+    searchQueryRef.current = null;
+    liveReasoningTextRef.current = null;
+    liveToolCallLinesRef.current = [];
+    sawRealReplyRef.current = false;
+    hasPinnedDefaultModelRef.current = false;
+    projectIdRef.current = null;
+    compactedAboveRef.current = false;
+
+    setRows([]);
+    setJoinRequests([]);
+    setPrompt("");
+    setPendingEditEventId(null);
+    setTurnInProgress(false);
+    setWaitingPhase(null);
+    setLiveReasoningText(null);
+    setLiveElapsedSec(null);
+    setViewportVisibleRowIds(new Set());
+    setHistoricalRowsRevealed(false);
+    setDefaultEffortValue(undefined);
+    setAutocompactValue("500000");
+    setAutocompactScope("chat");
+  }, [sessionId]);
 
   function pushRow(row: ChatRow) {
     if (!historyReplayedRef.current) historicalRowIdsRef.current.add(row.id);
@@ -903,16 +947,23 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // Requests still waiting on the host when this chat opens (events only carry changes).
   useEffect(() => {
     if (!sessionId) return;
+    let cancelled = false;
     fetch(`/sessions/${sessionId}/join-requests`)
       .then((response) => (response.ok ? response.json() : []))
-      .then((pending: JoinRequest[]) => setJoinRequests(pending))
+      .then((pending: JoinRequest[]) => {
+        if (!cancelled) setJoinRequests(pending);
+      })
       .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [sessionId]);
 
   useEffect(() => {
     if (!sessionId) return;
 
     function handleEvent(raw: string) {
+      if (activeSessionIdRef.current !== sessionId) return;
       let event: Record<string, unknown>;
       try {
         event = JSON.parse(raw);
