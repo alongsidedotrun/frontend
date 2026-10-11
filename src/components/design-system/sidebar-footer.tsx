@@ -109,7 +109,7 @@ export function GettingStartedSummary({
                 <PopoverTrigger asChild>
                   <button
                     type="button"
-                    className="group -ml-[var(--redesign-sidebar-footer-task-hover-bleed)] flex h-[var(--redesign-sidebar-footer-task-row-height)] w-[calc(100%+var(--redesign-sidebar-footer-task-hover-bleed))] items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] pl-[var(--redesign-sidebar-footer-task-hover-bleed)] text-left text-[length:var(--redesign-font-size-base)] text-foreground opacity-50 transition-[color,opacity] hover:bg-muted/70 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="group -ml-[var(--redesign-sidebar-footer-task-hover-bleed)] flex h-[var(--redesign-sidebar-footer-task-row-height)] w-[calc(100%+var(--redesign-sidebar-footer-task-hover-bleed))] items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] pl-[var(--redesign-sidebar-footer-task-hover-bleed)] text-left text-[length:var(--redesign-font-size-base)] text-foreground/50 transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {step.complete ? (
                       <span className="flex size-[var(--redesign-sidebar-footer-task-indicator-size)] shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
