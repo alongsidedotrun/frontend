@@ -1401,7 +1401,7 @@ export function ComposeBox({
         }}
         className={cn(
           "flex flex-col rounded-[var(--row-radius)] border border-border bg-background px-2 py-2 transition-[min-height,padding,border-color] duration-200 [contain:layout_style] @[420px]:px-3 @[420px]:py-3",
-          initialHeight && "min-h-32 justify-end",
+          initialHeight && "min-h-32 justify-between",
           dragActive && "border-ring",
           // border-focus-accent -- matches the sidebar/inbox search inputs'
           // own focus-visible:border-focus-accent exactly (sidebar-nav.tsx's
@@ -1649,9 +1649,8 @@ export function ComposeBox({
           )}
         </div>
         </div>
-      </div>
       {/* Attach + access mode (left group) / model + effort (right group),
-          one row below the bordered box entirely (moved out of the
+          one row at the bottom of the bordered composer (moved out of the
           toolbar row above, per explicit request), split into two groups
           matching Synara's own composer footer (a real reference app
           cloned for comparison, apps/web/src/components/ChatView.tsx:
@@ -2147,6 +2146,7 @@ export function ComposeBox({
           </BaseDropdownContent>
         </BaseDropdownMenu>
       </div>
+    </div>
     </div>
     </div>
   );
