@@ -2083,3 +2083,13 @@ html.transitioning *, html.transitioning *::before, html.transitioning *::after 
     }
   }
 }
+  @property --sf-start {
+    syntax: "<number>";
+    inherits: false;
+    initial-value: 1;
+}
+  @property --sf-end {
+    syntax: "<number>";
+    inherits: false;
+    initial-value: 1;
+}
