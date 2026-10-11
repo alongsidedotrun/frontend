@@ -81,7 +81,7 @@ export function SidebarSections({ sections, activeItemId, onItemSelect, classNam
               })}
             </div>
           ) : section.emptyLabel ? (
-            <p className="mt-[var(--redesign-sidebar-section-row-offset)] px-[var(--redesign-quick-actions-padding)] text-[length:var(--redesign-font-size-base)] font-normal text-muted-foreground">
+            <p className="mt-[var(--redesign-sidebar-section-row-offset)] px-[var(--redesign-quick-actions-padding)] text-[length:var(--redesign-font-size-base)] font-normal text-muted-foreground opacity-80">
               {section.emptyLabel}
             </p>
           ) : null}
