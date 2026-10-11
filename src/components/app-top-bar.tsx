@@ -19,6 +19,7 @@ export function AppTopBar({
   controlsClassName,
   showNotifications = true,
   collapseButtonHover = true,
+  title,
 }: {
   collapsed?: boolean;
   canGoBack?: boolean;
@@ -31,6 +32,8 @@ export function AppTopBar({
   controlsClassName?: string;
   showNotifications?: boolean;
   collapseButtonHover?: boolean;
+  /** Contextual name for the active content, such as its project. */
+  title?: string;
 }) {
   return (
     <div
@@ -63,6 +66,7 @@ export function AppTopBar({
         >
           <SidebarLeftIcon className="size-[14px]" />
         </button>
+        {title && <span className="ml-2 max-w-56 truncate text-[13px] font-medium text-foreground">{title}</span>}
       </div>
       {showNotifications && <BaseDropdownMenu size="compact">
         <BaseDropdownTrigger

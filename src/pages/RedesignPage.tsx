@@ -46,6 +46,7 @@ type Project = {
 type Chat = {
   id: string;
   name: string;
+  project_id?: string | null;
 };
 
 const DEFAULT_WORKSPACE: WorkspaceRecord = {
@@ -255,6 +256,9 @@ export function RedesignPage() {
   }, [activeQuickAction]);
 
   const activeChat = chats.find((chat) => chat.id === activeChatId) ?? null;
+  const activeProjectName = activeChat?.project_id
+    ? projects.find((project) => project.id === activeChat.project_id)?.name
+    : undefined;
   const redesignChatContext: ChatPageShellContext | undefined = activeChat ? {
     chatName: activeChat.name,
     receiveChatNameFromServer: (name) => {
@@ -424,6 +428,7 @@ export function RedesignPage() {
           onForward={goForwardInApp}
           onCollapseAll={() => setSidebarCollapsed(true)}
           onExpand={() => setSidebarCollapsed(false)}
+          title={activeProjectName}
         />
       }
       sidebarCollapsed={sidebarCollapsed}
