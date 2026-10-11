@@ -112,7 +112,7 @@
   --redesign-workspace-chevron-size: clamp(0.9375rem, 4.06cqw, 1.0625rem);
   --redesign-workspace-avatar-size: min(6.3cqw, 0.9375rem);
   --redesign-workspace-brand-surface-size: 1.0625rem;
-  --redesign-workspace-brand-mark-size: 0.8125rem;
+  --redesign-workspace-brand-mark-size: 0.75rem;
   --redesign-workspace-brand-radius: 0.3125rem;
   --redesign-workspace-brand-padding: 0.125rem;
   --redesign-workspace-search-gap: 32.51cqw;
