@@ -115,17 +115,6 @@ export function RedesignPage() {
   const appHistoryIndexRef = useRef(0);
   const appHistoryNavigationRef = useRef(false);
   const [, setAppHistoryVersion] = useState(0);
-  const routedContent = useOutlet({
-    chatName: "Untitled chat",
-    receiveChatNameFromServer: () => {},
-    refreshSidebarLists: () => {},
-    openSettings: (section: string) => navigate(`/settings/${section}`),
-    openFile: () => {},
-    renameOpenFile: () => {},
-    notifyFilesTouched: () => {},
-    primarySidebarCollapsed: false,
-    rightPanelOpen: false,
-  });
   const [workspaces, setWorkspaces] = useState<WorkspaceRecord[]>([DEFAULT_WORKSPACE]);
   const [workspaceId, setWorkspaceId] = useState(DEFAULT_WORKSPACE.id);
   const [newWorkspaceOpen, setNewWorkspaceOpen] = useState(false);
@@ -143,6 +132,20 @@ export function RedesignPage() {
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [projectError, setProjectError] = useState<string | null>(null);
+
+  const activeWorkspace = workspaces.find((workspace) => workspace.id === workspaceId) ?? DEFAULT_WORKSPACE;
+  const routedContent = useOutlet({
+    chatName: "Untitled chat",
+    receiveChatNameFromServer: () => {},
+    refreshSidebarLists: () => {},
+    openSettings: (section: string) => navigate(`/settings/${section}`),
+    openFile: () => {},
+    renameOpenFile: () => {},
+    notifyFilesTouched: () => {},
+    primarySidebarCollapsed: false,
+    rightPanelOpen: false,
+    workspaceName: activeWorkspace.name,
+  });
 
   const currentAppPath = location.pathname + location.search;
   const routeQuickAction = quickActionForPath(location.pathname);
@@ -249,6 +252,7 @@ export function RedesignPage() {
   } : undefined;
   const redesignHomeContext: HomePageShellContext = {
     openSettings: () => {},
+    workspaceName: activeWorkspace.name,
   };
 
   function openCreatedChat(sessionId: string) {

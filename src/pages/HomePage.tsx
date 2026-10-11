@@ -18,6 +18,7 @@ import { getUserDisplayName } from "@/lib/user";
 // gap already exists independent of this page.
 export type HomePageShellContext = {
   openSettings: (section: SettingsSection) => void;
+  workspaceName?: string;
 };
 
 type HomePageProps = {
@@ -47,9 +48,11 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
   // open the real SettingsOverlay modal directly, threaded down to
   // ComposeBox's own "Add provider" row.
   const outletContext = useOutletContext<HomePageShellContext>();
-  const { openSettings } = shellContextOverride ?? outletContext;
+  const { openSettings, workspaceName = t("home.defaultWorkspaceName") } = shellContextOverride ?? outletContext;
   const [prompt, setPrompt] = useState("");
   const [sending, setSending] = useState(false);
+  const [transitioningToChat, setTransitioningToChat] = useState(false);
+  const handoffTimerRef = useRef<number | null>(null);
   // ComposeBox owns which models are selected (supports multi-select /
   // "Model fusion"); this just mirrors the current selection so
   // createSession can read it without lifting all of ComposeBox's state up.
@@ -96,6 +99,10 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
     document.title = t("home.title");
   }, [t]);
 
+  useEffect(() => () => {
+    if (handoffTimerRef.current !== null) window.clearTimeout(handoffTimerRef.current);
+  }, []);
+
   useEffect(() => {
     if (pendingModel) {
       setDefaultModel(pendingModel);
@@ -119,7 +126,7 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
   // reply's own dial showed Medium".
   async function createSession(images: ImageAttachment[], effort: EffortLevel) {
     const trimmed = prompt.trim();
-    if (!trimmed || sending) return;
+    if (!trimmed || sending || transitioningToChat) return;
     // compose-box.tsx's own Send button/Enter handler already blocks
     // submitting without a model selected (shaking its model trigger
     // instead -- see that file's own triggerModelShake) -- createSession
@@ -216,122 +223,39 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
       // meaningful for the one chat being landed on right now.
       sessionStorage.setItem("alongside_model_label", model.label);
       sessionStorage.setItem("alongside_model_value", model.value);
-      if (onSessionCreated) {
-        onSessionCreated(data.session_id);
-      } else {
-        navigate(`/chat/${data.session_id}`);
-      }
+      setTransitioningToChat(true);
+      handoffTimerRef.current = window.setTimeout(() => {
+        handoffTimerRef.current = null;
+        setSending(false);
+        if (onSessionCreated) {
+          onSessionCreated(data.session_id);
+        } else {
+          navigate(`/chat/${data.session_id}`);
+        }
+      }, 520);
+      return;
     } finally {
-      setSending(false);
+      if (handoffTimerRef.current === null) setSending(false);
     }
   }
 
   return (
-    // @container: makes the compose box's own width tiers react to THIS
-    // box's own actual rendered width instead of the browser viewport.
-    <div className="relative flex flex-1 flex-col overflow-hidden bg-background @container">
-      {/* Heading + subheading -- real vertical centering now, but within
-          the space *above* the compose box specifically, not the page's
-          full height (which visually includes the box's own footprint at
-          the bottom) -- per explicit request ("centralised to the page...
-          compared to the compose box", the previous fixed pt-[210px]
-          guess wasn't actually centered relative to where the box sits).
-          bottom-[104px] (104 = the compose box's own real height, ~54px,
-          + its attach/model/context row just below it, ~34px, + this
-          page's own pb-4 bottom inset, 16px -- see compose-box.tsx and
-          this file's own wrapper below) on this container instead of
-          inset-0 is what actually shrinks the *real* height percentages
-          resolve against for the absolutely-positioned children below;
-          padding-bottom on an inset-0 container does NOT do this --
-          padding doesn't change a flex-sized box's own outer height, so a
-          child's `top: 50%` still measured against the *full* page height
-          regardless (confirmed: that's why the previous pt-[210px]
-          attempt needed a hand-guessed constant instead of just centering
-          in the first place).
-          Only the logo itself is centered here (top-1/2/-translate-y-1/2)
-          -- not the whole heading+subheading block. WelcomePage's own
-          content below its own logo is much taller (5 menu rows + footer
-          vs. this page's 2 short lines), so centering each page's *whole*
-          block by its own midpoint landed the two logos at different Y
-          positions regardless of matching containers. Centering only the
-          shared element (the logo) and positioning everything after it
-          via an explicit `top: calc(50% + ...)` offset (not part of the
-          centering) is what keeps both pages' logos pinned to the exact
-          same real, viewport-responsive Y regardless of what each page
-          shows below it -- WelcomePage.tsx uses this identical pattern. */}
-      <div className="absolute inset-x-0 top-0 bottom-[104px] px-4">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-          <AlongsideLogo className="size-[32px] text-black dark:text-white" />
-        </div>
-        {/* calc(50% + 16px + 12px): 16 = half the logo's own 32px height
-            (clearing its circle), 12 = the mb-3 gap this heading used to
-            carry to the logo directly above it -- now expressed as a top
-            offset since this block is no longer a flex sibling of the
-            logo. Reverted back off a brief fixed-top-offset experiment
-            (tried to match WelcomePage.tsx's own Y) -- per explicit
-            request ("revert new chat and inbox to keep the heading and
-            icon at the middle as i prefer how that looks and accept that
-            we won't be able to match getting started"). */}
-        <div
-          className="absolute left-1/2 w-full max-w-[22rem] -translate-x-1/2 text-center"
-          style={{ top: "calc(50% + 16px + 12px)" }}
-        >
-        {/* AlongsideLogo, size-[32px] -- per explicit request, same size
-            WelcomePage's own logo was just shrunk to. text-black dark:text-
-            white -- AlongsideLogo now inherits color (fill-current) rather
-            than carrying its own dark/light opinion (alongside-logo.tsx's
-            own comment has the full reasoning -- that change was for the
-            sidebar's own Getting started row, which needs this mark to
-            match its active/inactive row color instead); this page sits on
-            the open page background, not a sidebar row, so it sets that
-            same "dark mark in light mode, light mark in dark mode" look
-            itself. */}
-          <h1 className="text-[18px] font-normal text-foreground">{t("home.heading")}</h1>
-          <p className="mt-2 text-[13px] font-normal text-muted-foreground">{t("home.subheading")}</p>
-        </div>
-      </div>
-      {/* ComposeBox pinned to the bottom of the page -- absolute now (was a
-          shrink-0 flex sibling), so it overlays the heading above instead of
-          sharing flex space with it (see that div's own comment). z-10 so
-          its own opaque background actually covers the heading text it
-          overlaps rather than the two blending. var(--chat-max-width), not
-          the hardcoded PAGE_CONTENT_WIDTH this used to carry -- confirmed
-          directly as a real bug ("the expanded is not updating our content
-          component... it should move from 800px to 95% width of the
-          page"): Settings -> Appearance -> Chat width's own Expanded
-          option (use-appearance-settings.ts's own applyChatWidth) sets
-          this CSS variable to 95vw, which ChatPage.tsx's own compose
-          wrapper already reads -- this page's wrapper just wasn't wired to
-          the same variable, so it stayed fixed at 800px regardless of the
-          setting. The per-page arrow-diagonal expand/wide toggle that used
-          to sit at the box's own top-right corner is still gone entirely,
-          per that earlier explicit request -- this is the global Settings
-          toggle, a different, still-wanted feature. pb-4 (was pb-10, then pb-6)
-          -- per explicit request, moves the whole group (the bordered box
-          and its own attach/model/context-meter row directly below it,
-          both rendered inside ComposeBox itself) further down toward the
-          page's true bottom edge; a smaller bottom inset here is what
-          actually does that, since both move as one unit already. This
-          exact value is also what sidebar-nav.tsx's own account row (the
-          avatar chip at the sidebar's own bottom) computes its own bottom
-          offset from, so the two stay aligned -- see that row's own
-          comment for the shared math. */}
-      {/* px-3/sm:px-5/pb-4 on this outer div, maxWidth on the inner one --
-          matches ChatPage.tsx's own compose wrapper structure exactly (see
-          that file's comment): padding has to sit *outside* the
-          var(--chat-max-width) cap, not on the same div carrying it, or the box
-          renders 32px narrower than ChatPage's own -- real bug, confirmed
-          directly ("the new chat and chat compose box are different sizes
-          and different heights"), this div's old px-4/pb-4 was doing both at
-          once. pb-4, not the pb-6 this had silently drifted to (the comment
-          right above already claimed pb-4 -- confirmed directly as a real,
-          stale mismatch: "the compose box... should be lowered... to match
-          the location of the avatar at the sidebar"): that drift is what
-          decoupled this from the account row's own pb-4/h-7 math below,
-          landing the box's own toolbar-row center 8px higher than the
-          avatar's. */}
-      <div className="absolute inset-x-0 bottom-0 z-10 px-3 pb-4 sm:px-5">
+    <div className="relative flex flex-1 overflow-hidden bg-background @container">
+      <div
+        className={`absolute inset-x-0 z-10 px-3 pb-4 transition-[top,transform] duration-500 ease-in-out sm:px-5 ${transitioningToChat ? "top-full -translate-y-full" : "top-1/2 -translate-y-1/2"}`}
+      >
         <div className="t-chat-width mx-auto w-full" style={{ maxWidth: "var(--chat-max-width)" }}>
+          <div
+            className={`absolute inset-x-0 bottom-[calc(100%+1.25rem)] flex flex-col items-center justify-center gap-1 text-center transition-all duration-200 ${transitioningToChat ? "pointer-events-none -translate-y-2 opacity-0" : "translate-y-0 opacity-100"}`}
+          >
+            <h1 className="text-[18px] font-normal text-foreground">{t("home.workspacePrompt")}</h1>
+            <div className="flex items-center justify-center gap-2">
+              <span className="flex size-6 items-center justify-center rounded-[6px] bg-white" aria-hidden="true">
+                <AlongsideLogo className="size-4 !text-black [&_g]:!fill-black" />
+              </span>
+              <span className="text-[18px] font-normal text-foreground">{workspaceName}</span>
+            </div>
+          </div>
         <ComposeBox
           value={prompt}
           onChange={setPrompt}
@@ -352,22 +276,7 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
           onPinDefaultEffort={(level) => {
             pinnedDefaultEffortRef.current = level;
           }}
-          // No autoFocus any more, per explicit request -- landing on
-          // this page shouldn't jump straight into the compose box;
-          // this placeholder's own text spells out the real way in
-          // (compose-box.tsx's own "press space" listener, gated on
-          // placeholderCycle below). No "Start a new chat." lead-in any
-          // more either (tried, reverted per explicit request) -- just
-          // the instruction itself.
           placeholder={t("home.composePlaceholder")}
-          // HomePage-only rotating hint (compose-box.tsx's own
-          // AnimatedPlaceholder) -- per explicit request, not passed on
-          // ChatPage, which keeps a single static placeholder. No "Ask
-          // anything." lead-in any more either, same reasoning as
-          // `placeholder` above. New "single player/multiplayer" tip
-          // added right after the base `placeholder` (per explicit
-          // request: "after press space... have this new one"), ahead
-          // of the existing @ / . tips.
           placeholderCycle={[
             t("home.placeholderCycle.multiplayer"),
             t("home.placeholderCycle.mention"),
