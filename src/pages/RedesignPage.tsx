@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useOutlet } from "react-router-dom";
-import { Bot, CircleArrowUp, CircleHelp, LayoutDashboard, Plus, Search } from "lucide-react";
+import { CircleArrowUp, CircleHelp, Plus, Search } from "lucide-react";
 import { AlongsideLogo } from "@/components/icons/alongside-logo";
-import { InboxIcon, IntegrationsIcon, LogInIcon, MessageChatCircleIcon, Settings01Icon, Settings04Icon } from "@/components/icons/untitled-ui";
+import { IntegrationsIcon, LogInIcon, MessageChatCircleIcon, Settings01Icon, Settings04Icon } from "@/components/icons/untitled-ui";
 import { SplitView } from "@/components/design-system/split-view";
 import { AppTopBar } from "@/components/app-top-bar";
 import { QuickActions, type QuickActionItem } from "@/components/design-system/quick-actions";
@@ -82,10 +82,7 @@ const PROFILE_ACTION_SECTIONS: readonly (readonly WorkspaceMenuAction[])[] = [
 ];
 
 const QUICK_ACTIONS: readonly QuickActionItem[] = [
-  { id: "overview", label: "Overview", icon: LayoutDashboard },
-  { id: "inbox", label: "Inbox", icon: InboxIcon },
   { id: "chats", label: "Chats", icon: MessageChatCircleIcon },
-  { id: "agents", label: "Agents", icon: Bot },
   { id: "apps", label: "Apps", icon: IntegrationsIcon },
 ];
 
