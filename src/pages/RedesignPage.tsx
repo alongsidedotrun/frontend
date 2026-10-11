@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useOutlet } from "react-router-dom";
 import { CircleArrowUp, CircleHelp, Plus, Search } from "lucide-react";
 import { AlongsideLogo } from "@/components/icons/alongside-logo";
-import { IntegrationsIcon, LogInIcon, MessageChatCircleIcon, Settings01Icon, Settings04Icon } from "@/components/icons/untitled-ui";
+import { LogInIcon, MessageChatCircleIcon, Settings01Icon, Settings04Icon } from "@/components/icons/untitled-ui";
 import { SplitView } from "@/components/design-system/split-view";
 import { AppTopBar } from "@/components/app-top-bar";
 import { QuickActions, type QuickActionItem } from "@/components/design-system/quick-actions";
@@ -82,8 +82,7 @@ const PROFILE_ACTION_SECTIONS: readonly (readonly WorkspaceMenuAction[])[] = [
 ];
 
 const QUICK_ACTIONS: readonly QuickActionItem[] = [
-  { id: "chats", label: "Chats", icon: MessageChatCircleIcon },
-  { id: "apps", label: "Apps", icon: IntegrationsIcon },
+  { id: "chats", label: "New chat", icon: MessageChatCircleIcon },
 ];
 
 const GETTING_STARTED_STEPS: readonly GettingStartedStep[] = [
@@ -463,7 +462,7 @@ export function RedesignPage() {
               label="Quick actions"
               shortcut="K"
               actions={QUICK_ACTIONS}
-              activeId={activeQuickAction}
+              activeId={location.pathname === "/new/chat" ? "chats" : undefined}
               onActionSelect={(actionId) => {
                 if (actionId === "chats") {
                   setActiveChatId(null);
