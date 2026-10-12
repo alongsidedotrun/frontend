@@ -154,6 +154,9 @@
   --redesign-sidebar-footer-onboarding-trigger-radius: 0.875rem;
   --redesign-sidebar-footer-onboarding-collapsed-radius: 0.5rem;
   --redesign-sidebar-footer-onboarding-collapsed-trigger-radius: var(--redesign-hover-radius);
+  /* A half-strength outline lets the card edge recede into its soft
+     elevation instead of reading as a second, heavy border. */
+  --redesign-sidebar-footer-onboarding-border: color-mix(in srgb, var(--redesign-overlay-border) 50%, transparent);
   --redesign-sidebar-footer-onboarding-shadow: 0 2px 6px rgb(0 0 0 / 0.06);
   --redesign-sidebar-footer-progress-size: 0.9375rem;
   --redesign-sidebar-footer-progress-inset: 1px;
