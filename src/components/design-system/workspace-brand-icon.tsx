@@ -24,7 +24,7 @@ const SIZE_CLASS: Record<WorkspaceBrandIconSize, string> = {
 
 // Artwork always occupies 75% of the square tile, leaving a 12.5% safe area
 // on every side. For example, a 64px tile renders a 48px mark with 8px inset.
-const BRAND_ARTWORK_CLASS = "size-3/4";
+const BRAND_ARTWORK_CLASS = "h-3/4 w-3/4";
 
 type WorkspaceBrandIconProps = {
   /** The rendered square; restricted to the shared workspace-icon scale. */
