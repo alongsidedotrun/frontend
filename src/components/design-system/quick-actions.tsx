@@ -41,24 +41,20 @@ export function QuickActions({ label, shortcut, actions, activeId, onActionSelec
         )}
       >
         <span
+          className="min-w-0 flex-1 text-left text-muted-foreground opacity-70"
+          style={{ fontVariationSettings: fontWeights.medium }}
+        >
+          {label}
+        </span>
+        <span
           className={cn(
-            "flex items-center gap-1 text-muted-foreground opacity-70 transition-colors group-hover/quick-actions-trigger:text-foreground group-focus-visible/quick-actions-trigger:text-foreground",
+            "ml-2 flex shrink-0 items-center gap-1 text-muted-foreground opacity-70 transition-colors group-hover/quick-actions-trigger:text-foreground group-focus-visible/quick-actions-trigger:text-foreground",
             size.type.micro,
           )}
           aria-label={`Command ${shortcut}`}
         >
           <Command aria-hidden="true" strokeWidth={1.5} className="size-[1em]" />
-          <span
-            style={{ fontVariationSettings: fontWeights.medium }}
-          >
-            {shortcut}
-          </span>
-        </span>
-        <span
-          className="ml-2 min-w-0 flex-1 text-left text-muted-foreground opacity-70"
-          style={{ fontVariationSettings: fontWeights.medium }}
-        >
-          {label}
+          <span style={{ fontVariationSettings: fontWeights.medium }}>{shortcut}</span>
         </span>
       </button>
       <div className="flex flex-col gap-[var(--redesign-quick-actions-row-gap)]">
