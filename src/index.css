@@ -193,9 +193,9 @@
   --redesign-primary-surface: var(--background);
   --redesign-sidebar-surface: #FAFAFA;
   --redesign-sidebar-overlay-surface: #f8f8f8;
-  --redesign-overlay-border: rgba(13, 13, 13, 0.16);
+  --redesign-overlay-border: #EBEBEB;
   --redesign-progress-track: rgba(13, 13, 13, 0.3);
-  --redesign-sidebar-border: rgba(13, 13, 13, 0.12);
+  --redesign-sidebar-border: #EBEBEB;
   --redesign-sidebar-width: clamp(12.25rem, 18vw, 22rem);
   --surface-1: #FAFAFA;
   --surface-2: #FCFCFC;
@@ -614,23 +614,8 @@
        to look similar. */
     --accent-foreground: var(--foreground);
     --destructive: oklch(0.577 0.245 27.325);
-    /* Main content/pages border -- codex's own light "border" formula
-       exactly (theme.logic.ts's buildLightDerivedTokens: formatRgba(ink,
-       0.09 + contrast*0.04)): a real alpha wash of --foreground's own ink
-       (#0d0d0d) rather than an independently hardcoded flat gray (was
-       #dfdfdf), per explicit request ("our border color needs to be
-       updated as well... to match synatra's codex borders"). The
-       "contrast" plugged into that formula isn't the raw 0 from the
-       codex-theme-v1 pack the user shared -- theme.logic.ts's own
-       normalizeContrastStrength() runs it through a curve first
-       (CONTRAST_CURVE_BASELINE.light = 45, CONTRAST_CURVE_BELOW_BASELINE
-       = 0.7: ((0-45)/60)*0.7 = -0.525), so the real multiplier is
-       negative here, not zero -- 0.09 + (-0.525 * 0.04) = 0.069, not
-       0.09 (this file's own earlier value, before the curve was
-       accounted for). Codex's own light borders are genuinely this
-       subtle by design at this pack's contrast setting -- a hairline,
-       not a visible rule. */
-    --border: rgba(13, 13, 13, 0.069);
+    /* One shared border tone for application controls and surfaces. */
+    --border: #EBEBEB;
     --input: oklch(0.922 0 0);
     --section-foreground: #7d7d7d;
     /* Codex's own accent -- exact value from the theme pack the user
