@@ -55,7 +55,7 @@ export function QuickActions({ label, shortcut, actions, activeId, onActionSelec
           </span>
         </span>
         <span
-          className="ml-2 min-w-0 flex-1 text-left text-muted-foreground opacity-20"
+          className="ml-2 min-w-0 flex-1 text-left text-muted-foreground opacity-70"
           style={{ fontVariationSettings: fontWeights.medium }}
         >
           {label}
