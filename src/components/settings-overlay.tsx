@@ -3047,7 +3047,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
                           onClick={() => navigate(`/settings/${key}`, { replace: true })}
                           aria-current={isActive ? "page" : undefined}
                           className={cn(
-                            "flex h-[var(--redesign-quick-actions-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-left text-[length:var(--redesign-sidebar-primary-font-size)] text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                            "flex h-[var(--redesign-quick-actions-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-left text-[length:var(--redesign-sidebar-primary-font-size)] font-normal text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                             isActive && "bg-muted font-medium text-foreground",
                           )}
                         >
@@ -3070,7 +3070,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
             <button
               type="button"
               onClick={() => navigate("/new/chat")}
-              className="flex h-[var(--redesign-sidebar-footer-account-row-height)] w-full items-center rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-[length:var(--redesign-sidebar-primary-font-size)] text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex h-[var(--redesign-sidebar-footer-account-row-height)] w-full items-center rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-[length:var(--redesign-sidebar-primary-font-size)] font-normal text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <span className="truncate">Return to Chats</span>
             </button>
