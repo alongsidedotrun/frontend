@@ -330,14 +330,14 @@ export function RedesignPage() {
       label: "Projects",
       action: { label: "New project", icon: Plus, onSelect: () => { setProjectError(null); setNewProjectOpen(true); } },
       items: projects.map((project) => ({ id: project.id, label: project.name })),
-      emptyLabel: "No projects available",
+      emptyLabel: "No projects",
     },
     {
       id: "chats",
       label: "Chats",
       action: { label: "New chat", icon: Plus, onSelect: () => { setActiveChatId(null); } },
       items: chats.map((chat) => ({ id: chat.id, label: chat.name })),
-      emptyLabel: "No chats available",
+      emptyLabel: "No chats",
     },
   ];
   const activeSidebarSurface = activeQuickAction === "inbox" || activeQuickAction === "chats"
