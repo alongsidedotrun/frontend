@@ -566,7 +566,7 @@ export function RedesignPage() {
           </div>
           <footer className="mt-auto pt-[var(--redesign-sidebar-section-gap)]">
             <GettingStartedSummary label="Getting Started" steps={GETTING_STARTED_STEPS} completedSteps={0} viewAllLabel="View all tasks" />
-            <div className="mt-[var(--redesign-sidebar-section-gap)] border-t border-[var(--redesign-sidebar-border)] pt-2">
+            <div className="-mx-[var(--redesign-sidebar-edge-padding)] mt-[var(--redesign-sidebar-section-gap)] border-t border-[var(--redesign-sidebar-border)] px-[var(--redesign-sidebar-edge-padding)] pt-2">
               <SidebarAccountFooter
                 name="Guest"
                 avatar={<DefaultAvatar name="Guest" />}

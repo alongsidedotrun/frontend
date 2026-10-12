@@ -3031,7 +3031,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
                   <div className="flex h-[var(--redesign-quick-actions-row-height)] items-center px-[var(--redesign-quick-actions-padding)]">
                     <h2
                       id={`settings-sidebar-group-${group.labelKey}`}
-                      className="text-[length:var(--redesign-font-size-base)] font-medium text-muted-foreground"
+                      className="text-[length:var(--redesign-font-size-compact)] font-medium text-muted-foreground"
                     >
                       {t(group.labelKey)}
                     </h2>
@@ -3047,8 +3047,8 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
                           onClick={() => navigate(`/settings/${key}`, { replace: true })}
                           aria-current={isActive ? "page" : undefined}
                           className={cn(
-                            "flex h-[var(--redesign-quick-actions-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-left text-[length:var(--redesign-font-size-base)] text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                            isActive && "bg-muted text-foreground",
+                            "flex h-[var(--redesign-quick-actions-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-left text-[length:var(--redesign-sidebar-primary-font-size)] text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                            isActive && "bg-muted font-medium text-foreground",
                           )}
                         >
                           <span className="flex size-[var(--redesign-quick-actions-icon-size)] shrink-0 items-center justify-center">
@@ -3066,7 +3066,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
         </div>
 
         <footer className="mt-auto pt-[var(--redesign-sidebar-section-gap)]">
-          <div className="border-t border-[var(--redesign-sidebar-border)] pt-2">
+          <div className="-mx-[var(--redesign-sidebar-edge-padding)] border-t border-[var(--redesign-sidebar-border)] px-[var(--redesign-sidebar-edge-padding)] pt-2">
             <button
               type="button"
               onClick={() => navigate("/new/chat")}

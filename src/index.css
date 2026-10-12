@@ -89,13 +89,13 @@
  */
 :root {
   --redesign-font-size-xs: 0.75rem;
-  --redesign-font-size-compact: clamp(0.625rem, 0.86vw, 0.6875rem);
+  --redesign-font-size-compact: clamp(0.6875rem, 0.86vw, 0.75rem);
   /* Keep sidebar copy responsive, but cap small-screen reduction at 2px. */
-  --redesign-font-size-base: clamp(0.6875rem, 1vw, 0.8125rem);
+  --redesign-font-size-base: clamp(0.75rem, 1vw, 0.8125rem);
   /* Primary navigation is deliberately one step larger than supporting
      sidebar copy, so the workspace, main menu, and profile don't read
      undersized next to the app content. */
-  --redesign-sidebar-primary-font-size: clamp(0.75rem, 1.02vw, 0.84375rem);
+  --redesign-sidebar-primary-font-size: clamp(0.8125rem, 1.02vw, 0.875rem);
   --redesign-dropdown-font-size: clamp(0.6875rem, 1vw, 0.8125rem);
   --redesign-font-size-sm: 0.875rem;
   --redesign-font-size-md: 1rem;

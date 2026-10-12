@@ -66,6 +66,7 @@ export function GettingStartedSummary({
       className={cn(
         panelRadius,
         "border border-[var(--redesign-overlay-border)]",
+        "shadow-[var(--shadow-2)] dark:shadow-none",
         expanded && "p-[var(--redesign-sidebar-footer-onboarding-padding)]",
       )}
       style={{ backgroundColor: "var(--redesign-sidebar-overlay-surface)" }}
