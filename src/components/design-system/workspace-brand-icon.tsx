@@ -48,6 +48,9 @@ export function WorkspaceBrandIcon({
   markClassName,
 }: WorkspaceBrandIconProps) {
   const useInvertedMonochrome = monochrome && invertOnLight;
+  // Alongside's pinwheel is optically high-right inside its mathematically
+  // centered viewBox. Keep that correction here so every usage stays aligned.
+  const alongsideOpticalOffset = !imageSrc && Icon === AlongsideLogo;
 
   return (
     <span
@@ -73,6 +76,7 @@ export function WorkspaceBrandIcon({
         <Icon
           className={cn(
             "block h-2/3 w-2/3",
+            alongsideOpticalOffset && "[transform:translate(-4%,4%)]",
             useInvertedMonochrome ? "text-white dark:text-black" : "text-black dark:text-white",
             markClassName,
           )}
