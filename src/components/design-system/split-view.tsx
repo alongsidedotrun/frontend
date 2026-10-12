@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Sidebar, SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 
@@ -13,19 +13,6 @@ type SplitViewProps = {
   sidebarContentClassName?: string;
   contentClassName?: string;
 };
-
-/**
- * Motion cannot interpolate the redesign width's CSS `clamp()` variable, and
- * falls back to Sidebar's 16rem default. Resolve that same clamp to a pixel
- * value before handing it to the Fluid Sidebar provider.
- */
-function getRedesignSidebarWidth() {
-  if (typeof window === "undefined") return "12.25rem";
-  const rootFontSize = Number.parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16;
-  const minimum = 12.25 * rootFontSize;
-  const maximum = 22 * rootFontSize;
-  return `${Math.min(maximum, Math.max(minimum, window.innerWidth * 0.18))}px`;
-}
 
 /**
  * A layout primitive for sections whose navigation controls a single content
@@ -43,20 +30,11 @@ export function SplitView({
   sidebarContentClassName,
   contentClassName,
 }: SplitViewProps) {
-  const [sidebarWidth, setSidebarWidth] = useState(getRedesignSidebarWidth);
-
-  useEffect(() => {
-    const updateWidth = () => setSidebarWidth(getRedesignSidebarWidth());
-    updateWidth();
-    window.addEventListener("resize", updateWidth);
-    return () => window.removeEventListener("resize", updateWidth);
-  }, []);
-
   return (
     <SidebarProvider
       open={!sidebarCollapsed}
       onOpenChange={(open) => onSidebarCollapsedChange?.(!open)}
-      width={sidebarWidth}
+      width="22rem"
       widthMobile="min(18rem, calc(100vw - 1rem))"
       className={cn("h-dvh overflow-hidden bg-background", className)}
     >
