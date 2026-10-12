@@ -200,7 +200,7 @@
   --redesign-sidebar-surface: #FAFAFA;
   --redesign-sidebar-overlay-surface: #f8f8f8;
   --redesign-overlay-border: #EBEBEB;
-  --redesign-progress-track: rgba(13, 13, 13, 0.3);
+  --redesign-progress-track: color-mix(in srgb, var(--focus-accent) 30%, transparent);
   --redesign-sidebar-border: #EBEBEB;
   --redesign-sidebar-width: 14rem;
   --surface-1: #FAFAFA;
@@ -260,7 +260,7 @@
   --redesign-sidebar-elevated-shadow: none;
   --redesign-sidebar-footer-onboarding-shadow: none;
   --redesign-sidebar-overlay-surface: #212121;
-  --redesign-progress-track: rgba(252, 252, 252, 0.3);
+  --redesign-progress-track: color-mix(in srgb, var(--focus-accent) 30%, transparent);
     --redesign-sidebar-border: #232323;
     --redesign-overlay-border: #282828;
     --surface-1: #171717;
