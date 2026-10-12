@@ -62,6 +62,8 @@ export function CommandMenuDemo({ open, onOpenChange, items }: CommandMenuDemoPr
       shortcut="mod+k"
       title="Quick actions"
       description="Search actions and chats."
+      className="!border !border-white/[0.08] !bg-background/80 backdrop-blur-xl"
+      backdropClassName="!bg-background/45 !backdrop-blur-sm"
     >
       <CommandMenu items={visibleItems} suggestions={["new-chat", "new-project", "settings"]}>
         <CommandMenuInput placeholder="Search actions and chats…" />
