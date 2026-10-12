@@ -42,6 +42,7 @@ export function SplitView({
       <Sidebar
         collapsible="offcanvas"
         bordered={false}
+        rail={false}
         className={cn("mt-10 h-[calc(100svh-2.5rem)] bg-[var(--redesign-sidebar-surface)]", sidebarClassName)}
       >
         <div
