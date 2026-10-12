@@ -15,6 +15,18 @@ const SIZE_CLASS: Record<WorkspaceBrandIconSize, string> = {
   254: "size-[254px]",
 };
 
+// The source mark has a subtle high-right optical bias. These values are
+// intentionally size-aware rather than percentage based: percentage movement
+// grows too quickly for the 128px and 254px marks.
+const ALONGSIDE_OPTICAL_OFFSET_CLASS: Record<WorkspaceBrandIconSize, string> = {
+  8: "",
+  16: "[transform:translate(-0.5px,0.5px)]",
+  32: "[transform:translate(-1px,1px)]",
+  64: "[transform:translate(-1.5px,1.5px)]",
+  128: "[transform:translate(-2px,2px)]",
+  254: "[transform:translate(-3px,3px)]",
+};
+
 type WorkspaceBrandIconProps = {
   /** The rendered square; restricted to the shared workspace-icon scale. */
   size: WorkspaceBrandIconSize;
@@ -76,7 +88,7 @@ export function WorkspaceBrandIcon({
         <Icon
           className={cn(
             "block h-2/3 w-2/3",
-            alongsideOpticalOffset && "[transform:translate(-4%,4%)]",
+            alongsideOpticalOffset && ALONGSIDE_OPTICAL_OFFSET_CLASS[size],
             useInvertedMonochrome ? "text-white dark:text-black" : "text-black dark:text-white",
             markClassName,
           )}
