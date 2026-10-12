@@ -655,8 +655,10 @@ const DropdownContent = forwardRef<HTMLDivElement, DropdownContentProps>(
                 }}
                 className={cn(
                   // min-w tracks the trigger via the Positioner's
-                  // --anchor-width var.
-                  `relative flex flex-col w-72 max-w-full min-w-[var(--anchor-width)] max-h-[min(480px,var(--available-height))] overflow-y-auto ${DROPDOWN_PANEL_RADIUS} select-none outline-none`,
+                  // --anchor-width var. p-[3px]: rows sit 3px inside the
+                  // panel (11.2px corner - 8px row corner), matching the
+                  // redesign menus; separators bleed back out edge to edge.
+                  `relative flex flex-col w-72 max-w-full min-w-[var(--anchor-width)] max-h-[min(480px,var(--available-height))] overflow-y-auto ${DROPDOWN_PANEL_RADIUS} p-[3px] [&_[role=separator]]:-mx-[3px] select-none outline-none`,
                   className
                 )}
               >
@@ -956,9 +958,12 @@ function DropdownSubMenuItem({
                   if (!open) actionsRef.current?.unmount();
                 }}
               >
+                {/* p-[3px]: rows sit 3px inside the panel (11.2px corner - 8px
+                    row corner), matching the redesign menus; separators bleed
+                    back out so they still run edge to edge. */}
                 <Menu.Popup
                   render={<Elevated offset={1} shadowLevel={3} />}
-                  className={`flex flex-col min-w-40 max-w-full max-h-[min(480px,var(--available-height))] overflow-y-auto ${DROPDOWN_PANEL_RADIUS} outline-none`}
+                  className={`flex flex-col min-w-40 max-w-full max-h-[min(480px,var(--available-height))] overflow-y-auto ${DROPDOWN_PANEL_RADIUS} p-[3px] [&_[role=separator]]:-mx-[3px] outline-none`}
                 >
                   {/* Elevated's own internal SurfaceProvider only wraps
                       whatever it renders as ITS OWN children -- none, used
