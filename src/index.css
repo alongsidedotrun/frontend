@@ -556,15 +556,11 @@
     --background: #ffffff;
     /* "Active" text -- hovered/selected menu items, headings, primary
        body text. --muted-foreground below is the resting/inactive one.
-       #0d0d0d is codex's light "ink" value exactly, same request as
-       --background above. The sidebar rail's own rows (RailButton and
-       friends, sidebar-nav.tsx) now read this same token directly
-       (text-foreground) too, rather than a separate hardcoded hex -- one
-       shared active/inactive text pair for the whole app now, not two
-       independently drifting ones. */
-    --foreground: #0d0d0d;
+       #3d3d3d matches the reference's softer charcoal for active text
+       and icons, rather than reading as pure black. */
+    --foreground: #3D3D3D;
     --card: #ffffff;
-    --card-foreground: #0d0d0d;
+    --card-foreground: #3D3D3D;
     /* var() references, not their own values: dropdown/popover menus
        (Quick chat, the profile menu) should always match the page
        background, including automatically if --background itself changes
@@ -579,12 +575,8 @@
        tone, just used by different components (Button ghost/secondary
        hover vs. sidebar/dropdown hover). */
     --muted: var(--accent);
-    /* Resting/inactive text -- Synara's own light --muted-foreground
-       formula exactly (color-mix(in srgb, neutral-500 90%, black),
-       Tailwind neutral-500 = #737373), not a precomputed approximation,
-       per explicit request ("update the dark mode and light mode to be
-       one color exactly like the color scheme at Synara's"). */
-    --muted-foreground: color-mix(in srgb, #737373 90%, black);
+    /* Resting sidebar copy and icons use the reference's neutral gray. */
+    --muted-foreground: #8A8A8A;
     /* Hover AND active background -- one token for both, matching
        Synara's own sidebar (its --sidebar-accent/--sidebar-accent-active
        are the same --secondary value; SidebarRowStyles.ts's own hover/
@@ -617,7 +609,7 @@
     /* One shared border tone for application controls and surfaces. */
     --border: #EBEBEB;
     --input: oklch(0.922 0 0);
-    --section-foreground: #7d7d7d;
+    --section-foreground: #8A8A8A;
     /* Codex's own accent -- exact value from the theme pack the user
        shared directly (codex-theme-v1 share string): #0169cc, same in
        both light and dark (its own "contrast": 0 leaves accent
