@@ -182,7 +182,7 @@ export function SidebarAccountFooter({ name, avatar, actionSections }: SidebarAc
                 <DropdownActionRow
                   key={action.id}
                   action={action}
-                  className="mx-[-var(--redesign-workspace-menu-padding)] h-[var(--redesign-sidebar-footer-task-row-height)] gap-[var(--redesign-workspace-trigger-gap)] px-[var(--redesign-menu-horizontal-padding)]"
+                  className="h-[var(--redesign-sidebar-footer-task-row-height)] gap-[var(--redesign-workspace-trigger-gap)] px-[var(--redesign-menu-horizontal-padding)]"
                 />
               ))}
             </DropdownActionSection>
