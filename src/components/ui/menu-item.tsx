@@ -435,4 +435,5 @@ const CustomMenuItem = forwardRef<HTMLDivElement, CustomMenuItemProps>(
 CustomMenuItem.displayName = "CustomMenuItem";
 
 export { MenuItem, CustomMenuItem };
+export type { MenuItemProps };
 export default MenuItem;
