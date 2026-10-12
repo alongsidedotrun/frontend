@@ -501,6 +501,7 @@ export function RedesignPage() {
         />
       }
       sidebarCollapsed={isSettingsRoute ? false : sidebarCollapsed}
+      onSidebarCollapsedChange={setSidebarCollapsed}
       sidebarContentClassName="!pb-2"
       sidebar={
         <SidebarSurfaceTransition
