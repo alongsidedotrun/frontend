@@ -72,16 +72,18 @@ function toWorkspaceOption(workspace: WorkspaceRecord): WorkspaceOption {
     : { id: workspace.id, name: workspace.name };
 }
 
-const PROFILE_ACTION_SECTIONS: readonly (readonly WorkspaceMenuAction[])[] = [
-  [
-    { id: "sign-in", label: "Sign in", icon: LogInIcon, onSelect: () => { window.location.assign("/auth"); } },
-    { id: "settings", label: "Settings", icon: Settings04Icon },
-    { id: "help", label: "Help", icon: CircleHelp },
-  ],
-  [
-    { id: "upgrade", label: "Upgrade plan", icon: CircleArrowUp, tone: "accent" },
-  ],
-];
+function profileActionSections(onOpenSettings: () => void): readonly (readonly WorkspaceMenuAction[])[] {
+  return [
+    [
+      { id: "sign-in", label: "Sign in", icon: LogInIcon, onSelect: () => { window.location.assign("/auth"); } },
+      { id: "settings", label: "Settings", icon: Settings04Icon, onSelect: onOpenSettings },
+      { id: "help", label: "Help", icon: CircleHelp },
+    ],
+    [
+      { id: "upgrade", label: "Upgrade plan", icon: CircleArrowUp, tone: "accent" },
+    ],
+  ];
+}
 
 const QUICK_ACTIONS: readonly QuickActionItem[] = [
   { id: "chats", label: "New chat", icon: Edit05Icon },
@@ -551,7 +553,11 @@ export function RedesignPage() {
           <footer className="mt-auto pt-[var(--redesign-sidebar-section-gap)]">
             <GettingStartedSummary label="Getting Started" steps={GETTING_STARTED_STEPS} completedSteps={0} viewAllLabel="View all tasks" />
             <div className="mt-[var(--redesign-sidebar-section-gap)] border-t border-[var(--redesign-sidebar-border)] pt-2">
-              <SidebarAccountFooter name="Guest" avatar={<DefaultAvatar name="Guest" />} actionSections={PROFILE_ACTION_SECTIONS} />
+              <SidebarAccountFooter
+                name="Guest"
+                avatar={<DefaultAvatar name="Guest" />}
+                actionSections={profileActionSections(() => navigate("/settings/general"))}
+              />
             </div>
           </footer>
         </div>
