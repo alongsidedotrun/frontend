@@ -249,10 +249,10 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
             className={`flex items-center justify-center gap-2 overflow-hidden text-center transition-[max-height,margin,transform] duration-200 ${transitioningToChat ? "pointer-events-none invisible mb-0 max-h-0 -translate-y-2" : "mb-5 max-h-8 translate-y-0"}`}
           >
             <h1 className="text-[18px] font-normal text-foreground">{t("home.workspacePrompt")}</h1>
-            <span className="flex size-6 items-center justify-center rounded-[6px] bg-white" aria-hidden="true">
-              <AlongsideLogo className="size-4 !text-black [&_g]:!fill-black" />
+            <span className="flex size-6 items-center justify-center rounded-[6px] bg-black dark:bg-white" aria-hidden="true">
+              <AlongsideLogo className="size-4 text-white dark:text-black" />
             </span>
-            <span className="text-[18px] font-normal text-foreground">{workspaceName}</span>
+            <span className="text-[18px] font-medium text-foreground">{workspaceName}</span>
           </div>
         <ComposeBox
           value={prompt}
