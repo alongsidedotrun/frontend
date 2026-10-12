@@ -45,7 +45,7 @@ export function RedesignDropdownContent({
 export function RedesignDropdownSeparator() {
   return (
     <DropdownMenuSeparator
-      className="my-1 ml-[calc(var(--redesign-workspace-menu-padding)*-1)] w-[calc(100%+var(--redesign-workspace-menu-padding)+var(--redesign-workspace-menu-padding))] bg-foreground/5"
+      className="my-[3px] ml-[calc(var(--redesign-workspace-menu-padding)*-1)] w-[calc(100%+var(--redesign-workspace-menu-padding)+var(--redesign-workspace-menu-padding))] bg-foreground/5"
     />
   );
 }

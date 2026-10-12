@@ -77,7 +77,7 @@ export function WorkspaceSelector({
                   <DropdownMenuItem
                     key={workspace.id}
                     onSelect={() => onValueChange(workspace.id)}
-                    className="mx-[-var(--redesign-workspace-menu-padding)] h-[round(var(--redesign-sidebar-footer-task-row-height),2px)] gap-[var(--redesign-workspace-trigger-gap)] rounded-[var(--redesign-dropdown-row-radius)] px-[round(var(--redesign-menu-horizontal-padding),1px)] text-[length:var(--redesign-sidebar-primary-font-size)] font-medium text-foreground/70"
+                    className="h-[round(var(--redesign-sidebar-footer-task-row-height),2px)] gap-[var(--redesign-workspace-trigger-gap)] rounded-[var(--redesign-dropdown-row-radius)] px-[round(var(--redesign-menu-horizontal-padding),1px)] text-[length:var(--redesign-sidebar-primary-font-size)] font-medium text-foreground/70"
                   >
                     <WorkspaceAvatar
                       icon={workspace.icon}
@@ -109,23 +109,17 @@ export function WorkspaceSelector({
                   <DropdownActionRow
                     key={action.id}
                     action={action}
-                    className="mx-[-var(--redesign-workspace-menu-padding)] h-[var(--redesign-sidebar-footer-task-row-height)] px-[var(--redesign-menu-horizontal-padding)]"
+                    className="h-[var(--redesign-sidebar-footer-task-row-height)] px-[var(--redesign-menu-horizontal-padding)]"
                   />
                 ))}
               </DropdownActionSection>
             </>
           )}
 
-          {actionSections.map((section, sectionIndex) => (
+          {actionSections.map((section) => (
             <div key={section.map((action) => action.id).join("-")}>
               <RedesignDropdownSeparator />
-              <DropdownActionSection
-                className={
-                  sectionIndex === actionSections.length - 1
-                    ? "pb-[var(--redesign-menu-last-section-bottom-padding)]"
-                    : undefined
-                }
-              >
+              <DropdownActionSection>
                 {section.map((action) => <DropdownActionRow key={action.id} action={action} />)}
               </DropdownActionSection>
             </div>

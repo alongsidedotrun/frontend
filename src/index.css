@@ -184,7 +184,9 @@
   --redesign-workspace-list-max-height: clamp(7.5rem, 12.5vw, 10rem);
   /* Panels (menus, open Getting Started) share the card tier, 11.2px. */
   --redesign-workspace-menu-radius: calc(var(--radius) * 1.4);
-  --redesign-workspace-menu-padding: calc(var(--redesign-menu-horizontal-padding) - 2px);
+  /* Rows sit 3px inside the menu (11.2px corner - 8px row corner), like
+     Getting Started, so hover/selected corners run parallel to the menu's. */
+  --redesign-workspace-menu-padding: 3px;
   --redesign-workspace-menu-vertical-padding: var(--redesign-workspace-menu-padding);
   --redesign-menu-horizontal-padding: clamp(0.5625rem, 0.78125vw, 0.875rem);
   --redesign-menu-row-padding: clamp(0.25rem, 0.546875vw, 0.65625rem);
