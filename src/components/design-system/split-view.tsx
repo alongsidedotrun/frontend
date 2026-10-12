@@ -34,7 +34,7 @@ export function SplitView({
     <SidebarProvider
       open={!sidebarCollapsed}
       onOpenChange={(open) => onSidebarCollapsedChange?.(!open)}
-      width="16rem"
+      width="14rem"
       widthMobile="min(18rem, calc(100vw - 1rem))"
       className={cn("h-dvh overflow-hidden bg-background", className)}
     >
