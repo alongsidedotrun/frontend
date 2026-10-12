@@ -3070,10 +3070,9 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
             <button
               type="button"
               onClick={() => navigate("/new/chat")}
-              className="flex h-[var(--redesign-sidebar-footer-account-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-[length:var(--redesign-sidebar-primary-font-size)] text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex h-[var(--redesign-sidebar-footer-account-row-height)] w-full items-center rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-[length:var(--redesign-sidebar-primary-font-size)] text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <AlongsideLogo className="size-[var(--redesign-quick-actions-icon-size)] shrink-0" />
-              <span className="truncate">{t("settings.returnToAlongside")}</span>
+              <span className="truncate">Return to Chats</span>
             </button>
           </div>
         </footer>
