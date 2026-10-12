@@ -2146,7 +2146,7 @@ export function ComposeBox({
             // missing. Text without a model stays clickable: the click shakes
             // the Model picker (above) to point at it.
             className={cn(
-              "relative size-[var(--compose-action-size)] rounded-full [&_svg]:!size-[var(--compose-send-icon)] transition-colors duration-150 disabled:opacity-100",
+              "relative size-[var(--compose-action-size)] rounded-full [&_svg]:!size-[var(--compose-send-icon)] transition-colors duration-300 ease-in-out disabled:opacity-100",
               value.trim() && selectedModels.length > 0
                 ? "bg-[var(--send-button-bg)] hover:bg-[var(--send-button-bg-hover)] active:bg-[var(--send-button-bg-active)]"
                 : "bg-[var(--redesign-progress-track)]",
