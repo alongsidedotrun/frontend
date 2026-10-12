@@ -25,7 +25,6 @@ import {
   ClearIcon,
   CompareIcon,
   DocIcon,
-  IntegrationsIcon,
   MicIcon,
   PlusIcon,
   ShareIcon,
@@ -258,28 +257,9 @@ function parseToken(draft: string): { query: string; start: number } | null {
   };
 }
 
-// @ is back (issue #287) -- explicitly reintroduced after the earlier "remove
-// all @ commands" request, but with a real roster behind it this time: every
-// known integration always shows here, connected or not, so `@github`/
-// `@gmail`/`@google-doc` are always typeable -- send_message (server.rs)
-// explicitly tells the user to connect it in Settings if they mention one
-// that isn't, rather than this menu only ever showing what's already
-// connected (which would make an unconnected integration look like it
-// doesn't exist at all, not just "not set up yet").
-function parseAtToken(draft: string): { query: string; start: number } | null {
-  const match = /(^|\s)@([\w-]*)$/.exec(draft);
-  if (!match) return null;
-  return {
-    query: match[2].toLowerCase(),
-    start: match.index + match[1].length,
-  };
-}
-
-const AT_ROWS: SlashRow[] = [
-  { key: "github", kind: "placeholder", label: "@github", desc: "Ask GitHub -- issues, PRs, repos", icon: <IntegrationsIcon className="size-4" /> },
-  { key: "gmail", kind: "placeholder", label: "@gmail", desc: "Ask Gmail -- read or draft email", icon: <IntegrationsIcon className="size-4" /> },
-  { key: "google-doc", kind: "placeholder", label: "@google-doc", desc: "Ask Google Docs", icon: <IntegrationsIcon className="size-4" /> },
-];
+// The @ menu (issue #287: @github/@gmail/@google-doc integration mentions)
+// is hidden for now, per request, until the feature works end to end.
+// Restore parseAtToken/AT_ROWS from git history (commit "remove the @ menu").
 
 export type ComposeBoxHandle = {
   selectedModels: typeof QUICK_CHAT_MODELS;
@@ -1110,12 +1090,11 @@ export function ComposeBox({
   }
 
   const slashToken = dismissed ? null : parseToken(value);
-  const atToken = dismissed ? null : parseAtToken(value);
-  const token = slashToken ?? atToken;
-  const menu: "slash" | "at" | null = slashToken ? "slash" : atToken ? "at" : null;
+  const token = slashToken;
+  const menu: "slash" | null = slashToken ? "slash" : null;
   const query = token?.query ?? "";
 
-  // The / and @ menu opens toward whichever side has room: downward when the
+  // The / menu opens toward whichever side has room: downward when the
   // composer sits mid-page (a fresh new chat), upward once it's pinned to the
   // bottom (an ongoing chat). Measured before paint each time it opens or its
   // rows change, so it never flashes on the wrong side.
@@ -1127,11 +1106,7 @@ export function ComposeBox({
   const [tokenMenuMaxHeight, setTokenMenuMaxHeight] = useState<number | undefined>(undefined);
 
   const rows =
-    menu === "slash"
-      ? SLASH_ROWS.filter((r) => r.label.slice(1).startsWith(query))
-      : menu === "at"
-        ? AT_ROWS.filter((r) => r.label.slice(1).startsWith(query))
-        : [];
+    menu === "slash" ? SLASH_ROWS.filter((r) => r.label.slice(1).startsWith(query)) : [];
 
   useEffect(() => {
     setActive(0);
@@ -1302,7 +1277,7 @@ export function ComposeBox({
     // classes below (button row wrapping, padding/radius scaling) need
     // their own container context to work on both pages.
     <div ref={composeRootRef} data-compose-box className="relative @container" style={COMPOSE_TOOL_VARS}>
-      {/* ── / and @ menu -- opens below the composer when there's room
+      {/* ── / menu -- opens below the composer when there's room
           (mid-page on a new chat) and above it when there isn't (pinned to
           the bottom in a chat); see tokenMenuSide. ─────────────────────── */}
       {menu && (
@@ -1334,7 +1309,7 @@ export function ComposeBox({
               comment above has the fuller history). p-1, on this wrapper
               now, not the outer container -- max-h-[224px] + overflow-y-
               auto caps the menu to a scrollable window instead of growing
-              indefinitely as AT_ROWS/SLASH_ROWS grow, and keeping the
+              indefinitely as SLASH_ROWS grows, and keeping the
               outer container itself unpadded is what lets the guide
               text's own border-t below span the box's full width edge-to-
               edge, same as top-bar.tsx's search dropdown footer, instead

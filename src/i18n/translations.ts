@@ -443,15 +443,6 @@ export const translations = {
     zh: "查看文档，了解多人协作如何运作",
     ja: "マルチプレイヤーの使い方はドキュメントで確認できます",
   },
-  "home.placeholderCycle.mention": {
-    en: "Type @ to pull in a connected app like GitHub",
-    "pt-BR": "Digite @ para usar um app conectado, como o GitHub",
-    es: "Escribe @ para usar una app conectada, como GitHub",
-    fr: "Tapez @ pour utiliser une app connectée comme GitHub",
-    de: "Tippe @, um eine verbundene App wie GitHub einzubinden",
-    zh: "输入 @ 调用已连接的应用，例如 GitHub",
-    ja: "@ を入力して GitHub などの連携アプリを呼び出す",
-  },
   "home.placeholderCycle.slash": {
     en: "Type / to see everything you can do",
     "pt-BR": "Digite / para ver tudo o que você pode fazer",
