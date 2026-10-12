@@ -154,6 +154,7 @@
   --redesign-sidebar-footer-onboarding-trigger-radius: 0.875rem;
   --redesign-sidebar-footer-onboarding-collapsed-radius: 0.5rem;
   --redesign-sidebar-footer-onboarding-collapsed-trigger-radius: var(--redesign-hover-radius);
+  --redesign-sidebar-footer-onboarding-shadow: 0 2px 6px rgb(0 0 0 / 0.06);
   --redesign-sidebar-footer-progress-size: 0.9375rem;
   --redesign-sidebar-footer-progress-inset: 1px;
   --redesign-sidebar-footer-task-row-height: clamp(1.4375rem, 2.1vw, 1.6875rem);
@@ -251,6 +252,7 @@
 .dark {
   --redesign-primary-surface: var(--background);
   --redesign-sidebar-surface: var(--background);
+  --redesign-sidebar-footer-onboarding-shadow: none;
   --redesign-sidebar-overlay-surface: #212121;
   --redesign-progress-track: rgba(252, 252, 252, 0.3);
     --redesign-sidebar-border: #232323;
