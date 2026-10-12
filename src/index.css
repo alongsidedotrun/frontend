@@ -154,9 +154,9 @@
   --redesign-sidebar-footer-onboarding-trigger-radius: 0.875rem;
   --redesign-sidebar-footer-onboarding-collapsed-radius: 0.5rem;
   --redesign-sidebar-footer-onboarding-collapsed-trigger-radius: var(--redesign-hover-radius);
-  --redesign-sidebar-elevated-border: color-mix(in srgb, var(--redesign-overlay-border) 50%, transparent);
+  --redesign-sidebar-elevated-border: color-mix(in srgb, var(--redesign-overlay-border) 60%, transparent);
   --redesign-sidebar-elevated-shadow: 0 2px 6px rgb(0 0 0 / 0.06);
-  /* A half-strength outline lets the card edge recede into its soft
+  /* A softened outline lets the card edge recede into its soft
      elevation instead of reading as a second, heavy border. */
   --redesign-sidebar-footer-onboarding-border: var(--redesign-sidebar-elevated-border);
   --redesign-sidebar-footer-onboarding-shadow: var(--redesign-sidebar-elevated-shadow);
