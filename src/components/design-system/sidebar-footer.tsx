@@ -173,7 +173,7 @@ export function SidebarAccountFooter({ name, avatar, actionSections }: SidebarAc
           className="flex h-[var(--redesign-sidebar-footer-account-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="size-[var(--redesign-sidebar-footer-avatar-size)] shrink-0 overflow-hidden rounded-full">{avatar}</span>
-          <span className="min-w-0 flex-1 truncate text-[length:var(--redesign-sidebar-primary-font-size)] font-[400] text-foreground/70">{name}</span>
+          <span className="min-w-0 flex-1 truncate text-[length:var(--redesign-sidebar-primary-font-size)] font-medium text-foreground/70">{name}</span>
           <ChevronsUpDown aria-hidden="true" strokeWidth={1.5} className="size-[var(--redesign-workspace-chevron-size)] shrink-0 text-muted-foreground" />
         </button>
       </DropdownMenuTrigger>
