@@ -486,6 +486,33 @@ const DropdownContent = forwardRef<HTMLDivElement, DropdownContentProps>(
       };
     }, [open, measureItems]);
 
+    // While the list overflows, reserve room on the right for the scrollbar
+    // (macOS draws it over the content) so row hover/active backgrounds stop
+    // short of it; menus that don't scroll keep their even 3px inset.
+    const [scrollOverflow, setScrollOverflow] = useState(false);
+    useEffect(() => {
+      if (!open) return;
+      const el = containerRef.current;
+      if (!el) return;
+      const check = () => setScrollOverflow(el.scrollHeight > el.clientHeight + 1);
+      const resize = new ResizeObserver(check);
+      resize.observe(el);
+      const mutate = new MutationObserver(check);
+      mutate.observe(el, { childList: true, subtree: true });
+      const frame = requestAnimationFrame(check);
+      return () => {
+        resize.disconnect();
+        mutate.disconnect();
+        cancelAnimationFrame(frame);
+      };
+    }, [open]);
+    // Row widths change with the padding, so the highlight layer re-measures.
+    useEffect(() => {
+      if (!open) return;
+      const frame = requestAnimationFrame(() => measureItems());
+      return () => cancelAnimationFrame(frame);
+    }, [scrollOverflow, open, measureItems]);
+
     const activeRect = activeIndex !== null ? itemRects[activeIndex] : null;
     const checkedRect = checkedIndex != null ? itemRects[checkedIndex] : null;
     const focusRect = focusedIndex !== null ? itemRects[focusedIndex] : null;
@@ -662,6 +689,7 @@ const DropdownContent = forwardRef<HTMLDivElement, DropdownContentProps>(
                   // a light-mode-only shadow, replacing Elevated's ring
                   // shadow (which doubled up with an inset ring in dark mode).
                   `relative flex flex-col w-72 max-w-full min-w-[var(--anchor-width)] max-h-[min(480px,var(--available-height))] overflow-y-auto ${DROPDOWN_PANEL_RADIUS} !bg-[var(--redesign-sidebar-overlay-surface)] border border-[var(--redesign-sidebar-elevated-border)] !shadow-[var(--redesign-sidebar-elevated-shadow)] p-[3px] [&_[role=separator]]:-mx-[3px] select-none outline-none`,
+                  scrollOverflow && "pr-[11px] [&_[role=separator]]:-mr-[11px]",
                   className
                 )}
               >
