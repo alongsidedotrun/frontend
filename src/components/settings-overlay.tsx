@@ -72,7 +72,7 @@ import {
 } from "@/lib/user";
 import { signOut, useIsSignedIn } from "@/lib/auth";
 import { useIdentity } from "@/lib/identity";
-import { ShieldCheck } from "lucide-react";
+import { Command, ShieldCheck } from "lucide-react";
 import { loadDataAcknowledgement, loadDataAcknowledgementTime } from "@/lib/data-acknowledgement";
 import { cn } from "@/lib/utils";
 
@@ -2974,7 +2974,13 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
         <div className="flex min-h-0 flex-col">
           {/* Keeps Settings search in the same control rhythm as Quick Actions. */}
           <div className="relative mb-[var(--redesign-quick-actions-gap)] h-[var(--redesign-quick-actions-trigger-height)] w-full">
-            <SearchIcon className="pointer-events-none absolute top-1/2 left-[var(--redesign-quick-actions-padding)] size-[var(--redesign-quick-actions-icon-size)] -translate-y-1/2 text-muted-foreground select-none" />
+            <span
+              aria-hidden
+              className="pointer-events-none absolute top-1/2 left-[var(--redesign-quick-actions-padding)] z-10 flex -translate-y-1/2 items-center gap-[var(--redesign-quick-actions-shortcut-gap)] text-[length:var(--redesign-sidebar-primary-font-size)] text-muted-foreground"
+            >
+              <Command strokeWidth={2} className="size-[var(--redesign-quick-actions-command-icon-size)]" />
+              <span>F</span>
+            </span>
             <Input
               ref={searchRef}
               value={query}
@@ -2987,18 +2993,8 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
                 }
               }}
               placeholder={t("settings.search.placeholder")}
-              className="h-full rounded-[var(--redesign-control-radius)] border-[var(--redesign-sidebar-border)] bg-transparent pr-12 pl-[calc(var(--redesign-quick-actions-padding)+var(--redesign-quick-actions-icon-size)+var(--redesign-quick-actions-icon-gap))] text-[length:var(--redesign-sidebar-primary-font-size)] font-normal text-foreground placeholder:text-muted-foreground placeholder:opacity-100 placeholder:transition-opacity placeholder:duration-200 hover:bg-muted/50 focus:placeholder:opacity-0 focus-visible:border-ring md:text-[length:var(--redesign-sidebar-primary-font-size)]"
+              className="h-full rounded-[var(--redesign-control-radius)] border-[var(--redesign-sidebar-border)] bg-transparent pr-[var(--redesign-quick-actions-padding)] pl-[calc(var(--redesign-quick-actions-padding)+var(--redesign-quick-actions-command-icon-size)+var(--redesign-quick-actions-shortcut-gap)+0.5rem+var(--redesign-quick-actions-icon-gap))] text-[length:var(--redesign-sidebar-primary-font-size)] font-normal text-foreground placeholder:text-muted-foreground placeholder:opacity-100 placeholder:transition-opacity placeholder:duration-200 hover:bg-muted/50 focus:placeholder:opacity-0 focus-visible:border-ring md:text-[length:var(--redesign-sidebar-primary-font-size)]"
             />
-            {!query && (
-              <span
-                aria-hidden
-                className="pointer-events-none absolute top-1/2 right-[var(--redesign-quick-actions-padding)] flex -translate-y-1/2 items-center"
-              >
-                <Kbd className="h-auto min-w-0 gap-0 rounded-[4px] border-none bg-transparent p-0 text-[length:var(--redesign-font-size-base)] leading-none font-normal text-muted-foreground">
-                  {isMac ? "⌘F" : "Ctrl+F"}
-                </Kbd>
-              </span>
-            )}
           </div>
 
           {searching ? (
