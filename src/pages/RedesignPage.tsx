@@ -503,8 +503,13 @@ export function RedesignPage() {
       sidebarCollapsed={isSettingsRoute ? false : sidebarCollapsed}
       sidebarContentClassName="!pb-2"
       sidebar={
-        isSettingsRoute ? <SettingsSidebarNav section={settingsSection} variant="redesign" /> :
-        <div className="flex h-full min-h-0 flex-col">
+        <SidebarSurfaceTransition
+          surfaceKey={isSettingsRoute ? "settings" : "chats"}
+          className="flex h-full min-h-0 w-full"
+          contentClassName="flex h-full min-h-0 w-full"
+        >
+          {isSettingsRoute ? <SettingsSidebarNav section={settingsSection} variant="redesign" /> :
+          <div className="flex h-full min-h-0 flex-col">
           <div className="flex flex-col gap-[var(--redesign-quick-actions-gap)]">
             <div className="flex h-[var(--redesign-workspace-trigger-height)] items-center">
               <WorkspaceSelector
@@ -569,7 +574,8 @@ export function RedesignPage() {
               />
             </div>
           </footer>
-        </div>
+          </div>}
+        </SidebarSurfaceTransition>
       }
       contentClassName="flex min-h-0 overflow-hidden bg-background"
     >
