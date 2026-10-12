@@ -2969,7 +2969,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
     return (
       <aside
         aria-label={t("settings.nav.ariaLabel")}
-        className="relative flex h-full w-full min-w-0 flex-col overflow-hidden bg-background"
+        className="relative flex h-full w-full min-w-0 flex-col overflow-hidden bg-[var(--redesign-sidebar-surface)]"
       >
         <div className="flex min-h-0 flex-col">
           {/* Keeps Settings search in the same control rhythm as Quick Actions. */}
