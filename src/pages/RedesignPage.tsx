@@ -487,7 +487,7 @@ export function RedesignPage() {
     <SplitView
       topBar={
         <AppTopBar
-          className="border-b border-[var(--redesign-sidebar-border)] bg-background"
+          className="border-b border-[var(--redesign-sidebar-border)] bg-background after:pointer-events-none after:absolute after:inset-y-0 after:left-[var(--redesign-sidebar-width)] after:w-px after:bg-[var(--redesign-sidebar-border)]"
           controlsClassName="absolute right-[var(--redesign-top-bar-controls-right)] gap-1"
           showNotifications={false}
           collapseButtonHover={false}
