@@ -1467,6 +1467,8 @@ export interface CommandMenuDialogProps {
   container?: HTMLElement | null;
   /** Merged onto the dialog panel. */
   className?: string;
+  /** Merged onto the viewport-covering dialog backdrop. */
+  backdropClassName?: string;
   children: ReactNode;
 }
 
@@ -1481,6 +1483,7 @@ function CommandMenuDialog({
   modal,
   container,
   className,
+  backdropClassName,
   children,
 }: CommandMenuDialogProps) {
   const [internalOpen, setInternalOpen] = useState(defaultOpen);
@@ -1542,7 +1545,12 @@ function CommandMenuDialog({
   const dialogCtx = useMemo(() => ({ close: () => setOpen(false) }), [setOpen]);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen} modal={modal} backdropClassName="!z-[120]">
+    <Dialog
+      open={open}
+      onOpenChange={setOpen}
+      modal={modal}
+      backdropClassName={cn("!z-[120]", backdropClassName)}
+    >
       <DialogContent
         size="lg"
         container={container}
