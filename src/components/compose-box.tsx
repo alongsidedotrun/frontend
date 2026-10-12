@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { PROVIDER_DISPLAY, ProviderIcon, QUICK_CHAT_MODELS, modelDisplayName } from "@/lib/quick-chat-models";
@@ -1115,6 +1115,17 @@ export function ComposeBox({
   const menu: "slash" | "at" | null = slashToken ? "slash" : atToken ? "at" : null;
   const query = token?.query ?? "";
 
+  // The / and @ menu opens toward whichever side has room: downward when the
+  // composer sits mid-page (a fresh new chat), upward once it's pinned to the
+  // bottom (an ongoing chat). Measured before paint each time it opens or its
+  // rows change, so it never flashes on the wrong side.
+  const composeRootRef = useRef<HTMLDivElement>(null);
+  const tokenMenuRef = useRef<HTMLDivElement>(null);
+  const [tokenMenuSide, setTokenMenuSide] = useState<"top" | "bottom">("top");
+  // Caps the menu to the space on its chosen side (short windows), so it
+  // scrolls instead of running off screen.
+  const [tokenMenuMaxHeight, setTokenMenuMaxHeight] = useState<number | undefined>(undefined);
+
   const rows =
     menu === "slash"
       ? SLASH_ROWS.filter((r) => r.label.slice(1).startsWith(query))
@@ -1270,21 +1281,39 @@ export function ComposeBox({
     [cliAvailability]
   );
 
+  useLayoutEffect(() => {
+    if (!menu) return;
+    const root = composeRootRef.current;
+    if (!root) return;
+    const menuHeight = tokenMenuRef.current?.scrollHeight ?? 0;
+    const rect = root.getBoundingClientRect();
+    const margin = 12;
+    const spaceBelow = window.innerHeight - rect.bottom - margin;
+    const spaceAbove = rect.top - margin;
+    // Below when it fits there; otherwise whichever side has more room.
+    const side = spaceBelow >= menuHeight || spaceBelow >= spaceAbove ? "bottom" : "top";
+    setTokenMenuSide(side);
+    setTokenMenuMaxHeight(Math.max(0, Math.floor(side === "bottom" ? spaceBelow : spaceAbove)));
+  }, [menu, rows.length]);
+
   return (
     // @container: its own width, not the host page's -- ChatPage doesn't
     // wrap this in a @container the way HomePage does, so the @[...]:
     // classes below (button row wrapping, padding/radius scaling) need
     // their own container context to work on both pages.
-    <div data-compose-box className="relative @container" style={COMPOSE_TOOL_VARS}>
-      {/* ── / (slash) menu -- bottom-full, not top-full: this composer is
-          pinned to the bottom of the page on both HomePage and ChatPage
-          now, so opening downward (tried first) could run the menu off
-          the bottom of the viewport; growing upward over the box instead
-          -- same direction the reference component this was ported from
-          uses -- keeps it fully on screen regardless of where the
-          composer itself sits. ─────────────────────────────────────── */}
+    <div ref={composeRootRef} data-compose-box className="relative @container" style={COMPOSE_TOOL_VARS}>
+      {/* ── / and @ menu -- opens below the composer when there's room
+          (mid-page on a new chat) and above it when there isn't (pinned to
+          the bottom in a chat); see tokenMenuSide. ─────────────────────── */}
       {menu && (
-        <div className="absolute inset-x-0 bottom-full z-20 mb-1 overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+        <div
+          ref={tokenMenuRef}
+          style={{ maxHeight: tokenMenuMaxHeight }}
+          className={cn(
+            "absolute inset-x-0 z-20 overflow-y-auto rounded-2xl border border-border bg-surface shadow-sm",
+            tokenMenuSide === "bottom" ? "top-full mt-1" : "bottom-full mb-1",
+          )}
+        >
           {/* onClick/onMouseDown only -- DOM focus deliberately never
               moves to these rows (arrow-key nav below stays on the
               textarea itself and just updates `active`). GlideMenu's own
