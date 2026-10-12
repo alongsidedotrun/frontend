@@ -7,11 +7,12 @@ import { cn } from "@/lib/utils";
  * area and therefore a 12.5% inset per side (for example 64 → 48px artwork
  * with 8px padding, and 256 → 192px artwork with 32px padding).
  */
-export type WorkspaceBrandIconSize = 8 | 16 | 24 | 32 | 48 | 64 | 96 | 128 | 192 | 256;
+export type WorkspaceBrandIconSize = 8 | 16 | 20 | 24 | 32 | 48 | 64 | 96 | 128 | 192 | 256;
 
 const SIZE_CLASS: Record<WorkspaceBrandIconSize, string> = {
   8: "size-2",
   16: "size-4",
+  20: "size-5",
   24: "size-6",
   32: "size-8",
   48: "size-12",
@@ -20,6 +21,22 @@ const SIZE_CLASS: Record<WorkspaceBrandIconSize, string> = {
   128: "size-32",
   192: "size-48",
   256: "size-64",
+};
+
+// Radius tracks the tile scale so a small workspace tile stays a rounded
+// square instead of reading as circular (the 20px sidebar tile uses 4px).
+const RADIUS_CLASS: Record<WorkspaceBrandIconSize, string> = {
+  8: "rounded-[2px]",
+  16: "rounded-[3px]",
+  20: "rounded-[4px]",
+  24: "rounded-[4px]",
+  32: "rounded-[6px]",
+  48: "rounded-[8px]",
+  64: "rounded-[10px]",
+  96: "rounded-[14px]",
+  128: "rounded-[18px]",
+  192: "rounded-[24px]",
+  256: "rounded-[32px]",
 };
 
 // Artwork always occupies 75% of the square tile, leaving a 12.5% safe area
@@ -65,8 +82,9 @@ export function WorkspaceBrandIcon({
     <span
       aria-hidden="true"
       className={cn(
-        "grid shrink-0 place-items-center overflow-hidden rounded-[6px]",
+        "grid shrink-0 place-items-center overflow-hidden",
         SIZE_CLASS[size],
+        RADIUS_CLASS[size],
         useInvertedMonochrome ? "bg-black dark:bg-white" : "bg-white dark:bg-black",
         className,
       )}

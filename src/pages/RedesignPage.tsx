@@ -63,7 +63,7 @@ function toWorkspaceOption(workspace: WorkspaceRecord): WorkspaceOption {
     ? {
         id: workspace.id,
         name: workspace.name,
-    icon: <WorkspaceBrandIcon size={16} monochrome invertOnLight />,
+    icon: <WorkspaceBrandIcon size={20} monochrome invertOnLight />,
       }
     : { id: workspace.id, name: workspace.name };
 }
