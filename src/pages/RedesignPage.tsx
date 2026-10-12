@@ -501,7 +501,7 @@ export function RedesignPage() {
         />
       }
       sidebarCollapsed={isSettingsRoute ? false : sidebarCollapsed}
-      sidebarContentClassName={isSettingsRoute ? "!p-0" : "!pb-2"}
+      sidebarContentClassName="!pb-2"
       sidebar={
         isSettingsRoute ? <SettingsSidebarNav section={settingsSection} variant="redesign" /> :
         <div className="flex h-full min-h-0 flex-col">

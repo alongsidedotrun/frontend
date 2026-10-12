@@ -2971,7 +2971,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
         aria-label={t("settings.nav.ariaLabel")}
         className="relative flex h-full w-full min-w-0 flex-col overflow-hidden bg-background"
       >
-        <div className="flex min-h-0 flex-col px-[var(--redesign-sidebar-edge-padding)] pt-[var(--redesign-sidebar-top-padding)]">
+        <div className="flex min-h-0 flex-col">
           {/* Keeps Settings search in the same control rhythm as Quick Actions. */}
           <div className="relative mb-[var(--redesign-quick-actions-gap)] h-[var(--redesign-quick-actions-trigger-height)] w-full">
             <span
@@ -3065,8 +3065,8 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
           )}
         </div>
 
-        <div className="mt-auto border-t border-[var(--redesign-sidebar-border)]">
-          <div className="px-[var(--redesign-sidebar-edge-padding)] pt-2 pb-[calc(var(--redesign-sidebar-edge-padding)-0.5rem)]">
+        <footer className="mt-auto pt-[var(--redesign-sidebar-section-gap)]">
+          <div className="border-t border-[var(--redesign-sidebar-border)] pt-2">
             <button
               type="button"
               onClick={() => navigate("/new/chat")}
@@ -3076,7 +3076,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
               <span className="truncate">{t("settings.returnToAlongside")}</span>
             </button>
           </div>
-        </div>
+        </footer>
       </aside>
     );
   }
