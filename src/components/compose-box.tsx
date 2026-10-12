@@ -495,7 +495,7 @@ function ContextDropdown({
           </button>
         }
       />
-      <BaseDropdownContent side="top" align="center" sideOffset={6} className="w-52 min-w-0">
+      <BaseDropdownContent side="bottom" align="center" sideOffset={6} className="w-52 min-w-0">
         <BaseDropdownLabel>
           {autocompactScope === "project" ? t("settings.chat.compactPerProject.title") : autocompactScope === "global" ? t("settings.chat.compactGlobal.title") : t("settings.chat.compactPerChat.title")}
         </BaseDropdownLabel>
@@ -777,6 +777,8 @@ export function ComposeBox({
     const thumb = modelThumbRef.current;
     if (!el || !thumb) return;
     const { scrollTop, scrollHeight, clientHeight } = el;
+    // Lets the rows stop short of the thumb while the list scrolls.
+    el.dataset.scrolls = String(scrollHeight > clientHeight + 1);
     if (scrollHeight <= clientHeight + 1) {
       thumb.style.display = "none";
       return;
@@ -1656,7 +1658,7 @@ export function ComposeBox({
               </Button>
             }
           />
-          <BaseDropdownContent side="top" align="start" sideOffset={6} className="w-40 min-w-0">
+          <BaseDropdownContent side="bottom" align="start" sideOffset={6} className="w-40 min-w-0">
             <BaseDropdownLabel>{t("common.add")}</BaseDropdownLabel>
             <DropdownSubItem className="text-[12px] whitespace-nowrap" onClick={openFilePicker}>
               <AttachmentIcon className="mr-2 inline size-3.5 shrink-0 align-[-3px]" />
@@ -1728,11 +1730,10 @@ export function ComposeBox({
           {/* border + shadow-sm, not this component's own default
               shadow-md ring-1 ring-foreground/10 -- same thin-border,
               soft-shadow treatment the inline / menu above uses, so the
-              two menus in this composer read as one family. side="top",
-              align="start" -- this trigger now sits at the very bottom of
-              the whole composer, so the menu has to open upward to stay
-              on screen (same reasoning the inline / menu itself already
-              uses -- see that menu's own top-level comment), and left-
+              two menus in this composer read as one family. side="bottom",
+              align="start" -- opens downward under its down chevron, and
+              the positioner flips it upward when there's no room below
+              (composer pinned to the bottom in a chat), and left-
               aligned under a left-aligned trigger instead of the old
               align="end" (which matched this being the *right*-most
               item in its old row -- no longer true out here on its own,
@@ -1752,7 +1753,7 @@ export function ComposeBox({
               so a per-callsite override here just fought it for no
               reason. */}
           <BaseDropdownContent
-            side="top"
+            side="bottom"
             align="start"
             sideOffset={6}
             className="w-40 min-w-0"
@@ -1778,7 +1779,7 @@ export function ComposeBox({
                 a DropdownSubMenuItem's own submenu -- exactly what's used
                 here now. */}
             <BaseDropdownLabel>{t("compose.models")}</BaseDropdownLabel>
-            {/* Capped at 6 rows (6 * h-7 = 168px), scrolling beyond that --
+            {/* Capped at 6 rows (6 * 24px = 144px), scrolling beyond that --
                 same cap-then-scroll treatment as the notifications list
                 (nav-user.tsx's own max-h-[208px] for 4 * 52px rows), per
                 explicit request ("this is the maximum size we should have
@@ -1818,7 +1819,10 @@ export function ComposeBox({
               // the real boundary instead of letting it bounce past, so
               // there's never a past-the-edge frame to clip oddly in the
               // first place.
-              className="max-h-[168px] w-[calc(100%+20px)] overflow-y-auto overscroll-y-contain pr-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              // data-[scrolls=true]:pr-[29px]: the custom thumb (right-0.5, w-1) sits
+              // over the rows' right end, so while the list scrolls the rows end 3px
+              // before it (20px native-overlay offset + 6px thumb + 3px gap).
+              className="max-h-[144px] w-[calc(100%+20px)] overflow-y-auto overscroll-y-contain pr-5 data-[scrolls=true]:pr-[29px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
             {/* Sorted by provider's own display name (MODEL_PROVIDERS'
                 own comparator above), not QUICK_CHAT_MODELS' raw
@@ -1996,7 +2000,7 @@ export function ComposeBox({
               </button>
             }
           />
-          <BaseDropdownContent side="top" align="end" sideOffset={6} className="w-56 min-w-0 p-3">
+          <BaseDropdownContent side="bottom" align="center" sideOffset={6} className="w-56 min-w-0 p-3">
             <EffortSliderPanel
               effort={effort}
               onChange={(level) => {
@@ -2072,7 +2076,7 @@ export function ComposeBox({
               BaseDropdownContent's own Elevated surface supplies a real
               nesting-aware background/shadow. */}
           <BaseDropdownContent
-            side="top"
+            side="bottom"
             align="start"
             sideOffset={6}
             className="w-40 min-w-0"
