@@ -40,7 +40,7 @@ export function SidebarSections({ sections, activeItemId, onItemSelect, classNam
           <div className="flex h-[var(--redesign-quick-actions-row-height)] items-center px-[var(--redesign-quick-actions-padding)]">
             <h2
               id={`sidebar-section-${section.id}`}
-              className="text-[length:var(--redesign-font-size-compact)] font-medium text-muted-foreground"
+              className="text-[length:calc(var(--redesign-font-size-compact)-2px)] font-medium text-muted-foreground"
             >
               {section.label}
             </h2>
@@ -53,7 +53,7 @@ export function SidebarSections({ sections, activeItemId, onItemSelect, classNam
                   onClick={section.action.onSelect}
                   className="ml-auto flex size-[var(--redesign-quick-actions-icon-size)] items-center justify-center rounded-[var(--redesign-dropdown-row-radius)] text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <Icon aria-hidden="true" strokeWidth={2} className="size-full" />
+                  <Icon aria-hidden="true" strokeWidth={2} className="size-[calc(var(--redesign-font-size-compact)-2px)]" />
                 </button>
               );
             })() : null}
