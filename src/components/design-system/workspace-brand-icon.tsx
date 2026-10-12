@@ -15,24 +15,9 @@ const SIZE_CLASS: Record<WorkspaceBrandIconSize, string> = {
   254: "size-[254px]",
 };
 
-// The tile and its artwork are separate dimensions. A workspace may upload a
-// 256×256 source logo, but its rendered mark needs a generous, consistent safe
-// area so it does not read larger than adjacent interface icons.
-const BRAND_ARTWORK_CLASS = "h-[56%] w-[56%]";
-
-// The mark needs optical calibration at rendered sizes. These values are
-// intentionally size-aware rather than percentage based: percentage movement
-// grows too quickly for the 128px and 254px marks.
-const ALONGSIDE_OPTICAL_OFFSET_CLASS: Record<WorkspaceBrandIconSize, string> = {
-  8: "",
-  16: "[transform:translate(-0.5px,0.5px)]",
-  32: "[transform:translate(-1px,1px)]",
-  64: "[transform:translate(-1.5px,1.5px)]",
-  128: "[transform:translate(-2px,2px)]",
-  // The 254px rendering is the workspace-brand reference size. Its pinwheel
-  // needs a larger optical adjustment than its geometric SVG bounds imply.
-  254: "[transform:translate(10px,-11px)]",
-};
+// Artwork always occupies 75% of the square tile, leaving a 12.5% safe area
+// on every side. For example, a 64px tile renders a 48px mark with 8px inset.
+const BRAND_ARTWORK_CLASS = "size-3/4";
 
 type WorkspaceBrandIconProps = {
   /** The rendered square; restricted to the shared workspace-icon scale. */
@@ -54,10 +39,10 @@ type WorkspaceBrandIconProps = {
  *
  * The tile is a grid, not a flex row or an absolutely-positioned child, so
  * both vector and image marks remain centered at every supported size. The
- * mark occupies 56% of its tile, preserving a clear safe area from a 8px
- * navigation icon through a 254px workspace identity. Source images can be
- * 256×256 (or any square resolution); object-contain keeps their artwork
- * within this shared rendered mark area.
+ * mark occupies 75% of its tile, preserving a 12.5% safe area on every side
+ * from a 8px navigation icon through a 254px workspace identity. Source
+ * images can be 256×256 (or any square resolution); object-contain keeps
+ * their artwork within this shared rendered mark area.
  */
 export function WorkspaceBrandIcon({
   size,
@@ -69,9 +54,6 @@ export function WorkspaceBrandIcon({
   markClassName,
 }: WorkspaceBrandIconProps) {
   const useInvertedMonochrome = monochrome && invertOnLight;
-  // Keep the mark's calibrated position here so every usage stays aligned.
-  const alongsideOpticalOffset = !imageSrc && Icon === AlongsideLogo;
-
   return (
     <span
       aria-hidden="true"
@@ -98,7 +80,6 @@ export function WorkspaceBrandIcon({
           className={cn(
             "block",
             BRAND_ARTWORK_CLASS,
-            alongsideOpticalOffset && ALONGSIDE_OPTICAL_OFFSET_CLASS[size],
             useInvertedMonochrome ? "text-white dark:text-black" : "text-black dark:text-white",
             markClassName,
           )}
