@@ -191,6 +191,7 @@
   --redesign-workspace-checkmark-size: 0.5rem;
   --redesign-workspace-action-icon-size: 0.875rem;
   --redesign-primary-surface: var(--background);
+  --redesign-sidebar-surface: #FAFAFA;
   --redesign-sidebar-overlay-surface: #f8f8f8;
   --redesign-overlay-border: rgba(13, 13, 13, 0.16);
   --redesign-progress-track: rgba(13, 13, 13, 0.3);
@@ -249,6 +250,7 @@
 
 .dark {
   --redesign-primary-surface: var(--background);
+  --redesign-sidebar-surface: var(--background);
   --redesign-sidebar-overlay-surface: #212121;
   --redesign-progress-track: rgba(252, 252, 252, 0.3);
     --redesign-sidebar-border: #232323;
@@ -661,16 +663,9 @@
        (buttons, inputs, sidebar, dropdowns, avatars) consistently rather
        than hand-tuning each component. */
     --radius: 0.375rem;
-    /* Sidebar bg -- var(--background) again, not its own distinct
-       literal, per explicit request ("our sidebar still not the same
-       color as the main color like the synara's"): Synara's own sidebar
-       reads --card (effectively the same value as its --background --
-       see that token's own definition), not a separate flat gray, so the
-       rail and main content read as one continuous surface rather than
-       two visibly different panels. Reverses an earlier explicit request
-       that had these as separate literals (#f7f7f7 here) -- a later,
-       more specific ask wins. */
-    --sidebar: var(--background);
+    /* The navigation rail is deliberately one surface step below the
+       white application canvas. */
+    --sidebar: #FAFAFA;
     --sidebar-foreground: var(--foreground);
     --sidebar-primary: oklch(0.205 0 0);
     --sidebar-primary-foreground: oklch(0.985 0 0);

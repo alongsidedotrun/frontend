@@ -33,7 +33,7 @@ export function SplitView({
       <div className="flex h-full pt-10">
         <aside
           className={cn(
-            "shrink-0 overflow-hidden border-r border-[var(--redesign-sidebar-border)] transition-[width,border-color] duration-200 ease-out",
+            "shrink-0 overflow-hidden border-r border-[var(--redesign-sidebar-border)] bg-[var(--redesign-sidebar-surface)] transition-[width,border-color] duration-200 ease-out",
             sidebarCollapsed ? "w-0 border-r-0" : "w-[var(--redesign-sidebar-width)]",
             sidebarClassName,
           )}

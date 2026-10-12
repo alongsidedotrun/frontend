@@ -505,7 +505,7 @@ export function RedesignPage() {
       sidebar={
         <SidebarSurfaceTransition
           surfaceKey={isSettingsRoute ? "settings" : "chats"}
-          className="flex h-full min-h-0 w-full"
+          className="flex h-full min-h-0 w-full bg-[var(--redesign-sidebar-surface)]"
           contentClassName="flex h-full min-h-0 w-full"
         >
           {isSettingsRoute ? <SettingsSidebarNav section={settingsSection} variant="redesign" /> :
@@ -546,7 +546,7 @@ export function RedesignPage() {
               unchanged list; only switch its surface when the section itself
               changes. */}
           {activeSidebarSurface && (
-            <SidebarSurfaceTransition surfaceKey={activeSidebarSurface}>
+            <SidebarSurfaceTransition surfaceKey={activeSidebarSurface} className="bg-[var(--redesign-sidebar-surface)]">
               <SidebarSections
                 sections={activeSidebarSurface === "inbox" ? inboxSidebarSections : chatsSidebarSections}
                 activeItemId={activeSidebarSurface === "chats" ? routeChatId ?? activeChatId ?? undefined : undefined}
