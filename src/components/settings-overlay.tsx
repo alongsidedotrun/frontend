@@ -3066,7 +3066,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
         </div>
 
         <div className="mt-auto border-t border-[var(--redesign-sidebar-border)]">
-          <div className="px-[var(--redesign-sidebar-edge-padding)] pt-2 pb-[var(--redesign-sidebar-edge-padding)]">
+          <div className="px-[var(--redesign-sidebar-edge-padding)] pt-2 pb-[calc(var(--redesign-sidebar-edge-padding)-0.5rem)]">
             <button
               type="button"
               onClick={() => navigate("/new/chat")}
