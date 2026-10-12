@@ -74,6 +74,7 @@ import { signOut, useIsSignedIn } from "@/lib/auth";
 import { useIdentity } from "@/lib/identity";
 import { ShieldCheck } from "lucide-react";
 import { loadDataAcknowledgement, loadDataAcknowledgementTime } from "@/lib/data-acknowledgement";
+import { cn } from "@/lib/utils";
 
 // Tips/Notifications/Usage are sub-sections *inside* General, not their
 // own routes -- per explicit request ("Not as items but as menu items
@@ -2874,7 +2875,13 @@ function useSettingsHistory() {
   );
 }
 
-export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
+type SettingsSidebarNavProps = {
+  section: SettingsSection;
+  /** Uses the compact navigation language of the redesign application shell. */
+  variant?: "default" | "redesign";
+};
+
+export function SettingsSidebarNav({ section, variant = "default" }: SettingsSidebarNavProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
@@ -2956,6 +2963,124 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
     // replace: true -- see the section-row onClick's own comment below for
     // the full reasoning (same fix, same cause).
     navigate(`/settings/${entry.section}${target}`, { replace: true });
+  }
+
+  if (variant === "redesign") {
+    return (
+      <aside
+        aria-label={t("settings.nav.ariaLabel")}
+        className="relative flex h-full w-full min-w-0 flex-col overflow-hidden bg-background"
+      >
+        <div className="flex min-h-0 flex-col">
+          {/* Keeps Settings search in the same control rhythm as Quick Actions. */}
+          <div className="relative mb-[var(--redesign-quick-actions-gap)] h-[var(--redesign-quick-actions-trigger-height)] w-full">
+            <SearchIcon className="pointer-events-none absolute top-1/2 left-[var(--redesign-quick-actions-padding)] size-[var(--redesign-quick-actions-icon-size)] -translate-y-1/2 text-muted-foreground select-none" />
+            <Input
+              ref={searchRef}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  setQuery("");
+                } else if (event.key === "Enter" && results.length > 0) {
+                  goToResult(results[0]);
+                }
+              }}
+              placeholder={t("settings.search.placeholder")}
+              className="h-full rounded-[var(--redesign-control-radius)] border-[var(--redesign-sidebar-border)] bg-transparent pr-12 pl-[calc(var(--redesign-quick-actions-padding)+var(--redesign-quick-actions-icon-size)+var(--redesign-quick-actions-icon-gap))] text-[length:var(--redesign-sidebar-primary-font-size)] font-normal text-foreground placeholder:text-muted-foreground placeholder:opacity-100 placeholder:transition-opacity placeholder:duration-200 hover:bg-muted/50 focus:placeholder:opacity-0 focus-visible:border-ring md:text-[length:var(--redesign-sidebar-primary-font-size)]"
+            />
+            {!query && (
+              <span
+                aria-hidden
+                className="pointer-events-none absolute top-1/2 right-[var(--redesign-quick-actions-padding)] flex -translate-y-1/2 items-center"
+              >
+                <Kbd className="h-auto min-w-0 gap-0 rounded-[4px] border-none bg-transparent p-0 text-[length:var(--redesign-font-size-base)] leading-none font-normal text-muted-foreground">
+                  {isMac ? "⌘F" : "Ctrl+F"}
+                </Kbd>
+              </span>
+            )}
+          </div>
+
+          {searching ? (
+            <div className="flex flex-col gap-[var(--redesign-quick-actions-row-gap)]">
+              {results.length === 0 && (
+                <p className="px-[var(--redesign-quick-actions-padding)] py-2 text-[length:var(--redesign-font-size-base)] font-normal text-muted-foreground">
+                  {t("settings.search.noResults", { query })}
+                </p>
+              )}
+              {results.map((entry) => {
+                const s = SECTIONS.find((sec) => sec.key === entry.section)!;
+                return (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    onClick={() => goToResult(entry)}
+                    className="flex min-h-[var(--redesign-quick-actions-row-height)] flex-col items-start justify-center rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] py-1 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <span className="flex items-center gap-[var(--redesign-quick-actions-icon-gap)] text-[length:var(--redesign-font-size-base)] font-medium text-muted-foreground">
+                      {s.icon}
+                      {t(s.labelKey)}
+                    </span>
+                    <span className="pl-[calc(var(--redesign-quick-actions-icon-size)+var(--redesign-quick-actions-icon-gap))] text-[length:var(--redesign-font-size-base)] text-foreground">
+                      {entry.title}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-[var(--redesign-sidebar-section-gap)]">
+              {SETTINGS_NAV_GROUPS.map((group) => (
+                <section key={group.labelKey} aria-labelledby={`settings-sidebar-group-${group.labelKey}`}>
+                  <div className="flex h-[var(--redesign-quick-actions-row-height)] items-center px-[var(--redesign-quick-actions-padding)]">
+                    <h2
+                      id={`settings-sidebar-group-${group.labelKey}`}
+                      className="text-[length:var(--redesign-font-size-base)] font-medium text-muted-foreground"
+                    >
+                      {t(group.labelKey)}
+                    </h2>
+                  </div>
+                  <div className="mt-[var(--redesign-sidebar-section-row-offset)] flex flex-col gap-[var(--redesign-quick-actions-row-gap)]">
+                    {group.keys.map((key) => {
+                      const s = SECTIONS.find((sec) => sec.key === key)!;
+                      const isActive = section === key;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => navigate(`/settings/${key}`, { replace: true })}
+                          aria-current={isActive ? "page" : undefined}
+                          className={cn(
+                            "flex h-[var(--redesign-quick-actions-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-left text-[length:var(--redesign-font-size-base)] text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                            isActive && "bg-muted text-foreground",
+                          )}
+                        >
+                          <span className="flex size-[var(--redesign-quick-actions-icon-size)] shrink-0 items-center justify-center">
+                            {s.icon}
+                          </span>
+                          <span className="truncate">{t(s.labelKey)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-auto border-t border-[var(--redesign-sidebar-border)] pt-[var(--redesign-quick-actions-gap)]">
+          <button
+            type="button"
+            onClick={() => navigate("/new/chat")}
+            className="flex h-[var(--redesign-sidebar-footer-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-[length:var(--redesign-sidebar-primary-font-size)] text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <AlongsideLogo className="size-[var(--redesign-quick-actions-icon-size)] shrink-0" />
+            <span className="truncate">{t("settings.returnToAlongside")}</span>
+          </button>
+        </div>
+      </aside>
+    );
   }
 
   return (

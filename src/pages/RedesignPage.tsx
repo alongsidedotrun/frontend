@@ -501,10 +501,10 @@ export function RedesignPage() {
         />
       }
       sidebarCollapsed={isSettingsRoute ? false : sidebarCollapsed}
-      sidebarClassName={isSettingsRoute ? "!w-[220px] !border-r-0" : undefined}
-      sidebarContentClassName={isSettingsRoute ? "!w-[220px] !p-0" : "!pb-2"}
+      sidebarClassName={isSettingsRoute ? "!border-r-0" : undefined}
+      sidebarContentClassName={isSettingsRoute ? "!p-0" : "!pb-2"}
       sidebar={
-        isSettingsRoute ? <SettingsSidebarNav section={settingsSection} /> :
+        isSettingsRoute ? <SettingsSidebarNav section={settingsSection} variant="redesign" /> :
         <div className="flex h-full min-h-0 flex-col">
           <div className="flex flex-col gap-[var(--redesign-quick-actions-gap)]">
             <div className="flex h-[var(--redesign-workspace-trigger-height)] items-center">
