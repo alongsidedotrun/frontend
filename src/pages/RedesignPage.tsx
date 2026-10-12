@@ -9,6 +9,7 @@ import { QuickActions, type QuickActionItem } from "@/components/design-system/q
 import { SidebarSections, type SidebarSection } from "@/components/design-system/sidebar-sections";
 import { SidebarSurfaceTransition } from "@/components/design-system/sidebar-surface-transition";
 import { GettingStartedSummary, SidebarAccountFooter, type GettingStartedStep } from "@/components/design-system/sidebar-footer";
+import { SettingsSidebarNav, type SettingsSection } from "@/components/settings-overlay";
 import { DefaultAvatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -96,6 +97,8 @@ const GETTING_STARTED_STEPS: readonly GettingStartedStep[] = [
   { id: "chat", label: "Create a chat", description: "Start a new conversation in your workspace." },
 ];
 
+const SETTINGS_SECTIONS: readonly SettingsSection[] = ["profile", "general", "appearance", "chat", "security", "provider", "apps"];
+
 function quickActionForPath(pathname: string) {
   if (pathname === "/overview") return "overview";
   if (pathname.startsWith("/chat/") || pathname === "/new/chat") return "chats";
@@ -155,6 +158,11 @@ export function RedesignPage() {
   const routeChatId = location.pathname.startsWith("/chat/")
     ? decodeURIComponent(location.pathname.slice("/chat/".length))
     : null;
+  const isSettingsRoute = location.pathname.startsWith("/settings");
+  const settingsPathSection = location.pathname.split("/")[2] as SettingsSection | undefined;
+  const settingsSection = settingsPathSection && SETTINGS_SECTIONS.includes(settingsPathSection)
+    ? settingsPathSection
+    : "general";
   const activeChat = chats.find((chat) => chat.id === (routeChatId ?? activeChatId)) ?? null;
   const routedContent = useOutlet({
     chatName: activeChat?.name ?? "Untitled chat",
@@ -492,9 +500,11 @@ export function RedesignPage() {
           onExpand={() => setSidebarCollapsed(false)}
         />
       }
-      sidebarCollapsed={sidebarCollapsed}
-      sidebarContentClassName="!pb-2"
+      sidebarCollapsed={isSettingsRoute ? false : sidebarCollapsed}
+      sidebarClassName={isSettingsRoute ? "!w-[220px] !border-r-0" : undefined}
+      sidebarContentClassName={isSettingsRoute ? "!w-[220px] !p-0" : "!pb-2"}
       sidebar={
+        isSettingsRoute ? <SettingsSidebarNav section={settingsSection} /> :
         <div className="flex h-full min-h-0 flex-col">
           <div className="flex flex-col gap-[var(--redesign-quick-actions-gap)]">
             <div className="flex h-[var(--redesign-workspace-trigger-height)] items-center">
