@@ -15,6 +15,11 @@ const SIZE_CLASS: Record<WorkspaceBrandIconSize, string> = {
   254: "size-[254px]",
 };
 
+// The tile and its artwork are separate dimensions. A workspace may upload a
+// 256×256 source logo, but its rendered mark needs a generous, consistent safe
+// area so it does not read larger than adjacent interface icons.
+const BRAND_ARTWORK_CLASS = "h-[56%] w-[56%]";
+
 // The mark needs optical calibration at rendered sizes. These values are
 // intentionally size-aware rather than percentage based: percentage movement
 // grows too quickly for the 128px and 254px marks.
@@ -47,8 +52,10 @@ type WorkspaceBrandIconProps = {
  *
  * The tile is a grid, not a flex row or an absolutely-positioned child, so
  * both vector and image marks remain centered at every supported size. The
- * mark always occupies two thirds of its tile, preserving one visual ratio
- * from a 8px navigation icon through a 254px workspace identity.
+ * mark occupies 56% of its tile, preserving a clear safe area from a 8px
+ * navigation icon through a 254px workspace identity. Source images can be
+ * 256×256 (or any square resolution); object-contain keeps their artwork
+ * within this shared rendered mark area.
  */
 export function WorkspaceBrandIcon({
   size,
@@ -78,7 +85,8 @@ export function WorkspaceBrandIcon({
           src={imageSrc}
           alt=""
           className={cn(
-            "block h-2/3 w-2/3 object-contain",
+            "block object-contain",
+            BRAND_ARTWORK_CLASS,
             useInvertedMonochrome && "invert dark:invert-0",
             markClassName,
           )}
@@ -86,7 +94,8 @@ export function WorkspaceBrandIcon({
       ) : (
         <Icon
           className={cn(
-            "block h-2/3 w-2/3",
+            "block",
+            BRAND_ARTWORK_CLASS,
             alongsideOpticalOffset && ALONGSIDE_OPTICAL_OFFSET_CLASS[size],
             useInvertedMonochrome ? "text-white dark:text-black" : "text-black dark:text-white",
             markClassName,
