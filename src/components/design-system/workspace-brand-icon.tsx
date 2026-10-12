@@ -29,7 +29,9 @@ const ALONGSIDE_OPTICAL_OFFSET_CLASS: Record<WorkspaceBrandIconSize, string> = {
   32: "[transform:translate(-1px,1px)]",
   64: "[transform:translate(-1.5px,1.5px)]",
   128: "[transform:translate(-2px,2px)]",
-  254: "[transform:translate(3px,-3px)]",
+  // The 254px rendering is the workspace-brand reference size. Its pinwheel
+  // needs a larger optical adjustment than its geometric SVG bounds imply.
+  254: "[transform:translate(10px,-11px)]",
 };
 
 type WorkspaceBrandIconProps = {
