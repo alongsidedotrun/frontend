@@ -40,10 +40,15 @@ export function QuickActions({ label, shortcut, actions, activeId, onActionSelec
           size.text,
         )}
       >
-        <span className="flex items-center gap-1 text-muted-foreground opacity-20 transition-colors group-hover/quick-actions-trigger:text-foreground group-focus-visible/quick-actions-trigger:text-foreground" aria-label={`Command ${shortcut}`}>
-          <Command aria-hidden="true" size={size.icon} strokeWidth={1.5} />
+        <span
+          className={cn(
+            "flex items-center gap-1 text-muted-foreground opacity-20 transition-colors group-hover/quick-actions-trigger:text-foreground group-focus-visible/quick-actions-trigger:text-foreground",
+            size.type.micro,
+          )}
+          aria-label={`Command ${shortcut}`}
+        >
+          <Command aria-hidden="true" strokeWidth={1.5} className="size-[1em]" />
           <span
-            className="text-[length:var(--fs-micro,11px)] leading-[var(--lh-micro,14px)]"
             style={{ fontVariationSettings: fontWeights.medium }}
           >
             {shortcut}
