@@ -17,7 +17,7 @@ export function DropdownActionRow({ action, className }: { action: DropdownActio
     <DropdownMenuItem
       onSelect={action.onSelect}
       className={cn(
-        "h-[var(--redesign-workspace-row-height)] rounded-[var(--redesign-dropdown-row-radius)] px-[var(--redesign-menu-row-padding)] text-[length:var(--redesign-dropdown-font-size)] font-normal text-foreground/70",
+        "h-[var(--redesign-workspace-row-height)] rounded-[var(--redesign-dropdown-row-radius)] px-[var(--redesign-menu-row-padding)] text-[length:var(--redesign-sidebar-primary-font-size)] font-medium text-foreground/70",
         action.tone === "accent" && "!text-focus-accent hover:!text-focus-accent focus:!text-focus-accent",
         className,
       )}
@@ -27,7 +27,9 @@ export function DropdownActionRow({ action, className }: { action: DropdownActio
         strokeWidth={1.5}
         className={cn(
           "size-[var(--redesign-workspace-action-icon-size)] shrink-0",
-          action.tone === "accent" && "!text-focus-accent",
+          // [&_*]: the row's focus/hover rule recolours every descendant, so
+          // the icon's own paths must inherit the pinned accent too.
+          action.tone === "accent" && "!text-focus-accent [&_*]:![color:inherit]",
         )}
       />
       <span className={cn("min-w-0 flex-1 truncate", action.tone === "accent" && "!text-focus-accent")}>

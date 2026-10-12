@@ -34,8 +34,13 @@ export function SplitView({
     <SidebarProvider
       open={!sidebarCollapsed}
       onOpenChange={(open) => onSidebarCollapsedChange?.(!open)}
-      width="14rem"
+      width="var(--redesign-sidebar-width)"
       widthMobile="min(18rem, calc(100vw - 1rem))"
+      // 0 disables SidebarProvider's mobile mode (default 768px). That mode
+      // hides the docked sidebar and expects a drawer, which sidebar-core
+      // doesn't render -- so narrow windows lost the sidebar with no way to
+      // reopen it. Stays docked at every width; the toggle still collapses it.
+      mobileBreakpoint={0}
       className={cn("h-dvh overflow-hidden bg-background", className)}
     >
       {topBar}
@@ -46,6 +51,7 @@ export function SplitView({
         className={cn("mt-10 h-[calc(100svh-2.5rem)] bg-[var(--redesign-sidebar-surface)]", sidebarClassName)}
       >
         <div
+          data-icon-stroke
           className={cn(
             "flex h-full min-h-0 w-full flex-none flex-col border-r border-[var(--redesign-sidebar-border)] bg-[var(--redesign-sidebar-surface)] px-[var(--redesign-sidebar-edge-padding)] pt-[var(--redesign-sidebar-top-padding)] pb-[var(--redesign-sidebar-edge-padding)] [container-type:inline-size]",
             sidebarContentClassName,

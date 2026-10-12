@@ -84,7 +84,7 @@ const sizeMap: Record<SizeVariant, SizeClasses> = {
   // so the whole control shrinks together, not just its box.
   compact: {
     variant: "compact",
-    control: "h-7",
+    control: "h-6", // 24px rows (was h-7): slimmer menu/select/tab rows app-wide, per request.
     controlHeight: 28,
     segmentItem: "h-6",
     segmentPad: "p-0.5",

@@ -63,7 +63,7 @@ function toWorkspaceOption(workspace: WorkspaceRecord): WorkspaceOption {
     ? {
         id: workspace.id,
         name: workspace.name,
-    icon: <WorkspaceBrandIcon size={20} monochrome invertOnLight />,
+    icon: <WorkspaceBrandIcon size={18} monochrome invertOnLight />,
       }
     : { id: workspace.id, name: workspace.name };
 }
@@ -423,7 +423,7 @@ export function RedesignPage() {
   }
 
   const workspaceSectionActions: readonly WorkspaceMenuAction[] = [
-    { id: "new-workspace", label: "New Workspace", icon: Plus, onSelect: () => { setWorkspaceError(null); setNewWorkspaceOpen(true); } },
+    { id: "new-workspace", label: "New workspace", icon: Plus, onSelect: () => { setWorkspaceError(null); setNewWorkspaceOpen(true); } },
     { id: "manage-workspace", label: "Manage workspace", icon: Settings01Icon, onSelect: () => { setWorkspaceError(null); setManageWorkspacesOpen(true); } },
   ];
   const commandMenuItems = useMemo<CommandMenuItemData[]>(() => [
@@ -505,7 +505,7 @@ export function RedesignPage() {
           contentClassName="flex h-full min-h-0 w-full"
         >
           {isSettingsRoute ? <SettingsSidebarNav section={settingsSection} variant="redesign" /> :
-          <div className="flex h-full min-h-0 flex-col">
+          <div className="flex h-full min-h-0 w-full min-w-0 flex-col">
           <div className="flex flex-col gap-[var(--redesign-quick-actions-gap)]">
             <div className="flex h-[var(--redesign-workspace-trigger-height)] items-center">
               <WorkspaceSelector
@@ -561,7 +561,7 @@ export function RedesignPage() {
           )}
           </div>
           <footer className="mt-auto pt-[var(--redesign-sidebar-section-gap)]">
-            <GettingStartedSummary label="Getting Started" steps={GETTING_STARTED_STEPS} completedSteps={0} viewAllLabel="View all tasks" />
+            <GettingStartedSummary label="Getting Started" steps={GETTING_STARTED_STEPS} completedSteps={0} />
             <div className="-mx-[var(--redesign-sidebar-edge-padding)] mt-[var(--redesign-sidebar-section-gap)] border-t border-[var(--redesign-sidebar-border)] px-[var(--redesign-sidebar-edge-padding)] pt-2">
               <SidebarAccountFooter
                 name="Guest"

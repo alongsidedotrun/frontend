@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Check, ChevronDown, ChevronsUpDown, CircleDashed, ImagePlus } from "lucide-react";
+import { Check, ChevronsUpDown, CircleDashed, ImagePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -67,50 +67,41 @@ export function GettingStartedSummary({
         panelRadius,
         "border border-[var(--redesign-sidebar-footer-onboarding-border)]",
         "shadow-[var(--redesign-sidebar-footer-onboarding-shadow)]",
-        expanded && "p-[var(--redesign-sidebar-footer-onboarding-padding)]",
+        // Same side inset as the collapsed row; 6px top / 8px bottom. The
+        // last task row carries ~5.5px of its own space under its circle, so
+        // these make the visible gaps equal: panel edge to ring = last circle
+        // to panel edge (13.5px). The header shifts down 6px on open.
+        expanded && "px-[var(--redesign-quick-actions-padding)] pt-1.5 pb-2",
       )}
-      style={{ backgroundColor: "var(--redesign-sidebar-overlay-surface)" }}
+      style={{ backgroundColor: "var(--redesign-getting-started-surface)" }}
     >
       <button
         type="button"
         aria-expanded={expanded}
         onClick={() => setExpanded((current) => !current)}
         className={cn(
-          "w-full text-[length:var(--redesign-font-size-base)] font-normal text-foreground/70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "w-full text-[length:var(--redesign-font-size-base)] font-normal text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           triggerRadius,
-          expanded
-            ? "flex min-h-[var(--redesign-sidebar-footer-row-height)] flex-col items-stretch gap-1.5 p-0"
-            : "flex h-[var(--redesign-sidebar-footer-row-height)] items-center gap-[var(--redesign-quick-actions-icon-gap)] px-[var(--redesign-quick-actions-padding)]",
+          // One row in both states (ring, label, count), per request -- the
+          // label stays beside the ring when expanded instead of wrapping under it.
+          "flex h-[var(--redesign-sidebar-footer-row-height)] items-center gap-[var(--redesign-quick-actions-icon-gap)]",
+          expanded ? "p-0" : "px-[var(--redesign-quick-actions-padding)]",
           !expanded && "hover:bg-muted/50 hover:text-foreground",
         )}
       >
-        {expanded ? (
-          <>
-            <span className="flex items-center">
-              <SetupProgressRing completedSteps={completedSteps} totalSteps={steps.length} />
-              <span className="ml-auto shrink-0 text-[length:var(--redesign-font-size-compact)] text-foreground/70">{count}</span>
-              <ChevronDown aria-hidden="true" strokeWidth={2} className="ml-[var(--redesign-quick-actions-icon-gap)] size-[var(--redesign-sidebar-footer-chevron-size)] shrink-0 rotate-180 transition-transform duration-200" />
-            </span>
-            <span className="min-w-0 truncate py-1.5 text-left">{label}</span>
-          </>
-        ) : (
-          <>
-            <SetupProgressRing completedSteps={completedSteps} totalSteps={steps.length} />
-            <span className="min-w-0 flex-1 truncate text-left">{label}</span>
-            <span className="shrink-0 text-[length:var(--redesign-font-size-compact)] text-foreground/70">{count}</span>
-            <ChevronDown aria-hidden="true" strokeWidth={2} className="size-[var(--redesign-sidebar-footer-chevron-size)] shrink-0 transition-transform duration-200" />
-          </>
-        )}
+        <SetupProgressRing completedSteps={completedSteps} totalSteps={steps.length} />
+        <span className="min-w-0 flex-1 truncate text-left font-medium">{label}</span>
+        <span className="shrink-0 text-[length:var(--redesign-font-size-compact)] text-foreground/70">{count}</span>
       </button>
       <div className={cn("grid transition-[grid-template-rows,opacity] duration-200 ease-out", expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")}>
         <div className="-ml-[var(--redesign-sidebar-footer-task-hover-bleed)] min-h-0 w-[calc(100%+var(--redesign-sidebar-footer-task-hover-bleed))] overflow-hidden pl-[var(--redesign-sidebar-footer-task-hover-bleed)]">
-          <div className="flex flex-col gap-[var(--redesign-quick-actions-row-gap)] p-0">
+          <div className="flex flex-col gap-1.5 pt-1.5">
             {steps.map((step) => (
               <Popover key={step.id}>
                 <PopoverTrigger asChild>
                   <button
                     type="button"
-                    className="group -ml-[var(--redesign-sidebar-footer-task-hover-bleed)] flex h-[var(--redesign-sidebar-footer-task-row-height)] w-[calc(100%+var(--redesign-sidebar-footer-task-hover-bleed))] items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] pl-[var(--redesign-sidebar-footer-task-hover-bleed)] text-left text-[length:var(--redesign-font-size-base)] font-normal text-foreground/50 transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="group -ml-[var(--redesign-sidebar-footer-task-hover-bleed)] flex h-[var(--redesign-sidebar-footer-task-row-height)] w-[calc(100%+var(--redesign-sidebar-footer-task-hover-bleed))] items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] pl-[var(--redesign-sidebar-footer-task-hover-bleed)] text-left text-[length:var(--redesign-font-size-base)] font-medium text-foreground/50 transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {step.complete ? (
                       <span className="flex size-[var(--redesign-sidebar-footer-task-indicator-size)] shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
@@ -128,7 +119,7 @@ export function GettingStartedSummary({
                   </div>
                   <div>
                     <h3 className="text-[length:var(--redesign-font-size-md)] font-medium text-foreground">{step.label}</h3>
-                    {step.description && <p className="mt-[var(--redesign-sidebar-footer-task-description-gap)] text-[length:var(--redesign-font-size-base)] leading-relaxed text-muted-foreground">{step.description}</p>}
+                    {step.description && <p className="mt-[var(--redesign-sidebar-footer-task-description-gap)] text-[length:var(--redesign-font-size-base)] font-medium leading-relaxed text-muted-foreground">{step.description}</p>}
                   </div>
                   <button
                     type="button"
@@ -173,8 +164,8 @@ export function SidebarAccountFooter({ name, avatar, actionSections }: SidebarAc
           className="flex h-[var(--redesign-sidebar-footer-account-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="size-[var(--redesign-sidebar-footer-avatar-size)] shrink-0 overflow-hidden rounded-full">{avatar}</span>
-          <span className="min-w-0 flex-1 truncate text-[length:var(--redesign-sidebar-primary-font-size)] font-medium text-foreground/70">{name}</span>
-          <ChevronsUpDown aria-hidden="true" strokeWidth={1.5} className="size-[var(--redesign-workspace-chevron-size)] shrink-0 text-muted-foreground" />
+          <span className="min-w-0 flex-1 truncate text-[length:var(--redesign-sidebar-primary-font-size)] font-medium text-foreground">{name}</span>
+          <ChevronsUpDown aria-hidden="true" strokeWidth={1.5} className="size-[var(--redesign-workspace-chevron-size)] shrink-0 text-foreground" />
         </button>
       </DropdownMenuTrigger>
       <RedesignDropdownContent
