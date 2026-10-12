@@ -275,7 +275,10 @@
   --redesign-sidebar-overlay-surface: #212121;
   --redesign-quick-actions-surface: transparent;
   --redesign-getting-started-surface: var(--redesign-sidebar-overlay-surface);
-  --redesign-progress-track: color-mix(in srgb, var(--focus-accent) 30%, transparent);
+  /* Inactive accent (Getting Started ring, inactive send) in dark mode:
+     the accent lightened toward white first, so it reads as a pale blue on
+     the dark surface instead of a murky dark blue. */
+  --redesign-progress-track: color-mix(in srgb, color-mix(in srgb, var(--focus-accent), white 55%) 45%, transparent);
     --redesign-sidebar-border: #232323;
     --redesign-overlay-border: #282828;
     --surface-1: #171717;
