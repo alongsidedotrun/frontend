@@ -2971,7 +2971,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
         aria-label={t("settings.nav.ariaLabel")}
         className="relative flex h-full w-full min-w-0 flex-col overflow-hidden bg-background"
       >
-        <div className="flex min-h-0 flex-col">
+        <div className="flex min-h-0 flex-col px-[var(--redesign-sidebar-edge-padding)] pt-[var(--redesign-sidebar-top-padding)]">
           {/* Keeps Settings search in the same control rhythm as Quick Actions. */}
           <div className="relative mb-[var(--redesign-quick-actions-gap)] h-[var(--redesign-quick-actions-trigger-height)] w-full">
             <span
@@ -3065,15 +3065,17 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
           )}
         </div>
 
-        <div className="mt-auto border-t border-[var(--redesign-sidebar-border)] pt-[var(--redesign-quick-actions-gap)]">
-          <button
-            type="button"
-            onClick={() => navigate("/new/chat")}
-            className="flex h-[var(--redesign-sidebar-footer-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-[length:var(--redesign-sidebar-primary-font-size)] text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <AlongsideLogo className="size-[var(--redesign-quick-actions-icon-size)] shrink-0" />
-            <span className="truncate">{t("settings.returnToAlongside")}</span>
-          </button>
+        <div className="mt-auto border-t border-[var(--redesign-sidebar-border)]">
+          <div className="px-[var(--redesign-sidebar-edge-padding)] pt-[var(--redesign-quick-actions-gap)] pb-[var(--redesign-sidebar-edge-padding)]">
+            <button
+              type="button"
+              onClick={() => navigate("/new/chat")}
+              className="flex h-[var(--redesign-sidebar-footer-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-[length:var(--redesign-sidebar-primary-font-size)] text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <AlongsideLogo className="size-[var(--redesign-quick-actions-icon-size)] shrink-0" />
+              <span className="truncate">{t("settings.returnToAlongside")}</span>
+            </button>
+          </div>
         </div>
       </aside>
     );
