@@ -21,13 +21,13 @@ export function RedesignDropdownContent({
   return (
     <DropdownMenuContent
       className={cn(
-        "w-[var(--redesign-workspace-menu-width)] max-h-[calc(100vh-2rem)] rounded-[var(--redesign-workspace-menu-radius)] border !shadow-none",
+        "w-[var(--redesign-workspace-menu-width)] max-h-[calc(100vh-2rem)] rounded-[var(--redesign-workspace-menu-radius)] border",
         className,
       )}
       style={{
         backgroundColor: "var(--redesign-sidebar-overlay-surface)",
-        borderColor: "var(--redesign-overlay-border)",
-        boxShadow: "none",
+        borderColor: "var(--redesign-sidebar-elevated-border)",
+        boxShadow: "var(--redesign-sidebar-elevated-shadow)",
       }}
       viewportClassName={cn(
         "max-h-[calc(100vh-2rem)] overflow-visible rounded-[var(--redesign-workspace-menu-radius)] p-0",

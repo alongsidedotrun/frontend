@@ -154,10 +154,12 @@
   --redesign-sidebar-footer-onboarding-trigger-radius: 0.875rem;
   --redesign-sidebar-footer-onboarding-collapsed-radius: 0.5rem;
   --redesign-sidebar-footer-onboarding-collapsed-trigger-radius: var(--redesign-hover-radius);
+  --redesign-sidebar-elevated-border: color-mix(in srgb, var(--redesign-overlay-border) 50%, transparent);
+  --redesign-sidebar-elevated-shadow: 0 2px 6px rgb(0 0 0 / 0.06);
   /* A half-strength outline lets the card edge recede into its soft
      elevation instead of reading as a second, heavy border. */
-  --redesign-sidebar-footer-onboarding-border: color-mix(in srgb, var(--redesign-overlay-border) 50%, transparent);
-  --redesign-sidebar-footer-onboarding-shadow: 0 2px 6px rgb(0 0 0 / 0.06);
+  --redesign-sidebar-footer-onboarding-border: var(--redesign-sidebar-elevated-border);
+  --redesign-sidebar-footer-onboarding-shadow: var(--redesign-sidebar-elevated-shadow);
   --redesign-sidebar-footer-progress-size: 0.9375rem;
   --redesign-sidebar-footer-progress-inset: 1px;
   --redesign-sidebar-footer-task-row-height: clamp(1.4375rem, 2.1vw, 1.6875rem);
@@ -255,6 +257,7 @@
 .dark {
   --redesign-primary-surface: var(--background);
   --redesign-sidebar-surface: var(--background);
+  --redesign-sidebar-elevated-shadow: none;
   --redesign-sidebar-footer-onboarding-shadow: none;
   --redesign-sidebar-overlay-surface: #212121;
   --redesign-progress-track: rgba(252, 252, 252, 0.3);
