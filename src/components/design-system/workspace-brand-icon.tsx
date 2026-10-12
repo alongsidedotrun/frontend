@@ -15,7 +15,7 @@ const SIZE_CLASS: Record<WorkspaceBrandIconSize, string> = {
   254: "size-[254px]",
 };
 
-// The source mark has a subtle high-right optical bias. These values are
+// The mark needs optical calibration at rendered sizes. These values are
 // intentionally size-aware rather than percentage based: percentage movement
 // grows too quickly for the 128px and 254px marks.
 const ALONGSIDE_OPTICAL_OFFSET_CLASS: Record<WorkspaceBrandIconSize, string> = {
@@ -24,7 +24,7 @@ const ALONGSIDE_OPTICAL_OFFSET_CLASS: Record<WorkspaceBrandIconSize, string> = {
   32: "[transform:translate(-1px,1px)]",
   64: "[transform:translate(-1.5px,1.5px)]",
   128: "[transform:translate(-2px,2px)]",
-  254: "[transform:translate(-3px,3px)]",
+  254: "[transform:translate(3px,-3px)]",
 };
 
 type WorkspaceBrandIconProps = {
@@ -60,8 +60,7 @@ export function WorkspaceBrandIcon({
   markClassName,
 }: WorkspaceBrandIconProps) {
   const useInvertedMonochrome = monochrome && invertOnLight;
-  // Alongside's pinwheel is optically high-right inside its mathematically
-  // centered viewBox. Keep that correction here so every usage stays aligned.
+  // Keep the mark's calibrated position here so every usage stays aligned.
   const alongsideOpticalOffset = !imageSrc && Icon === AlongsideLogo;
 
   return (
