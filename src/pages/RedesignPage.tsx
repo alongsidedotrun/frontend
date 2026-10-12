@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useOutlet } from "react-router-dom";
 import { CircleArrowUp, CircleHelp, Plus, Search } from "lucide-react";
 import { AlongsideLogo } from "@/components/icons/alongside-logo";
-import { Edit05Icon, LogInIcon, MessageChatCircleIcon, Settings01Icon, Settings04Icon } from "@/components/icons/untitled-ui";
+import { LogInIcon, MessageChatCircleIcon, Settings01Icon, Settings04Icon } from "@/components/icons/untitled-ui";
 import { SplitView } from "@/components/design-system/split-view";
 import { AppTopBar } from "@/components/app-top-bar";
 import { QuickActions, type QuickActionItem } from "@/components/design-system/quick-actions";
@@ -87,7 +87,7 @@ function profileActionSections(onOpenSettings: () => void): readonly (readonly W
 }
 
 const QUICK_ACTIONS: readonly QuickActionItem[] = [
-  { id: "chats", label: "New chat", icon: Edit05Icon },
+  { id: "chats", label: "New chat", icon: Plus },
 ];
 
 const GETTING_STARTED_STEPS: readonly GettingStartedStep[] = [
@@ -436,7 +436,7 @@ export function RedesignPage() {
       value: "new-chat",
       label: "New chat",
       description: "Start a new conversation",
-      icon: Edit05Icon,
+      icon: Plus,
       shortcut: "mod+n",
       keywords: ["compose", "start", "conversation"],
       group: "Actions",
