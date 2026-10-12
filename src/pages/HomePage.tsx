@@ -245,12 +245,16 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
         className={`absolute inset-x-0 z-10 px-3 pb-4 transition-[top,transform] duration-500 ease-in-out sm:px-5 ${transitioningToChat ? "top-full -translate-y-full" : "top-1/2 -translate-y-1/2"}`}
       >
         <div className="t-chat-width mx-auto w-full" style={{ maxWidth: "var(--chat-max-width)" }}>
+          {/* Heading scales with the page's own width (the @container above):
+              full size at a ~1000px content area, clamped down to 15px text /
+              a 20px icon at ~450px. Icon size rounds to even pixels so the
+              brand tile stays crisp; the name truncates rather than spill. */}
           <div
-            className={`flex items-center justify-center gap-2 overflow-hidden text-center transition-[max-height,margin,transform] duration-200 ${transitioningToChat ? "pointer-events-none invisible mb-0 max-h-0 -translate-y-2" : "mb-5 max-h-8 translate-y-0"}`}
+            className={`flex items-center justify-center gap-[clamp(6px,calc(4.36px+0.364cqw),8px)] overflow-hidden text-center transition-[max-height,margin,transform] duration-200 ${transitioningToChat ? "pointer-events-none invisible mb-0 max-h-0 -translate-y-2" : "mb-5 max-h-8 translate-y-0"}`}
           >
-            <h1 className="text-[18px] font-normal text-foreground">{t("home.workspacePrompt")}</h1>
-            <WorkspaceBrandIcon size={32} monochrome invertOnLight />
-            <span className="text-[18px] font-medium text-foreground">{workspaceName}</span>
+            <h1 className="shrink-0 text-[length:clamp(15px,calc(12.55px+0.545cqw),18px)] font-normal text-foreground">{t("home.workspacePrompt")}</h1>
+            <WorkspaceBrandIcon size={24} monochrome invertOnLight className="size-[round(clamp(20px,calc(16.73px+0.727cqw),24px),2px)]" />
+            <span className="min-w-0 truncate text-[length:clamp(15px,calc(12.55px+0.545cqw),18px)] font-medium text-foreground">{workspaceName}</span>
           </div>
         <ComposeBox
           value={prompt}

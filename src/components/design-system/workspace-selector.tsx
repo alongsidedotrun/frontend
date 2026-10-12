@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { ChevronsUpDown, Check } from "lucide-react";
+import { Check } from "lucide-react";
+import { ChevronDownIcon } from "@/components/icons/untitled-ui";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -48,17 +49,20 @@ export function WorkspaceSelector({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
+        {/* Height and padding are rounded to whole pixels (even height so
+            items-center splits evenly): the raw cqw values left the brand tile
+            on fractional coordinates, which blurred its mark unevenly. */}
         <button
           type="button"
           aria-label={ariaLabel}
           className={cn(
-            "flex h-[var(--redesign-workspace-trigger-height)] w-[var(--redesign-workspace-trigger-width)] max-w-full items-center gap-[var(--redesign-workspace-trigger-gap)] px-[var(--redesign-workspace-trigger-padding)] text-left text-[length:var(--redesign-sidebar-primary-font-size)] font-medium text-foreground/70 outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "flex h-[round(var(--redesign-workspace-trigger-height),2px)] w-[var(--redesign-workspace-trigger-width)] max-w-full items-center gap-[var(--redesign-workspace-trigger-gap)] px-[round(var(--redesign-workspace-trigger-padding),1px)] text-left text-[length:var(--redesign-sidebar-primary-font-size)] font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring",
             className,
           )}
         >
           <WorkspaceAvatar icon={selectedWorkspace.icon} iconSurfaceClassName={selectedWorkspace.iconSurfaceClassName} />
-          <span className="min-w-0 flex-1 truncate">{selectedWorkspace.name}</span>
-          <ChevronsUpDown aria-hidden="true" strokeWidth={1.5} className="size-[var(--redesign-workspace-chevron-size)] shrink-0 text-muted-foreground" />
+          <span className="min-w-0 truncate">{selectedWorkspace.name}</span>
+          <ChevronDownIcon aria-hidden="true" strokeWidth={1.5} className="size-[var(--redesign-workspace-chevron-size)] shrink-0 text-foreground" />
         </button>
       </DropdownMenuTrigger>
       <RedesignDropdownContent
@@ -73,18 +77,17 @@ export function WorkspaceSelector({
                   <DropdownMenuItem
                     key={workspace.id}
                     onSelect={() => onValueChange(workspace.id)}
-                    className="mx-[-var(--redesign-workspace-menu-padding)] h-[var(--redesign-sidebar-footer-task-row-height)] gap-[var(--redesign-workspace-trigger-gap)] rounded-[var(--redesign-dropdown-row-radius)] px-[var(--redesign-menu-horizontal-padding)] text-[length:var(--redesign-dropdown-font-size)] font-normal text-foreground/70"
+                    className="mx-[-var(--redesign-workspace-menu-padding)] h-[round(var(--redesign-sidebar-footer-task-row-height),2px)] gap-[var(--redesign-workspace-trigger-gap)] rounded-[var(--redesign-dropdown-row-radius)] px-[round(var(--redesign-menu-horizontal-padding),1px)] text-[length:var(--redesign-sidebar-primary-font-size)] font-medium text-foreground/70"
                   >
                     <WorkspaceAvatar
                       icon={workspace.icon}
                       iconSurfaceClassName={workspace.iconSurfaceClassName}
-                      className="size-4"
                     />
                     <span className="min-w-0 flex-1 truncate">{workspace.name}</span>
                     {selected && (
                       <span
                         aria-hidden="true"
-                        className="relative flex size-[var(--redesign-workspace-check-size)] shrink-0 rounded-full bg-focus-accent !text-white"
+                        className="relative flex size-[var(--redesign-workspace-check-size)] shrink-0 rounded-full bg-focus-accent !text-white [&_*]:![color:inherit]"
                       >
                         <Check
                           strokeWidth={1.5}
@@ -146,8 +149,11 @@ function WorkspaceAvatar({
     return (
       <span
         aria-hidden="true"
+        // No fixed size: a supplied icon (e.g. a WorkspaceBrandIcon) carries
+        // its own canvas, and boxing it in the 16px placeholder slot made it
+        // overflow unevenly into the trigger padding and the label gap.
         className={cn(
-          "flex size-[var(--redesign-workspace-avatar-size)] shrink-0 items-center justify-center text-foreground",
+          "flex shrink-0 items-center justify-center text-foreground",
           className,
           iconSurfaceClassName,
         )}

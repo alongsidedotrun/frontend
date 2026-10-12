@@ -106,14 +106,14 @@
   --redesign-control-height: 1.6875rem;
   --redesign-control-padding-inline: 0.5625rem;
   --redesign-control-gap: 0.375rem;
-  --redesign-hover-radius: 6px;
+  --redesign-hover-radius: var(--radius);
   --redesign-control-radius: var(--redesign-hover-radius);
   --redesign-dropdown-row-radius: var(--redesign-hover-radius);
   /* These values use the sidebar's container width (cqw), not viewport or
      fixed pixels. At a 1280px viewport (31vw sidebar) they resolve to the
      supplied 70% workspace name, 20% space, and 10% search layout. */
   --redesign-workspace-trigger-width: 70cqw;
-  --redesign-workspace-trigger-height: clamp(1.6875rem, 9.66cqw, 2rem);
+  --redesign-workspace-trigger-height: clamp(1.6875rem, 9.66cqw, 1.75rem);
   --redesign-workspace-trigger-radius: 9999px;
   --redesign-workspace-trigger-padding: 3.02cqw;
   --redesign-workspace-trigger-gap: 0.46875rem;
@@ -132,8 +132,8 @@
   --redesign-top-bar-control-half-size: 0.875rem;
   --redesign-top-bar-controls-right: calc(100% - var(--redesign-sidebar-width) + var(--redesign-sidebar-edge-padding) + var(--redesign-search-control-half-size-top-bar) - var(--redesign-top-bar-control-half-size));
   --redesign-quick-actions-gap: 0.75rem;
-  --redesign-quick-actions-trigger-height: 2.125rem;
-  --redesign-quick-actions-row-height: 1.875rem;
+  --redesign-quick-actions-trigger-height: 1.75rem;
+  --redesign-quick-actions-row-height: 1.75rem;
   --redesign-quick-actions-padding: 0.5625rem;
   --redesign-quick-actions-icon-size: 0.9375rem;
   --redesign-quick-actions-command-icon-size: 0.8125rem;
@@ -142,8 +142,8 @@
   --redesign-quick-actions-shortcut-gap: 0.1875rem;
   --redesign-sidebar-section-gap: 0.75rem;
   --redesign-sidebar-section-row-offset: 0.25rem;
-  --redesign-sidebar-footer-row-height: 2.125rem;
-  --redesign-sidebar-footer-account-row-height: 2.25rem;
+  --redesign-sidebar-footer-row-height: 1.875rem;
+  --redesign-sidebar-footer-account-row-height: 2rem;
   --redesign-sidebar-footer-avatar-size: 1.1875rem;
   --redesign-sidebar-footer-upgrade-height: 1.375rem;
   --redesign-sidebar-footer-upgrade-padding: 0.5rem;
@@ -152,7 +152,7 @@
   --redesign-sidebar-footer-onboarding-padding: calc(var(--redesign-menu-horizontal-padding) + 6px);
   --redesign-sidebar-footer-onboarding-radius: var(--redesign-workspace-menu-radius);
   --redesign-sidebar-footer-onboarding-trigger-radius: 0.875rem;
-  --redesign-sidebar-footer-onboarding-collapsed-radius: 0.5rem;
+  --redesign-sidebar-footer-onboarding-collapsed-radius: var(--redesign-control-radius);
   --redesign-sidebar-footer-onboarding-collapsed-trigger-radius: var(--redesign-hover-radius);
   --redesign-sidebar-elevated-border: color-mix(in srgb, var(--redesign-overlay-border) 70%, transparent);
   --redesign-sidebar-elevated-shadow: 0 2px 6px rgb(0 0 0 / 0.06);
@@ -162,7 +162,9 @@
   --redesign-sidebar-footer-onboarding-shadow: var(--redesign-sidebar-elevated-shadow);
   --redesign-sidebar-footer-progress-size: 0.9375rem;
   --redesign-sidebar-footer-progress-inset: 1px;
-  --redesign-sidebar-footer-task-row-height: clamp(1.4375rem, 2.1vw, 1.6875rem);
+  /* Menu/task rows: fixed 24px, ~0.875x the old height -- slimmer rows
+     across the sidebar, its menus and Getting Started, per request. */
+  --redesign-sidebar-footer-task-row-height: 1.5rem;
   --redesign-sidebar-footer-task-indicator-size: 0.8125rem;
   /* Task content aligns with the expanded panel header, while its hover
      surface reaches into the panel's left padding. */
@@ -180,7 +182,8 @@
   /* The menu follows its content. Only the workspace collection is capped
      so the static actions remain visible while longer collections scroll. */
   --redesign-workspace-list-max-height: clamp(7.5rem, 12.5vw, 10rem);
-  --redesign-workspace-menu-radius: 0.875rem;
+  /* Panels (menus, open Getting Started) share the card tier, 11.2px. */
+  --redesign-workspace-menu-radius: calc(var(--radius) * 1.4);
   --redesign-workspace-menu-padding: calc(var(--redesign-menu-horizontal-padding) - 2px);
   --redesign-workspace-menu-vertical-padding: var(--redesign-workspace-menu-padding);
   --redesign-menu-horizontal-padding: clamp(0.5625rem, 0.78125vw, 0.875rem);
@@ -191,7 +194,9 @@
   --redesign-menu-last-section-bottom-padding: clamp(0.5rem, 0.625vw, 0.75rem);
   --redesign-workspace-row-height: clamp(1.25rem, 1.640625vw, 1.6875rem);
   --redesign-menu-avatar-size: 1rem;
-  --redesign-workspace-check-size: clamp(0.625rem, 0.9375vw, 0.975rem);
+  /* 14px circle / 8px check: fixed even sizes so the check centres on
+     whole pixels (a responsive circle landed on fractional sizes). */
+  --redesign-workspace-check-size: 0.875rem;
   /* Keep the check on whole pixels. A percentage of the responsive circle
      produced a 7.8px glyph at the reference width, which antialiases unevenly. */
   --redesign-workspace-checkmark-size: 0.5rem;
@@ -199,10 +204,18 @@
   --redesign-primary-surface: var(--background);
   --redesign-sidebar-surface: #FAFAFA;
   --redesign-sidebar-overlay-surface: #f8f8f8;
+  /* Quick actions field and Getting Started panel: pure white on the
+     #FAFAFA light sidebar, per request. Dark mode keeps their old look. */
+  --redesign-quick-actions-surface: #FFFFFF;
+  --redesign-getting-started-surface: #FFFFFF;
   --redesign-overlay-border: #EBEBEB;
   --redesign-progress-track: color-mix(in srgb, var(--focus-accent) 30%, transparent);
   --redesign-sidebar-border: #EBEBEB;
-  --redesign-sidebar-width: 14rem;
+  /* 16rem from 1200px windows up, easing to 13.5rem (216px) at 800px and
+     below, so on small windows the sidebar doesn't outweigh the content
+     (which scales down) -- at a 708px window it's ~30% instead of 36%.
+     Rounded to whole pixels so sidebar content stays on the pixel grid. */
+  --redesign-sidebar-width: round(clamp(13.5rem, calc(136px + 10vw), 16rem), 1px);
   --surface-1: #FAFAFA;
   --surface-2: #FCFCFC;
   --surface-3: #FFFFFF;
@@ -260,6 +273,8 @@
   --redesign-sidebar-elevated-shadow: none;
   --redesign-sidebar-footer-onboarding-shadow: none;
   --redesign-sidebar-overlay-surface: #212121;
+  --redesign-quick-actions-surface: transparent;
+  --redesign-getting-started-surface: var(--redesign-sidebar-overlay-surface);
   --redesign-progress-track: color-mix(in srgb, var(--focus-accent) 30%, transparent);
     --redesign-sidebar-border: #232323;
     --redesign-overlay-border: #282828;
@@ -642,12 +657,14 @@
     --chart-3: oklch(0.439 0 0);
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
-    /* Reduced from Nova's default 0.625rem -- every derived radius
-       (--radius-sm/md/lg/xl/etc. in @theme inline above) is a multiple of
-       this one value, so lowering it alone squares off corners everywhere
-       (buttons, inputs, sidebar, dropdowns, avatars) consistently rather
-       than hand-tuning each component. */
-    --radius: 0.375rem;
+    /* Every derived radius (--radius-sm/md/lg/xl/etc. in @theme inline
+       above) is a multiple of this one value. 8px is the reference: a
+       ~32px control (Quick actions) at 8px. The scale then keeps corners
+       looking equally round across sizes -- lg 8px for controls, menu rows
+       and hover rows; xl 11.2px for cards and panels (menus included --
+       8 x sqrt(58/32) for a ~58px card; concentric 8 + 9px inset read too
+       round on menus, per review). */
+    --radius: 0.5rem;
     /* The navigation rail is deliberately one surface step below the
        white application canvas. */
     --sidebar: #FAFAFA;
@@ -1005,6 +1022,18 @@
   /* Dictation "listening" indicator (compose-box.tsx) -- three bars
      bouncing out of phase (150ms stagger per bar) reads as a live
      equalizer instead of a static toggled icon. */
+  /* One-shot press dip for menu triggers (compose-box.tsx's PRESS_EFFECT):
+     Base UI keeps data-pressed on a trigger for as long as its menu is open,
+     so a held scale would stay shrunk; this plays once per press instead.
+     --press-scale lets icon-only triggers dip deeper (see ICON_PRESS). */
+  @keyframes press-tap {
+    0%, 100% {
+      scale: 1;
+      }
+    40% {
+      scale: var(--press-scale, 0.96);
+      }
+    }
   @keyframes eq-bounce {
     0%, 100% {
       transform: scaleY(0.3);
@@ -2084,3 +2113,16 @@ html.transitioning *, html.transitioning *::before, html.transitioning *::after 
     inherits: false;
     initial-value: 1;
 }
+
+/* One line weight for every outline icon in the shell -- sidebar and top bar
+   (data-icon-stroke), the compose box, and all menus. Icons come from two
+   libraries with different strokeWidths and render from 8px to 15px, so the
+   same setting drew anything from 0.5px to 1.25px. non-scaling-stroke makes
+   the width a fixed on-screen 1px regardless of icon size or library (and
+   overrides Button's hover thickening). Filled icons have no stroke and are
+   unaffected. */
+:is([data-icon-stroke], [data-compose-box], [role="menu"]) svg :is(path, line, polyline, polygon, circle, ellipse, rect) {
+  vector-effect: non-scaling-stroke;
+  stroke-width: 1px;
+}
+

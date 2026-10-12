@@ -93,6 +93,43 @@ function modelSelectionLabel(selected: typeof QUICK_CHAT_MODELS) {
   return modelDisplayName(selected[0]);
 }
 
+// The compose row's controls (+, mic, model/effort/permission triggers) show
+// no hover background, per request. Instead hovering fades them toward the
+// surface (lighter in light mode, darker in dark mode) and pressing scales
+// them down: held scale via :active (the mic), and a one-shot press-tap
+// (index.css) for the menu triggers, which never get :active and keep
+// data-pressed set for as long as their menu is open.
+// !transition: .t-input (Model's trigger) is unlayered CSS that would
+// otherwise win over this utility; border-color kept for its error shake.
+const PRESS_EFFECT =
+  "transform-gpu !transition-[color,opacity,scale,border-color] duration-150 ease-out hover:opacity-70 active:scale-[0.96] data-[pressed]:animate-[press-tap_220ms_ease-out] motion-reduce:active:scale-100 motion-reduce:animate-none";
+// For the Button-based controls (+, mic): hides Button's hover/press surface
+// (its first, aria-hidden child span) and pins the icon stroke, which Button
+// otherwise thickens from 1.5 to 2 on hover.
+// Bottom-row control sizes, scaled with the compose box's own width (it's the
+// @container, so cqw is the box) and clamped between a narrow-box minimum
+// (~400px box) and the full size (800px box). Pixel sizes round to even
+// numbers so centred glyphs land on whole pixels. Icon sizes go through
+// [&_svg]:!size-* because Button forces [&_svg]:h-4 w-4 on its icons.
+const COMPOSE_TOOL_VARS = {
+  "--compose-tool-h": "round(clamp(22px, calc(16px + 1.5cqw), 28px), 2px)",
+  "--compose-tool-text": "clamp(11px, calc(10px + 0.25cqw), 12px)",
+  "--compose-tool-icon": "round(clamp(12px, calc(10px + 0.5cqw), 14px), 2px)",
+  "--compose-plus-icon": "round(clamp(14px, calc(12px + 0.5cqw), 16px), 2px)",
+  "--compose-action-size": "round(clamp(20px, calc(16px + 1cqw), 24px), 2px)",
+  "--compose-mic-icon": "round(clamp(14px, calc(12px + 0.5cqw), 16px), 2px)",
+  "--compose-send-icon": "round(clamp(10px, calc(8px + 0.5cqw), 12px), 2px)",
+  // Pulls the + so its glyph's visible edge (5/24 into the svg) lines up with
+  // the placeholder text, 4px inside the content edge, at any scaled size.
+  "--compose-plus-offset":
+    "calc(4px - (var(--compose-tool-h) - var(--compose-plus-icon)) / 2 - var(--compose-plus-icon) * 5 / 24)",
+} as React.CSSProperties;
+const NO_HOVER_SURFACE = "[&>span:first-child]:hidden [&_svg]:!stroke-[1.5]";
+// Icon-only controls (+, mic) dip to 90%, not 96%: 4% of a 14-18px glyph is
+// well under a pixel and reads as no effect, while the text triggers are wide
+// enough that 96% is visible. Goes after PRESS_EFFECT so cn() keeps these.
+const ICON_PRESS = "[--press-scale:0.9] active:scale-[0.9]";
+
 // How the agent asks before acting -- beside the model trigger, per
 // explicit request. Real for all three providers now: Codex
 // (server.rs's own spawn_agent_session comment on last_permission_mode/
@@ -1238,7 +1275,7 @@ export function ComposeBox({
     // wrap this in a @container the way HomePage does, so the @[...]:
     // classes below (button row wrapping, padding/radius scaling) need
     // their own container context to work on both pages.
-    <div data-compose-box className="relative @container">
+    <div data-compose-box className="relative @container" style={COMPOSE_TOOL_VARS}>
       {/* ── / (slash) menu -- bottom-full, not top-full: this composer is
           pinned to the bottom of the page on both HomePage and ChatPage
           now, so opening downward (tried first) could run the menu off
@@ -1400,7 +1437,7 @@ export function ComposeBox({
           void addImageFiles(event.dataTransfer.files);
         }}
         className={cn(
-          "flex flex-col rounded-[var(--row-radius)] border border-border bg-background px-2 py-2 transition-[min-height,padding,border-color] duration-200 [contain:layout_style] @[420px]:px-3 @[420px]:py-3",
+          "flex flex-col rounded-[calc(var(--radius)*2)] border border-border bg-background px-2 pt-2 pb-[7px] transition-[min-height,padding,border-color] duration-200 [contain:layout_style] @[420px]:px-3 @[420px]:pt-3 @[420px]:pb-1.5",
           initialHeight && "min-h-32 justify-between",
           dragActive && "border-ring",
           // border-focus-accent -- matches the sidebar/inbox search inputs'
@@ -1588,7 +1625,10 @@ export function ComposeBox({
           fixed height across its whole row) rather than the 26px this
           used before. */}
       <div className="mt-1.5 flex items-center justify-between gap-1">
-      <div className="flex items-center gap-1">
+      {/* translate-y-px: optical nudge, per request. The groups are measured
+          centred, but the filled send circle and the bottom-heavy mic on the
+          right make + and Model read as sitting higher. */}
+      <div className="flex translate-y-px items-center gap-1">
         <BaseDropdownMenu size="compact">
           <BaseDropdownTrigger
             render={
@@ -1596,7 +1636,13 @@ export function ComposeBox({
                 variant="ghost"
                 size="icon"
                 aria-label={t("compose.addAttachment")}
-                className="size-[28px] text-foreground hover:bg-hover-2/50"
+                // ml-[--compose-plus-offset]: lines the glyph's visible edge up
+                // with the placeholder text above -- 16px (12px narrow) from
+                // the box border at full size, the same
+                // inset as the send button (mr-1 on the trailing group). The
+                // gap under the row is 8px less (bottom padding), per request
+                // to sit the row lower in the box.
+                className={cn("ml-[var(--compose-plus-offset)] size-[var(--compose-tool-h)] text-foreground [&_svg]:!size-[var(--compose-plus-icon)]", NO_HOVER_SURFACE, PRESS_EFFECT, ICON_PRESS)}
               >
                 {/* size-3.5 (14px), not size-4 (16px) -- per an app-wide
                     compact-scale audit: this button's own box already matches
@@ -1663,15 +1709,15 @@ export function ComposeBox({
               // cramped line with mic/send inside the box; out here on its
               // own row, this trigger has the box's own full width to
               // itself.
-              className="t-input inline-flex h-[28px] max-w-[160px] shrink-0 flex-row flex-nowrap items-center justify-center gap-1 whitespace-nowrap rounded-lg pr-1 pl-1.5 text-xs font-normal text-foreground outline-none transition-colors hover:bg-hover-2/50 aria-expanded:bg-hover-2/50 focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]"
+              className={cn("t-input inline-flex h-[var(--compose-tool-h)] max-w-[160px] shrink-0 flex-row flex-nowrap items-center justify-center gap-1 whitespace-nowrap rounded-lg pr-1 pl-1.5 text-[length:var(--compose-tool-text)] leading-4 font-normal text-foreground outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]", PRESS_EFFECT)}
             >
               {/* size-3.5 (14px), not size-4 (16px) -- per an app-wide
                   compact-scale audit: this trigger's own h-[28px] already
                   matches the compact control token, the icon hadn't been
                   stepped down to match yet. */}
-              {selectedModels.length === 1 && <ProviderIcon model={selectedModels[0]} className="size-3.5 shrink-0" />}
+              {selectedModels.length === 1 && <ProviderIcon model={selectedModels[0]} className="size-[var(--compose-tool-icon)] shrink-0" />}
               <span className="truncate whitespace-nowrap">{modelSelectionLabel(selectedModels)}</span>
-              <ChevronDownIcon className="size-3.5 shrink-0" />
+              <ChevronDownIcon className="size-[var(--compose-tool-icon)] shrink-0" />
             </button>
             }
           />
@@ -1903,7 +1949,60 @@ export function ComposeBox({
           />
         )}
       </div>
-      <div className="flex items-center gap-1">
+      <div className="mr-1 flex items-center gap-1">
+        {/* Effort -- now its own standalone trigger+dropdown next to the
+            model selector, matching Synara's own split layout (a real
+            reference app cloned for comparison: ProviderModelPicker +
+            TraitsPicker side by side for a fresh draft thread,
+            apps/web/src/components/ChatView.tsx), per explicit request
+            ("model selector plus the dropdown... effort, mic and send" --
+            effort called out as its own step, and a follow-up choice
+            confirming a separate button over keeping it nested in the
+            model dropdown). Unlike the access-mode picker in the leading
+            group, NOT gated on hasModel -- EFFORT_LEVELS is a fixed set
+            regardless of provider (unlike the access-mode picker's own
+            provider-dependent stance set), and gating this on hasModel
+            made it vanish entirely once the compose box stopped
+            pre-selecting a default model, confirmed directly as a real
+            regression ("Effort is missing from the tool row"). */}
+        <BaseDropdownMenu
+          size="compact"
+          onOpenChange={(nowOpen) => {
+            if (!nowOpen) {
+              const button = effortTriggerRef.current;
+              if (!button) return;
+              const reblur = () => button.blur();
+              button.addEventListener("focus", reblur, { once: true });
+              setTimeout(() => button.removeEventListener("focus", reblur), 1000);
+            }
+          }}
+        >
+          <BaseDropdownTrigger
+            render={
+              <button
+                type="button"
+                ref={effortTriggerRef}
+                className={cn("inline-flex h-[var(--compose-tool-h)] shrink-0 flex-row flex-nowrap items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1.5 text-[length:var(--compose-tool-text)] leading-4 font-normal text-foreground outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]", PRESS_EFFECT)}
+              >
+                {/* Shows the current choice (e.g. "Low"), not a static
+                    "Effort" label -- per explicit request ("it should
+                    update from effort to the choice we did"). */}
+                {effortLabel(effort)}
+                <ChevronDownIcon className="size-[var(--compose-tool-icon)] shrink-0" />
+              </button>
+            }
+          />
+          <BaseDropdownContent side="top" align="end" sideOffset={6} className="w-56 min-w-0 p-3">
+            <EffortSliderPanel
+              effort={effort}
+              onChange={(level) => {
+                effortTouchedRef.current = true;
+                setEffort(level);
+                saveLastEffort(level);
+              }}
+            />
+          </BaseDropdownContent>
+        </BaseDropdownMenu>
         {/* Manual / Plan / Auto -- how the agent asks before acting
             ("type of access for the AI", matching Synara's own
             RuntimeUsageControls: approval-required/auto/full-access, the
@@ -1946,13 +2045,13 @@ export function ComposeBox({
               <button
                 type="button"
                 ref={modeTriggerRef}
-                className="inline-flex h-[28px] shrink-0 flex-row flex-nowrap items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1.5 text-xs font-normal text-foreground outline-none transition-colors hover:bg-hover-2/50 aria-expanded:bg-hover-2/50 focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]"
+                className={cn("inline-flex h-[var(--compose-tool-h)] shrink-0 flex-row flex-nowrap items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1.5 text-[length:var(--compose-tool-text)] leading-4 font-normal text-foreground outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]", PRESS_EFFECT)}
               >
                 {(() => {
                   const found = modes.find((m) => m.value === mode);
                   return found ? t(found.labelKey) : null;
                 })()}
-                <ChevronDownIcon className="size-3.5 shrink-0" />
+                <ChevronDownIcon className="size-[var(--compose-tool-icon)] shrink-0" />
               </button>
             }
           />
@@ -2007,65 +2106,12 @@ export function ComposeBox({
         </BaseDropdownMenu>
         </div>
         )}
-        {/* Effort -- now its own standalone trigger+dropdown next to the
-            model selector, matching Synara's own split layout (a real
-            reference app cloned for comparison: ProviderModelPicker +
-            TraitsPicker side by side for a fresh draft thread,
-            apps/web/src/components/ChatView.tsx), per explicit request
-            ("model selector plus the dropdown... effort, mic and send" --
-            effort called out as its own step, and a follow-up choice
-            confirming a separate button over keeping it nested in the
-            model dropdown). Unlike the access-mode picker in the leading
-            group, NOT gated on hasModel -- EFFORT_LEVELS is a fixed set
-            regardless of provider (unlike the access-mode picker's own
-            provider-dependent stance set), and gating this on hasModel
-            made it vanish entirely once the compose box stopped
-            pre-selecting a default model, confirmed directly as a real
-            regression ("Effort is missing from the tool row"). */}
-        <BaseDropdownMenu
-          size="compact"
-          onOpenChange={(nowOpen) => {
-            if (!nowOpen) {
-              const button = effortTriggerRef.current;
-              if (!button) return;
-              const reblur = () => button.blur();
-              button.addEventListener("focus", reblur, { once: true });
-              setTimeout(() => button.removeEventListener("focus", reblur), 1000);
-            }
-          }}
-        >
-          <BaseDropdownTrigger
-            render={
-              <button
-                type="button"
-                ref={effortTriggerRef}
-                className="inline-flex h-[28px] shrink-0 flex-row flex-nowrap items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1.5 text-xs font-normal text-foreground outline-none transition-colors hover:bg-hover-2/50 aria-expanded:bg-hover-2/50 focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]"
-              >
-                {/* Shows the current choice (e.g. "Low"), not a static
-                    "Effort" label -- per explicit request ("it should
-                    update from effort to the choice we did"). */}
-                {effortLabel(effort)}
-                <ChevronDownIcon className="size-3.5 shrink-0" />
-              </button>
-            }
-          />
-          <BaseDropdownContent side="top" align="end" sideOffset={6} className="w-56 min-w-0 p-3">
-            <EffortSliderPanel
-              effort={effort}
-              onChange={(level) => {
-                effortTouchedRef.current = true;
-                setEffort(level);
-                saveLastEffort(level);
-              }}
-            />
-          </BaseDropdownContent>
-        </BaseDropdownMenu>
         <Button
           size="icon"
           variant={listening ? "default" : "ghost"}
           onClick={toggleSpeechToText}
           aria-label={listening ? t("compose.dictation.stop") : t("compose.dictation.start")}
-          className={cn("size-[30px]", !listening && "text-foreground")}
+          className={cn("size-[var(--compose-action-size)] [&_svg]:!size-[var(--compose-mic-icon)]", PRESS_EFFECT, ICON_PRESS, !listening && ["text-foreground", NO_HOVER_SURFACE])}
         >
           {listening ? (
             <span className="flex h-3.5 items-end gap-[2.5px]">
@@ -2078,8 +2124,8 @@ export function ComposeBox({
           )}
         </Button>
         {awaitingReply ? (
-          <Button size="icon" variant="outline" onClick={onStop} aria-label={t("compose.stop")} className="size-[30px]">
-            <SquareIcon className="fill-current" />
+          <Button size="icon" variant="outline" onClick={onStop} aria-label={t("compose.stop")} className="size-[var(--compose-action-size)] [&_svg]:!size-[var(--compose-send-icon)]">
+            <SquareIcon className="size-[12px] fill-current" />
           </Button>
         ) : (
           <Button
@@ -2095,9 +2141,18 @@ export function ComposeBox({
               setImages([]);
             }}
             aria-label={t("compose.send")}
-            className="relative size-[30px] rounded-full bg-[var(--send-button-bg)] hover:bg-[var(--send-button-bg-hover)] active:bg-[var(--send-button-bg-active)] disabled:opacity-100"
+            // Inactive (the Getting Started ring's 30% accent track) until a
+            // model is picked and there's text -- a visual cue for what's
+            // missing. Text without a model stays clickable: the click shakes
+            // the Model picker (above) to point at it.
+            className={cn(
+              "relative size-[var(--compose-action-size)] rounded-full [&_svg]:!size-[var(--compose-send-icon)] transition-colors duration-150 disabled:opacity-100",
+              value.trim() && selectedModels.length > 0
+                ? "bg-[var(--send-button-bg)] hover:bg-[var(--send-button-bg-hover)] active:bg-[var(--send-button-bg-active)]"
+                : "bg-[var(--redesign-progress-track)]",
+            )}
           >
-            <ArrowUpIcon className="absolute top-1/2 left-1/2 size-[14px] -translate-x-1/2 -translate-y-1/2 text-white" strokeWidth={2} />
+            <ArrowUpIcon className="absolute top-1/2 left-1/2 size-[12px] -translate-x-1/2 -translate-y-1/2 text-white" strokeWidth={2} />
           </Button>
         )}
       </div>

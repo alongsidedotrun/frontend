@@ -39,6 +39,7 @@ export function AppTopBar({
 }) {
   return (
     <div
+      data-icon-stroke
       data-tauri-drag-region
       onMouseDown={(event) => {
         if (event.button !== 0 || (event.target instanceof Element && event.target.closest("button"))) return;
@@ -51,10 +52,10 @@ export function AppTopBar({
       )}
     >
       <div className={cn("pointer-events-auto flex items-center gap-2 text-muted-foreground", controlsClassName)}>
-        <button type="button" aria-label="Go back" disabled={!canGoBack} onClick={onBack} className="flex size-7 items-center justify-center rounded-md hover:bg-hover-2/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-30">
+        <button type="button" aria-label="Go back" disabled={!canGoBack} onClick={onBack} className="flex size-7 items-center justify-center rounded-md hover:text-foreground disabled:pointer-events-none disabled:opacity-30">
           <ArrowLeftIcon className="size-[14px]" />
         </button>
-        <button type="button" aria-label="Go forward" disabled={!canGoForward} onClick={onForward} className="flex size-7 items-center justify-center rounded-md hover:bg-hover-2/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-30">
+        <button type="button" aria-label="Go forward" disabled={!canGoForward} onClick={onForward} className="flex size-7 items-center justify-center rounded-md hover:text-foreground disabled:pointer-events-none disabled:opacity-30">
           <ArrowRightIcon className="size-[14px]" />
         </button>
         <button

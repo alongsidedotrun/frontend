@@ -13,9 +13,6 @@ import {
   loadChatWidth,
   loadFontSmoothing,
   loadSystemUiFont,
-  loadSidebarCollapseMode,
-  saveSidebarCollapseMode,
-  type SidebarCollapseMode,
   type ChatWidth,
 } from "@/hooks/use-appearance-settings";
 import { spring } from "@/lib/springs";
@@ -55,7 +52,6 @@ import {
   ProviderUsageIcon,
   RotateCcwIcon,
   SearchIcon,
-  SidebarLeftIcon,
   SettingsIcon,
   SunIcon,
   SystemIcon,
@@ -1911,7 +1907,6 @@ function AppearanceSection() {
   const [systemUiFont, setSystemUiFontState] = useState(loadSystemUiFont);
   const [fontSmoothing, setFontSmoothingState] = useState(loadFontSmoothing);
   const [chatWidth, setChatWidthState] = useState<ChatWidth>(loadChatWidth);
-  const [sidebarCollapseMode, setSidebarCollapseMode] = useState<SidebarCollapseMode>(loadSidebarCollapseMode);
 
   // Applies the real Rust-side effect on mount (so reopening Settings, or a
   // fresh launch with transparency already turned on from a previous session,
@@ -1944,11 +1939,6 @@ function AppearanceSection() {
     applyChatWidth(next);
   }
 
-  function setSidebarCollapse(next: SidebarCollapseMode) {
-    setSidebarCollapseMode(next);
-    saveSidebarCollapseMode(next);
-  }
-
   // The raw icon component, not pre-rendered JSX -- BaseMenuItem's own
   // `icon` prop (menu-item.tsx) calls this itself with its own size/
   // strokeWidth/className (the invisible-sizer-plus-visible-icon grid
@@ -1971,25 +1961,18 @@ function AppearanceSection() {
     { value: "expanded", label: t("settings.appearance.chatWidth.expanded"), icon: ExpandedWidthIcon },
   ];
   const currentChatWidth = chatWidthOptions.find((o) => o.value === chatWidth) ?? chatWidthOptions[0];
-  const sidebarCollapseOptions: { value: SidebarCollapseMode; label: string; compactLabel: string; icon: IconComponent }[] = [
-    { value: "parent", label: "Close only parent sidebar", compactLabel: "Close only…", icon: SidebarLeftIcon },
-    { value: "all", label: "Close all sidebars", compactLabel: "Close all", icon: SidebarLeftIcon },
-  ];
-  const currentSidebarCollapse = sidebarCollapseOptions.find((o) => o.value === sidebarCollapseMode) ?? sidebarCollapseOptions[0];
 
   const transparencyChanged = transparencyEnabled !== false;
   const systemUiFontChanged = systemUiFont !== true;
   const fontSmoothingChanged = fontSmoothing !== true;
   const chatWidthChanged = chatWidth !== "standard";
-  const sidebarCollapseChanged = sidebarCollapseMode !== "parent";
-  const anyChanged = transparencyChanged || systemUiFontChanged || fontSmoothingChanged || chatWidthChanged || sidebarCollapseChanged;
+  const anyChanged = transparencyChanged || systemUiFontChanged || fontSmoothingChanged || chatWidthChanged;
 
   function restoreDefaults() {
     updateTransparency(false);
     setSystemUiFont(true);
     setFontSmoothing(true);
     setChatWidth("standard");
-    setSidebarCollapse("parent");
   }
 
   return (
@@ -2112,36 +2095,6 @@ function AppearanceSection() {
             <Switch checked={transparencyEnabled} onToggle={() => updateTransparency(!transparencyEnabled)} aria-label="Enable transparency" />
           </SettingsRow>
         )}
-      </SettingsSection>
-
-      <SettingsSection title="Collapse">
-        <SettingsRow id="setting-sidebar-collapse" title="Collapse parent bar" description="Choose which sidebars close when the parent bar is collapsed.">
-          <BaseDropdownMenu size="compact">
-            <BaseDropdownTrigger
-              render={
-                <button type="button" className={SETTINGS_DROPDOWN_TRIGGER_CLASS}>
-                  <span className="flex items-center gap-1.5">
-                    <currentSidebarCollapse.icon size={14} />
-                    {currentSidebarCollapse.compactLabel}
-                  </span>
-                  <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
-                </button>
-              }
-            />
-            <BaseDropdownContent align="end" checkedIndex={sidebarCollapseOptions.findIndex((option) => option.value === sidebarCollapseMode)}>
-              {sidebarCollapseOptions.map((option, i) => (
-                <BaseMenuItem
-                  key={option.value}
-                  index={i}
-                  icon={option.icon}
-                  label={option.label}
-                  checked={sidebarCollapseMode === option.value}
-                  onSelect={() => setSidebarCollapse(option.value)}
-                />
-              ))}
-            </BaseDropdownContent>
-          </BaseDropdownMenu>
-        </SettingsRow>
       </SettingsSection>
 
       <SettingsSection title={t("settings.appearance.caution")}>
@@ -2969,7 +2922,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
     return (
       <aside
         aria-label={t("settings.nav.ariaLabel")}
-        className="relative flex h-full w-full min-w-0 flex-col overflow-hidden bg-[var(--redesign-sidebar-surface)]"
+        className="relative -mx-[var(--redesign-sidebar-edge-padding)] flex h-full w-[calc(100%+2*var(--redesign-sidebar-edge-padding))] min-w-0 flex-col overflow-hidden bg-[var(--redesign-sidebar-surface)] px-[var(--redesign-sidebar-edge-padding)]"
       >
         <div className="flex min-h-0 flex-col">
           {/* Keeps Settings search in the same control rhythm as Quick Actions. */}

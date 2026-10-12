@@ -58,7 +58,7 @@ const shape = shapeMap.rounded;
 // applied to the other dropdowns"). shape.container (rounded-xl) stays as
 // the default for non-dropdown callers (ui/card.tsx), which this constant
 // intentionally doesn't touch.
-const DROPDOWN_PANEL_RADIUS = "rounded-3xl";
+const DROPDOWN_PANEL_RADIUS = "rounded-xl"; // card tier, 11.2px -- matches the redesign menus
 
 // ---------------------------------------------------------------------------
 // Panel context — shared by the inline Dropdown and the popup DropdownContent.

@@ -629,10 +629,6 @@ type SidebarNavProps = {
   // this is a one-way trigger, not a mirrored value, so external code
   // still can't read or drive collapsed the rest of the time.
   expandSignal?: number;
-  // One-way trigger used by the primary rail's "Collapse all sidebars"
-  // action. The sidebar remains internally self-managed; this only gives
-  // the outer layout a way to request the same collapse animation.
-  collapseSignal?: number;
   // True on any route that isn't one of this sidebar's own real
   // destinations (Home, Welcome, Projects, Apps, an actual chat) -- the
   // top bar's Agent/Code/Design tabs, the avatar dropdown's Settings/Docs/
@@ -1485,7 +1481,6 @@ export default function SidebarNav({
   onRecentsChanged,
   onCollapsedChange,
   expandSignal,
-  collapseSignal,
   placeholderNav = false,
 }: SidebarNavProps) {
   const { t } = useTranslation();
@@ -1863,13 +1858,6 @@ export default function SidebarNav({
     toggleCollapsed(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expandSignal]);
-  const seenCollapseSignal = useRef(collapseSignal);
-  useEffect(() => {
-    if (collapseSignal === undefined || collapseSignal === seenCollapseSignal.current) return;
-    seenCollapseSignal.current = collapseSignal;
-    toggleCollapsed(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [collapseSignal]);
   // Matches `collapsed` on every non-mobile platform now -- per explicit
   // request ("our collapsed sidebar should be like the collapsed one at
   // tauri where gets hidden... tauri and web should be the exact same"):

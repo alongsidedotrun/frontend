@@ -16,7 +16,6 @@ import { loadNotifyTurnComplete, requestNotificationPermission, saveNotifyTurnCo
 import { loadLocallyHiddenChatIds } from "@/lib/locally-hidden-chats";
 import { isChatNotificationsEnabled, setChatNotificationsEnabled } from "@/lib/chat-notifications";
 import { useIsSignedIn } from "@/lib/auth";
-import { loadSidebarCollapseMode, type SidebarCollapseMode } from "@/hooks/use-appearance-settings";
 import { ShareDialog } from "@/components/share-dialog";
 import { PresenceStack } from "@/components/presence-stack";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from "@/components/ui/breadcrumb";
@@ -773,8 +772,6 @@ export function AppLayout() {
   // component's own expandSignal prop comment for why a signal, not a
   // controlled value.
   const [primarySidebarCollapsed, setPrimarySidebarCollapsed] = useState(false);
-  const [sidebarCollapseSignal, setSidebarCollapseSignal] = useState(0);
-  const [sidebarCollapseMode, setSidebarCollapseMode] = useState<SidebarCollapseMode>(loadSidebarCollapseMode);
   useEffect(() => {
     if (!arrivedFromOnboarding) return;
 
@@ -789,18 +786,8 @@ export function AppLayout() {
       if (secondFrame) window.cancelAnimationFrame(secondFrame);
     };
   }, [arrivedFromOnboarding, location.key]);
-  useEffect(() => {
-    const syncCollapseMode = () => setSidebarCollapseMode(loadSidebarCollapseMode());
-    window.addEventListener("alongside:sidebar-collapse-mode", syncCollapseMode);
-    window.addEventListener("storage", syncCollapseMode);
-    return () => {
-      window.removeEventListener("alongside:sidebar-collapse-mode", syncCollapseMode);
-      window.removeEventListener("storage", syncCollapseMode);
-    };
-  }, []);
   const collapsePrimarySidebar = () => {
     setPrimarySidebarCollapsed(true);
-    if (sidebarCollapseMode === "all") setSidebarCollapseSignal((signal) => signal + 1);
   };
   // The existing child sidebar and content are temporarily hidden while the
   // new parent-shell layout is established across every route.
@@ -2026,7 +2013,6 @@ export function AppLayout() {
                     projects={sidebarProjects}
                     recents={recents}
                     onRecentsChanged={refreshSidebarLists}
-                    collapseSignal={sidebarCollapseSignal}
                   />
                 </motion.div>
               )}

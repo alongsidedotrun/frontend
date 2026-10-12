@@ -35,7 +35,7 @@ export function RedesignDropdownContent({
       )}
       {...props}
     >
-      <div className="flex min-h-full flex-col px-[var(--redesign-workspace-menu-padding)] py-[var(--redesign-workspace-menu-vertical-padding)]">
+      <div className="flex min-h-full flex-col px-[round(var(--redesign-workspace-menu-padding),1px)] py-[round(var(--redesign-workspace-menu-vertical-padding),1px)]">
         {children}
       </div>
     </DropdownMenuContent>
