@@ -280,7 +280,6 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
           placeholder={t("home.composePlaceholder")}
           placeholderCycle={[
             t("home.placeholderCycle.multiplayer"),
-            t("home.placeholderCycle.mention"),
             t("home.placeholderCycle.slash"),
           ]}
           onModelsChange={(models) => {
