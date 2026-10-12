@@ -202,7 +202,7 @@
   --redesign-overlay-border: #EBEBEB;
   --redesign-progress-track: rgba(13, 13, 13, 0.3);
   --redesign-sidebar-border: #EBEBEB;
-  --redesign-sidebar-width: clamp(12.25rem, 18vw, 22rem);
+  --redesign-sidebar-width: 14rem;
   --surface-1: #FAFAFA;
   --surface-2: #FCFCFC;
   --surface-3: #FFFFFF;
