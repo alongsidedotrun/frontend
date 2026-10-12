@@ -42,7 +42,7 @@ export function QuickActions({ label, shortcut, actions, activeId, onActionSelec
       >
         <span
           className={cn(
-            "flex items-center gap-1 text-muted-foreground opacity-20 transition-colors group-hover/quick-actions-trigger:text-foreground group-focus-visible/quick-actions-trigger:text-foreground",
+            "flex items-center gap-1 text-muted-foreground opacity-70 transition-colors group-hover/quick-actions-trigger:text-foreground group-focus-visible/quick-actions-trigger:text-foreground",
             size.type.micro,
           )}
           aria-label={`Command ${shortcut}`}
