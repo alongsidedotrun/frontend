@@ -2,17 +2,24 @@ import type { ComponentType } from "react";
 import { AlongsideLogo } from "@/components/icons/alongside-logo";
 import { cn } from "@/lib/utils";
 
-/** Shared, raster-safe workspace icon sizes. Use these rather than sizing a
- * workspace mark ad hoc so every surface shares the same centering geometry. */
-export type WorkspaceBrandIconSize = 8 | 16 | 32 | 64 | 128 | 254;
+/**
+ * Shared workspace-icon canvases. Every canvas uses a 75% centered artwork
+ * area and therefore a 12.5% inset per side (for example 64 → 48px artwork
+ * with 8px padding, and 256 → 192px artwork with 32px padding).
+ */
+export type WorkspaceBrandIconSize = 8 | 16 | 24 | 32 | 48 | 64 | 96 | 128 | 192 | 256;
 
 const SIZE_CLASS: Record<WorkspaceBrandIconSize, string> = {
   8: "size-2",
   16: "size-4",
+  24: "size-6",
   32: "size-8",
+  48: "size-12",
   64: "size-16",
+  96: "size-24",
   128: "size-32",
-  254: "size-[254px]",
+  192: "size-48",
+  256: "size-64",
 };
 
 // Artwork always occupies 75% of the square tile, leaving a 12.5% safe area
@@ -40,7 +47,7 @@ type WorkspaceBrandIconProps = {
  * The tile is a grid, not a flex row or an absolutely-positioned child, so
  * both vector and image marks remain centered at every supported size. The
  * mark occupies 75% of its tile, preserving a 12.5% safe area on every side
- * from a 8px navigation icon through a 254px workspace identity. Source
+ * from an 8px navigation icon through a 256px workspace identity. Source
  * images can be 256×256 (or any square resolution); object-contain keeps
  * their artwork within this shared rendered mark area.
  */
