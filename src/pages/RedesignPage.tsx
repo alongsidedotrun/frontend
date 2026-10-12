@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useOutlet } from "react-router-dom";
 import { CircleArrowUp, CircleHelp, Plus, Search } from "lucide-react";
-import { AlongsideLogo } from "@/components/icons/alongside-logo";
+import { WorkspaceBrandIcon } from "@/components/design-system/workspace-brand-icon";
 import { LogInIcon, MessageChatCircleIcon, Settings01Icon, Settings04Icon } from "@/components/icons/untitled-ui";
 import { SplitView } from "@/components/design-system/split-view";
 import { AppTopBar } from "@/components/app-top-bar";
@@ -63,12 +63,7 @@ function toWorkspaceOption(workspace: WorkspaceRecord): WorkspaceOption {
     ? {
         id: workspace.id,
         name: workspace.name,
-    icon: (
-      <span className="relative block size-full" aria-hidden="true">
-        <AlongsideLogo className="absolute left-1/2 top-1/2 block size-[var(--redesign-workspace-brand-mark-size)] -translate-x-1/2 -translate-y-1/2 !text-black [&_g]:!fill-black" />
-      </span>
-    ),
-    iconSurfaceClassName: "relative !size-[var(--redesign-workspace-brand-surface-size)] rounded-[var(--redesign-workspace-brand-radius)] bg-white",
+    icon: <WorkspaceBrandIcon size={16} monochrome invertOnLight />,
       }
     : { id: workspace.id, name: workspace.name };
 }

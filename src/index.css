@@ -118,7 +118,7 @@
   --redesign-workspace-trigger-padding: 3.02cqw;
   --redesign-workspace-trigger-gap: 0.46875rem;
   --redesign-workspace-chevron-size: clamp(0.9375rem, 4.06cqw, 1.0625rem);
-  --redesign-workspace-avatar-size: min(6.3cqw, 0.9375rem);
+  --redesign-workspace-avatar-size: 1rem;
   --redesign-workspace-brand-surface-size: 1.0625rem;
   --redesign-workspace-brand-mark-size: 0.75rem;
   --redesign-workspace-brand-radius: 0.3125rem;
@@ -190,7 +190,7 @@
   --redesign-menu-first-section-top-padding: clamp(0.5rem, 0.625vw, 0.75rem);
   --redesign-menu-last-section-bottom-padding: clamp(0.5rem, 0.625vw, 0.75rem);
   --redesign-workspace-row-height: clamp(1.25rem, 1.640625vw, 1.6875rem);
-  --redesign-menu-avatar-size: 0.875rem;
+  --redesign-menu-avatar-size: 1rem;
   --redesign-workspace-check-size: clamp(0.625rem, 0.9375vw, 0.975rem);
   /* Keep the check on whole pixels. A percentage of the responsive circle
      produced a 7.8px glyph at the reference width, which antialiases unevenly. */

@@ -78,7 +78,7 @@ export function WorkspaceSelector({
                     <WorkspaceAvatar
                       icon={workspace.icon}
                       iconSurfaceClassName={workspace.iconSurfaceClassName}
-                      className="size-[var(--redesign-menu-avatar-size)]"
+                      className="size-4"
                     />
                     <span className="min-w-0 flex-1 truncate">{workspace.name}</span>
                     {selected && (

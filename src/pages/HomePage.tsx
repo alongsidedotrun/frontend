@@ -4,7 +4,7 @@ import { useLocation, useNavigate, useOutletContext } from "react-router-dom";
 import { QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
 import { ComposeBox, toImageInputs, type ImageAttachment } from "@/components/compose-box";
 import { type EffortLevel } from "@/lib/effort";
-import { AlongsideLogo } from "@/components/icons/alongside-logo";
+import { WorkspaceBrandIcon } from "@/components/design-system/workspace-brand-icon";
 import type { SettingsSection } from "@/components/settings-overlay";
 import { getUserDisplayName } from "@/lib/user";
 
@@ -249,9 +249,7 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
             className={`flex items-center justify-center gap-2 overflow-hidden text-center transition-[max-height,margin,transform] duration-200 ${transitioningToChat ? "pointer-events-none invisible mb-0 max-h-0 -translate-y-2" : "mb-5 max-h-8 translate-y-0"}`}
           >
             <h1 className="text-[18px] font-normal text-foreground">{t("home.workspacePrompt")}</h1>
-            <span className="relative size-6 shrink-0 rounded-[6px] bg-black dark:bg-white" aria-hidden="true">
-              <AlongsideLogo className="absolute left-1/2 top-[calc(50%_-_0.5px)] size-4 -translate-x-1/2 -translate-y-1/2 text-white dark:text-black" />
-            </span>
+            <WorkspaceBrandIcon size={32} monochrome invertOnLight />
             <span className="text-[18px] font-medium text-foreground">{workspaceName}</span>
           </div>
         <ComposeBox
