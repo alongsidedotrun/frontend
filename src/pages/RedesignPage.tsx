@@ -501,7 +501,6 @@ export function RedesignPage() {
         />
       }
       sidebarCollapsed={isSettingsRoute ? false : sidebarCollapsed}
-      sidebarClassName={isSettingsRoute ? "!border-r-0" : undefined}
       sidebarContentClassName={isSettingsRoute ? "!p-0" : "!pb-2"}
       sidebar={
         isSettingsRoute ? <SettingsSidebarNav section={settingsSection} variant="redesign" /> :
