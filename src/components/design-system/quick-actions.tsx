@@ -1,5 +1,7 @@
 import type { ComponentType } from "react";
 import { Command } from "lucide-react";
+import { fontWeights } from "@/lib/font-weight";
+import { useSize } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
 
 export type QuickActionItem = {
@@ -24,18 +26,35 @@ type QuickActionsProps = {
  * are supplied by the owning surface so this primitive never owns routes.
  */
 export function QuickActions({ label, shortcut, actions, activeId, onActionSelect, onOpen, className }: QuickActionsProps) {
+  const size = useSize();
+  const searchFieldHeight = size.variant === "compact" ? "h-7" : "h-8";
+
   return (
     <nav aria-label={label} className={cn("flex flex-col gap-[var(--redesign-quick-actions-gap)]", className)}>
       <button
         type="button"
         onClick={onOpen}
-        className="group/quick-actions-trigger flex h-[var(--redesign-quick-actions-trigger-height)] w-full items-center rounded-[var(--redesign-control-radius)] border border-[var(--redesign-sidebar-border)] px-[var(--redesign-quick-actions-padding)] text-[length:var(--redesign-sidebar-primary-font-size)] font-normal text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className={cn(
+          "group/quick-actions-trigger flex w-full items-center rounded-[var(--redesign-control-radius)] border border-[var(--redesign-sidebar-border)] px-3 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          searchFieldHeight,
+          size.text,
+        )}
       >
-        <span className="flex items-center gap-[var(--redesign-quick-actions-shortcut-gap)] text-[length:calc(var(--redesign-sidebar-primary-font-size)-2px)] text-muted-foreground opacity-20 transition-colors group-hover/quick-actions-trigger:text-foreground group-focus-visible/quick-actions-trigger:text-foreground" aria-label={`Command ${shortcut}`}>
-          <Command aria-hidden="true" strokeWidth={2} className="size-[var(--redesign-quick-actions-command-icon-size)]" />
-          <span className="text-[length:calc(var(--redesign-sidebar-primary-font-size)-2px)] font-medium">{shortcut}</span>
+        <span className="flex items-center gap-1 text-muted-foreground opacity-20 transition-colors group-hover/quick-actions-trigger:text-foreground group-focus-visible/quick-actions-trigger:text-foreground" aria-label={`Command ${shortcut}`}>
+          <Command aria-hidden="true" size={size.icon} strokeWidth={1.5} />
+          <span
+            className="text-[length:var(--fs-micro,11px)] leading-[var(--lh-micro,14px)]"
+            style={{ fontVariationSettings: fontWeights.medium }}
+          >
+            {shortcut}
+          </span>
         </span>
-        <span className="ml-[var(--redesign-quick-actions-icon-gap)] min-w-0 flex-1 text-left text-[length:var(--redesign-sidebar-primary-font-size)] font-medium text-muted-foreground opacity-20">{label}</span>
+        <span
+          className="ml-2 min-w-0 flex-1 text-left text-muted-foreground opacity-20"
+          style={{ fontVariationSettings: fontWeights.medium }}
+        >
+          {label}
+        </span>
       </button>
       <div className="flex flex-col gap-[var(--redesign-quick-actions-row-gap)]">
         {actions.map((action) => {
