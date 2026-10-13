@@ -103,12 +103,16 @@ export function CreateWorkspaceDialog({ open, onOpenChange, onCreate, saving = f
             </section>
 
             <section className="flex flex-col gap-2">
-              <label htmlFor={nameId} className="text-[13px] font-medium text-foreground">Workspace name</label>
+              <div className="flex flex-col gap-0.5">
+                <label htmlFor={nameId} className="text-[13px] font-medium text-foreground">Name</label>
+                <span id={`${nameId}-hint`} className="text-[12px] text-muted-foreground">Shown in the sidebar and to people you invite</span>
+              </div>
               <Input
                 id={nameId}
                 autoFocus
                 value={name}
                 onChange={(event) => setName(event.target.value)}
+                aria-describedby={`${nameId}-hint`}
                 placeholder="Enter a workspace name"
                 maxLength={80}
                 className="h-8 border-[var(--redesign-sidebar-border)] bg-background text-[13px]"
