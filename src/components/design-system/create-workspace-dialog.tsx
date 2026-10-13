@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { ChevronDown, Command, ImagePlus, Search, Upload } from "lucide-react";
+import { ChevronDown, Command, ImagePlus, Plus, Search, Upload } from "lucide-react";
 import { Backdrop } from "@/components/design-system/backdrop";
 import { WorkspaceBrandIcon } from "@/components/design-system/workspace-brand-icon";
 import { Button } from "@/components/ui/button";
@@ -171,8 +171,9 @@ function Bar({ className }: { className?: string }) {
 /**
  * A mini sidebar mirroring the top of the real one (workspace row, Quick
  * actions, New chat, Projects/Chats sections), running off the bottom edge,
- * with the new workspace's tile and name live, the parts that never change
- * (search, Quick actions) shown as is, and the rest as grey placeholders.
+ * with the new workspace's tile and name live, everything that's the same in
+ * every workspace shown as is, and only the project and chat names as grey
+ * placeholders.
  * Same 28px rows and spacing as the sidebar.
  */
 function WorkspacePreview({ name, logo }: { name: string; logo: string | null }) {
@@ -204,21 +205,24 @@ function WorkspacePreview({ name, logo }: { name: string; logo: string | null })
         </div>
 
         {/* New chat. */}
-        <div className="mt-3 flex h-7 items-center gap-2 px-[var(--redesign-quick-actions-padding)]">
-          <Bar className="size-3" />
-          <Bar className="h-2 w-16" />
+        <div className="mt-3 flex h-7 items-center gap-[9px] px-[var(--redesign-quick-actions-padding)] text-[13px] font-medium text-muted-foreground">
+          <Plus aria-hidden="true" className="size-[15px] shrink-0" />
+          New chat
         </div>
 
-        {/* Projects and Chats sections: header with +, then an empty state. */}
-        {[{ header: "w-14", empty: "w-20" }, { header: "w-10", empty: "w-16" }].map((section, index) => (
-          <div key={index} className="mt-[var(--redesign-sidebar-section-gap)] flex flex-col">
-            <div className="flex h-7 items-center justify-between px-[var(--redesign-quick-actions-padding)] pr-8">
-              <Bar className={cn("h-1.5", section.header)} />
-              <Bar className="size-2.5" />
+        {/* Projects and Chats: real headers with their +, and grey bars for
+            the project/chat names -- the only part that varies. */}
+        {[{ label: "Projects", items: ["w-24", "w-16"] }, { label: "Chats", items: ["w-28", "w-20", "w-24"] }].map((section) => (
+          <div key={section.label} className="mt-[var(--redesign-sidebar-section-gap)] flex flex-col">
+            <div className="flex h-7 items-center justify-between px-[var(--redesign-quick-actions-padding)] pr-8 text-muted-foreground">
+              <span className="text-[11px] font-medium">{section.label}</span>
+              <Plus aria-hidden="true" className="size-2.5 shrink-0" />
             </div>
-            <div className="flex h-7 items-center px-[var(--redesign-quick-actions-padding)]">
-              <Bar className={cn("h-2 bg-muted-foreground/10", section.empty)} />
-            </div>
+            {section.items.map((width, index) => (
+              <div key={index} className="flex h-7 items-center px-[var(--redesign-quick-actions-padding)]">
+                <Bar className={cn("h-2", width)} />
+              </div>
+            ))}
           </div>
         ))}
 
