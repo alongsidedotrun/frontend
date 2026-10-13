@@ -82,7 +82,7 @@ export function GettingStartedSummary({
         aria-expanded={expanded}
         onClick={() => setExpanded((current) => !current)}
         className={cn(
-          "w-full text-[length:var(--redesign-font-size-base)] font-normal text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "w-full text-[length:var(--redesign-font-size-base)] font-normal text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           triggerRadius,
           // One row in both states (ring, label, count), per request -- the
           // label stays beside the ring when expanded instead of wrapping under it.
@@ -93,7 +93,7 @@ export function GettingStartedSummary({
       >
         <SetupProgressRing completedSteps={completedSteps} totalSteps={steps.length} />
         <span className="min-w-0 flex-1 truncate text-left font-medium">{label}</span>
-        <span className="shrink-0 text-[length:var(--redesign-font-size-compact)] text-foreground/70">{count}</span>
+        <span className="shrink-0 text-[length:var(--redesign-font-size-compact)]">{count}</span>
       </button>
       <div className={cn("grid transition-[grid-template-rows,opacity] duration-200 ease-out", expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")}>
         <div className="-mx-[var(--redesign-sidebar-footer-task-hover-bleed)] min-h-0 w-[calc(100%+2*var(--redesign-sidebar-footer-task-hover-bleed))] overflow-hidden px-[var(--redesign-sidebar-footer-task-hover-bleed)]">
@@ -201,7 +201,8 @@ export function SidebarAccountFooter({ name, avatar, signedIn, onSignIn, onOpenS
           </RedesignDropdownContent>
         </DropdownMenu>
       ) : (
-        <button type="button" onClick={onSignIn} className={rowButton}>
+        // Muted like New chat; the signed-in name above keeps the full text colour.
+        <button type="button" onClick={onSignIn} className={cn(rowButton, "text-muted-foreground hover:text-foreground")}>
           <LogInIcon aria-hidden="true" className="size-[var(--redesign-quick-actions-icon-size)] shrink-0" />
           <span className="truncate">Sign in</span>
         </button>
@@ -210,7 +211,7 @@ export function SidebarAccountFooter({ name, avatar, signedIn, onSignIn, onOpenS
         type="button"
         aria-label="Settings"
         onClick={onOpenSettings}
-        className="grid size-7 shrink-0 place-items-center rounded-[var(--redesign-control-radius)] text-foreground transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="grid size-7 shrink-0 place-items-center rounded-[var(--redesign-control-radius)] text-muted-foreground transition-colors hover:text-foreground hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <SettingsIcon aria-hidden="true" className="size-[var(--redesign-workspace-chevron-size)]" />
       </button>

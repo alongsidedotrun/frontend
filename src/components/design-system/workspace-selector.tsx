@@ -62,7 +62,7 @@ export function WorkspaceSelector({
         >
           <WorkspaceAvatar icon={selectedWorkspace.icon} iconSurfaceClassName={selectedWorkspace.iconSurfaceClassName} />
           <span className="min-w-0 truncate">{selectedWorkspace.name}</span>
-          <ChevronDownIcon aria-hidden="true" strokeWidth={1.5} className="size-[var(--redesign-workspace-chevron-size)] shrink-0 text-foreground" />
+          <ChevronDownIcon aria-hidden="true" strokeWidth={1.5} className="size-[var(--redesign-workspace-chevron-size)] shrink-0 text-muted-foreground" />
         </button>
       </DropdownMenuTrigger>
       <RedesignDropdownContent
