@@ -10,7 +10,7 @@ import { useSignInDialogHost } from "@/lib/use-sign-in";
 import { useIdentity } from "@/lib/identity";
 import { signOut } from "@/lib/auth";
 import { loadWorkspaceColor, loadWorkspaceLogo, saveWorkspaceColor, saveWorkspaceDescription, saveWorkspaceLogo } from "@/lib/workspace-logos";
-import { LogOutIcon, MessageChatCircleIcon, Settings01Icon, Settings04Icon, UserIcon } from "@/components/icons/untitled-ui";
+import { LogOutIcon, MessageChatCircleIcon, Settings01Icon, SettingsIcon, UserIcon } from "@/components/icons/untitled-ui";
 import { SplitView } from "@/components/design-system/split-view";
 import { AppTopBar } from "@/components/app-top-bar";
 import { QuickActions, type QuickActionItem } from "@/components/design-system/quick-actions";
@@ -476,7 +476,7 @@ export function RedesignPage() {
       value: "settings",
       label: "Settings",
       description: "Account and workspace preferences",
-      icon: Settings04Icon,
+      icon: SettingsIcon,
       shortcut: "mod+,",
       keywords: ["preferences", "account"],
       group: "Settings",
