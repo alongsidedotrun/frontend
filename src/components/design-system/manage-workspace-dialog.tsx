@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from "react";
-import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
+import { workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
+import { AlongsideLogo } from "@/components/icons/alongside-logo";
 import { WorkspaceFields, type WorkspaceFieldValues } from "@/components/design-system/workspace-fields";
 import { WorkspacePreview } from "@/components/design-system/create-workspace-dialog";
 import { Button } from "@/components/ui/button";
@@ -92,12 +93,16 @@ export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, o
             {workspace.is_personal ? (
               <div className="flex flex-col gap-4">
                 <div className="flex items-center gap-3">
-                  <WorkspaceBrandIcon size={40} />
+                  {/* Same 40px tile and 18px glyph as Create workspace's logo placeholder. */}
+                  <span className="grid size-10 shrink-0 place-items-center rounded-[8.94px] border border-[var(--redesign-sidebar-footer-onboarding-border)] bg-white text-black dark:border-transparent">
+                    <AlongsideLogo aria-hidden="true" className="size-[18px]" />
+                  </span>
                   <span className="text-[13px] font-medium text-foreground">{workspace.name}</span>
                 </div>
-                <p className="text-[12px] leading-relaxed text-muted-foreground">
-                  It comes with the app, so it can't be renamed or deleted. Once you've created another workspace, you can archive this one and restore it later from the workspace menu.
-                </p>
+                <div className="flex flex-col gap-1.5 text-[12px] leading-relaxed text-muted-foreground">
+                  <p>It comes with the app, so it can't be renamed or deleted.</p>
+                  <p>Once you've created another workspace, you can archive this one and restore it later from the workspace menu.</p>
+                </div>
                 {error && <p className="text-[12px] text-destructive">{error}</p>}
                 <div className="mt-auto flex items-center gap-2">
                   <Button type="button" variant="tertiary" size="compact" onClick={() => onOpenChange(false)}>
