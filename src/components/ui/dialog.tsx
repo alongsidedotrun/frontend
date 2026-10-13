@@ -312,7 +312,10 @@ const DialogContent = forwardRef<HTMLDivElement, DialogContentProps>(
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          className="absolute right-3 top-3"
+                          // No hover background (Button's first, aria-hidden
+                          // surface span) or hover stroke thickening -- just
+                          // the ghost variant's muted-to-foreground colour.
+                          className="absolute right-3 top-3 [&>span:first-child]:hidden [&_svg]:!stroke-[1.5]"
                         >
                           <XIcon />
                           <span className="sr-only">Close</span>
