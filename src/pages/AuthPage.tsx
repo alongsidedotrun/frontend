@@ -1,10 +1,10 @@
 import { Trans, useTranslation } from "react-i18next";
-import { useEffect, useRef, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldGroup } from "@/components/ui/field";
 import { AlongsideLogo } from "@/components/icons/alongside-logo";
-import { beginSignIn, waitForSignIn } from "@/lib/auth";
+import { useSignInFlow } from "@/lib/use-sign-in";
 
 // Two-column layout matches shadcn's login-02 block (form + branded panel),
 // but mirrors frontend/auth.html's actual current arrangement (branded
@@ -25,34 +25,13 @@ export function AuthPage() {
     document.title = t("auth.title");
   }, [t]);
 
-  const [phase, setPhase] = useState<"idle" | "waiting" | "failed" | "timeout">("idle");
-  const controller = useRef<AbortController | null>(null);
-
-  useEffect(() => () => controller.current?.abort(), []);
-
   function goToApp() {
     const from = (location.state as { from?: string } | null)?.from;
     navigate(from ?? "/getting-started", { replace: true });
   }
 
-  async function startSignIn() {
-    controller.current?.abort();
-    const current = new AbortController();
-    controller.current = current;
-    if (!(await beginSignIn())) {
-      setPhase("failed");
-      return;
-    }
-    setPhase("waiting");
-    const result = await waitForSignIn(current.signal);
-    if (result === "signed-in") goToApp();
-    else if (result === "timeout") setPhase("timeout");
-  }
-
-  function cancel() {
-    controller.current?.abort();
-    setPhase("idle");
-  }
+  // Shared with the sign-in dialog (lib/use-sign-in.ts).
+  const { phase, start: startSignIn, cancel } = useSignInFlow(goToApp);
 
   return (
     <div className="grid min-h-svh md:grid-cols-[55%_45%]">

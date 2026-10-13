@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useOutlet } from "react-router-dom";
 import { CircleArrowUp, CircleHelp, Plus, Search } from "lucide-react";
 import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
 import { CreateWorkspaceDialog } from "@/components/design-system/create-workspace-dialog";
+import { SignInDialog } from "@/components/design-system/sign-in-dialog";
+import { useSignInDialogHost } from "@/lib/use-sign-in";
 import { loadWorkspaceColor, loadWorkspaceLogo, saveWorkspaceColor, saveWorkspaceDescription, saveWorkspaceLogo } from "@/lib/workspace-logos";
 import { LogInIcon, MessageChatCircleIcon, Settings01Icon, Settings04Icon } from "@/components/icons/untitled-ui";
 import { SplitView } from "@/components/design-system/split-view";
@@ -76,10 +78,10 @@ function toWorkspaceOption(workspace: WorkspaceRecord): WorkspaceOption {
   return { id: workspace.id, name: workspace.name, icon };
 }
 
-function profileActionSections(onOpenSettings: () => void): readonly (readonly WorkspaceMenuAction[])[] {
+function profileActionSections(onOpenSettings: () => void, onSignIn: () => void): readonly (readonly WorkspaceMenuAction[])[] {
   return [
     [
-      { id: "sign-in", label: "Sign in", icon: LogInIcon, onSelect: () => { window.location.assign("/auth"); } },
+      { id: "sign-in", label: "Sign in", icon: LogInIcon, onSelect: onSignIn },
       { id: "settings", label: "Settings", icon: Settings04Icon, onSelect: onOpenSettings },
       { id: "help", label: "Help", icon: CircleHelp },
     ],
@@ -125,6 +127,11 @@ export function RedesignPage() {
   const [workspaces, setWorkspaces] = useState<WorkspaceRecord[]>([DEFAULT_WORKSPACE]);
   const [workspaceId, setWorkspaceId] = useState(DEFAULT_WORKSPACE.id);
   const [newWorkspaceOpen, setNewWorkspaceOpen] = useState(false);
+  // Sign-in is a dialog over the shell (also opened from Settings via
+  // openSignInDialog in lib/use-sign-in.ts).
+  const [signInOpen, setSignInOpen] = useState(false);
+  const openSignIn = useCallback(() => setSignInOpen(true), []);
+  useSignInDialogHost(openSignIn);
   const [manageWorkspacesOpen, setManageWorkspacesOpen] = useState(false);
   const [workspaceNames, setWorkspaceNames] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -578,7 +585,7 @@ export function RedesignPage() {
               <SidebarAccountFooter
                 name="Guest"
                 avatar={<DefaultAvatar name="Guest" />}
-                actionSections={profileActionSections(() => navigate("/settings/general"))}
+                actionSections={profileActionSections(() => navigate("/settings/general"), openSignIn)}
               />
             </div>
           </footer>
@@ -602,6 +609,7 @@ export function RedesignPage() {
           </div>
         ))}
       </SidebarSurfaceTransition>
+      <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} />
       <CreateWorkspaceDialog
         open={newWorkspaceOpen}
         onOpenChange={setNewWorkspaceOpen}
