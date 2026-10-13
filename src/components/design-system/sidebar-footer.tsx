@@ -82,9 +82,9 @@ export function GettingStartedSummary({
         aria-expanded={expanded}
         onClick={() => setExpanded((current) => !current)}
         className={cn(
-          "w-full text-[length:var(--redesign-font-size-base)] font-normal transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          // Muted like New chat while collapsed; full colour once open (active).
-          expanded ? "text-foreground" : "text-muted-foreground",
+          // Full colour in both states: unlike the muted sidebar rows, this is a
+          // reminder that should stand out.
+          "w-full text-[length:var(--redesign-font-size-base)] font-normal text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           triggerRadius,
           // One row in both states (ring, label, count), per request -- the
           // label stays beside the ring when expanded instead of wrapping under it.
