@@ -4,7 +4,7 @@ import { useLocation, useNavigate, useOutletContext } from "react-router-dom";
 import { QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
 import { ComposeBox, toImageInputs, type ImageAttachment } from "@/components/compose-box";
 import { type EffortLevel } from "@/lib/effort";
-import { WorkspaceBrandIcon } from "@/components/design-system/workspace-brand-icon";
+import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
 import type { SettingsSection } from "@/components/settings-overlay";
 import { getUserDisplayName } from "@/lib/user";
 
@@ -19,6 +19,10 @@ import { getUserDisplayName } from "@/lib/user";
 export type HomePageShellContext = {
   openSettings: (section: SettingsSection) => void;
   workspaceName?: string;
+  // The current workspace's uploaded logo and letter-tile colour, so the
+  // heading shows the same tile as the sidebar.
+  workspaceLogo?: string | null;
+  workspaceColor?: number | null;
 };
 
 type HomePageProps = {
@@ -48,7 +52,8 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
   // open the real SettingsOverlay modal directly, threaded down to
   // ComposeBox's own "Add provider" row.
   const outletContext = useOutletContext<HomePageShellContext>();
-  const { openSettings, workspaceName = t("home.defaultWorkspaceName") } = shellContextOverride ?? outletContext;
+  const { openSettings, workspaceName = t("home.defaultWorkspaceName"), workspaceLogo = null, workspaceColor = null } = shellContextOverride ?? outletContext;
+  const workspaceTile = workspaceMonogram(workspaceName, workspaceColor);
   const [prompt, setPrompt] = useState("");
   const [sending, setSending] = useState(false);
   const [transitioningToChat, setTransitioningToChat] = useState(false);
@@ -253,7 +258,13 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
             className={`flex items-center justify-center gap-[clamp(6px,calc(4.36px+0.364cqw),8px)] overflow-hidden text-center transition-[max-height,margin,transform] duration-200 ${transitioningToChat ? "pointer-events-none invisible mb-0 max-h-0 -translate-y-2" : "mb-5 max-h-8 translate-y-0"}`}
           >
             <h1 className="shrink-0 text-[length:clamp(15px,calc(12.55px+0.545cqw),18px)] font-normal text-foreground">{t("home.workspacePrompt")}</h1>
-            <WorkspaceBrandIcon size={24} className="size-[round(clamp(20px,calc(16.73px+0.727cqw),24px),2px)]" />
+            {/* The workspace's own tile: its logo, or its letter on its colour. */}
+            <WorkspaceBrandIcon
+              size={24}
+              imageSrc={workspaceLogo ?? undefined}
+              monogram={workspaceLogo ? undefined : workspaceTile ?? undefined}
+              className="size-[round(clamp(20px,calc(16.73px+0.727cqw),24px),2px)]"
+            />
             <span className="min-w-0 truncate text-[length:clamp(15px,calc(12.55px+0.545cqw),18px)] font-medium text-foreground">{workspaceName}</span>
           </div>
         <ComposeBox
