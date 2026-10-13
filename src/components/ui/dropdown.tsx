@@ -869,6 +869,8 @@ interface DropdownSubMenuItemProps {
    *  models is the current selection"), independent of the submenu's own
    *  open state. */
   checked?: boolean;
+  /** A trailing chevron, saying the row opens a submenu. */
+  chevron?: boolean;
   className?: string;
   /** The submenu's own content -- typically a Menu.RadioGroup of
    *  Menu.RadioItem rows (see DropdownSubItem below for pre-styled ones). */
@@ -880,6 +882,7 @@ function DropdownSubMenuItem({
   icon: Icon,
   label,
   checked,
+  chevron = false,
   className,
   children,
 }: DropdownSubMenuItemProps) {
@@ -974,6 +977,11 @@ function DropdownSubMenuItem({
         {checked && (
           <svg width={sizeClasses.icon} height={sizeClasses.icon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-foreground">
             <path d="M4 12L9 17L20 6" />
+          </svg>
+        )}
+        {chevron && (
+          <svg aria-hidden="true" width={sizeClasses.icon} height={sizeClasses.icon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isActive || open ? 2 : 1.5} strokeLinecap="round" strokeLinejoin="round" className={cn("shrink-0 transition-[color,stroke-width] duration-80 rtl:-scale-x-100", isActive || open ? "text-foreground" : "text-muted-foreground")}>
+            <path d="M9 6L15 12L9 18" />
           </svg>
         )}
       </Menu.SubmenuTrigger>

@@ -5354,6 +5354,24 @@ export const translations = {
     zh: "明天",
     ja: "明日",
   },
+  "compose.providers": {
+    en: "Providers",
+    "pt-BR": "Provedores",
+    es: "Proveedores",
+    fr: "Fournisseurs",
+    de: "Anbieter",
+    zh: "提供商",
+    ja: "プロバイダー",
+  },
+  "compose.modelOptions": {
+    en: "Options for {{model}}",
+    "pt-BR": "Opções de {{model}}",
+    es: "Opciones de {{model}}",
+    fr: "Options pour {{model}}",
+    de: "Optionen für {{model}}",
+    zh: "{{model}} 的选项",
+    ja: "{{model}} のオプション",
+  },
 } satisfies Record<string, TranslationRow>;
 
 export type TranslationKey = keyof typeof translations;
