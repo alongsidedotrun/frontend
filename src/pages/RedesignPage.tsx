@@ -154,6 +154,9 @@ export function RedesignPage() {
   const [manageWorkspacesOpen, setManageWorkspacesOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
+  // Whether workspaceError is about the name (shown under the Name field)
+  // rather than the save as a whole (shown by the Save button).
+  const [workspaceNameTaken, setWorkspaceNameTaken] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [inboxItems, setInboxItems] = useState<InboxItem[]>([]);
   const [inboxMentions, setInboxMentions] = useState<InboxMention[]>([]);
@@ -429,12 +432,14 @@ export function RedesignPage() {
     if (saving) return;
     setSaving(true);
     setWorkspaceError(null);
+    setWorkspaceNameTaken(false);
     try {
       const response = await fetch(`/workspaces/${encodeURIComponent(workspace.id)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(change),
       });
+      setWorkspaceNameTaken(response.status === 409);
       if (response.status === 409) throw new Error("Another workspace already has that name.");
       if (!response.ok) throw new Error("Could not save changes.");
       syncWorkspaces(workspaces.map((item) => item.id === workspace.id ? { ...item, ...change, name: change.name ?? item.name } : item));
@@ -450,6 +455,7 @@ export function RedesignPage() {
     if (saving) return;
     setSaving(true);
     setWorkspaceError(null);
+    setWorkspaceNameTaken(false);
     try {
       const response = await fetch(`/workspaces/${encodeURIComponent(workspace.id)}`, { method: "DELETE" });
       if (response.status === 409) throw new Error("You can't delete your only workspace.");
@@ -466,7 +472,7 @@ export function RedesignPage() {
 
   const workspaceSectionActions: readonly WorkspaceMenuAction[] = [
     { id: "new-workspace", label: "New workspace", icon: Plus, onSelect: () => { setWorkspaceError(null); setNewWorkspaceOpen(true); } },
-    { id: "manage-workspace", label: "Manage workspace", icon: Settings01Icon, onSelect: () => { setWorkspaceError(null); setManageWorkspacesOpen(true); } },
+    { id: "manage-workspace", label: "Manage workspace", icon: Settings01Icon, onSelect: () => { setWorkspaceError(null); setWorkspaceNameTaken(false); setManageWorkspacesOpen(true); } },
   ];
   const commandMenuItems = useMemo<CommandMenuItemData[]>(() => [
     {
@@ -665,7 +671,8 @@ export function RedesignPage() {
         onDelete={() => deleteWorkspace(activeWorkspace)}
         canDelete={workspaces.length > 1}
         saving={saving}
-        error={workspaceError}
+        error={workspaceNameTaken ? null : workspaceError}
+        nameError={workspaceNameTaken ? workspaceError : null}
       />
       <Dialog open={newProjectOpen} onOpenChange={setNewProjectOpen}>
         <DialogContent>

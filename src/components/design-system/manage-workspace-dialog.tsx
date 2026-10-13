@@ -34,7 +34,10 @@ type ManageWorkspaceDialogProps = {
   /** Whether another workspace exists: the last one can't be deleted. */
   canDelete?: boolean;
   saving?: boolean;
+  /** A save or delete error, shown by the button that caused it. */
   error?: string | null;
+  /** A problem with the name (e.g. taken), shown under the Name field. */
+  nameError?: string | null;
 };
 
 function valuesOf(workspace: ManagedWorkspace): WorkspaceFieldValues {
@@ -48,7 +51,7 @@ function valuesOf(workspace: ManagedWorkspace): WorkspaceFieldValues {
  * workspace, Personal included, works the same way; only the last one can't
  * be deleted.
  */
-export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, onDelete, canDelete = false, saving = false, error }: ManageWorkspaceDialogProps) {
+export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, onDelete, canDelete = false, saving = false, error, nameError }: ManageWorkspaceDialogProps) {
   const [values, setValues] = useState<WorkspaceFieldValues>(() => valuesOf(workspace));
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [confirmName, setConfirmName] = useState("");
@@ -96,7 +99,8 @@ export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, o
                     if (changed && trimmedName && !saving) void onSave(change);
                   }}
                 >
-                  <WorkspaceFields values={values} onChange={setValues} nameError={confirmingDelete ? null : error} />
+                  <WorkspaceFields values={values} onChange={setValues} nameError={nameError} />
+                  {error && !confirmingDelete && <p className="text-[12px] text-destructive">{error}</p>}
                   <div className="flex items-center gap-2">
                     <Button type="button" variant="tertiary" onClick={() => onOpenChange(false)}>
                       Cancel
