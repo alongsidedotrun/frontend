@@ -90,16 +90,6 @@ export default defineConfig({
       "/settings/autocompact-scope": "http://127.0.0.1:3000",
       "/settings/autocompact-global": "http://127.0.0.1:3000",
       "/secrets": "http://127.0.0.1:3000",
-      // AuthPage.tsx's own "Continue with email" flow (Story #239) --
-      // confirmed directly as the exact same class of gap this file's own
-      // comment above already names: without an entry here, /auth/
-      // check-email, /auth/signup, /auth/login all silently fell through to
-      // Vite's own SPA catch-all (200 OK, text/html) instead of reaching
-      // the backend, which surfaced in the UI as "Could not reach the
-      // server" even though the backend itself was healthy.
-      "/auth/check-email": "http://127.0.0.1:3000",
-      "/auth/signup": "http://127.0.0.1:3000",
-      "/auth/login": "http://127.0.0.1:3000",
       // Real bug, confirmed directly via a real console error ("The string
       // did not match the expected pattern" -- WebKit's own JSON.parse
       // failure wording for non-JSON input): the exact same recurring gap

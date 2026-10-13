@@ -20,6 +20,7 @@ const EMAIL_ERROR_KEYS: Record<EmailError, string> = {
   rate_limited: "auth.errors.rateLimited",
   invalid_code: "auth.errors.invalidCode",
   expired: "auth.errors.expired",
+  sign_up_incomplete: "auth.errors.signUpIncomplete",
   failed: "auth.errors.verify",
 };
 

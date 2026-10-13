@@ -4,8 +4,8 @@ import { beginSignIn, startEmailSignIn, verifyEmailCode, waitForSignIn, type Sig
 export type SignInPhase = "idle" | "waiting" | "failed" | "timeout";
 
 /**
- * The browser sign-in flow shared by the /auth page and the sign-in dialog:
- * open the provider's page (or the hosted sign-in page) in the system
+ * The browser sign-in flow behind the sign-in dialog's Google and GitHub
+ * buttons: open the provider's page (or the hosted sign-in page) in the system
  * browser, then wait for the backend to report the account signed in
  * (lib/auth.ts).
  */
@@ -48,7 +48,7 @@ export function useSignInFlow(onSignedIn: () => void) {
 }
 
 export type EmailStep = "email" | "code";
-export type EmailError = "invalid_email" | "rate_limited" | "invalid_code" | "expired" | "failed";
+export type EmailError = "invalid_email" | "rate_limited" | "invalid_code" | "expired" | "sign_up_incomplete" | "failed";
 
 // Seconds before another code can be sent to the same address.
 export const RESEND_COOLDOWN_S = 30;
@@ -118,15 +118,12 @@ export function useEmailSignIn(onSignedIn: () => void, onUnsupported: () => void
   return { step, email, busy, error, cooldown, send, verify, reset, clearError: () => setError(null) };
 }
 
-// Lets anything (e.g. Settings) open the sign-in dialog when the shell that
-// renders it is mounted; returns false otherwise so callers can fall back to
-// the /auth page.
+// Lets anything (Settings, the account menu, the Join page) open the sign-in
+// dialog, which the app shell (RedesignPage) renders.
 let openSignInHandler: (() => void) | null = null;
 
-export function openSignInDialog(): boolean {
-  if (!openSignInHandler) return false;
-  openSignInHandler();
-  return true;
+export function openSignInDialog() {
+  openSignInHandler?.();
 }
 
 export function useSignInDialogHost(open: () => void) {

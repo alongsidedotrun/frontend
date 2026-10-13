@@ -53,11 +53,12 @@ export async function waitForSignIn(signal: AbortSignal): Promise<"signed-in" | 
 // code typed into the dialog finishes the sign-in (or creates the account, for a new address).
 // Endpoints answer 200 on success, or an error status with `{ "error": "<code>" }`.
 //   POST /identity/email/start   { email }  -> errors: invalid_email, rate_limited
-//   POST /identity/email/verify  { code }   -> errors: invalid_code, expired, rate_limited
+//   POST /identity/email/verify  { code }   -> errors: invalid_code, expired, rate_limited,
+//                                              no_pending_sign_in, sign_up_incomplete
 // "unsupported" is a backend without these endpoints yet (404/405): callers fall back to the
 // browser sign-in.
 export type EmailStartResult = "sent" | "unsupported" | "invalid_email" | "rate_limited" | "failed";
-export type EmailVerifyResult = "signed-in" | "invalid_code" | "expired" | "rate_limited" | "failed";
+export type EmailVerifyResult = "signed-in" | "invalid_code" | "expired" | "rate_limited" | "sign_up_incomplete" | "failed";
 
 async function postIdentity(path: string, body: unknown): Promise<{ ok: boolean; status: number; error?: string }> {
   try {
@@ -85,7 +86,9 @@ export async function startEmailSignIn(email: string): Promise<EmailStartResult>
 export async function verifyEmailCode(code: string): Promise<EmailVerifyResult> {
   const result = await postIdentity("/identity/email/verify", { code });
   if (!result.ok) {
-    if (result.error === "invalid_code" || result.error === "expired" || result.error === "rate_limited") return result.error;
+    if (result.error === "invalid_code" || result.error === "expired" || result.error === "rate_limited" || result.error === "sign_up_incomplete") return result.error;
+    // The code step timed out on the backend: same as an expired code, a new one is needed.
+    if (result.error === "no_pending_sign_in") return "expired";
     return "failed";
   }
   const identity = await refreshIdentity();

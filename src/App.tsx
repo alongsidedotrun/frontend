@@ -6,7 +6,6 @@ import { GettingStartedProvider, useGettingStarted } from "@/hooks/use-getting-s
 import { ThemeProvider } from "@/hooks/use-theme";
 import { useApplyAppearanceSettings } from "@/hooks/use-appearance-settings";
 import { AppsPage } from "@/pages/AppsPage";
-import { AuthPage } from "@/pages/AuthPage";
 import { ChatPage } from "@/pages/ChatPage";
 import { DataAcknowledgementPage } from "@/pages/DataAcknowledgementPage";
 import { DocsPage } from "@/pages/DocsPage";
@@ -65,7 +64,6 @@ function SecureAppRoute() {
 }
 
 const ROUTES: RouteObject[] = [
-  { path: "/auth", element: <AuthPage /> },
   { path: "/", element: <AppRoot /> },
   { path: "/onboard", element: <OnboardingPage /> },
   { path: "/onboard/getting-started", element: <OnboardGettingStartedRoute /> },
@@ -77,9 +75,9 @@ const ROUTES: RouteObject[] = [
     // us to open Alongside and be able to navigate without being signed
     // in... users should be able to use our application without being
     // signed in but for multiplayer purposes, they should sign in").
-    // /auth is still a real, reachable page (settings-overlay.tsx's own
-    // Profile section links to it when signed out), just no longer a
-    // forced redirect off of every other route. lib/auth.ts's own
+    // Signing in happens in the shell's sign-in dialog
+    // (sign-in-dialog.tsx), opened from anywhere via openSignInDialog().
+    // lib/auth.ts's own
     // useIsSignedIn is what the few features that genuinely need an
     // identity (sharing a chat, AppLayout.tsx's chat-header "..." menu)
     // check instead.
@@ -139,42 +137,18 @@ const ROUTES: RouteObject[] = [
   { path: "*", element: <Navigate to="/" replace /> },
 ];
 
-// Fades from the sign-in page into the real app shell (Home, the default
-// landing page once signed in) instead of snapping straight to it -- the
-// one route boundary in this app that isn't already covered by
-// AppLayout.tsx's own AnimatePresence, since AuthPage sits outside that
-// layout entirely (a sibling route, not nested under it).
-//
-// useRoutes(), not <Routes>/<Outlet/> rendered directly inside the
-// animated wrapper -- confirmed directly (AppLayout.tsx's own git
-// history): a live route-context consumer rendered inside a *still-
-// exiting* AnimatePresence child keeps tracking the router's current
-// (already-changed) route during its own exit animation, mounting the
-// *new* page early inside the *old*, about-to-unmount wrapper, which then
-// unmounts it again the moment that exit finishes -- a real, visible
-// double mount/fade, not just a theoretical risk. useRoutes() captures a
-// plain element once per render instead, so the exiting wrapper keeps
-// whatever page it was actually given.
-//
-// Keyed by a coarse isAuthPage boolean, not the full pathname -- this
-// fade should only play when crossing the /auth <-> authenticated-app
-// boundary, not on every single in-app navigation (Agent, Settings, a new
-// chat, etc.), which AppLayout's own pathname-keyed AnimatePresence
-// already handles on its own. Keying by the full pathname here too would
-// remount (and re-fade) this *outer* wrapper on every one of those
-// in-app moves as well, stacking a second, redundant fade on top of the
-// one AppLayout already plays.
+// useRoutes(), not <Routes>/<Outlet/> rendered directly inside a wrapper --
+// useRoutes() captures a plain element once per render, so a page is never
+// mounted early inside a wrapper that is about to unmount.
 function AppRoutes() {
-  const location = useLocation();
   const element = useRoutes(ROUTES);
-  const isAuthPage = location.pathname === "/auth";
 
   // Keep the route boundary as a plain layer. The app shell owns its own
   // transitions; an animated ancestor creates a composited layer that can
   // leave the desktop shell unpainted while the route is settling.
   return (
     <div className="relative h-dvh min-h-0">
-      <div key={isAuthPage ? "auth" : "app"} className="absolute inset-0">
+      <div className="absolute inset-0">
         {element}
       </div>
     </div>
@@ -202,7 +176,7 @@ export function App() {
     >
       {/* ThemeProvider, not a bare useTheme() call (what this used to be)
           -- applies the stored/default theme class on <html> regardless of
-          which route is active (AuthPage included), same as before, but
+          which route is active, same as before, but
           now as the single shared source of truth NavUser.tsx's own
           useTheme() call (the Appearance submenu) reads from too, instead
           of each maintaining an independent, untethered copy of the

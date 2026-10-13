@@ -1486,8 +1486,6 @@ function resizeImageFile(file: File, maxSize = 256, quality = 0.85): Promise<str
 // comment has the pointer).
 function ProfileSection() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const location = useLocation();
   const isSignedIn = useIsSignedIn();
   const avatarImage = useUserAvatarImage();
   const currentName = useUserDisplayName();
@@ -1689,16 +1687,12 @@ function ProfileSection() {
           is now optional (App.tsx's own comment on removing RequireAuth's
           blanket gate has the full reasoning) rather than a forced
           redirect off every route, this row shows "Sign in" instead once
-          signed out -- /auth is a real, voluntarily reachable page now,
-          not just something to escape. Logging out itself stays right
+          signed out, which opens the sign-in dialog. Logging out itself stays right
           here in Settings instead of navigating anywhere -- per direct
           follow-up ("logout is bringing me to the /auth page and that
           should stay in settings") -- signOut() alone is enough to
           reactively flip this row (and the disabled Manage photo button
-          above) to their signed-out state; only Sign in still navigates,
-          since that one genuinely needs the real sign-in form. state:
-          { from } lets AuthPage return here (not always Getting started)
-          once signed back in. */}
+          above) to their signed-out state. */}
       <SettingsSection title={t("settings.profile.caution")}>
         <SettingsRow
           id="setting-log-out"
@@ -1709,12 +1703,8 @@ function ProfileSection() {
             type="button"
             className={SETTINGS_ACTION_BUTTON_CLASS}
             onClick={() => {
-              if (isSignedIn) {
-                signOut();
-              } else if (!openSignInDialog()) {
-                // No dialog host mounted (outside the main shell): the page.
-                navigate("/auth", { state: { from: location.pathname } });
-              }
+              if (isSignedIn) signOut();
+              else openSignInDialog();
             }}
           >
             <LogOutIcon className="size-3.5" />

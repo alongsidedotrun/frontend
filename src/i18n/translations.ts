@@ -2405,15 +2405,6 @@ export const translations = {
     zh: "无标题",
     ja: "無題",
   },
-  "auth.title": {
-    en: "Sign in",
-    "pt-BR": "Entrar",
-    es: "Iniciar sesión",
-    fr: "Connexion",
-    de: "Anmelden",
-    zh: "登录",
-    ja: "サインイン",
-  },
   "auth.continue": {
     en: "Continue",
     "pt-BR": "Continuar",
@@ -2647,6 +2638,15 @@ export const translations = {
     de: "Zu viele Versuche. Warte kurz und versuche es erneut.",
     zh: "尝试次数过多。请稍后重试。",
     ja: "試行回数が多すぎます。しばらくしてからもう一度お試しください。",
+  },
+  "auth.errors.signUpIncomplete": {
+    en: "New accounts can't be created with an email code yet. Continue with Google or GitHub instead.",
+    "pt-BR": "Ainda não é possível criar contas com um código por e-mail. Continue com Google ou GitHub.",
+    es: "Aún no se pueden crear cuentas con un código por correo. Continúa con Google o GitHub.",
+    fr: "Impossible de créer un compte avec un code par e-mail pour le moment. Continuez avec Google ou GitHub.",
+    de: "Neue Konten können noch nicht mit einem E-Mail-Code erstellt werden. Fahre mit Google oder GitHub fort.",
+    zh: "暂时无法通过邮箱验证码创建新账户。请改用 Google 或 GitHub 继续。",
+    ja: "メールのコードではまだ新しいアカウントを作成できません。Google または GitHub で続行してください。",
   },
   "auth.errors.verify": {
     en: "The code could not be checked. Try again.",
