@@ -599,8 +599,9 @@ export function RedesignPage() {
         saving={saving}
         error={workspaceError}
       />
-      <Dialog open={manageWorkspacesOpen} onOpenChange={setManageWorkspacesOpen}>
-        <DialogContent className="max-h-[min(32rem,calc(100vh-2rem))] overflow-y-auto">
+      {/* !z-[120]: above the app top bar (z-[110]) so the overlay covers it. */}
+      <Dialog open={manageWorkspacesOpen} onOpenChange={setManageWorkspacesOpen} backdropClassName="!z-[120]">
+        <DialogContent className="!z-[120] max-h-[min(32rem,calc(100vh-2rem))] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Manage workspaces</DialogTitle>
             <DialogDescription>Rename or remove the workspaces on this device.</DialogDescription>

@@ -59,8 +59,10 @@ export function CreateWorkspaceDialog({ open, onOpenChange, onCreate, saving = f
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="xl" className="max-w-[min(760px,calc(100vw-2rem))] overflow-hidden p-0">
+    // !z-[120]: above the app top bar (z-[110]), so the dim overlay covers it
+    // too -- same as the command menu.
+    <Dialog open={open} onOpenChange={onOpenChange} backdropClassName="!z-[120]">
+      <DialogContent size="xl" className="!z-[120] max-w-[min(760px,calc(100vw-2rem))] overflow-hidden p-0">
         <div className="grid min-h-[420px] grid-cols-1 sm:grid-cols-2">
           <form
             className="flex flex-col gap-6 bg-[var(--redesign-primary-surface)] p-8"
