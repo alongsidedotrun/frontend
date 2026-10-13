@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { ChevronDown, ImagePlus, Upload } from "lucide-react";
+import { ChevronDown, Command, ImagePlus, Search, Upload } from "lucide-react";
 import { Backdrop } from "@/components/design-system/backdrop";
 import { WorkspaceBrandIcon } from "@/components/design-system/workspace-brand-icon";
 import { Button } from "@/components/ui/button";
@@ -169,16 +169,17 @@ function Bar({ className }: { className?: string }) {
 }
 
 /**
- * A mini sidebar mirroring the real one top to bottom (workspace row, Quick
- * actions, New chat, Projects/Chats sections, Getting Started, account row),
- * with the new workspace's tile and name live and everything else as grey
- * placeholders. Same 28px rows and spacing as the sidebar.
+ * A mini sidebar mirroring the top of the real one (workspace row, Quick
+ * actions, New chat, Projects/Chats sections), running off the bottom edge,
+ * with the new workspace's tile and name live, the parts that never change
+ * (search, Quick actions) shown as is, and the rest as grey placeholders.
+ * Same 28px rows and spacing as the sidebar.
  */
 function WorkspacePreview({ name, logo }: { name: string; logo: string | null }) {
   return (
     <div aria-hidden="true" className="relative hidden overflow-hidden sm:block">
       <Backdrop />
-      <div className="absolute top-10 bottom-0 left-10 -right-6 flex flex-col rounded-tl-[calc(var(--radius)*1.4)] border border-r-0 border-b-0 border-[var(--redesign-sidebar-border)] bg-[var(--redesign-sidebar-surface)] px-[var(--redesign-sidebar-edge-padding)] pt-4">
+      <div data-icon-stroke className="absolute top-10 -bottom-6 left-10 -right-6 flex flex-col rounded-tl-[calc(var(--radius)*1.4)] border border-r-0 border-b-0 border-[var(--redesign-sidebar-border)] bg-[var(--redesign-sidebar-surface)] px-[var(--redesign-sidebar-edge-padding)] pt-4">
         {/* Workspace row: live tile + name, chevron, search on the right. */}
         <div className="flex h-7 items-center gap-2 pr-6">
           {logo ? (
@@ -190,13 +191,16 @@ function WorkspacePreview({ name, logo }: { name: string; logo: string | null })
             {name || "Your workspace"}
           </span>
           <ChevronDown aria-hidden="true" className="size-3.5 shrink-0 text-foreground" />
-          <Bar className="ml-auto size-3.5" />
+          <Search aria-hidden="true" className="ml-auto size-3.5 shrink-0 text-muted-foreground" />
         </div>
 
-        {/* Quick actions field. */}
-        <div className="mt-3 mr-6 flex h-7 items-center justify-between rounded-[var(--radius)] border border-[var(--redesign-sidebar-border)] bg-[var(--redesign-quick-actions-surface)] px-3">
-          <Bar className="h-2 w-20" />
-          <Bar className="h-2 w-6" />
+        {/* Quick actions field -- the same in every workspace, so shown as is. */}
+        <div className="mt-3 mr-6 flex h-7 items-center justify-between rounded-[var(--radius)] border border-[var(--redesign-sidebar-border)] bg-[var(--redesign-quick-actions-surface)] px-3 text-muted-foreground">
+          <span className="text-[13px]">Quick actions</span>
+          <span className="flex items-center gap-1 text-[11px]">
+            <Command aria-hidden="true" className="size-[11px]" />
+            K
+          </span>
         </div>
 
         {/* New chat. */}
@@ -218,19 +222,6 @@ function WorkspacePreview({ name, logo }: { name: string; logo: string | null })
           </div>
         ))}
 
-        {/* Getting Started card, then the account row under a divider. */}
-        <div className="mt-auto mr-6 flex h-[30px] items-center gap-2 rounded-[var(--radius)] border border-[var(--redesign-sidebar-footer-onboarding-border)] bg-[var(--redesign-getting-started-surface)] px-[var(--redesign-quick-actions-padding)]">
-          <span className="size-3 shrink-0 rounded-full border-2 border-[var(--redesign-progress-track)]" />
-          <Bar className="h-2 w-20" />
-          <Bar className="ml-auto h-2 w-6" />
-        </div>
-        <div className="-mx-[var(--redesign-sidebar-edge-padding)] mt-3 border-t border-[var(--redesign-sidebar-border)] px-[var(--redesign-sidebar-edge-padding)]">
-          <div className="flex h-8 items-center gap-2 px-[var(--redesign-quick-actions-padding)] pr-8">
-            <Bar className="size-[18px]" />
-            <Bar className="h-2 w-12" />
-            <Bar className="ml-auto h-3 w-2" />
-          </div>
-        </div>
       </div>
     </div>
   );
