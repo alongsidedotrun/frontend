@@ -27,7 +27,7 @@ import type { SVGProps } from "react";
 // that exact same color rather than staying a fixed black/white
 // regardless of the row's own state. Callers that DO want the old
 // standalone "dark mark in light mode, light mark in dark mode" look
-// (HomePage/WelcomePage/ChatPage/AuthPage) set that themselves via their
+// (HomePage/WelcomePage/ChatPage) set that themselves via their
 // own `className` (text-black dark:text-white) instead.
 //
 // Other SVG props (x/y/width/height) pass through so WorkspaceBrandIcon can
