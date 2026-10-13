@@ -213,7 +213,7 @@ export function SidebarAccountFooter({ name, avatar, signedIn, onSignIn, onOpenS
         type="button"
         aria-label="Settings"
         onClick={onOpenSettings}
-        className="grid size-7 shrink-0 place-items-center rounded-[var(--redesign-control-radius)] text-muted-foreground transition-colors hover:text-foreground hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="grid size-7 shrink-0 place-items-center rounded-[var(--redesign-control-radius)] text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <SettingsIcon aria-hidden="true" className="size-[var(--redesign-workspace-chevron-size)]" />
       </button>
