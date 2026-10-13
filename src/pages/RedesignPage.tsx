@@ -548,7 +548,16 @@ export function RedesignPage() {
     <SplitView
       topBar={
         <AppTopBar
-          className="border-b border-[var(--redesign-sidebar-border)] bg-background before:pointer-events-none before:absolute before:inset-y-0 before:left-0 before:w-[var(--redesign-sidebar-width)] before:bg-[var(--redesign-sidebar-surface)] after:pointer-events-none after:absolute after:inset-y-0 after:left-[calc(var(--redesign-sidebar-width)-1px)] after:w-px after:bg-[var(--redesign-sidebar-border)]"
+          // The sidebar's strip and its right-edge line in the top bar fade
+          // with the sidebar: out in 160ms as it closes, in over 240ms as it
+          // opens (spring.slow's exit and enter), instantly with reduced motion.
+          className={cn(
+            "border-b border-[var(--redesign-sidebar-border)] bg-background before:pointer-events-none before:absolute before:inset-y-0 before:left-0 before:w-[var(--redesign-sidebar-width)] before:bg-[var(--redesign-sidebar-surface)] after:pointer-events-none after:absolute after:inset-y-0 after:left-[calc(var(--redesign-sidebar-width)-1px)] after:w-px after:bg-[var(--redesign-sidebar-border)]",
+            "before:transition-opacity after:transition-opacity before:ease-out after:ease-out motion-reduce:before:transition-none motion-reduce:after:transition-none",
+            sidebarCollapsed && !isSettingsRoute
+              ? "before:opacity-0 after:opacity-0 before:duration-[160ms] after:duration-[160ms]"
+              : "before:opacity-100 after:opacity-100 before:duration-[240ms] after:duration-[240ms]",
+          )}
           controlsClassName="absolute right-[var(--redesign-top-bar-controls-right)] gap-1"
           showNotifications={false}
           collapseButtonHover={false}
