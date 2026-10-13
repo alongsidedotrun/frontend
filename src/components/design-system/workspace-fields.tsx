@@ -121,7 +121,7 @@ export function WorkspaceFields({ values, onChange, nameError, autoFocusName }: 
       <section className="flex flex-col gap-2">
         <div className="flex flex-col gap-0.5">
           <label htmlFor={nameId} className="text-[13px] font-medium text-foreground">Name</label>
-          <span id={`${nameId}-hint`} className="text-[12px] text-muted-foreground">Shown in the sidebar and to people you invite</span>
+          <span id={`${nameId}-hint`} className="text-[12px] text-muted-foreground">Shown in the sidebar</span>
         </div>
         <Input
           id={nameId}

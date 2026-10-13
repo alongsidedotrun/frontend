@@ -31,6 +31,10 @@ type ManageWorkspaceDialogProps = {
   onSave: (change: WorkspaceChange) => Promise<void> | void;
   /** Deletes the workspace; resolves once deleted (the dialog then closes). */
   onDelete: () => Promise<void> | void;
+  /** Whether another workspace is showing, so this one can be archived. */
+  canArchive?: boolean;
+  /** Archives (hides) the built-in workspace; resolves once done. */
+  onArchive?: () => Promise<void> | void;
   saving?: boolean;
   error?: string | null;
 };
@@ -45,7 +49,7 @@ function valuesOf(workspace: ManagedWorkspace): WorkspaceFieldValues {
  * sidebar preview on the right, and deleting it at the bottom. The built-in
  * Alongside workspace can't be changed or deleted.
  */
-export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, onDelete, saving = false, error }: ManageWorkspaceDialogProps) {
+export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, onDelete, canArchive = false, onArchive, saving = false, error }: ManageWorkspaceDialogProps) {
   const [values, setValues] = useState<WorkspaceFieldValues>(() => valuesOf(workspace));
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [confirmName, setConfirmName] = useState("");
@@ -93,10 +97,21 @@ export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, o
                 </div>
                 <p className="text-[12px] text-muted-foreground">
                   The Alongside workspace comes with the app, so it can't be renamed, changed or deleted. Create a workspace to set your own name and logo.
+                  Once you have, you can archive the Alongside workspace to hide it from the sidebar, and restore it any time from the workspace menu.
                 </p>
-                <div className="mt-auto flex">
+                {error && <p className="text-[12px] text-destructive">{error}</p>}
+                <div className="mt-auto flex items-center gap-2">
                   <Button type="button" variant="tertiary" onClick={() => onOpenChange(false)}>
                     Close
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="tertiary"
+                    disabled={!canArchive || saving}
+                    title={canArchive ? undefined : "Create another workspace first"}
+                    onClick={() => void onArchive?.()}
+                  >
+                    Archive workspace
                   </Button>
                 </div>
               </div>
