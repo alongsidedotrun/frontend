@@ -1,8 +1,8 @@
-// Workspace logos and descriptions, stored on this device until the
-// backend's workspace record has fields for them (it only carries
-// id/name/is_personal today).
-// Data URLs keyed by workspace id; uploads are capped (MAX_LOGO_BYTES) so a
-// handful of logos stay well inside localStorage's quota.
+// Workspace logos (image data URLs), descriptions and tile colours are kept
+// on the backend's workspace record. Earlier builds kept them in this
+// browser's localStorage, keyed by workspace id; moveLocalWorkspaceDetailsToBackend
+// moves any of those to the backend once and clears them here. Uploads are
+// capped at MAX_LOGO_BYTES, the same limit the backend enforces.
 
 const KEY_PREFIX = "alongside_workspace_logo:";
 
@@ -81,4 +81,42 @@ export function readLogoFile(file: File): Promise<{ dataUrl: string } | { error:
     reader.onerror = () => resolve({ error: "Couldn't read that file." });
     reader.readAsDataURL(file);
   });
+}
+
+type WorkspaceWithDetails = {
+  id: string;
+  is_personal: boolean;
+  logo?: string | null;
+  description?: string | null;
+  color?: number | null;
+};
+
+// Moves a logo, description or colour saved in this browser by an earlier
+// build to the backend, for workspaces the backend has none for yet, then
+// clears the local copy. Returns the workspaces with what was moved filled in;
+// a workspace whose move fails keeps its local copy for the next load.
+export async function moveLocalWorkspaceDetailsToBackend<T extends WorkspaceWithDetails>(workspaces: T[]): Promise<T[]> {
+  return Promise.all(
+    workspaces.map(async (workspace) => {
+      if (workspace.is_personal || workspace.logo || workspace.description || workspace.color != null) return workspace;
+      const logo = loadWorkspaceLogo(workspace.id);
+      const description = loadWorkspaceDescription(workspace.id);
+      const color = loadWorkspaceColor(workspace.id);
+      if (!logo && !description && color === null) return workspace;
+      try {
+        const response = await fetch(`/workspaces/${encodeURIComponent(workspace.id)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ logo, description, color }),
+        });
+        if (!response.ok) return workspace;
+      } catch {
+        return workspace;
+      }
+      saveWorkspaceLogo(workspace.id, null);
+      saveWorkspaceDescription(workspace.id, null);
+      saveWorkspaceColor(workspace.id, null);
+      return { ...workspace, logo, description, color };
+    }),
+  );
 }

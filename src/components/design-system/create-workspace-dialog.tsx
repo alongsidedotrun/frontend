@@ -1,13 +1,10 @@
-import { useEffect, useId, useRef, useState } from "react";
-import { ChevronDown, Command, ImagePlus, Plus, Search, Upload } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronDown, Command, Plus, Search } from "lucide-react";
 import { Backdrop } from "@/components/design-system/backdrop";
 import { WorkspaceBrandIcon, workspaceMonogram, type WorkspaceMonogram } from "@/components/design-system/workspace-brand-icon";
+import { WorkspaceFields, type WorkspaceFieldValues } from "@/components/design-system/workspace-fields";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { LOGO_MIME_TYPES, MAX_DESCRIPTION_LENGTH, readLogoFile } from "@/lib/workspace-logos";
-import { WORKSPACE_PALETTE, paletteIndexForName } from "@/lib/identity-palette";
 import { cn } from "@/lib/utils";
 
 type CreateWorkspaceDialogProps = {
@@ -20,50 +17,25 @@ type CreateWorkspaceDialogProps = {
   error?: string | null;
 };
 
+const EMPTY: WorkspaceFieldValues = { name: "", description: "", logo: null, colorIndex: null };
+
 /**
  * Two-pane create-workspace dialog: the form on the left, and on the right a
  * live preview of the sidebar showing the new workspace's tile and name as
  * they're entered.
  */
 export function CreateWorkspaceDialog({ open, onOpenChange, onCreate, saving = false, error }: CreateWorkspaceDialogProps) {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [logo, setLogo] = useState<string | null>(null);
-  const [logoError, setLogoError] = useState<string | null>(null);
-  // null until the user picks a swatch: the letter tile then follows the name.
-  const [colorIndex, setColorIndex] = useState<number | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const nameId = useId();
-  const descriptionId = useId();
+  const [values, setValues] = useState<WorkspaceFieldValues>(EMPTY);
 
   // Start fresh each time the dialog opens.
   useEffect(() => {
-    if (!open) return;
-    setName("");
-    setDescription("");
-    setLogo(null);
-    setLogoError(null);
-    setColorIndex(null);
+    if (open) setValues(EMPTY);
   }, [open]);
 
-  async function handleFile(file: File | undefined) {
-    if (!file) return;
-    const result = await readLogoFile(file);
-    if ("error" in result) {
-      setLogoError(result.error);
-      return;
-    }
-    setLogoError(null);
-    setLogo(result.dataUrl);
-  }
-
-  const trimmed = name.trim();
-  // Without a logo, the workspace gets its first letter on a palette colour.
-  const monogram = workspaceMonogram(trimmed, colorIndex);
-  const selectedColor = colorIndex ?? (trimmed ? paletteIndexForName(trimmed, WORKSPACE_PALETTE.length) : null);
+  const trimmed = values.name.trim();
   const submit = () => {
     if (!trimmed || saving) return;
-    void onCreate(trimmed, logo, description.trim() || null, colorIndex);
+    void onCreate(trimmed, values.logo, values.description.trim() || null, values.colorIndex);
   };
 
   return (
@@ -84,104 +56,7 @@ export function CreateWorkspaceDialog({ open, onOpenChange, onCreate, saving = f
               <DialogDescription className="sr-only">Add a logo and a name for your new workspace.</DialogDescription>
             </div>
 
-            <section className="flex flex-col gap-2">
-              <div className="flex flex-col gap-0.5">
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-[13px] font-medium text-foreground">Upload logo</span>
-                  <span className="text-[12px] text-muted-foreground">Optional</span>
-                </div>
-                <span className="text-[12px] text-muted-foreground">Supported file formats are SVG, PNG, JPG and max upload size is 1MB.</span>
-              </div>
-              <div className="flex items-center gap-2">
-                {logo ? (
-                  <WorkspaceBrandIcon size={40} imageSrc={logo} />
-                ) : monogram ? (
-                  <WorkspaceBrandIcon size={40} monogram={monogram} />
-                ) : (
-                  <span
-                    // 8.94px: the tile radius formula at 40px (8 x sqrt(40/32)),
-                    // so the placeholder and an uploaded logo share one shape.
-                    className="grid size-10 shrink-0 place-items-center rounded-[8.94px] border border-dashed border-border text-muted-foreground">
-                    <ImagePlus aria-hidden="true" className="size-[18px]" />
-                  </span>
-                )}
-                <Button type="button" variant="tertiary" size="compact" leadingIcon={Upload} onClick={() => fileRef.current?.click()}>
-                  Upload
-                </Button>
-                <Button type="button" variant="tertiary" size="compact" disabled={!logo} onClick={() => setLogo(null)}>
-                  Remove
-                </Button>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept={LOGO_MIME_TYPES.join(",")}
-                  className="hidden"
-                  onChange={(event) => {
-                    void handleFile(event.target.files?.[0]);
-                    event.target.value = "";
-                  }}
-                />
-              </div>
-              {logoError && <p className="text-[12px] text-destructive">{logoError}</p>}
-              {/* Colour for the letter tile; hidden once a logo replaces it. */}
-              {!logo && (
-                <div role="radiogroup" aria-label="Tile colour" className="flex items-center gap-2 pt-1">
-                  {WORKSPACE_PALETTE.map((swatch, index) => {
-                    const selected = selectedColor === index;
-                    return (
-                      <button
-                        key={swatch.name}
-                        type="button"
-                        role="radio"
-                        aria-checked={selected}
-                        aria-label={swatch.name}
-                        title={swatch.name}
-                        onClick={() => setColorIndex(index)}
-                        className={cn(
-                          "size-5 rounded-full outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-ring",
-                          selected && "ring-2 ring-offset-2 ring-offset-[var(--redesign-primary-surface)]",
-                        )}
-                        style={{ backgroundColor: swatch.fg, ...(selected ? { ["--tw-ring-color" as string]: swatch.fg } : {}) }}
-                      />
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-
-            <section className="flex flex-col gap-2">
-              <div className="flex flex-col gap-0.5">
-                <label htmlFor={nameId} className="text-[13px] font-medium text-foreground">Name</label>
-                <span id={`${nameId}-hint`} className="text-[12px] text-muted-foreground">Shown in the sidebar and to people you invite</span>
-              </div>
-              <Input
-                id={nameId}
-                autoFocus
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                aria-describedby={`${nameId}-hint`}
-                placeholder="Enter a workspace name"
-                maxLength={80}
-                className="h-8 border-[var(--redesign-sidebar-border)] bg-background text-[13px]"
-              />
-              {error && <p className="text-[12px] text-destructive">{error}</p>}
-            </section>
-
-            <section className="flex flex-col gap-2">
-              <div className="flex items-baseline justify-between gap-2">
-                <label htmlFor={descriptionId} className="text-[13px] font-medium text-foreground">Description</label>
-                <span className="text-[12px] text-muted-foreground">Optional</span>
-              </div>
-              <Textarea
-                id={descriptionId}
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                placeholder="What's this workspace for?"
-                maxLength={MAX_DESCRIPTION_LENGTH}
-                rows={3}
-                className="min-h-[4.5rem] resize-none border-[var(--redesign-sidebar-border)] bg-background text-[13px]"
-              />
-            </section>
+            <WorkspaceFields values={values} onChange={setValues} nameError={error} autoFocusName />
 
             <div className="mt-auto flex items-center gap-2">
               <Button type="button" variant="tertiary" onClick={() => onOpenChange(false)}>
@@ -193,7 +68,7 @@ export function CreateWorkspaceDialog({ open, onOpenChange, onCreate, saving = f
             </div>
           </form>
 
-          <WorkspacePreview name={trimmed} logo={logo} monogram={monogram} />
+          <WorkspacePreview name={trimmed} logo={values.logo} monogram={workspaceMonogram(trimmed, values.colorIndex)} />
         </div>
       </DialogContent>
     </Dialog>
@@ -213,14 +88,17 @@ function Bar({ className }: { className?: string }) {
  * placeholders.
  * Same 28px rows and spacing as the sidebar.
  */
-function WorkspacePreview({ name, logo, monogram }: { name: string; logo: string | null; monogram: WorkspaceMonogram | null }) {
+export function WorkspacePreview({ name, logo, monogram, builtIn = false }: { name: string; logo: string | null; monogram: WorkspaceMonogram | null; builtIn?: boolean }) {
   return (
     <div aria-hidden="true" className="relative hidden overflow-hidden sm:block">
       <Backdrop />
       <div data-icon-stroke className="absolute top-10 -bottom-6 left-10 -right-6 flex flex-col rounded-tl-[calc(var(--radius)*1.4)] border border-r-0 border-b-0 border-[var(--redesign-sidebar-border)] bg-[var(--redesign-sidebar-surface)] px-[var(--redesign-sidebar-edge-padding)] pt-4">
         {/* Workspace row: live tile + name, chevron, search on the right. */}
         <div className="flex h-7 items-center gap-2 pr-6">
-          {logo ? (
+          {builtIn ? (
+            // The built-in Alongside workspace shows the Alongside mark, as in the sidebar.
+            <WorkspaceBrandIcon size={18} />
+          ) : logo ? (
             <WorkspaceBrandIcon size={18} imageSrc={logo} />
           ) : monogram ? (
             <WorkspaceBrandIcon size={18} monogram={monogram} />
