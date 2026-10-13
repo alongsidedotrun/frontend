@@ -76,7 +76,7 @@ export function CreateWorkspaceDialog({ open, onOpenChange, onCreate, saving = f
             <section className="flex flex-col gap-2">
               <div className="flex flex-col gap-0.5">
                 <span className="text-[13px] font-medium text-foreground">Upload logo</span>
-                <span className="text-[12px] text-muted-foreground">We recommend using SVG for logos</span>
+                <span className="text-[12px] text-muted-foreground">We recommend to use SVG format for logos. PNG, JPG are also supported.</span>
               </div>
               <div className="flex items-center gap-2">
                 {logo ? (
