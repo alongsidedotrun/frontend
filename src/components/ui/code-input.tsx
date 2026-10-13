@@ -16,7 +16,8 @@ type CodeInputProps = {
  * One-time code entry drawn as a row of joined boxes, one digit each. A
  * single real input sits invisibly on top, so typing, pasting, deleting and
  * the browser's one-time-code autofill all behave like a normal text field;
- * the boxes only show its value, and the box the next digit goes into.
+ * the boxes only show its value, with a blinking caret in the box the next
+ * digit goes into. Boxes are 36px, the same height as the buttons beside them.
  */
 export function CodeInput({ value, onChange, length = 6, id, autoFocus, disabled, invalid, ...aria }: CodeInputProps) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -45,14 +46,13 @@ export function CodeInput({ value, onChange, length = 6, id, autoFocus, disabled
             <div
               key={index}
               className={cn(
-                "relative grid size-11 place-items-center text-[18px] font-medium tabular-nums text-foreground transition-shadow",
+                "grid size-9 place-items-center text-[15px] font-medium tabular-nums text-foreground",
                 index > 0 && (invalid ? "border-l border-destructive" : "border-l border-[var(--redesign-sidebar-border)]"),
-                isActive && "z-10 shadow-[inset_0_0_0_1px_var(--foreground)]",
               )}
             >
               {char}
               {isActive && !char && (
-                <span aria-hidden="true" className="h-5 w-px bg-foreground animate-[caret-blink_1.2s_ease-out_infinite] motion-reduce:animate-none" />
+                <span aria-hidden="true" className="h-4 w-px bg-foreground animate-[caret-blink_1.2s_ease-out_infinite] motion-reduce:animate-none" />
               )}
             </div>
           );
