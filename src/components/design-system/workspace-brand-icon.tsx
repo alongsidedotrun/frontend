@@ -1,6 +1,6 @@
 import { useId, type ComponentType, type SVGProps } from "react";
 import { AlongsideLogo } from "@/components/icons/alongside-logo";
-import { IDENTITY_PALETTE, paletteIndexForName } from "@/lib/identity-palette";
+import { WORKSPACE_PALETTE, paletteIndexForName } from "@/lib/identity-palette";
 import { cn } from "@/lib/utils";
 
 /**
@@ -84,7 +84,7 @@ export type WorkspaceMonogram = { letter: string; bg: string; fg: string };
 export function workspaceMonogram(name: string, colorIndex?: number | null): WorkspaceMonogram | null {
   const letter = Array.from(name.trim())[0];
   if (!letter) return null;
-  const { bg, fg } = IDENTITY_PALETTE[colorIndex ?? paletteIndexForName(name.trim())] ?? IDENTITY_PALETTE[0];
+  const { bg, fg } = WORKSPACE_PALETTE[colorIndex ?? paletteIndexForName(name.trim(), WORKSPACE_PALETTE.length)] ?? WORKSPACE_PALETTE[0];
   return { letter: letter.toLocaleUpperCase(), bg, fg };
 }
 
