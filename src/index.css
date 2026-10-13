@@ -89,13 +89,16 @@
  */
 :root {
   --redesign-font-size-xs: 0.75rem;
-  --redesign-font-size-compact: clamp(0.6875rem, 0.86vw, 0.75rem);
+  /* Fixed, not window-scaled: the sidebar reads tidier at one size (matches
+     the create workspace preview). Section headers and small labels. */
+  --redesign-font-size-compact: 0.6875rem;
   /* Keep sidebar copy responsive, but cap small-screen reduction at 2px. */
   --redesign-font-size-base: clamp(0.75rem, 1vw, 0.8125rem);
   /* Primary navigation is deliberately one step larger than supporting
      sidebar copy, so the workspace, main menu, and profile don't read
      undersized next to the app content. */
-  --redesign-sidebar-primary-font-size: clamp(0.8125rem, 1.02vw, 0.875rem);
+  /* Fixed 13px for sidebar and menu rows, for the same reason. */
+  --redesign-sidebar-primary-font-size: 0.8125rem;
   --redesign-dropdown-font-size: clamp(0.6875rem, 1vw, 0.8125rem);
   --redesign-font-size-sm: 0.875rem;
   --redesign-font-size-md: 1rem;
