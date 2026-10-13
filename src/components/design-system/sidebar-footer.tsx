@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Check, CircleDashed } from "lucide-react";
-import { LogInIcon, MoreHorizontalIcon } from "@/components/icons/untitled-ui";
+import { LogInIcon, SettingsIcon } from "@/components/icons/untitled-ui";
 import { Backdrop } from "@/components/design-system/backdrop";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -152,67 +152,68 @@ export function GettingStartedSummary({
 type SidebarAccountFooterProps = {
   name: string;
   avatar: ReactNode;
-  actionSections: readonly (readonly DropdownAction[])[];
-  /** Signed out: the left side is a Sign in button instead of the avatar and name. */
+  /** Signed out: the left side is a Sign in button instead of the profile. */
   signedIn: boolean;
   onSignIn: () => void;
+  /** The settings button on the right goes straight to Settings. */
+  onOpenSettings: () => void;
+  /** Menu opened by clicking the profile once signed in (profile, help, upgrade, sign out). */
+  profileSections: readonly (readonly DropdownAction[])[];
 };
 
 /**
- * Account row: Sign in (or, once signed in, the avatar and name) on the left,
- * and a ⋯ button on the right opening the account menu (settings, help,
- * upgrade), which matches the workspace menu's rows and spacing.
+ * Account row: Sign in (signed out) or the profile (signed in, opening the
+ * profile menu) on the left, and a settings button on the right.
  */
-export function SidebarAccountFooter({ name, avatar, actionSections, signedIn, onSignIn }: SidebarAccountFooterProps) {
+export function SidebarAccountFooter({ name, avatar, signedIn, onSignIn, onOpenSettings, profileSections }: SidebarAccountFooterProps) {
+  const rowButton =
+    "flex h-full min-w-0 flex-1 items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-left text-[length:var(--redesign-sidebar-primary-font-size)] font-medium text-foreground transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
   return (
     <div className="flex h-[var(--redesign-sidebar-footer-account-row-height)] w-full items-center gap-1">
       {signedIn ? (
-        <div className="flex min-w-0 flex-1 items-center gap-[var(--redesign-quick-actions-icon-gap)] px-[var(--redesign-quick-actions-padding)]">
-          <span className="size-[var(--redesign-sidebar-footer-avatar-size)] shrink-0 overflow-hidden rounded-full">{avatar}</span>
-          <span className="min-w-0 flex-1 truncate text-[length:var(--redesign-sidebar-primary-font-size)] font-medium text-foreground">{name}</span>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button type="button" aria-label="Open profile menu" className={rowButton}>
+              <span className="size-[var(--redesign-sidebar-footer-avatar-size)] shrink-0 overflow-hidden rounded-full">{avatar}</span>
+              <span className="min-w-0 flex-1 truncate">{name}</span>
+            </button>
+          </DropdownMenuTrigger>
+          <RedesignDropdownContent
+            side="top"
+            align="start"
+            sideOffset={6}
+            viewportClassName="overflow-visible rounded-[var(--redesign-workspace-menu-radius)] p-0"
+          >
+            {profileSections.map((section, index) => (
+              <div key={section.map((action) => action.id).join("-")}>
+                {index > 0 && <RedesignDropdownSeparator />}
+                <DropdownActionSection className="gap-[var(--redesign-quick-actions-row-gap)] py-0">
+                  {section.map((action) => (
+                    <DropdownActionRow
+                      key={action.id}
+                      action={action}
+                      className="h-[var(--redesign-sidebar-footer-task-row-height)] gap-[var(--redesign-workspace-trigger-gap)] px-[var(--redesign-menu-horizontal-padding)]"
+                    />
+                  ))}
+                </DropdownActionSection>
+              </div>
+            ))}
+          </RedesignDropdownContent>
+        </DropdownMenu>
       ) : (
-        <button
-          type="button"
-          onClick={onSignIn}
-          className="flex h-full min-w-0 flex-1 items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-left text-[length:var(--redesign-sidebar-primary-font-size)] font-medium text-foreground transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
+        <button type="button" onClick={onSignIn} className={rowButton}>
           <LogInIcon aria-hidden="true" className="size-[var(--redesign-quick-actions-icon-size)] shrink-0" />
           <span className="truncate">Sign in</span>
         </button>
       )}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            aria-label="Open account menu"
-            className="grid size-7 shrink-0 place-items-center rounded-[var(--redesign-control-radius)] text-foreground transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <MoreHorizontalIcon aria-hidden="true" className="size-[var(--redesign-workspace-chevron-size)]" />
-          </button>
-        </DropdownMenuTrigger>
-        <RedesignDropdownContent
-          side="top"
-          align="end"
-          sideOffset={6}
-          viewportClassName="overflow-visible rounded-[var(--redesign-workspace-menu-radius)] p-0"
-        >
-          {actionSections.map((section, index) => (
-            <div key={section.map((action) => action.id).join("-")}>
-              {index > 0 && <RedesignDropdownSeparator />}
-              <DropdownActionSection className="gap-[var(--redesign-quick-actions-row-gap)] py-0">
-                {section.map((action) => (
-                  <DropdownActionRow
-                    key={action.id}
-                    action={action}
-                    className="h-[var(--redesign-sidebar-footer-task-row-height)] gap-[var(--redesign-workspace-trigger-gap)] px-[var(--redesign-menu-horizontal-padding)]"
-                  />
-                ))}
-              </DropdownActionSection>
-            </div>
-          ))}
-        </RedesignDropdownContent>
-      </DropdownMenu>
+      <button
+        type="button"
+        aria-label="Settings"
+        onClick={onOpenSettings}
+        className="grid size-7 shrink-0 place-items-center rounded-[var(--redesign-control-radius)] text-foreground transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <SettingsIcon aria-hidden="true" className="size-[var(--redesign-workspace-chevron-size)]" />
+      </button>
     </div>
   );
 }

@@ -6,8 +6,9 @@ import { CreateWorkspaceDialog } from "@/components/design-system/create-workspa
 import { SignInDialog } from "@/components/design-system/sign-in-dialog";
 import { useSignInDialogHost } from "@/lib/use-sign-in";
 import { useIdentity } from "@/lib/identity";
+import { signOut } from "@/lib/auth";
 import { loadWorkspaceColor, loadWorkspaceLogo, saveWorkspaceColor, saveWorkspaceDescription, saveWorkspaceLogo } from "@/lib/workspace-logos";
-import { MessageChatCircleIcon, Settings01Icon, Settings04Icon } from "@/components/icons/untitled-ui";
+import { LogOutIcon, MessageChatCircleIcon, Settings01Icon, Settings04Icon, UserIcon } from "@/components/icons/untitled-ui";
 import { SplitView } from "@/components/design-system/split-view";
 import { AppTopBar } from "@/components/app-top-bar";
 import { QuickActions, type QuickActionItem } from "@/components/design-system/quick-actions";
@@ -79,14 +80,16 @@ function toWorkspaceOption(workspace: WorkspaceRecord): WorkspaceOption {
   return { id: workspace.id, name: workspace.name, icon };
 }
 
-function profileActionSections(onOpenSettings: () => void): readonly (readonly WorkspaceMenuAction[])[] {
+// Profile menu, shown once signed in by clicking the profile in the sidebar.
+function profileMenuSections(onOpenProfile: () => void, onSignOut: () => void): readonly (readonly WorkspaceMenuAction[])[] {
   return [
     [
-      { id: "settings", label: "Settings", icon: Settings04Icon, onSelect: onOpenSettings },
+      { id: "profile", label: "Profile", icon: UserIcon, onSelect: onOpenProfile },
       { id: "help", label: "Help", icon: CircleHelp },
+      { id: "upgrade", label: "Upgrade plan", icon: CircleArrowUp, tone: "accent" },
     ],
     [
-      { id: "upgrade", label: "Upgrade plan", icon: CircleArrowUp, tone: "accent" },
+      { id: "sign-out", label: "Sign out", icon: LogOutIcon, onSelect: onSignOut },
     ],
   ];
 }
@@ -588,7 +591,8 @@ export function RedesignPage() {
                 onSignIn={openSignIn}
                 name={identity.displayName ?? "Guest"}
                 avatar={<DefaultAvatar name={identity.displayName ?? "Guest"} />}
-                actionSections={profileActionSections(() => navigate("/settings/general"))}
+                onOpenSettings={() => navigate("/settings/general")}
+                profileSections={profileMenuSections(() => navigate("/settings/profile"), () => signOut())}
               />
             </div>
           </footer>
