@@ -90,7 +90,7 @@ export function CreateWorkspaceDialog({ open, onOpenChange, onCreate, saving = f
                   <span className="text-[13px] font-medium text-foreground">Upload logo</span>
                   <span className="text-[12px] text-muted-foreground">Optional</span>
                 </div>
-                <span className="text-[12px] text-muted-foreground">We recommend to use SVG format for logos. PNG, JPG are also supported.</span>
+                <span className="text-[12px] text-muted-foreground">Supported file formats are SVG, PNG, JPG and max upload size is 1MB.</span>
               </div>
               <div className="flex items-center gap-2">
                 {logo ? (
