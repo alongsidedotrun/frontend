@@ -114,7 +114,7 @@ export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, o
                 <section className="flex flex-col gap-2 border-t border-[var(--redesign-sidebar-border)] pt-5">
                   <span className="text-[13px] font-medium text-foreground">Delete workspace</span>
                   <span className="text-[12px] text-muted-foreground">
-                    {canDelete ? "Removes this workspace from Alongside. This can't be undone." : "This is your only workspace, so it can't be deleted. Create another workspace first."}
+                    {canDelete ? "Removes this workspace from Alongside. This can't be undone." : "This is your only workspace, create another workspace first."}
                   </span>
                   {!canDelete ? null : confirmingDelete ? (
                     <form
