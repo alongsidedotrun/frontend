@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
 import { cn } from "@/lib/utils";
 
 export type SidebarSectionItem = {
@@ -51,7 +52,7 @@ export function SidebarSections({ sections, activeItemId, onItemSelect, classNam
                   type="button"
                   aria-label={section.action.label}
                   onClick={section.action.onSelect}
-                  className="ml-auto flex size-[var(--redesign-quick-actions-icon-size)] items-center justify-center rounded-[var(--redesign-dropdown-row-radius)] text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className={cn("ml-auto flex size-[var(--redesign-quick-actions-icon-size)] items-center justify-center rounded-[var(--redesign-dropdown-row-radius)] text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", PRESS_EFFECT, ICON_PRESS)}
                 >
                   <Icon aria-hidden="true" strokeWidth={2} className="size-[calc(var(--redesign-font-size-compact)-1px)]" />
                 </button>

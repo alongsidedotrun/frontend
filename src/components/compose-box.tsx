@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { PROVIDER_DISPLAY, ProviderIcon, QUICK_CHAT_MODELS, modelDisplayName } from "@/lib/quick-chat-models";
@@ -92,16 +93,7 @@ function modelSelectionLabel(selected: typeof QUICK_CHAT_MODELS) {
   return modelDisplayName(selected[0]);
 }
 
-// The compose row's controls (+, mic, model/effort/permission triggers) show
-// no hover background, per request. Instead hovering fades them toward the
-// surface (lighter in light mode, darker in dark mode) and pressing scales
-// them down: held scale via :active (the mic), and a one-shot press-tap
-// (index.css) for the menu triggers, which never get :active and keep
-// data-pressed set for as long as their menu is open.
-// !transition: .t-input (Model's trigger) is unlayered CSS that would
-// otherwise win over this utility; border-color kept for its error shake.
-const PRESS_EFFECT =
-  "transform-gpu !transition-[color,opacity,scale,border-color] duration-150 ease-out hover:opacity-70 active:scale-[0.96] data-[pressed]:animate-[press-tap_220ms_ease-out] motion-reduce:active:scale-100 motion-reduce:animate-none";
+// Hover fade and press scale: PRESS_EFFECT / ICON_PRESS (lib/press-effect.ts).
 // For the Button-based controls (+, mic): hides Button's hover/press surface
 // (its first, aria-hidden child span) and pins the icon stroke, which Button
 // otherwise thickens from 1.5 to 2 on hover.
@@ -124,10 +116,6 @@ const COMPOSE_TOOL_VARS = {
     "calc(4px - (var(--compose-tool-h) - var(--compose-plus-icon)) / 2 - var(--compose-plus-icon) * 5 / 24)",
 } as React.CSSProperties;
 const NO_HOVER_SURFACE = "[&>span:first-child]:hidden [&_svg]:!stroke-[1.5]";
-// Icon-only controls (+, mic) dip to 90%, not 96%: 4% of a 14-18px glyph is
-// well under a pixel and reads as no effect, while the text triggers are wide
-// enough that 96% is visible. Goes after PRESS_EFFECT so cn() keeps these.
-const ICON_PRESS = "[--press-scale:0.9] active:scale-[0.9]";
 
 // How the agent asks before acting -- beside the model trigger, per
 // explicit request. Real for all three providers now: Codex
