@@ -2470,14 +2470,15 @@ export const translations = {
     ja: "サインイン",
   },
   "auth.terms": {
-    en: "By clicking continue, you agree to our <0>Terms of Service</0> and <1>Privacy Policy</1>.",
-    "pt-BR": "Ao clicar em continuar, você concorda com nossos <0>Termos de Serviço</0> e nossa <1>Política de Privacidade</1>.",
-    es: "Al hacer clic en continuar, aceptas nuestros <0>Términos de servicio</0> y nuestra <1>Política de privacidad</1>.",
-    fr: "En cliquant sur continuer, vous acceptez nos <0>Conditions d'utilisation</0> et notre <1>Politique de confidentialité</1>.",
-    de: "Mit dem Klick auf „Weiter“ stimmst du unseren <0>Nutzungsbedingungen</0> und der <1>Datenschutzerklärung</1> zu.",
-    zh: "点击继续即表示您同意我们的<0>服务条款</0>和<1>隐私政策</1>。",
-    ja: "続行をクリックすると、<0>利用規約</0>と<1>プライバシーポリシー</1>に同意したものとみなされます。",
+    en: "By continuing, you agree to our <0>Terms of Service</0> and <1>Privacy Policy</1>.",
+    "pt-BR": "Ao continuar, você concorda com nossos <0>Termos de Serviço</0> e nossa <1>Política de Privacidade</1>.",
+    es: "Al continuar, aceptas nuestros <0>Términos de servicio</0> y nuestra <1>Política de privacidad</1>.",
+    fr: "En continuant, vous acceptez nos <0>Conditions d'utilisation</0> et notre <1>Politique de confidentialité</1>.",
+    de: "Wenn du fortfährst, stimmst du unseren <0>Nutzungsbedingungen</0> und der <1>Datenschutzerklärung</1> zu.",
+    zh: "继续即表示您同意我们的<0>服务条款</0>和<1>隐私政策</1>。",
+    ja: "続行すると、<0>利用規約</0>と<1>プライバシーポリシー</1>に同意したものとみなされます。",
   },
+
   "auth.continueWithGoogle": {
     en: "Continue with Google",
     "pt-BR": "Continuar com Google",
