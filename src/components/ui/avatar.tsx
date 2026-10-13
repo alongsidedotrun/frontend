@@ -2,7 +2,6 @@ import * as React from "react"
 import { Avatar as AvatarPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
-import { AlongsideLogo } from "@/components/icons/alongside-logo"
 import { getUserAvatarSeed, getUserDisplayName, useUserAvatarImage } from "@/lib/user"
 import { IDENTITY_PALETTE, paletteIndexForName } from "@/lib/identity-palette"
 
@@ -115,9 +114,14 @@ function DefaultAvatar({ name }: { name: string }) {
       className="flex size-full items-center justify-center overflow-hidden rounded-full"
       style={{ backgroundColor: bg, color: fg }}
     >
-      <span className="relative block size-[58%]" aria-hidden="true">
-        <AlongsideLogo className="absolute left-1/2 top-1/2 block size-full -translate-x-1/2 -translate-y-1/2" />
-      </span>
+      {/* First letter of the name, not the Alongside mark: the default
+          avatar shouldn't stamp the brand on people. An SVG so the letter
+          scales with whatever size the avatar is rendered at. */}
+      <svg viewBox="0 0 32 32" className="block size-full" aria-hidden="true">
+        <text x="16" y="16" textAnchor="middle" dominantBaseline="central" fontSize="15" fontWeight="600" fill="currentColor">
+          {Array.from(name.trim())[0]?.toLocaleUpperCase() ?? "?"}
+        </text>
+      </svg>
     </div>
   )
 }
