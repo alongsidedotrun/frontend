@@ -50,6 +50,19 @@
   }
 }
 
+/* Backdrop (design-system/backdrop.tsx): the gradient drifting across its
+   200% box, and a glint: dark most of its cycle, then a brief faint flash.
+   Top level, not in @theme. */
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes sparkle-twinkle {
+  0%, 70%, 100% { opacity: 0; }
+  80% { opacity: var(--glint-peak, 0.5); }
+}
+
 /* The Button's loading glyph (ui/button.tsx). Top level, not inside
    @theme: Tailwind drops @theme keyframes that no --animate-* token uses,
    which left the spinner frozen. */
