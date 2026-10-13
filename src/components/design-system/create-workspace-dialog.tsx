@@ -83,10 +83,13 @@ export function CreateWorkspaceDialog({ open, onOpenChange, onCreate, saving = f
               </div>
               <div className="flex items-center gap-2">
                 {logo ? (
-                  <WorkspaceBrandIcon size={48} imageSrc={logo} />
+                  <WorkspaceBrandIcon size={40} imageSrc={logo} />
                 ) : (
-                  <span className="grid size-12 shrink-0 place-items-center rounded-[calc(var(--radius)*1.25)] border border-dashed border-border text-muted-foreground">
-                    <ImagePlus aria-hidden="true" className="size-5" />
+                  <span
+                    // 8.94px: the tile radius formula at 40px (8 x sqrt(40/32)),
+                    // so the placeholder and an uploaded logo share one shape.
+                    className="grid size-10 shrink-0 place-items-center rounded-[8.94px] border border-dashed border-border text-muted-foreground">
+                    <ImagePlus aria-hidden="true" className="size-[18px]" />
                   </span>
                 )}
                 <Button type="button" variant="tertiary" size="compact" leadingIcon={Upload} onClick={() => fileRef.current?.click()}>
