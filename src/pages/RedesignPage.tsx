@@ -3,7 +3,7 @@ import type { IconComponent } from "@/lib/icon-context";
 import { cn } from "@/lib/utils";
 import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
 import { useLocation, useNavigate, useOutlet } from "react-router-dom";
-import { CircleArrowUp, CircleHelp, Plus, Search, ShieldCheck } from "lucide-react";
+import { ArchiveRestore, CircleArrowUp, CircleHelp, Plus, Search, ShieldCheck } from "lucide-react";
 import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
 import { CreateWorkspaceDialog } from "@/components/design-system/create-workspace-dialog";
 import { SignInDialog } from "@/components/design-system/sign-in-dialog";
@@ -41,6 +41,8 @@ type WorkspaceRecord = {
   logo?: string | null;
   description?: string | null;
   color?: number | null;
+  // Hidden from the switcher (the Alongside workspace, once put away).
+  archived?: boolean;
 };
 
 type InboxItem = {
@@ -221,7 +223,8 @@ export function RedesignPage() {
 
   const activeQuickAction = routeQuickAction;
 
-  const workspaceOptions = workspaces.map(toWorkspaceOption);
+  const workspaceOptions = workspaces.filter((workspace) => !workspace.archived).map(toWorkspaceOption);
+  const personalWorkspace = workspaces.find((workspace) => workspace.is_personal);
 
   useEffect(() => {
     const history = appHistoryRef.current;
@@ -256,7 +259,15 @@ export function RedesignPage() {
 
   function syncWorkspaces(next: WorkspaceRecord[]) {
     setWorkspaces(next);
-    setWorkspaceId((current) => next.some((workspace) => workspace.id === current) ? current : DEFAULT_WORKSPACE.id);
+    // Stay on the current workspace while it's still shown; otherwise go to
+    // the first one shown.
+    const shown = next.filter((workspace) => !workspace.archived);
+    setWorkspaceId((current) => shown.some((workspace) => workspace.id === current) ? current : (shown[0] ?? DEFAULT_WORKSPACE).id);
+  }
+
+  async function reloadWorkspaces() {
+    const response = await fetch("/workspaces");
+    if (response.ok) syncWorkspaces(await response.json() as WorkspaceRecord[]);
   }
 
   useEffect(() => {
@@ -450,8 +461,9 @@ export function RedesignPage() {
     try {
       const response = await fetch(`/workspaces/${encodeURIComponent(workspace.id)}`, { method: "DELETE" });
       if (!response.ok) throw new Error("Could not delete workspace.");
-      // Switches back to the Alongside workspace (syncWorkspaces).
-      syncWorkspaces(workspaces.filter((item) => item.id !== workspace.id));
+      // Reloaded, not filtered: deleting the last shown workspace brings the
+      // Alongside workspace back (backend), and syncWorkspaces moves to it.
+      await reloadWorkspaces();
       setManageWorkspacesOpen(false);
     } catch (error) {
       setWorkspaceError(error instanceof Error ? error.message : "Could not delete workspace.");
@@ -460,9 +472,37 @@ export function RedesignPage() {
     }
   }
 
+  // Archives (hides) or restores a workspace; the Alongside workspace is put
+  // away this way once another one exists.
+  async function setWorkspaceArchived(workspace: WorkspaceRecord, archived: boolean) {
+    if (saving) return;
+    setSaving(true);
+    setWorkspaceError(null);
+    try {
+      const response = await fetch(`/workspaces/${encodeURIComponent(workspace.id)}/archive`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived }),
+      });
+      if (response.status === 409) throw new Error("Create another workspace before archiving this one.");
+      if (!response.ok) throw new Error(archived ? "Could not archive workspace." : "Could not restore workspace.");
+      await reloadWorkspaces();
+      if (archived) setManageWorkspacesOpen(false);
+      else setWorkspaceId(workspace.id);
+    } catch (error) {
+      setWorkspaceError(error instanceof Error ? error.message : "Could not update workspace.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const workspaceSectionActions: readonly WorkspaceMenuAction[] = [
     { id: "new-workspace", label: "New workspace", icon: Plus, onSelect: () => { setWorkspaceError(null); setNewWorkspaceOpen(true); } },
     { id: "manage-workspace", label: "Manage workspace", icon: Settings01Icon, onSelect: () => { setWorkspaceError(null); setManageWorkspacesOpen(true); } },
+    // Brings the archived Alongside workspace back into the switcher.
+    ...(personalWorkspace?.archived
+      ? [{ id: "restore-alongside", label: "Restore Alongside workspace", icon: ArchiveRestore, onSelect: () => void setWorkspaceArchived(personalWorkspace, false) }]
+      : []),
   ];
   const commandMenuItems = useMemo<CommandMenuItemData[]>(() => [
     {
@@ -659,6 +699,8 @@ export function RedesignPage() {
         workspace={activeWorkspace}
         onSave={(change) => updateWorkspace(activeWorkspace, change)}
         onDelete={() => deleteWorkspace(activeWorkspace)}
+        canArchive={workspaces.some((workspace) => workspace.id !== activeWorkspace.id && !workspace.archived)}
+        onArchive={() => setWorkspaceArchived(activeWorkspace, true)}
         saving={saving}
         error={workspaceError}
       />
