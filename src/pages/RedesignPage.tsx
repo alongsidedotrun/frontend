@@ -79,9 +79,9 @@ function toWorkspaceOption(workspace: WorkspaceRecord): WorkspaceOption {
   const logo = workspace.logo ?? null;
   const monogram = workspaceMonogram(workspace.name, workspace.color ?? null);
   const icon = logo
-    ? <WorkspaceBrandIcon size={18} imageSrc={logo} />
+    ? <WorkspaceBrandIcon size={20} imageSrc={logo} />
     : monogram
-      ? <WorkspaceBrandIcon size={18} monogram={monogram} />
+      ? <WorkspaceBrandIcon size={20} monogram={monogram} />
       : undefined;
   return { id: workspace.id, name: workspace.name, icon };
 }

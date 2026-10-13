@@ -99,11 +99,11 @@ export function WorkspacePreview({ name, logo, monogram }: { name: string; logo:
         {/* Workspace row: live tile + name, chevron, search on the right. */}
         <div className="flex h-7 items-center gap-2 pr-6">
           {logo ? (
-            <WorkspaceBrandIcon size={18} imageSrc={logo} />
+            <WorkspaceBrandIcon size={20} imageSrc={logo} />
           ) : monogram ? (
-            <WorkspaceBrandIcon size={18} monogram={monogram} />
+            <WorkspaceBrandIcon size={20} monogram={monogram} />
           ) : (
-            <span className="size-[18px] shrink-0 rounded-[6px] bg-muted-foreground/25" />
+            <span className="size-5 shrink-0 rounded-[6.32px] bg-muted-foreground/25" />
           )}
           <span className={cn("min-w-0 truncate text-[13px] font-medium", name ? "text-foreground" : "text-muted-foreground")}>
             {name || t("workspace.preview.placeholderName")}
