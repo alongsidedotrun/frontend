@@ -246,7 +246,7 @@ function normalizeToolName(name: string): string {
 }
 
 function messageTime() {
-  return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return new Date().toLocaleTimeString(i18n.language, { hour: "2-digit", minute: "2-digit" });
 }
 
 // Per explicit request: a message's own displayed time should read differently
@@ -266,14 +266,14 @@ function messageTime() {
 function formatMessageTimestamp(ms: number): string {
   const date = new Date(ms);
   const now = new Date();
-  const time = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const time = date.toLocaleTimeString(i18n.language, { hour: "2-digit", minute: "2-digit" });
   const isSameDay = date.toDateString() === now.toDateString();
   if (isSameDay) return time;
   const oneDayMs = 24 * 60 * 60 * 1000;
   const daysAgo = Math.floor((now.getTime() - date.getTime()) / oneDayMs);
   const isSameWeek = daysAgo < 7 && date.getDay() !== now.getDay();
   if (isSameWeek) {
-    const dayName = date.toLocaleDateString([], { weekday: "long" });
+    const dayName = date.toLocaleDateString(i18n.language, { weekday: "long" });
     return `${dayName} ${time}`;
   }
   const monthFirst = isMonthFirstDateOrder(loadLanguage());
@@ -1362,7 +1362,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       if (type === "provider_rate_limit" || type === "claude_rate_limit") {
         const resetsAt = typeof event.resets_at === "number" ? event.resets_at : null;
         const resetsAtLabel = resetsAt
-          ? new Date(resetsAt * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          ? new Date(resetsAt * 1000).toLocaleTimeString(i18n.language, { hour: "2-digit", minute: "2-digit" })
           : null;
         // Provider-agnostic wording now, not "Claude is..." -- per explicit
         // request ("ALS-011 and ALS-012 should be the same error for all
@@ -2844,7 +2844,7 @@ function ChatRowView({
           <span className="size-5 shrink-0 overflow-hidden rounded-full">
             <DefaultAvatar name={row.displayName} />
           </span>
-          <span className="text-xs text-muted-foreground">{isSelf ? "Me" : row.displayName}</span>
+          <span className="text-xs text-muted-foreground">{isSelf ? i18n.t("chat.me") : row.displayName}</span>
         </div>
         {/* transition-[max-width]: sm: is a real viewport breakpoint, so
             without this the bubble snapped width instantly at 640px while

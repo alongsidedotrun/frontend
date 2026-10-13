@@ -16,17 +16,12 @@ const nameListeners = new Set<() => void>();
 // typed in. Signed out, a device shows "Guest" -- not the app's own name, which read as if the
 // device already had a real account called "Alongside". A name saved by an earlier version stays
 // readable (getLocalUserName) only so signing in can link the chats made under it.
-// The signed-out name, as stored and sent with messages. Shown translated
-// (displayName below), but always stored and compared as this literal.
+// The signed-out name, as stored and sent with messages. Never shown: signed
+// out, the app offers Sign in instead of a name.
 export const GUEST_NAME = "Guest";
 
 export function getUserDisplayName() {
   return getIdentity().displayName || localStorage.getItem(USER_NAME_KEY) || GUEST_NAME;
-}
-
-// A name for display: the guest name in the app's language, others as they are.
-export function displayName(name: string, t: (key: string) => string) {
-  return name === GUEST_NAME ? t("user.guest") : name;
 }
 
 // The name this device's chats were created under before an account existed.

@@ -62,7 +62,6 @@ import { GlideGroup, RailButton, SIDEBAR_WIDTH, SIDEBAR_ROW_WIDTH } from "@/comp
 import { AccountMenuItems, HelpMenuItems } from "@/components/nav-user";
 import {
   clearUserAvatarImage,
-  displayName,
   getUserDisplayName,
   setUserAvatarImage,
   useUserAvatarImage,
@@ -1548,7 +1547,8 @@ function ProfileSection() {
           title={t("settings.profile.name.title")}
           description={isSignedIn ? t("settings.profile.name.description") : t("settings.profile.name.signedOut")}
         >
-          <span className="text-[12px] font-medium text-foreground">{currentName}</span>
+          {/* Signed out there's no name, only the Sign in prompt in the description. */}
+          {isSignedIn && <span className="text-[12px] font-medium text-foreground">{currentName}</span>}
         </SettingsRow>
         <SettingsRow
           id="setting-avatar"
@@ -1634,7 +1634,7 @@ function ProfileSection() {
                   )}
                 </AvatarFallback>
               </Avatar>
-              <span className="text-sm font-medium text-foreground">{displayName(getUserDisplayName(), t)}</span>
+              <span className="text-sm font-medium text-foreground">{getUserDisplayName()}</span>
             </div>
             <DialogFooter>
               {avatarImage && !pendingImage && (
@@ -1823,6 +1823,7 @@ function GeneralSection() {
 }
 
 function SecuritySection() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [acknowledged, setAcknowledged] = useState(loadDataAcknowledgement);
   const [acknowledgedAt, setAcknowledgedAt] = useState(loadDataAcknowledgementTime);
@@ -1843,9 +1844,9 @@ function SecuritySection() {
 
   const acknowledgementStatus = acknowledged
     ? acknowledgedAt
-      ? `Acknowledged ${new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(acknowledgedAt))}`
-      : "Acknowledged on this device"
-    : "Required";
+      ? t("settings.security.acknowledgedOn", { date: new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium" }).format(new Date(acknowledgedAt)) })
+      : t("settings.security.acknowledgedHere")
+    : t("settings.security.required");
 
   return (
     <div className="flex flex-col">
