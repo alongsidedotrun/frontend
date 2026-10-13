@@ -1,19 +1,21 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { ChevronDown, Command, ImagePlus, Plus, Search, Upload } from "lucide-react";
 import { Backdrop } from "@/components/design-system/backdrop";
-import { WorkspaceBrandIcon } from "@/components/design-system/workspace-brand-icon";
+import { WorkspaceBrandIcon, workspaceMonogram, type WorkspaceMonogram } from "@/components/design-system/workspace-brand-icon";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { LOGO_MIME_TYPES, MAX_DESCRIPTION_LENGTH, readLogoFile } from "@/lib/workspace-logos";
+import { IDENTITY_PALETTE, paletteIndexForName } from "@/lib/identity-palette";
 import { cn } from "@/lib/utils";
 
 type CreateWorkspaceDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Creates the workspace; resolves once it exists (the dialog then closes). */
-  onCreate: (name: string, logo: string | null, description: string | null) => Promise<void> | void;
+  /** colorIndex: the palette colour picked for the letter tile, or null to use the name's. */
+  onCreate: (name: string, logo: string | null, description: string | null, colorIndex: number | null) => Promise<void> | void;
   saving?: boolean;
   error?: string | null;
 };
@@ -28,6 +30,8 @@ export function CreateWorkspaceDialog({ open, onOpenChange, onCreate, saving = f
   const [description, setDescription] = useState("");
   const [logo, setLogo] = useState<string | null>(null);
   const [logoError, setLogoError] = useState<string | null>(null);
+  // null until the user picks a swatch: the letter tile then follows the name.
+  const [colorIndex, setColorIndex] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const nameId = useId();
   const descriptionId = useId();
@@ -39,6 +43,7 @@ export function CreateWorkspaceDialog({ open, onOpenChange, onCreate, saving = f
     setDescription("");
     setLogo(null);
     setLogoError(null);
+    setColorIndex(null);
   }, [open]);
 
   async function handleFile(file: File | undefined) {
@@ -53,9 +58,12 @@ export function CreateWorkspaceDialog({ open, onOpenChange, onCreate, saving = f
   }
 
   const trimmed = name.trim();
+  // Without a logo, the workspace gets its first letter on a palette colour.
+  const monogram = workspaceMonogram(trimmed, colorIndex);
+  const selectedColor = colorIndex ?? (trimmed ? paletteIndexForName(trimmed) : null);
   const submit = () => {
     if (!trimmed || saving) return;
-    void onCreate(trimmed, logo, description.trim() || null);
+    void onCreate(trimmed, logo, description.trim() || null, colorIndex);
   };
 
   return (
@@ -78,12 +86,17 @@ export function CreateWorkspaceDialog({ open, onOpenChange, onCreate, saving = f
 
             <section className="flex flex-col gap-2">
               <div className="flex flex-col gap-0.5">
-                <span className="text-[13px] font-medium text-foreground">Upload logo</span>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-[13px] font-medium text-foreground">Upload logo</span>
+                  <span className="text-[12px] text-muted-foreground">Optional</span>
+                </div>
                 <span className="text-[12px] text-muted-foreground">We recommend to use SVG format for logos. PNG, JPG are also supported.</span>
               </div>
               <div className="flex items-center gap-2">
                 {logo ? (
                   <WorkspaceBrandIcon size={40} imageSrc={logo} />
+                ) : monogram ? (
+                  <WorkspaceBrandIcon size={40} monogram={monogram} />
                 ) : (
                   <span
                     // 8.94px: the tile radius formula at 40px (8 x sqrt(40/32)),
@@ -110,6 +123,30 @@ export function CreateWorkspaceDialog({ open, onOpenChange, onCreate, saving = f
                 />
               </div>
               {logoError && <p className="text-[12px] text-destructive">{logoError}</p>}
+              {/* Colour for the letter tile; hidden once a logo replaces it. */}
+              {!logo && (
+                <div role="radiogroup" aria-label="Tile colour" className="flex items-center gap-2 pt-1">
+                  {IDENTITY_PALETTE.map((swatch, index) => {
+                    const selected = selectedColor === index;
+                    return (
+                      <button
+                        key={swatch.name}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        aria-label={swatch.name}
+                        title={swatch.name}
+                        onClick={() => setColorIndex(index)}
+                        className={cn(
+                          "size-5 rounded-full outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-ring",
+                          selected && "ring-2 ring-offset-2 ring-offset-[var(--redesign-primary-surface)]",
+                        )}
+                        style={{ backgroundColor: swatch.fg, ...(selected ? { ["--tw-ring-color" as string]: swatch.fg } : {}) }}
+                      />
+                    );
+                  })}
+                </div>
+              )}
             </section>
 
             <section className="flex flex-col gap-2">
@@ -156,7 +193,7 @@ export function CreateWorkspaceDialog({ open, onOpenChange, onCreate, saving = f
             </div>
           </form>
 
-          <WorkspacePreview name={trimmed} logo={logo} />
+          <WorkspacePreview name={trimmed} logo={logo} monogram={monogram} />
         </div>
       </DialogContent>
     </Dialog>
@@ -176,7 +213,7 @@ function Bar({ className }: { className?: string }) {
  * placeholders.
  * Same 28px rows and spacing as the sidebar.
  */
-function WorkspacePreview({ name, logo }: { name: string; logo: string | null }) {
+function WorkspacePreview({ name, logo, monogram }: { name: string; logo: string | null; monogram: WorkspaceMonogram | null }) {
   return (
     <div aria-hidden="true" className="relative hidden overflow-hidden sm:block">
       <Backdrop />
@@ -185,6 +222,8 @@ function WorkspacePreview({ name, logo }: { name: string; logo: string | null })
         <div className="flex h-7 items-center gap-2 pr-6">
           {logo ? (
             <WorkspaceBrandIcon size={18} imageSrc={logo} />
+          ) : monogram ? (
+            <WorkspaceBrandIcon size={18} monogram={monogram} />
           ) : (
             <span className="size-[18px] shrink-0 rounded-[6px] bg-muted-foreground/25" />
           )}

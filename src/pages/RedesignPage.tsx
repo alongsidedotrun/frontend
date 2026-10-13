@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useOutlet } from "react-router-dom";
 import { CircleArrowUp, CircleHelp, Plus, Search } from "lucide-react";
-import { WorkspaceBrandIcon } from "@/components/design-system/workspace-brand-icon";
+import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
 import { CreateWorkspaceDialog } from "@/components/design-system/create-workspace-dialog";
-import { loadWorkspaceLogo, saveWorkspaceDescription, saveWorkspaceLogo } from "@/lib/workspace-logos";
+import { loadWorkspaceColor, loadWorkspaceLogo, saveWorkspaceColor, saveWorkspaceDescription, saveWorkspaceLogo } from "@/lib/workspace-logos";
 import { LogInIcon, MessageChatCircleIcon, Settings01Icon, Settings04Icon } from "@/components/icons/untitled-ui";
 import { SplitView } from "@/components/design-system/split-view";
 import { AppTopBar } from "@/components/app-top-bar";
@@ -64,11 +64,16 @@ function toWorkspaceOption(workspace: WorkspaceRecord): WorkspaceOption {
   if (workspace.is_personal) {
     return { id: workspace.id, name: workspace.name, icon: <WorkspaceBrandIcon size={18} /> };
   }
-  // Logos live on this device for now (lib/workspace-logos.ts).
+  // Logos and picked colours live on this device for now (lib/workspace-logos.ts);
+  // without a logo the tile is the name's first letter on its colour.
   const logo = loadWorkspaceLogo(workspace.id);
-  return logo
-    ? { id: workspace.id, name: workspace.name, icon: <WorkspaceBrandIcon size={18} imageSrc={logo} /> }
-    : { id: workspace.id, name: workspace.name };
+  const monogram = workspaceMonogram(workspace.name, loadWorkspaceColor(workspace.id));
+  const icon = logo
+    ? <WorkspaceBrandIcon size={18} imageSrc={logo} />
+    : monogram
+      ? <WorkspaceBrandIcon size={18} monogram={monogram} />
+      : undefined;
+  return { id: workspace.id, name: workspace.name, icon };
 }
 
 function profileActionSections(onOpenSettings: () => void): readonly (readonly WorkspaceMenuAction[])[] {
@@ -365,7 +370,7 @@ export function RedesignPage() {
     }
   }
 
-  async function createWorkspace(name: string, logo: string | null, description: string | null) {
+  async function createWorkspace(name: string, logo: string | null, description: string | null, colorIndex: number | null) {
     if (!name || saving) return;
     setSaving(true);
     setWorkspaceError(null);
@@ -379,6 +384,7 @@ export function RedesignPage() {
       const workspace = await response.json() as WorkspaceRecord;
       saveWorkspaceLogo(workspace.id, logo);
       saveWorkspaceDescription(workspace.id, description);
+      saveWorkspaceColor(workspace.id, colorIndex);
       syncWorkspaces([...workspaces, workspace]);
       setWorkspaceId(workspace.id);
       setNewWorkspaceOpen(false);
