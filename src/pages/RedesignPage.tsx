@@ -540,6 +540,10 @@ export function RedesignPage() {
               onOpen={() => setQuickActionsOpen(true)}
               onActionSelect={(actionId) => {
                 if (actionId === "chats") {
+                  // Already on an empty new chat: nothing to do. Navigating to
+                  // the same route would push a duplicate entry and re-render
+                  // the page for no change.
+                  if (location.pathname === "/new/chat" && !activeChatId) return;
                   setActiveChatId(null);
                   navigate("/new/chat");
                 }
