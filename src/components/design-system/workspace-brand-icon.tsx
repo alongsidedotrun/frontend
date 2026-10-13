@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
  * drawn inside the tile's own svg, so sizes with a fractional inset (18, 20)
  * stay centred too.
  */
-export type WorkspaceBrandIconSize = 8 | 16 | 18 | 20 | 24 | 32 | 48 | 64 | 96 | 128 | 192 | 256;
+export type WorkspaceBrandIconSize = 8 | 16 | 18 | 20 | 24 | 32 | 40 | 48 | 64 | 96 | 128 | 192 | 256;
 
 const SIZE_CLASS: Record<WorkspaceBrandIconSize, string> = {
   8: "size-2",
@@ -18,6 +18,7 @@ const SIZE_CLASS: Record<WorkspaceBrandIconSize, string> = {
   20: "size-5",
   24: "size-6",
   32: "size-8",
+  40: "size-10",
   48: "size-12",
   64: "size-16",
   96: "size-24",
