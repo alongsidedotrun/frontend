@@ -6,6 +6,7 @@ import {
 } from "@/components/ui/dropdown";
 import { NotificationsMenuItems } from "@/components/nav-user";
 import { cn } from "@/lib/utils";
+import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
 
 export function AppTopBar({
   collapsed = false,
@@ -52,10 +53,10 @@ export function AppTopBar({
       )}
     >
       <div className={cn("pointer-events-auto flex items-center gap-2 text-muted-foreground", controlsClassName)}>
-        <button type="button" aria-label="Go back" disabled={!canGoBack} onClick={onBack} className="flex size-7 items-center justify-center rounded-md hover:text-foreground disabled:pointer-events-none disabled:opacity-30">
+        <button type="button" aria-label="Go back" disabled={!canGoBack} onClick={onBack} className={cn("flex size-7 items-center justify-center rounded-md disabled:pointer-events-none disabled:opacity-30", PRESS_EFFECT, ICON_PRESS)}>
           <ArrowLeftIcon className="size-[14px]" />
         </button>
-        <button type="button" aria-label="Go forward" disabled={!canGoForward} onClick={onForward} className="flex size-7 items-center justify-center rounded-md hover:text-foreground disabled:pointer-events-none disabled:opacity-30">
+        <button type="button" aria-label="Go forward" disabled={!canGoForward} onClick={onForward} className={cn("flex size-7 items-center justify-center rounded-md disabled:pointer-events-none disabled:opacity-30", PRESS_EFFECT, ICON_PRESS)}>
           <ArrowRightIcon className="size-[14px]" />
         </button>
         <button
@@ -63,7 +64,9 @@ export function AppTopBar({
           aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
           onClick={collapsed ? onExpand : onCollapseAll}
           className={cn(
-            "flex size-7 items-center justify-center rounded-md hover:text-foreground",
+            "flex size-7 items-center justify-center rounded-md",
+            PRESS_EFFECT,
+            ICON_PRESS,
             collapseButtonHover && "hover:bg-hover-2/50",
           )}
         >
