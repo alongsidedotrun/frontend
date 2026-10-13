@@ -10,7 +10,8 @@ import { SignInDialog } from "@/components/design-system/sign-in-dialog";
 import { useSignInDialogHost } from "@/lib/use-sign-in";
 import { useIdentity } from "@/lib/identity";
 import { signOut } from "@/lib/auth";
-import { loadWorkspaceColor, loadWorkspaceLogo, saveWorkspaceColor, saveWorkspaceDescription, saveWorkspaceLogo } from "@/lib/workspace-logos";
+import { moveLocalWorkspaceDetailsToBackend } from "@/lib/workspace-logos";
+import { ManageWorkspaceDialog, type WorkspaceChange } from "@/components/design-system/manage-workspace-dialog";
 import { BubbleChatIcon, IntegrationsIcon, LogOutIcon, MessageChatCircleIcon, PaletteIcon, ProvidersIcon, Settings01Icon, SettingsIcon, UserIcon } from "@/components/icons/untitled-ui";
 import { SplitView } from "@/components/design-system/split-view";
 import { AppTopBar } from "@/components/app-top-bar";
@@ -37,6 +38,9 @@ type WorkspaceRecord = {
   id: string;
   name: string;
   is_personal: boolean;
+  logo?: string | null;
+  description?: string | null;
+  color?: number | null;
 };
 
 type InboxItem = {
@@ -71,10 +75,10 @@ function toWorkspaceOption(workspace: WorkspaceRecord): WorkspaceOption {
   if (workspace.is_personal) {
     return { id: workspace.id, name: workspace.name, icon: <WorkspaceBrandIcon size={18} /> };
   }
-  // Logos and picked colours live on this device for now (lib/workspace-logos.ts);
-  // without a logo the tile is the name's first letter on its colour.
-  const logo = loadWorkspaceLogo(workspace.id);
-  const monogram = workspaceMonogram(workspace.name, loadWorkspaceColor(workspace.id));
+  // Without a logo the tile is the name's first letter on its picked colour
+  // (or the name's own colour when none was picked).
+  const logo = workspace.logo ?? null;
+  const monogram = workspaceMonogram(workspace.name, workspace.color ?? null);
   const icon = logo
     ? <WorkspaceBrandIcon size={18} imageSrc={logo} />
     : monogram
@@ -151,7 +155,6 @@ export function RedesignPage() {
   const identity = useIdentity();
   useSignInDialogHost(openSignIn);
   const [manageWorkspacesOpen, setManageWorkspacesOpen] = useState(false);
-  const [workspaceNames, setWorkspaceNames] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -253,13 +256,15 @@ export function RedesignPage() {
 
   function syncWorkspaces(next: WorkspaceRecord[]) {
     setWorkspaces(next);
-    setWorkspaceNames(Object.fromEntries(next.map((workspace) => [workspace.id, workspace.name])));
     setWorkspaceId((current) => next.some((workspace) => workspace.id === current) ? current : DEFAULT_WORKSPACE.id);
   }
 
   useEffect(() => {
     void fetch("/workspaces")
       .then((response) => response.ok ? response.json() as Promise<WorkspaceRecord[]> : Promise.reject(new Error("Could not load workspaces")))
+      // Logos, descriptions and colours saved in this browser before the
+      // backend kept them move there once (lib/workspace-logos.ts).
+      .then((loaded) => moveLocalWorkspaceDetailsToBackend(loaded))
       .then((loaded) => syncWorkspaces(loaded.length ? loaded : [DEFAULT_WORKSPACE]))
       // The workbench remains usable when the local backend is not running.
       .catch(() => syncWorkspaces([DEFAULT_WORKSPACE]));
@@ -402,13 +407,10 @@ export function RedesignPage() {
       const response = await fetch("/workspaces", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, logo, description, color: colorIndex }),
       });
       if (!response.ok) throw new Error("A workspace with that name may already exist.");
       const workspace = await response.json() as WorkspaceRecord;
-      saveWorkspaceLogo(workspace.id, logo);
-      saveWorkspaceDescription(workspace.id, description);
-      saveWorkspaceColor(workspace.id, colorIndex);
       syncWorkspaces([...workspaces, workspace]);
       setWorkspaceId(workspace.id);
       setNewWorkspaceOpen(false);
@@ -419,34 +421,38 @@ export function RedesignPage() {
     }
   }
 
-  async function renameWorkspace(workspace: WorkspaceRecord) {
-    const name = workspaceNames[workspace.id]?.trim() ?? "";
-    if (!name || name === workspace.name || saving) return;
+  // Manage workspace's save: sends only the fields that changed.
+  async function updateWorkspace(workspace: WorkspaceRecord, change: WorkspaceChange) {
+    if (saving) return;
     setSaving(true);
     setWorkspaceError(null);
     try {
       const response = await fetch(`/workspaces/${encodeURIComponent(workspace.id)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify(change),
       });
-      if (!response.ok) throw new Error("Could not rename workspace.");
-      syncWorkspaces(workspaces.map((item) => item.id === workspace.id ? { ...item, name } : item));
+      if (response.status === 409) throw new Error("Another workspace already has that name.");
+      if (!response.ok) throw new Error("Could not save changes.");
+      syncWorkspaces(workspaces.map((item) => item.id === workspace.id ? { ...item, ...change, name: change.name ?? item.name } : item));
+      setManageWorkspacesOpen(false);
     } catch (error) {
-      setWorkspaceError(error instanceof Error ? error.message : "Could not rename workspace.");
+      setWorkspaceError(error instanceof Error ? error.message : "Could not save changes.");
     } finally {
       setSaving(false);
     }
   }
 
   async function deleteWorkspace(workspace: WorkspaceRecord) {
-    if (workspace.is_personal || saving || !window.confirm(`Delete ${workspace.name}?`)) return;
+    if (workspace.is_personal || saving) return;
     setSaving(true);
     setWorkspaceError(null);
     try {
       const response = await fetch(`/workspaces/${encodeURIComponent(workspace.id)}`, { method: "DELETE" });
       if (!response.ok) throw new Error("Could not delete workspace.");
+      // Switches back to the Alongside workspace (syncWorkspaces).
       syncWorkspaces(workspaces.filter((item) => item.id !== workspace.id));
+      setManageWorkspacesOpen(false);
     } catch (error) {
       setWorkspaceError(error instanceof Error ? error.message : "Could not delete workspace.");
     } finally {
@@ -647,29 +653,15 @@ export function RedesignPage() {
         saving={saving}
         error={workspaceError}
       />
-      {/* !z-[120]: above the app top bar (z-[110]) so the overlay covers it. */}
-      <Dialog open={manageWorkspacesOpen} onOpenChange={setManageWorkspacesOpen} backdropClassName="!z-[120]">
-        <DialogContent className="!z-[120] max-h-[min(32rem,calc(100vh-2rem))] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Manage workspaces</DialogTitle>
-            <DialogDescription>Rename or remove the workspaces on this device.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            {workspaces.map((workspace) => (
-              <div key={workspace.id} className="flex items-center gap-2">
-                <Input
-                  value={workspaceNames[workspace.id] ?? workspace.name}
-                  disabled={workspace.is_personal || saving}
-                  onChange={(event) => setWorkspaceNames((current) => ({ ...current, [workspace.id]: event.target.value }))}
-                />
-                {!workspace.is_personal && <Button type="button" size="sm" variant="outline" disabled={saving} onClick={() => void renameWorkspace(workspace)}>Save</Button>}
-                {!workspace.is_personal && <Button type="button" size="sm" variant="destructive" disabled={saving} onClick={() => void deleteWorkspace(workspace)}>Delete</Button>}
-              </div>
-            ))}
-          </div>
-          {workspaceError && <p className="text-sm text-destructive">{workspaceError}</p>}
-        </DialogContent>
-      </Dialog>
+      <ManageWorkspaceDialog
+        open={manageWorkspacesOpen}
+        onOpenChange={setManageWorkspacesOpen}
+        workspace={activeWorkspace}
+        onSave={(change) => updateWorkspace(activeWorkspace, change)}
+        onDelete={() => deleteWorkspace(activeWorkspace)}
+        saving={saving}
+        error={workspaceError}
+      />
       <Dialog open={newProjectOpen} onOpenChange={setNewProjectOpen}>
         <DialogContent>
           <DialogHeader>
