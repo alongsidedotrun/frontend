@@ -83,7 +83,7 @@ export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, o
   return (
     // !z-[120]: above the app top bar (z-[110]), like the other shell dialogs.
     <Dialog open={open} onOpenChange={onOpenChange} backdropClassName="!z-[120]">
-      <DialogContent size="xl" className="!z-[120] max-h-[calc(100dvh-2rem)] max-w-[min(760px,calc(100vw-2rem))] overflow-hidden p-0">
+      <DialogContent size="xl" motion="gentle" className="!z-[120] max-h-[calc(100dvh-2rem)] max-w-[min(760px,calc(100vw-2rem))] overflow-hidden p-0">
         <div className="grid min-h-[420px] grid-cols-1 sm:grid-cols-2">
           <div className="flex max-h-[calc(100dvh-2rem)] flex-col gap-6 overflow-y-auto bg-[var(--redesign-primary-surface)] p-8">
             <div className="flex flex-col gap-1">
