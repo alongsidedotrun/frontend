@@ -1,5 +1,6 @@
-// Workspace logos, stored on this device until the backend's workspace
-// record has a logo field (it only carries id/name/is_personal today).
+// Workspace logos and descriptions, stored on this device until the
+// backend's workspace record has fields for them (it only carries
+// id/name/is_personal today).
 // Data URLs keyed by workspace id; uploads are capped (MAX_LOGO_BYTES) so a
 // handful of logos stay well inside localStorage's quota.
 
@@ -22,6 +23,26 @@ export function saveWorkspaceLogo(workspaceId: string, dataUrl: string | null) {
     else localStorage.removeItem(KEY_PREFIX + workspaceId);
   } catch {
     // Quota or storage disabled: the workspace still works, just without a logo.
+  }
+}
+
+const DESCRIPTION_KEY_PREFIX = "alongside_workspace_description:";
+export const MAX_DESCRIPTION_LENGTH = 280;
+
+export function loadWorkspaceDescription(workspaceId: string): string | null {
+  try {
+    return localStorage.getItem(DESCRIPTION_KEY_PREFIX + workspaceId);
+  } catch {
+    return null;
+  }
+}
+
+export function saveWorkspaceDescription(workspaceId: string, description: string | null) {
+  try {
+    if (description) localStorage.setItem(DESCRIPTION_KEY_PREFIX + workspaceId, description);
+    else localStorage.removeItem(DESCRIPTION_KEY_PREFIX + workspaceId);
+  } catch {
+    // Quota or storage disabled: the workspace still works without it.
   }
 }
 
