@@ -1754,7 +1754,10 @@ export function ComposeBox({
             side="bottom"
             align="start"
             sideOffset={6}
-            className="w-40 min-w-0"
+            // pb-[5px]: the Providers heading adds room at the top, so the
+            // bottom gets 2px more to match (last row's text to the edge =
+            // the edge to the heading's text).
+            className="w-40 min-w-0 pb-[5px]"
           >
             {/* Was one Radix RadioGroup wrapping every provider's own
                 submenu (a single value/onValueChange covering the whole
@@ -1789,6 +1792,7 @@ export function ComposeBox({
                 label={provider}
                 chevron
                 className="text-[12px]"
+                popupClassName="pb-[5px]"
               >
                 <BaseDropdownLabel>{provider}</BaseDropdownLabel>
                 <div className="relative overflow-hidden">

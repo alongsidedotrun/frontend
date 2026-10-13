@@ -872,6 +872,8 @@ interface DropdownSubMenuItemProps {
   /** A trailing chevron, saying the row opens a submenu. */
   chevron?: boolean;
   className?: string;
+  /** Extra classes for the submenu's panel (e.g. padding). */
+  popupClassName?: string;
   /** The submenu's own content -- typically a Menu.RadioGroup of
    *  Menu.RadioItem rows (see DropdownSubItem below for pre-styled ones). */
   children: ReactNode;
@@ -884,6 +886,7 @@ function DropdownSubMenuItem({
   checked,
   chevron = false,
   className,
+  popupClassName,
   children,
 }: DropdownSubMenuItemProps) {
   const { registerItem, activeIndex, setOpenSubmenuIndex } = useDropdown();
@@ -1002,7 +1005,7 @@ function DropdownSubMenuItem({
                     back out so they still run edge to edge. */}
                 <Menu.Popup
                   render={<Elevated offset={1} shadowLevel={3} />}
-                  className={`flex flex-col min-w-40 max-w-full max-h-[min(480px,var(--available-height))] overflow-y-auto ${DROPDOWN_PANEL_RADIUS} !bg-[var(--redesign-sidebar-overlay-surface)] border border-[var(--redesign-sidebar-elevated-border)] !shadow-[var(--redesign-sidebar-elevated-shadow)] p-[3px] [&_[role=separator]]:-mx-[3px] outline-none`}
+                  className={cn(`flex flex-col min-w-40 max-w-full max-h-[min(480px,var(--available-height))] overflow-y-auto ${DROPDOWN_PANEL_RADIUS} !bg-[var(--redesign-sidebar-overlay-surface)] border border-[var(--redesign-sidebar-elevated-border)] !shadow-[var(--redesign-sidebar-elevated-shadow)] p-[3px] [&_[role=separator]]:-mx-[3px] outline-none`, popupClassName)}
                 >
                   {/* Elevated's own internal SurfaceProvider only wraps
                       whatever it renders as ITS OWN children -- none, used
