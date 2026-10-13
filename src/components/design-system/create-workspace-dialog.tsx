@@ -163,7 +163,7 @@ function WorkspacePreview({ name, logo }: { name: string; logo: string | null })
   return (
     <div
       aria-hidden="true"
-      className="relative hidden overflow-hidden border-l border-border sm:block"
+      className="relative hidden overflow-hidden sm:block"
     >
       <Backdrop />
       <div className="absolute top-10 left-10 -right-6 -bottom-6 rounded-tl-[calc(var(--radius)*1.4)] border border-[var(--redesign-sidebar-border)] bg-[var(--redesign-sidebar-surface)] p-4">
