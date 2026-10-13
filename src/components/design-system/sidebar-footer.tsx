@@ -3,6 +3,7 @@ import { Check, CircleDashed } from "lucide-react";
 import { LogInIcon, SettingsIcon } from "@/components/icons/untitled-ui";
 import { Backdrop } from "@/components/design-system/backdrop";
 import { cn } from "@/lib/utils";
+import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { DropdownActionRow, DropdownActionSection, type DropdownAction } from "@/components/design-system/dropdown-action-list";
@@ -213,7 +214,7 @@ export function SidebarAccountFooter({ name, avatar, signedIn, onSignIn, onOpenS
         type="button"
         aria-label="Settings"
         onClick={onOpenSettings}
-        className="grid size-7 shrink-0 place-items-center rounded-[var(--redesign-control-radius)] text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className={cn("grid size-7 shrink-0 place-items-center rounded-[var(--redesign-control-radius)] text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", PRESS_EFFECT, ICON_PRESS)}
       >
         <SettingsIcon aria-hidden="true" className="size-[var(--redesign-workspace-chevron-size)]" />
       </button>
