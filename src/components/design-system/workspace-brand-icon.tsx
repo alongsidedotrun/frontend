@@ -1,4 +1,4 @@
-import type { ComponentType, SVGProps } from "react";
+import { useId, type ComponentType, type SVGProps } from "react";
 import { AlongsideLogo } from "@/components/icons/alongside-logo";
 import { cn } from "@/lib/utils";
 
@@ -86,6 +86,7 @@ export function WorkspaceBrandIcon({
 }: WorkspaceBrandIconProps) {
   const useInvertedMonochrome = monochrome && invertOnLight;
   const radius = (tileRadiusPx(size) * TILE) / size;
+  const clipId = useId();
   return (
     <svg
       aria-hidden="true"
@@ -100,15 +101,22 @@ export function WorkspaceBrandIcon({
         className={useInvertedMonochrome ? "!fill-black dark:!fill-white" : "!fill-white dark:!fill-black"}
       />
       {imageSrc ? (
-        <image
-          href={imageSrc}
-          x={INSET}
-          y={INSET}
-          width={ARTWORK}
-          height={ARTWORK}
-          preserveAspectRatio="xMidYMid meet"
-          className={cn(useInvertedMonochrome && "invert dark:invert-0", markClassName)}
-        />
+        // An uploaded logo *is* the tile: full bleed, clipped to the tile's
+        // rounded corners, so it matches the tile size and radius everywhere
+        // (the rect underneath only shows through transparent logos).
+        <>
+          <clipPath id={clipId}>
+            <rect width={TILE} height={TILE} rx={radius} />
+          </clipPath>
+          <image
+            href={imageSrc}
+            width={TILE}
+            height={TILE}
+            preserveAspectRatio="xMidYMid slice"
+            clipPath={`url(#${clipId})`}
+            className={cn(useInvertedMonochrome && "invert dark:invert-0", markClassName)}
+          />
+        </>
       ) : (
         <Icon
           x={Icon === AlongsideLogo ? DEFAULT_MARK_INSET : INSET}
