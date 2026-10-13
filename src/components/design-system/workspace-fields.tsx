@@ -1,4 +1,5 @@
 import { useId, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ImagePlus, Upload } from "lucide-react";
 import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ type WorkspaceFieldsProps = {
  * a workspace: the shared body of the Create and Manage workspace dialogs.
  */
 export function WorkspaceFields({ values, onChange, nameError, autoFocusName }: WorkspaceFieldsProps) {
+  const { t } = useTranslation();
   const [logoError, setLogoError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const nameId = useId();
@@ -39,7 +41,7 @@ export function WorkspaceFields({ values, onChange, nameError, autoFocusName }: 
     if (!file) return;
     const result = await readLogoFile(file);
     if ("error" in result) {
-      setLogoError(result.error);
+      setLogoError(t(result.error));
       return;
     }
     setLogoError(null);
@@ -56,10 +58,10 @@ export function WorkspaceFields({ values, onChange, nameError, autoFocusName }: 
       <section className="flex flex-col gap-2">
         <div className="flex flex-col gap-0.5">
           <div className="flex items-baseline justify-between gap-2">
-            <span className="text-[13px] font-medium text-foreground">Upload logo</span>
-            <span className="text-[12px] text-muted-foreground">Optional</span>
+            <span className="text-[13px] font-medium text-foreground">{t("workspace.fields.uploadLogo")}</span>
+            <span className="text-[12px] text-muted-foreground">{t("workspace.fields.optional")}</span>
           </div>
-          <span className="text-[12px] text-muted-foreground">Supported file formats are SVG, PNG, JPG and max upload size is 1MB.</span>
+          <span className="text-[12px] text-muted-foreground">{t("workspace.fields.logoHint")}</span>
         </div>
         <div className="flex items-center gap-2">
           {values.logo ? (
@@ -75,10 +77,10 @@ export function WorkspaceFields({ values, onChange, nameError, autoFocusName }: 
             </span>
           )}
           <Button type="button" variant="tertiary" size="compact" leadingIcon={Upload} onClick={() => fileRef.current?.click()}>
-            Upload
+            {t("workspace.fields.upload")}
           </Button>
           <Button type="button" variant="tertiary" size="compact" disabled={!values.logo} onClick={() => set({ logo: null })}>
-            Remove
+            {t("common.remove")}
           </Button>
           <input
             ref={fileRef}
@@ -94,7 +96,7 @@ export function WorkspaceFields({ values, onChange, nameError, autoFocusName }: 
         {logoError && <p className="text-[12px] text-destructive">{logoError}</p>}
         {/* Colour for the letter tile; hidden once a logo replaces it. */}
         {!values.logo && (
-          <div role="radiogroup" aria-label="Tile colour" className="flex items-center gap-2 pt-1">
+          <div role="radiogroup" aria-label={t("workspace.fields.tileColour")} className="flex items-center gap-2 pt-1">
             {WORKSPACE_SWATCH_ORDER.map((index) => {
               const swatch = WORKSPACE_PALETTE[index];
               const dot = swatch.swatch ?? swatch.fg;
@@ -105,8 +107,8 @@ export function WorkspaceFields({ values, onChange, nameError, autoFocusName }: 
                   type="button"
                   role="radio"
                   aria-checked={selected}
-                  aria-label={swatch.name}
-                  title={swatch.name}
+                  aria-label={t(`workspace.colors.${swatch.name.toLowerCase()}`)}
+                  title={t(`workspace.colors.${swatch.name.toLowerCase()}`)}
                   onClick={() => set({ colorIndex: index })}
                   className={cn(
                     "size-5 rounded-full outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-ring",
@@ -126,8 +128,8 @@ export function WorkspaceFields({ values, onChange, nameError, autoFocusName }: 
 
       <section className="flex flex-col gap-2">
         <div className="flex flex-col gap-0.5">
-          <label htmlFor={nameId} className="text-[13px] font-medium text-foreground">Name</label>
-          <span id={`${nameId}-hint`} className="text-[12px] text-muted-foreground">Shown in the sidebar</span>
+          <label htmlFor={nameId} className="text-[13px] font-medium text-foreground">{t("workspace.fields.name")}</label>
+          <span id={`${nameId}-hint`} className="text-[12px] text-muted-foreground">{t("workspace.fields.nameHint")}</span>
         </div>
         <Input
           id={nameId}
@@ -136,7 +138,7 @@ export function WorkspaceFields({ values, onChange, nameError, autoFocusName }: 
           onChange={(event) => set({ name: event.target.value })}
           aria-describedby={`${nameId}-hint`}
           aria-invalid={nameError ? true : undefined}
-          placeholder="Enter a workspace name"
+          placeholder={t("workspace.fields.namePlaceholder")}
           maxLength={80}
           className="h-8 border-[var(--redesign-sidebar-border)] bg-background text-[13px]"
         />
@@ -145,14 +147,14 @@ export function WorkspaceFields({ values, onChange, nameError, autoFocusName }: 
 
       <section className="flex flex-col gap-2">
         <div className="flex items-baseline justify-between gap-2">
-          <label htmlFor={descriptionId} className="text-[13px] font-medium text-foreground">Description</label>
-          <span className="text-[12px] text-muted-foreground">Optional</span>
+          <label htmlFor={descriptionId} className="text-[13px] font-medium text-foreground">{t("workspace.fields.description")}</label>
+          <span className="text-[12px] text-muted-foreground">{t("workspace.fields.optional")}</span>
         </div>
         <Textarea
           id={descriptionId}
           value={values.description}
           onChange={(event) => set({ description: event.target.value })}
-          placeholder="What's this workspace for?"
+          placeholder={t("workspace.fields.descriptionPlaceholder")}
           maxLength={MAX_DESCRIPTION_LENGTH}
           rows={3}
           className="min-h-[4.5rem] resize-none border-[var(--redesign-sidebar-border)] bg-background text-[13px]"

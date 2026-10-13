@@ -3,6 +3,8 @@ import type { IconComponent } from "@/lib/icon-context";
 import { cn } from "@/lib/utils";
 import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
 import { useLocation, useNavigate, useOutlet } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { CircleArrowUp, CircleHelp, Plus, Search, ShieldCheck } from "lucide-react";
 import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
 import { CreateWorkspaceDialog } from "@/components/design-system/create-workspace-dialog";
@@ -84,40 +86,45 @@ function toWorkspaceOption(workspace: WorkspaceRecord): WorkspaceOption {
   return { id: workspace.id, name: workspace.name, icon };
 }
 
+type Translate = TFunction;
+
 // Profile menu, shown once signed in by clicking the profile in the sidebar.
-function profileMenuSections(onOpenProfile: () => void, onSignOut: () => void): readonly (readonly WorkspaceMenuAction[])[] {
+function profileMenuSections(t: Translate, onOpenProfile: () => void, onSignOut: () => void): readonly (readonly WorkspaceMenuAction[])[] {
   return [
     [
-      { id: "profile", label: "Profile", icon: UserIcon, onSelect: onOpenProfile },
-      { id: "help", label: "Help", icon: CircleHelp },
-      { id: "upgrade", label: "Upgrade plan", icon: CircleArrowUp, tone: "accent" },
+      { id: "profile", label: t("settings.nav.profile"), icon: UserIcon, onSelect: onOpenProfile },
+      { id: "help", label: t("nav.helpItem"), icon: CircleHelp },
+      { id: "upgrade", label: t("shell.profileMenu.upgradePlan"), icon: CircleArrowUp, tone: "accent" },
     ],
     [
-      { id: "sign-out", label: "Sign out", icon: LogOutIcon, onSelect: onSignOut },
+      { id: "sign-out", label: t("shell.profileMenu.signOut"), icon: LogOutIcon, onSelect: onSignOut },
     ],
   ];
 }
 
-const QUICK_ACTIONS: readonly QuickActionItem[] = [
-  { id: "chats", label: "New chat", icon: Plus },
+const quickActions = (t: Translate): readonly QuickActionItem[] => [
+  { id: "chats", label: t("common.newChat"), icon: Plus },
 ];
 
-const GETTING_STARTED_STEPS: readonly GettingStartedStep[] = [
-  { id: "profile", label: "Complete your profile", description: "Add your profile details to personalise Alongside." },
-  { id: "data", label: "Acknowledge your data", description: "Review how your local data is stored and protected." },
-  { id: "provider", label: "Set up an AI provider", description: "Connect a provider to begin using its models." },
-  { id: "chat", label: "Create a chat", description: "Start a new conversation in your workspace." },
-];
+const GETTING_STARTED_STEP_IDS = ["profile", "data", "provider", "chat"] as const;
+const gettingStartedSteps = (t: Translate): readonly GettingStartedStep[] =>
+  GETTING_STARTED_STEP_IDS.map((id) => ({
+    id,
+    label: t(`shell.gettingStarted.${id}.label`),
+    description: t(`shell.gettingStarted.${id}.description`),
+  }));
 
-// Quick actions entries for each settings page, in the order they're listed there.
-const SETTINGS_COMMANDS: readonly { section: SettingsSection; label: string; description: string; icon: IconComponent; keywords: string[] }[] = [
-  { section: "general", label: "General", description: "Language, notifications and getting started", icon: SettingsIcon, keywords: ["language", "timezone", "notifications", "tips"] },
-  { section: "appearance", label: "Appearance", description: "Theme, fonts and chat width", icon: PaletteIcon, keywords: ["theme", "dark", "light", "font", "transparency"] },
-  { section: "chat", label: "Chat", description: "Default provider, effort and usage", icon: BubbleChatIcon, keywords: ["provider", "effort", "usage"] },
-  { section: "profile", label: "Profile", description: "Your account, photo and sign-in", icon: UserIcon, keywords: ["account", "picture", "sign in", "log out"] },
-  { section: "security", label: "Security", description: "Data protection and encryption", icon: ShieldCheck, keywords: ["privacy", "encryption", "data"] },
-  { section: "provider", label: "Providers", description: "Connect AI providers", icon: ProvidersIcon, keywords: ["models", "api key", "ai"] },
-  { section: "apps", label: "Apps", description: "Connected apps", icon: IntegrationsIcon, keywords: ["integrations", "connect"] },
+// Quick actions entries for each settings page, in the order they're listed
+// there. Labels are the settings pages' own names; keywords stay English
+// (extra search terms on top of the translated label and description).
+const SETTINGS_COMMANDS: readonly { section: SettingsSection; labelKey: string; icon: IconComponent; keywords: string[] }[] = [
+  { section: "general", labelKey: "settings.nav.general", icon: SettingsIcon, keywords: ["language", "timezone", "notifications", "tips"] },
+  { section: "appearance", labelKey: "settings.nav.appearance", icon: PaletteIcon, keywords: ["theme", "dark", "light", "font", "transparency"] },
+  { section: "chat", labelKey: "settings.nav.chat", icon: BubbleChatIcon, keywords: ["provider", "effort", "usage"] },
+  { section: "profile", labelKey: "settings.nav.profile", icon: UserIcon, keywords: ["account", "picture", "sign in", "log out"] },
+  { section: "security", labelKey: "settings.nav.security", icon: ShieldCheck, keywords: ["privacy", "encryption", "data"] },
+  { section: "provider", labelKey: "settings.nav.provider", icon: ProvidersIcon, keywords: ["models", "api key", "ai"] },
+  { section: "apps", labelKey: "settings.nav.apps", icon: IntegrationsIcon, keywords: ["integrations", "connect"] },
 ];
 
 const SETTINGS_SECTIONS: readonly SettingsSection[] = ["profile", "general", "appearance", "chat", "security", "provider", "apps"];
@@ -136,6 +143,7 @@ function quickActionForPath(pathname: string) {
  * built and evaluated without changing the current application.
  */
 export function RedesignPage() {
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const appHistoryRef = useRef<string[]>([location.pathname + location.search]);
@@ -195,8 +203,8 @@ export function RedesignPage() {
     : "general";
   const activeChat = chats.find((chat) => chat.id === (routeChatId ?? activeChatId)) ?? null;
   const routedContent = useOutlet({
-    chatName: activeChat?.name ?? "Untitled chat",
-    contextLabel: activeChat?.name ?? "Untitled chat",
+    chatName: activeChat?.name ?? t("shell.untitledChat"),
+    contextLabel: activeChat?.name ?? t("shell.untitledChat"),
     receiveChatNameFromServer: (name: string) => {
       const chatId = routeChatId ?? activeChatId;
       if (!chatId) return;
@@ -339,7 +347,7 @@ export function RedesignPage() {
     pendingChatIdsRef.current.add(sessionId);
     setChats((current) => current.some((chat) => chat.id === sessionId)
       ? current
-      : [{ id: sessionId, name: "Untitled chat" }, ...current]);
+      : [{ id: sessionId, name: t("shell.untitledChat") }, ...current]);
     setActiveChatId(sessionId);
     void fetch("/sessions")
       .then((response) => response.ok ? response.json() as Promise<Chat[]> : [])
@@ -349,32 +357,32 @@ export function RedesignPage() {
   const inboxSidebarSections: readonly SidebarSection[] = [
     {
       id: "mentions",
-      label: "Mentions",
+      label: t("shell.sections.mentions"),
       items: inboxMentions.map((mention) => ({ id: `mention-${mention.id}`, label: mention.chat_name })),
-      emptyLabel: "No new mentions",
+      emptyLabel: t("shell.sections.noMentions"),
     },
     {
       id: "all",
-      label: "All",
+      label: t("shell.sections.all"),
       items: inboxItems.map((item) => ({ id: item.id, label: item.name })),
-      emptyLabel: "No items available for Inbox",
+      emptyLabel: t("shell.sections.noInboxItems"),
     },
   ];
 
   const chatsSidebarSections: readonly SidebarSection[] = [
     {
       id: "projects",
-      label: "Projects",
-      action: { label: "New project", icon: Plus, onSelect: () => { setProjectError(null); setNewProjectOpen(true); } },
+      label: t("nav.projects"),
+      action: { label: t("nav.newProject.ariaLabel"), icon: Plus, onSelect: () => { setProjectError(null); setNewProjectOpen(true); } },
       items: projects.map((project) => ({ id: project.id, label: project.name })),
-      emptyLabel: "No projects",
+      emptyLabel: t("shell.sections.noProjects"),
     },
     {
       id: "chats",
-      label: "Chats",
-      action: { label: "New chat", icon: Plus, onSelect: () => { setActiveChatId(null); } },
+      label: t("nav.chats"),
+      action: { label: t("common.newChat"), icon: Plus, onSelect: () => { setActiveChatId(null); } },
       items: chats.map((chat) => ({ id: chat.id, label: chat.name })),
-      emptyLabel: "No chats",
+      emptyLabel: t("shell.sections.noChats"),
     },
   ];
   const activeSidebarSurface = activeQuickAction === "inbox" || activeQuickAction === "chats"
@@ -393,13 +401,13 @@ export function RedesignPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
       });
-      if (!response.ok) throw new Error("Could not create project.");
+      if (!response.ok) throw new Error(t("shell.newProject.error"));
       const project = await response.json() as Project;
       setProjects((current) => [...current, project]);
       setNewProjectName("");
       setNewProjectOpen(false);
     } catch (error) {
-      setProjectError(error instanceof Error ? error.message : "Could not create project.");
+      setProjectError(error instanceof Error ? error.message : t("shell.newProject.error"));
     } finally {
       setSaving(false);
     }
@@ -415,13 +423,13 @@ export function RedesignPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, logo, description, color: colorIndex }),
       });
-      if (!response.ok) throw new Error("A workspace with that name may already exist.");
+      if (!response.ok) throw new Error(t("workspace.errors.nameExists"));
       const workspace = await response.json() as WorkspaceRecord;
       syncWorkspaces([...workspaces, workspace]);
       setWorkspaceId(workspace.id);
       setNewWorkspaceOpen(false);
     } catch (error) {
-      setWorkspaceError(error instanceof Error ? error.message : "Could not create workspace.");
+      setWorkspaceError(error instanceof Error ? error.message : t("workspace.errors.create"));
     } finally {
       setSaving(false);
     }
@@ -440,12 +448,12 @@ export function RedesignPage() {
         body: JSON.stringify(change),
       });
       setWorkspaceNameTaken(response.status === 409);
-      if (response.status === 409) throw new Error("Another workspace already has that name.");
-      if (!response.ok) throw new Error("Could not save changes.");
+      if (response.status === 409) throw new Error(t("workspace.errors.nameTaken"));
+      if (!response.ok) throw new Error(t("workspace.errors.save"));
       syncWorkspaces(workspaces.map((item) => item.id === workspace.id ? { ...item, ...change, name: change.name ?? item.name } : item));
       setManageWorkspacesOpen(false);
     } catch (error) {
-      setWorkspaceError(error instanceof Error ? error.message : "Could not save changes.");
+      setWorkspaceError(error instanceof Error ? error.message : t("workspace.errors.save"));
     } finally {
       setSaving(false);
     }
@@ -458,31 +466,31 @@ export function RedesignPage() {
     setWorkspaceNameTaken(false);
     try {
       const response = await fetch(`/workspaces/${encodeURIComponent(workspace.id)}`, { method: "DELETE" });
-      if (response.status === 409) throw new Error("You can't delete your only workspace.");
-      if (!response.ok) throw new Error("Could not delete workspace.");
+      if (response.status === 409) throw new Error(t("workspace.errors.onlyWorkspace"));
+      if (!response.ok) throw new Error(t("workspace.errors.delete"));
       // Moves to the first remaining workspace (syncWorkspaces).
       syncWorkspaces(workspaces.filter((item) => item.id !== workspace.id));
       setManageWorkspacesOpen(false);
     } catch (error) {
-      setWorkspaceError(error instanceof Error ? error.message : "Could not delete workspace.");
+      setWorkspaceError(error instanceof Error ? error.message : t("workspace.errors.delete"));
     } finally {
       setSaving(false);
     }
   }
 
   const workspaceSectionActions: readonly WorkspaceMenuAction[] = [
-    { id: "new-workspace", label: "New workspace", icon: Plus, onSelect: () => { setWorkspaceError(null); setNewWorkspaceOpen(true); } },
-    { id: "manage-workspace", label: "Manage workspace", icon: Settings01Icon, onSelect: () => { setWorkspaceError(null); setWorkspaceNameTaken(false); setManageWorkspacesOpen(true); } },
+    { id: "new-workspace", label: t("workspace.new"), icon: Plus, onSelect: () => { setWorkspaceError(null); setNewWorkspaceOpen(true); } },
+    { id: "manage-workspace", label: t("workspace.manage"), icon: Settings01Icon, onSelect: () => { setWorkspaceError(null); setWorkspaceNameTaken(false); setManageWorkspacesOpen(true); } },
   ];
   const commandMenuItems = useMemo<CommandMenuItemData[]>(() => [
     {
       value: "new-chat",
-      label: "New chat",
-      description: "Start a new conversation",
+      label: t("common.newChat"),
+      description: t("shell.commands.newChat.description"),
       icon: Plus,
       shortcut: "mod+n",
       keywords: ["compose", "start", "conversation"],
-      group: "Actions",
+      group: t("shell.commands.group.actions"),
       onSelect: () => {
         setActiveChatId(null);
         navigate("/new/chat");
@@ -490,11 +498,11 @@ export function RedesignPage() {
     },
     {
       value: "new-project",
-      label: "New project",
-      description: "Organise related chats",
+      label: t("nav.newProject.ariaLabel"),
+      description: t("shell.commands.newProject.description"),
       icon: Plus,
       keywords: ["create", "organise", "workspace"],
-      group: "Actions",
+      group: t("shell.commands.group.actions"),
       onSelect: () => {
         setProjectError(null);
         setNewProjectOpen(true);
@@ -502,38 +510,38 @@ export function RedesignPage() {
     },
     {
       value: "settings",
-      label: "Settings",
-      description: "Account and workspace preferences",
+      label: t("nav.settings"),
+      description: t("shell.commands.settings.description"),
       icon: SettingsIcon,
       shortcut: "mod+,",
       keywords: ["preferences", "account"],
-      group: "Settings",
+      group: t("nav.settings"),
       onSelect: () => navigate("/settings/general"),
     },
     // Each settings page on its own, straight to that page.
-    ...SETTINGS_COMMANDS.map(({ section, label, description, icon, keywords }) => ({
+    ...SETTINGS_COMMANDS.map(({ section, labelKey, icon, keywords }) => ({
       value: `settings-${section}`,
-      label,
-      description,
+      label: t(labelKey),
+      description: t(`shell.commands.${section}.description`),
       icon,
       keywords: ["settings", ...keywords],
-      group: "Settings",
+      group: t("nav.settings"),
       onSelect: () => navigate(`/settings/${section}`),
     })),
     ...chats.map((chat) => ({
       value: `chat-${chat.id}`,
       label: chat.name,
-      description: "Open chat",
+      description: t("shell.commands.openChat"),
       icon: MessageChatCircleIcon,
       keywords: ["conversation", "recent"],
-      group: "Chats",
+      group: t("nav.chats"),
       onSelect: () => {
         if (chat.id === (routeChatId ?? activeChatId)) return;
         setActiveChatId(chat.id);
         navigate(`/chat/${chat.id}`);
       },
     })),
-  ], [activeChatId, chats, navigate, routeChatId]);
+  ], [activeChatId, chats, navigate, routeChatId, t]);
 
   return (
     <>
@@ -572,20 +580,20 @@ export function RedesignPage() {
                 onValueChange={setWorkspaceId}
                 workspaceSectionActions={workspaceSectionActions}
               actionSections={[]}
-                ariaLabel="Select workspace"
+                ariaLabel={t("shell.selectWorkspace")}
               />
               <button
                 type="button"
-                aria-label="Search"
+                aria-label={t("nav.search.ariaLabel")}
                 className={cn("ml-auto flex size-[var(--redesign-search-control-size)] shrink-0 items-center justify-center text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", PRESS_EFFECT, ICON_PRESS)}
               >
                 <Search aria-hidden="true" strokeWidth={2} className="size-[var(--redesign-search-icon-size)]" />
               </button>
             </div>
             <QuickActions
-              label="Quick actions"
+              label={t("shell.quickActions")}
               shortcut="K"
-              actions={QUICK_ACTIONS}
+              actions={quickActions(t)}
               activeId={location.pathname === "/new/chat" ? "chats" : undefined}
               onOpen={() => setQuickActionsOpen(true)}
               onActionSelect={(actionId) => {
@@ -623,7 +631,7 @@ export function RedesignPage() {
           )}
           </div>
           <footer className="mt-auto pt-[var(--redesign-sidebar-section-gap)]">
-            <GettingStartedSummary label="Getting started" steps={GETTING_STARTED_STEPS} completedSteps={0} />
+            <GettingStartedSummary label={t("shell.gettingStarted.label")} steps={gettingStartedSteps(t)} completedSteps={0} />
             <div className="-mx-[var(--redesign-sidebar-edge-padding)] mt-[var(--redesign-sidebar-section-gap)] border-t border-[var(--redesign-sidebar-border)] px-[var(--redesign-sidebar-edge-padding)] pt-2">
               <SidebarAccountFooter
                 signedIn={identity.signedIn}
@@ -631,7 +639,7 @@ export function RedesignPage() {
                 name={identity.displayName ?? "Guest"}
                 avatar={<DefaultAvatar name={identity.displayName ?? "Guest"} />}
                 onOpenSettings={() => navigate("/settings/general")}
-                profileSections={profileMenuSections(() => navigate("/settings/profile"), () => signOut())}
+                profileSections={profileMenuSections(t, () => navigate("/settings/profile"), () => signOut())}
               />
             </div>
           </footer>
@@ -677,20 +685,20 @@ export function RedesignPage() {
       <Dialog open={newProjectOpen} onOpenChange={setNewProjectOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>New project</DialogTitle>
-            <DialogDescription>Create a project to organise related chats.</DialogDescription>
+            <DialogTitle>{t("nav.newProject.ariaLabel")}</DialogTitle>
+            <DialogDescription>{t("shell.newProject.description")}</DialogDescription>
           </DialogHeader>
           <Input
             autoFocus
             value={newProjectName}
             onChange={(event) => setNewProjectName(event.target.value)}
             onKeyDown={(event) => { if (event.key === "Enter") void createProject(); }}
-            placeholder="Project name"
+            placeholder={t("shell.newProject.placeholder")}
             maxLength={80}
           />
           {projectError && <p className="text-sm text-destructive">{projectError}</p>}
           <DialogFooter>
-            <Button type="button" onClick={() => void createProject()} disabled={!newProjectName.trim() || saving}>Create project</Button>
+            <Button type="button" onClick={() => void createProject()} disabled={!newProjectName.trim() || saving}>{t("shell.newProject.create")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

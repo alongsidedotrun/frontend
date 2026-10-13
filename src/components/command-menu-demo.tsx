@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   CommandMenu,
   CommandMenuDialog,
@@ -20,31 +21,22 @@ type CommandMenuDemoProps = {
   items: readonly CommandMenuItemData[];
 };
 
-const TABS = [
-  { value: "all", label: "All" },
-  { value: "Actions", label: "Actions" },
-  { value: "Chats", label: "Chats" },
-  { value: "Settings", label: "Settings" },
-] as const;
-
-const TYPES = [
-  { value: "all", label: "All types" },
-  { value: "Actions", label: "Actions" },
-  { value: "Chats", label: "Chats" },
-  { value: "Settings", label: "Settings" },
-] as const;
-
-const SORTS = [
-  { value: "default", label: "Default order" },
-  { value: "az", label: "A to Z" },
-] as const;
-
 /**
  * The app-wide Quick Actions palette. The Fluid Functionalism component owns
  * filtering, keyboard navigation, focus trapping, and the full-screen dialog
  * backdrop; the shell supplies only real, currently available actions.
  */
 export function CommandMenuDemo({ open, onOpenChange, items }: CommandMenuDemoProps) {
+  const { t } = useTranslation();
+  // Tab and type values are the items' group names, which the shell sets from
+  // the same keys (RedesignPage), so filtering matches in every language.
+  const groups = [t("shell.commands.group.actions"), t("nav.chats"), t("nav.settings")];
+  const tabs = [{ value: "all", label: t("commandMenu.tabs.all") }, ...groups.map((group) => ({ value: group, label: group }))];
+  const types = [{ value: "all", label: t("commandMenu.filters.allTypes") }, ...groups.map((group) => ({ value: group, label: group }))];
+  const sorts = [
+    { value: "default", label: t("commandMenu.filters.defaultOrder") },
+    { value: "az", label: t("commandMenu.filters.aToZ") },
+  ];
   const [tab, setTab] = useState("all");
   const [type, setType] = useState("all");
   const [sort, setSort] = useState("default");
@@ -60,19 +52,19 @@ export function CommandMenuDemo({ open, onOpenChange, items }: CommandMenuDemoPr
       open={open}
       onOpenChange={onOpenChange}
       shortcut="mod+k"
-      title="Quick actions"
-      description="Search actions and chats."
+      title={t("shell.quickActions")}
+      description={t("commandMenu.description")}
       className="!border !border-white/[0.08] !bg-background/80 backdrop-blur-xl"
       backdropClassName="!bg-background/45 !backdrop-blur-sm"
     >
-      <CommandMenu items={visibleItems} suggestions={["new-chat", "new-project", "settings"]}>
-        <CommandMenuInput placeholder="Search actions and chats…" />
-        <CommandMenuTabs tabs={TABS} value={tab} onValueChange={setTab}>
+      <CommandMenu items={visibleItems} suggestions={["new-chat", "new-project", "settings"]} suggestionsLabel={t("commandMenu.suggestions")}>
+        <CommandMenuInput placeholder={t("commandMenu.placeholder")} />
+        <CommandMenuTabs tabs={tabs} value={tab} onValueChange={setTab} tabsLabel={t("commandMenu.filterResults")}>
           <CommandMenuFilters>
             <Select value={type} onValueChange={setType}>
-              <SelectTrigger variant="borderless" aria-label="Type" />
+              <SelectTrigger variant="borderless" aria-label={t("commandMenu.filters.type")} />
               <SelectContent>
-                {TYPES.map((option, index) => (
+                {types.map((option, index) => (
                   <SelectItem key={option.value} value={option.value} index={index}>
                     {option.label}
                   </SelectItem>
@@ -80,9 +72,9 @@ export function CommandMenuDemo({ open, onOpenChange, items }: CommandMenuDemoPr
               </SelectContent>
             </Select>
             <Select value={sort} onValueChange={setSort}>
-              <SelectTrigger variant="borderless" aria-label="Order" />
+              <SelectTrigger variant="borderless" aria-label={t("commandMenu.filters.order")} />
               <SelectContent>
-                {SORTS.map((option, index) => (
+                {sorts.map((option, index) => (
                   <SelectItem key={option.value} value={option.value} index={index}>
                     {option.label}
                   </SelectItem>
@@ -92,9 +84,9 @@ export function CommandMenuDemo({ open, onOpenChange, items }: CommandMenuDemoPr
           </CommandMenuFilters>
         </CommandMenuTabs>
         <CommandMenuList>
-          <CommandMenuEmpty>No matching actions.</CommandMenuEmpty>
+          <CommandMenuEmpty>{t("commandMenu.empty")}</CommandMenuEmpty>
         </CommandMenuList>
-        <CommandMenuFooter />
+        <CommandMenuFooter labels={{ select: t("commandMenu.footer.select"), tabs: t("commandMenu.footer.tabs"), close: t("common.close") }} />
       </CommandMenu>
     </CommandMenuDialog>
   );

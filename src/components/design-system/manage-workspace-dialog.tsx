@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
 import { WorkspaceFields, type WorkspaceFieldValues } from "@/components/design-system/workspace-fields";
 import { WorkspacePreview } from "@/components/design-system/create-workspace-dialog";
@@ -52,6 +53,7 @@ function valuesOf(workspace: ManagedWorkspace): WorkspaceFieldValues {
  * be deleted.
  */
 export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, onDelete, canDelete = false, saving = false, error, nameError }: ManageWorkspaceDialogProps) {
+  const { t } = useTranslation();
   const [values, setValues] = useState<WorkspaceFieldValues>(() => valuesOf(workspace));
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [confirmName, setConfirmName] = useState("");
@@ -85,9 +87,9 @@ export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, o
         <div className="grid min-h-[420px] grid-cols-1 sm:grid-cols-2">
           <div className="flex max-h-[calc(100dvh-2rem)] flex-col gap-6 overflow-y-auto bg-[var(--redesign-primary-surface)] p-8">
             <div className="flex flex-col gap-1">
-              <DialogTitle className="text-[18px] font-medium text-foreground">Manage workspace</DialogTitle>
+              <DialogTitle className="text-[18px] font-medium text-foreground">{t("workspace.manage")}</DialogTitle>
               <DialogDescription className="text-[12px] text-muted-foreground">
-                Change how this workspace looks, or delete it.
+                {t("workspace.manage.description")}
               </DialogDescription>
             </div>
 
@@ -103,18 +105,18 @@ export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, o
                   {error && !confirmingDelete && <p className="text-[12px] text-destructive">{error}</p>}
                   <div className="flex items-center gap-2">
                     <Button type="button" variant="tertiary" onClick={() => onOpenChange(false)}>
-                      Cancel
+                      {t("common.cancel")}
                     </Button>
                     <Button type="submit" variant="primary" className="flex-1" disabled={!changed || !trimmedName || saving}>
-                      Save changes
+                      {t("workspace.manage.save")}
                     </Button>
                   </div>
                 </form>
 
                 <section className="flex flex-col gap-2 border-t border-[var(--redesign-sidebar-border)] pt-5">
-                  <span className="text-[13px] font-medium text-foreground">Delete workspace</span>
+                  <span className="text-[13px] font-medium text-foreground">{t("workspace.delete.title")}</span>
                   <span className="text-[12px] text-muted-foreground">
-                    {canDelete ? "Removes this workspace from Alongside. This can't be undone." : "This is your only workspace, create another workspace first."}
+                    {canDelete ? t("workspace.delete.description") : t("workspace.delete.onlyWorkspace")}
                   </span>
                   {!canDelete ? null : confirmingDelete ? (
                     <form
@@ -125,7 +127,11 @@ export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, o
                       }}
                     >
                       <label htmlFor={confirmId} className="text-[12px] text-muted-foreground">
-                        Type <span className="font-medium text-foreground">{workspace.name}</span> to confirm.
+                        <Trans
+                          i18nKey="workspace.delete.confirm"
+                          values={{ name: workspace.name }}
+                          components={[<span className="font-medium text-foreground" key="0" />]}
+                        />
                       </label>
                       <Input
                         id={confirmId}
@@ -138,7 +144,7 @@ export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, o
                       {error && <p className="text-[12px] text-destructive">{error}</p>}
                       <div className="flex items-center gap-2">
                         <Button type="button" variant="tertiary" size="compact" onClick={() => { setConfirmingDelete(false); setConfirmName(""); }}>
-                          Keep workspace
+                          {t("workspace.delete.keep")}
                         </Button>
                         <Button
                           type="submit"
@@ -147,14 +153,14 @@ export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, o
                           disabled={confirmName.trim() !== workspace.name || saving}
                           className="text-destructive"
                         >
-                          Delete workspace
+                          {t("workspace.delete.title")}
                         </Button>
                       </div>
                     </form>
                   ) : (
                     <div className="pt-1">
                       <Button type="button" variant="tertiary" size="compact" className="text-destructive" onClick={() => setConfirmingDelete(true)}>
-                        Delete workspace…
+                        {t("workspace.delete.start")}
                       </Button>
                     </div>
                   )}

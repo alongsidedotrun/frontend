@@ -67,18 +67,19 @@ export function saveWorkspaceColor(workspaceId: string, index: number | null) {
   }
 }
 
-/** Reads an uploaded logo as a data URL, or explains why it was rejected. */
+/** Reads an uploaded logo as a data URL, or explains why it was rejected
+ *  (as a translation key). */
 export function readLogoFile(file: File): Promise<{ dataUrl: string } | { error: string }> {
   if (!LOGO_MIME_TYPES.includes(file.type)) {
-    return Promise.resolve({ error: "Use an SVG, PNG, JPEG or WebP image." });
+    return Promise.resolve({ error: "workspace.logo.errors.type" });
   }
   if (file.size > MAX_LOGO_BYTES) {
-    return Promise.resolve({ error: "Logos can be up to 1 MB." });
+    return Promise.resolve({ error: "workspace.logo.errors.size" });
   }
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = () => resolve({ dataUrl: String(reader.result) });
-    reader.onerror = () => resolve({ error: "Couldn't read that file." });
+    reader.onerror = () => resolve({ error: "workspace.logo.errors.read" });
     reader.readAsDataURL(file);
   });
 }

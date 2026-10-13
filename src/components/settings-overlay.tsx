@@ -62,6 +62,7 @@ import { GlideGroup, RailButton, SIDEBAR_WIDTH, SIDEBAR_ROW_WIDTH } from "@/comp
 import { AccountMenuItems, HelpMenuItems } from "@/components/nav-user";
 import {
   clearUserAvatarImage,
+  displayName,
   getUserDisplayName,
   setUserAvatarImage,
   useUserAvatarImage,
@@ -1633,7 +1634,7 @@ function ProfileSection() {
                   )}
                 </AvatarFallback>
               </Avatar>
-              <span className="text-sm font-medium text-foreground">{getUserDisplayName()}</span>
+              <span className="text-sm font-medium text-foreground">{displayName(getUserDisplayName(), t)}</span>
             </div>
             <DialogFooter>
               {avatarImage && !pendingImage && (
@@ -3019,7 +3020,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
               className="flex h-[var(--redesign-sidebar-footer-account-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-[length:var(--redesign-sidebar-primary-font-size)] font-normal text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <ArrowCircleBrokenLeftIcon aria-hidden="true" className="size-[var(--redesign-quick-actions-icon-size)] shrink-0" />
-              <span className="truncate">Return to Chats</span>
+              <span className="truncate">{t("shell.returnToChats")}</span>
             </button>
           </div>
         </footer>
