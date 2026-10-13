@@ -392,7 +392,7 @@ interface CommandMenuContextValue {
   listHandlers: UseFluidHoverReturn["handlers"];
   highlight: HighlightStore;
   select: (item: CommandMenuItemData) => void;
-  /** Moves the highlight from the keyboard: a step (wrapping), or an end. */
+  /** Moves the highlight from the keyboard: a step (stopping at the ends), or an end. */
   move: (to: 1 | -1 | "first" | "last") => void;
   /** The mounted CommandMenuTabs, so ← and → in the field switch tabs. */
   tabsRef: RefObject<CommandMenuTabsHandle | null>;
@@ -627,10 +627,10 @@ const CommandMenu = forwardRef<HTMLDivElement, CommandMenuProps>(
         else {
           const current = highlightRef.current;
           const pos = current === null ? -1 : enabled.indexOf(current);
-          // Wraps at both ends: the list is the whole keyboard space, there
-          // is no field to stop at.
+          // Stops at both ends rather than wrapping, so holding ↓ past the
+          // last item stays there instead of jumping back to the top.
           if (pos === -1) next = to === 1 ? enabled[0] : enabled[enabled.length - 1];
-          else next = enabled[(pos + to + enabled.length) % enabled.length];
+          else next = enabled[Math.min(Math.max(pos + to, 0), enabled.length - 1)];
         }
         setActiveIndex(next);
         scrollToRow(next, "center");
