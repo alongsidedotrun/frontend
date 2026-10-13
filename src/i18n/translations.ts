@@ -417,14 +417,15 @@ export const translations = {
     ja: "何に取り組みましょうか",
   },
   "home.defaultWorkspaceName": {
-    en: "Alongside",
-    "pt-BR": "Alongside",
-    es: "Alongside",
-    fr: "Alongside",
-    de: "Alongside",
-    zh: "Alongside",
-    ja: "Alongside",
+    en: "Personal",
+    "pt-BR": "Pessoal",
+    es: "Personal",
+    fr: "Personnel",
+    de: "Persönlich",
+    zh: "个人",
+    ja: "個人",
   },
+
   "home.composePlaceholder": {
     en: "Press Space to start typing, Esc to leave",
     "pt-BR": "Pressione Espaço para começar a digitar e Esc para sair",

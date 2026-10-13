@@ -211,6 +211,8 @@ export function RedesignPage() {
     primarySidebarCollapsed: false,
     rightPanelOpen: false,
     workspaceName: activeWorkspace.name,
+    workspaceLogo: activeWorkspace.logo ?? null,
+    workspaceColor: activeWorkspace.color ?? null,
   });
 
   const currentAppPath = location.pathname + location.search;
@@ -326,6 +328,8 @@ export function RedesignPage() {
   const redesignHomeContext: HomePageShellContext = {
     openSettings: () => {},
     workspaceName: activeWorkspace.name,
+    workspaceLogo: activeWorkspace.logo ?? null,
+    workspaceColor: activeWorkspace.color ?? null,
   };
 
   function openCreatedChat(sessionId: string) {
