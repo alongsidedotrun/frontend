@@ -235,7 +235,10 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
         if (onSessionCreated) {
           onSessionCreated(data.session_id);
         } else {
-          navigate(`/chat/${data.session_id}`);
+          // composeHandoff: the compose box has already slid to where the
+          // chat page keeps it, so the shell swaps pages without its
+          // fade-out/fade-in (RedesignPage's surface key).
+          navigate(`/chat/${data.session_id}`, { state: { composeHandoff: true } });
         }
       }, 520);
       return;

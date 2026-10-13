@@ -403,7 +403,14 @@ export function RedesignPage() {
   const activeSidebarSurface = activeQuickAction === "inbox" || activeQuickAction === "chats"
     ? activeQuickAction
     : null;
-  const redesignSurfaceKey = `${location.pathname}:${location.key}`;
+  // Changing this key fades the page out and the next one in. Not for the
+  // new-chat handoff (HomePage navigates with composeHandoff): its compose box
+  // has already moved into place, so the chat page takes over without a fade.
+  const surfaceKeyRef = useRef(`${location.pathname}:${location.key}`);
+  if (!(location.state as { composeHandoff?: boolean } | null)?.composeHandoff) {
+    surfaceKeyRef.current = `${location.pathname}:${location.key}`;
+  }
+  const redesignSurfaceKey = surfaceKeyRef.current;
 
   async function createProject() {
     const name = newProjectName.trim();
