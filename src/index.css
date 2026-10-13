@@ -50,13 +50,18 @@
   }
 }
 
-/* Backdrop (design-system/backdrop.tsx): the gradient drifting across its
-   200% box, and a glint: dark most of its cycle, then a brief faint flash.
+/* Backdrop (design-system/backdrop.tsx): the light gradient sliding along its
+   200%-wide layer, the dark one turning on its oversized square (transform
+   only, no repaints), and a glint: dark most of its cycle, then a brief faint
+   flash.
    Top level, not in @theme. */
-@keyframes gradient-shift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+@keyframes backdrop-drift {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes backdrop-rotate {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
 }
 @keyframes sparkle-twinkle {
   0%, 70%, 100% { opacity: 0; }

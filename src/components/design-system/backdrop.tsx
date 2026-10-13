@@ -1,17 +1,6 @@
 import { cn } from "@/lib/utils";
 
-// Sand grain: high-frequency noise thresholded into sparse, sharp ~1px
-// specks (dark on the light gradient, light on the dark one). Generated
-// rather than a texture file: a few hundred bytes, crisp at any size, and it
-// tiles without seams.
-const grain = (rgb: string) =>
-  `url("data:image/svg+xml,${encodeURIComponent(
-    `<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.4' numOctaves='1' seed='4' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 ${rgb} 0 0 0 0 ${rgb} 0 0 0 0 ${rgb} 0 0 0 14 -8.4'/></filter><rect width='100%' height='100%' filter='url(#n)'/></svg>`,
-  )}")`;
-const GRAIN_DARK_SPECKS = grain("0");
-const GRAIN_LIGHT_SPECKS = grain("1");
-
-// Glints: a few grains that catch the light now and then. 1px, at fixed
+// Glints: a few points that catch the light now and then. 1px, at fixed
 // scattered positions (a small LCG, so the same on every render and device),
 // each on its own slow cycle and delay, and only ever faint.
 const GLINTS = (() => {
@@ -26,22 +15,21 @@ const GLINTS = (() => {
 })();
 
 /**
- * Decorative backdrop that fills its (positioned) parent: a slowly shifting
- * gradient (soft white to grey in light mode, charcoal to black in dark mode)
- * under a sandy grain, with an occasional faint 1px glint. Motion stops (and
- * the glints are hidden) when reduced motion is on.
+ * Decorative backdrop that fills its (positioned) parent. Light mode: a soft
+ * white-to-grey gradient drifting side to side. Dark mode: GitHub-dark tones
+ * (#0D1117 to #161B22) turning a full circle every 4s. Both move with
+ * transform only, so the GPU slides or turns an already-painted layer and
+ * nothing repaints per frame. A few faint 1px glints sit on top. Motion
+ * stops (and the glints are hidden) when reduced motion is on.
  */
 export function Backdrop({ className }: { className?: string }) {
   return (
     <span aria-hidden="true" className={cn("pointer-events-none absolute inset-0 overflow-hidden", className)}>
-      <span
-        className={cn(
-          "absolute inset-0 bg-[length:200%_200%] animate-[gradient-shift_8s_ease_alternate_infinite] motion-reduce:animate-none",
-          "bg-[linear-gradient(120deg,#fdfbfb_0%,#ebedee_100%)] dark:bg-[linear-gradient(to_right,#434343_0%,#000000_100%)]",
-        )}
-      />
-      <span className="absolute inset-0 opacity-[0.16] dark:hidden" style={{ backgroundImage: GRAIN_DARK_SPECKS }} />
-      <span className="absolute inset-0 hidden opacity-[0.16] dark:block" style={{ backgroundImage: GRAIN_LIGHT_SPECKS }} />
+      {/* Light: a layer twice the width, sliding half its width and back. */}
+      <span className="absolute inset-y-0 left-0 w-[200%] bg-[linear-gradient(120deg,#fdfbfb_0%,#ebedee_100%)] will-change-transform animate-[backdrop-drift_8s_ease-in-out_alternate_infinite] motion-reduce:animate-none dark:hidden" />
+      {/* Dark: a square large enough to cover the box at any angle, centred
+          and turning; the stops sit near its middle, where the box sees it. */}
+      <span className="absolute top-1/2 left-1/2 hidden aspect-square w-[260%] bg-[linear-gradient(90deg,#0D1117_35%,#161B22_65%)] will-change-transform animate-[backdrop-rotate_4s_linear_infinite] motion-reduce:animate-none motion-reduce:[transform:translate(-50%,-50%)] dark:block" />
       {GLINTS.map((glint, index) => (
         <span
           key={index}
