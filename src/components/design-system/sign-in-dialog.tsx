@@ -1,5 +1,5 @@
 import { Trans, useTranslation } from "react-i18next";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion, type Variants } from "motion/react";
 import { Backdrop } from "@/components/design-system/backdrop";
 import { WorkspaceBrandIcon } from "@/components/design-system/workspace-brand-icon";
@@ -44,6 +44,9 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
   const [address, setAddress] = useState("");
   const [code, setCode] = useState("");
   const emailId = useId();
+  // Opening focuses the email field, so the address can be typed straight
+  // away (rather than the first provider button lighting up as focused).
+  const emailInputRef = useRef<HTMLInputElement>(null);
   const codeId = useId();
 
   // Closing the dialog stops waiting for a browser sign-in in progress and
@@ -79,7 +82,7 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
   return (
     // !z-[120]: above the app top bar (z-[110]), like the other shell dialogs.
     <Dialog open={open} onOpenChange={onOpenChange} backdropClassName="!z-[120]">
-      <DialogContent size="xl" className="!z-[120] max-w-[min(760px,calc(100vw-2rem))] overflow-hidden p-0">
+      <DialogContent size="xl" initialFocus={emailInputRef} className="!z-[120] max-w-[min(760px,calc(100vw-2rem))] overflow-hidden p-0">
         <div className="grid min-h-[480px] grid-cols-1 sm:grid-cols-2">
           <div className="flex flex-col items-center bg-[var(--redesign-primary-surface)] p-8 text-center">
             <WorkspaceBrandIcon size={32} />
@@ -222,6 +225,7 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
                     >
                       <label htmlFor={emailId} className="sr-only">{t("auth.emailLabel")}</label>
                       <Input
+                        ref={emailInputRef}
                         id={emailId}
                         type="email"
                         value={address}
