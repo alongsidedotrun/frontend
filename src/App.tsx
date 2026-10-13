@@ -16,7 +16,6 @@ import { JoinPage } from "@/pages/JoinPage";
 import { LibraryPage } from "@/pages/LibraryPage";
 import { ModelsPage } from "@/pages/ModelsPage";
 import { OnboardingPage } from "@/pages/OnboardingPage";
-import { OverviewPage } from "@/pages/OverviewPage";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
 import { ProjectsPage } from "@/pages/ProjectsPage";
 import { RedesignPage } from "@/pages/RedesignPage";
@@ -24,11 +23,11 @@ import { SettingsPage } from "@/pages/SettingsPage";
 import { WelcomePage } from "@/pages/WelcomePage";
 import { diagnose_onboarding, hasCompletedOnboardingIntro } from "@/lib/onboarding";
 
-// Opening the app should always enter the redesigned workspace. Onboarding is
-// still available at its explicit routes, but it must not block normal use of
-// the local app shell.
+// Opening the app lands on a new chat in the redesigned workspace. Onboarding
+// is still available at its explicit routes, but it must not block normal use
+// of the local app shell.
 function AppRoot() {
-  return <Navigate to="/overview" replace />;
+  return <Navigate to="/new/chat" replace />;
 }
 
 function GettingStartedRoute() {
@@ -83,7 +82,9 @@ const ROUTES: RouteObject[] = [
     // check instead.
     element: <SecureAppRoute />,
     children: [
-      { path: "/overview", element: <OverviewPage /> },
+      // Overview is switched off for now (pages/OverviewPage.tsx is kept);
+      // an old link to it opens a new chat instead.
+      { path: "/overview", element: <Navigate to="/new/chat" replace /> },
       { path: "/getting-started", element: <GettingStartedRoute /> },
       { path: "/new/chat", element: <HomePage /> },
       { path: "/new-chat", element: <Navigate to="/" replace /> },
