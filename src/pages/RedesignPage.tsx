@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useOutlet } from "react-router-dom";
 import { CircleArrowUp, CircleHelp, Plus, Search } from "lucide-react";
 import { WorkspaceBrandIcon } from "@/components/design-system/workspace-brand-icon";
+import { CreateWorkspaceDialog } from "@/components/design-system/create-workspace-dialog";
+import { loadWorkspaceLogo, saveWorkspaceLogo } from "@/lib/workspace-logos";
 import { LogInIcon, MessageChatCircleIcon, Settings01Icon, Settings04Icon } from "@/components/icons/untitled-ui";
 import { SplitView } from "@/components/design-system/split-view";
 import { AppTopBar } from "@/components/app-top-bar";
@@ -59,12 +61,13 @@ const DEFAULT_WORKSPACE: WorkspaceRecord = {
 };
 
 function toWorkspaceOption(workspace: WorkspaceRecord): WorkspaceOption {
-  return workspace.is_personal
-    ? {
-        id: workspace.id,
-        name: workspace.name,
-    icon: <WorkspaceBrandIcon size={18} monochrome invertOnLight />,
-      }
+  if (workspace.is_personal) {
+    return { id: workspace.id, name: workspace.name, icon: <WorkspaceBrandIcon size={18} monochrome invertOnLight /> };
+  }
+  // Logos live on this device for now (lib/workspace-logos.ts).
+  const logo = loadWorkspaceLogo(workspace.id);
+  return logo
+    ? { id: workspace.id, name: workspace.name, icon: <WorkspaceBrandIcon size={18} imageSrc={logo} /> }
     : { id: workspace.id, name: workspace.name };
 }
 
@@ -118,7 +121,6 @@ export function RedesignPage() {
   const [workspaceId, setWorkspaceId] = useState(DEFAULT_WORKSPACE.id);
   const [newWorkspaceOpen, setNewWorkspaceOpen] = useState(false);
   const [manageWorkspacesOpen, setManageWorkspacesOpen] = useState(false);
-  const [newWorkspaceName, setNewWorkspaceName] = useState("");
   const [workspaceNames, setWorkspaceNames] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
@@ -363,8 +365,7 @@ export function RedesignPage() {
     }
   }
 
-  async function createWorkspace() {
-    const name = newWorkspaceName.trim();
+  async function createWorkspace(name: string, logo: string | null) {
     if (!name || saving) return;
     setSaving(true);
     setWorkspaceError(null);
@@ -376,9 +377,9 @@ export function RedesignPage() {
       });
       if (!response.ok) throw new Error("A workspace with that name may already exist.");
       const workspace = await response.json() as WorkspaceRecord;
+      saveWorkspaceLogo(workspace.id, logo);
       syncWorkspaces([...workspaces, workspace]);
       setWorkspaceId(workspace.id);
-      setNewWorkspaceName("");
       setNewWorkspaceOpen(false);
     } catch (error) {
       setWorkspaceError(error instanceof Error ? error.message : "Could not create workspace.");
@@ -590,26 +591,13 @@ export function RedesignPage() {
           </div>
         ))}
       </SidebarSurfaceTransition>
-      <Dialog open={newWorkspaceOpen} onOpenChange={setNewWorkspaceOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>New Workspace</DialogTitle>
-            <DialogDescription>Create a separate place for your work.</DialogDescription>
-          </DialogHeader>
-          <Input
-            autoFocus
-            value={newWorkspaceName}
-            onChange={(event) => setNewWorkspaceName(event.target.value)}
-            onKeyDown={(event) => { if (event.key === "Enter") void createWorkspace(); }}
-            placeholder="Workspace name"
-            maxLength={80}
-          />
-          {workspaceError && <p className="text-sm text-destructive">{workspaceError}</p>}
-          <DialogFooter>
-            <Button type="button" onClick={() => void createWorkspace()} disabled={!newWorkspaceName.trim() || saving}>Create workspace</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CreateWorkspaceDialog
+        open={newWorkspaceOpen}
+        onOpenChange={setNewWorkspaceOpen}
+        onCreate={createWorkspace}
+        saving={saving}
+        error={workspaceError}
+      />
       <Dialog open={manageWorkspacesOpen} onOpenChange={setManageWorkspacesOpen}>
         <DialogContent className="max-h-[min(32rem,calc(100vh-2rem))] overflow-y-auto">
           <DialogHeader>
