@@ -88,17 +88,14 @@ function Bar({ className }: { className?: string }) {
  * placeholders.
  * Same 28px rows and spacing as the sidebar.
  */
-export function WorkspacePreview({ name, logo, monogram, builtIn = false }: { name: string; logo: string | null; monogram: WorkspaceMonogram | null; builtIn?: boolean }) {
+export function WorkspacePreview({ name, logo, monogram }: { name: string; logo: string | null; monogram: WorkspaceMonogram | null }) {
   return (
     <div aria-hidden="true" className="relative hidden overflow-hidden sm:block">
       <Backdrop />
       <div data-icon-stroke className="absolute top-10 -bottom-6 left-10 -right-6 flex flex-col rounded-tl-[calc(var(--radius)*1.4)] border border-r-0 border-b-0 border-[var(--redesign-sidebar-border)] bg-[var(--redesign-sidebar-surface)] px-[var(--redesign-sidebar-edge-padding)] pt-4">
         {/* Workspace row: live tile + name, chevron, search on the right. */}
         <div className="flex h-7 items-center gap-2 pr-6">
-          {builtIn ? (
-            // The built-in Alongside workspace shows the Alongside mark, as in the sidebar.
-            <WorkspaceBrandIcon size={18} />
-          ) : logo ? (
+          {logo ? (
             <WorkspaceBrandIcon size={18} imageSrc={logo} />
           ) : monogram ? (
             <WorkspaceBrandIcon size={18} monogram={monogram} />
