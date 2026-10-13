@@ -42,7 +42,7 @@ export function QuickActions({ label, shortcut, actions, activeId, onActionSelec
         )}
       >
         <span
-          className="min-w-0 flex-1 text-left text-muted-foreground"
+          className="min-w-0 flex-1 text-left text-muted-foreground transition-colors group-hover/quick-actions-trigger:text-foreground group-focus-visible/quick-actions-trigger:text-foreground"
           style={{ fontVariationSettings: fontWeights.medium }}
         >
           {label}
