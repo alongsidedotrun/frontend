@@ -4,14 +4,15 @@ import { WorkspaceBrandIcon } from "@/components/design-system/workspace-brand-i
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { LOGO_MIME_TYPES, readLogoFile } from "@/lib/workspace-logos";
+import { Textarea } from "@/components/ui/textarea";
+import { LOGO_MIME_TYPES, MAX_DESCRIPTION_LENGTH, readLogoFile } from "@/lib/workspace-logos";
 import { cn } from "@/lib/utils";
 
 type CreateWorkspaceDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Creates the workspace; resolves once it exists (the dialog then closes). */
-  onCreate: (name: string, logo: string | null) => Promise<void> | void;
+  onCreate: (name: string, logo: string | null, description: string | null) => Promise<void> | void;
   saving?: boolean;
   error?: string | null;
 };
@@ -23,15 +24,18 @@ type CreateWorkspaceDialogProps = {
  */
 export function CreateWorkspaceDialog({ open, onOpenChange, onCreate, saving = false, error }: CreateWorkspaceDialogProps) {
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [logo, setLogo] = useState<string | null>(null);
   const [logoError, setLogoError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const nameId = useId();
+  const descriptionId = useId();
 
   // Start fresh each time the dialog opens.
   useEffect(() => {
     if (!open) return;
     setName("");
+    setDescription("");
     setLogo(null);
     setLogoError(null);
   }, [open]);
@@ -50,7 +54,7 @@ export function CreateWorkspaceDialog({ open, onOpenChange, onCreate, saving = f
   const trimmed = name.trim();
   const submit = () => {
     if (!trimmed || saving) return;
-    void onCreate(trimmed, logo);
+    void onCreate(trimmed, logo, description.trim() || null);
   };
 
   return (
@@ -118,6 +122,22 @@ export function CreateWorkspaceDialog({ open, onOpenChange, onCreate, saving = f
                 className="h-8 border-[var(--redesign-sidebar-border)] bg-background text-[13px]"
               />
               {error && <p className="text-[12px] text-destructive">{error}</p>}
+            </section>
+
+            <section className="flex flex-col gap-2">
+              <div className="flex items-baseline justify-between gap-2">
+                <label htmlFor={descriptionId} className="text-[13px] font-medium text-foreground">Description</label>
+                <span className="text-[12px] text-muted-foreground">Optional</span>
+              </div>
+              <Textarea
+                id={descriptionId}
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder="What's this workspace for?"
+                maxLength={MAX_DESCRIPTION_LENGTH}
+                rows={3}
+                className="min-h-[4.5rem] resize-none border-[var(--redesign-sidebar-border)] bg-background text-[13px]"
+              />
             </section>
 
             <div className="mt-auto flex items-center gap-2">

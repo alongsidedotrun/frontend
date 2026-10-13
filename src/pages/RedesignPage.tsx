@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useOutlet } from "react-router-dom";
 import { CircleArrowUp, CircleHelp, Plus, Search } from "lucide-react";
 import { WorkspaceBrandIcon } from "@/components/design-system/workspace-brand-icon";
 import { CreateWorkspaceDialog } from "@/components/design-system/create-workspace-dialog";
-import { loadWorkspaceLogo, saveWorkspaceLogo } from "@/lib/workspace-logos";
+import { loadWorkspaceLogo, saveWorkspaceDescription, saveWorkspaceLogo } from "@/lib/workspace-logos";
 import { LogInIcon, MessageChatCircleIcon, Settings01Icon, Settings04Icon } from "@/components/icons/untitled-ui";
 import { SplitView } from "@/components/design-system/split-view";
 import { AppTopBar } from "@/components/app-top-bar";
@@ -365,7 +365,7 @@ export function RedesignPage() {
     }
   }
 
-  async function createWorkspace(name: string, logo: string | null) {
+  async function createWorkspace(name: string, logo: string | null, description: string | null) {
     if (!name || saving) return;
     setSaving(true);
     setWorkspaceError(null);
@@ -378,6 +378,7 @@ export function RedesignPage() {
       if (!response.ok) throw new Error("A workspace with that name may already exist.");
       const workspace = await response.json() as WorkspaceRecord;
       saveWorkspaceLogo(workspace.id, logo);
+      saveWorkspaceDescription(workspace.id, description);
       syncWorkspaces([...workspaces, workspace]);
       setWorkspaceId(workspace.id);
       setNewWorkspaceOpen(false);
