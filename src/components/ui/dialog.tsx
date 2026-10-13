@@ -186,13 +186,17 @@ interface DialogContentProps extends HTMLAttributes<HTMLDivElement> {
    *  panel whose height follows its content (a command menu) keeps its top
    *  edge still. @default "center" */
   position?: "center" | "top";
+  /** "gentle": a slower, bounce-free open and close for large panels.
+   *  @default "default" */
+  motion?: "default" | "gentle";
   /** The element focused when the dialog opens. Defaults to the first
    *  focusable element inside it. */
   initialFocus?: React.RefObject<HTMLElement | null>;
 }
 
 const DialogContent = forwardRef<HTMLDivElement, DialogContentProps>(
-  ({ className, children, size = "sm", container, showCloseButton = true, position = "center", initialFocus, ...props }, ref) => {
+  ({ className, children, size = "sm", container, showCloseButton = true, position = "center", initialFocus, motion: motionStyle = "default", ...props }, ref) => {
+    const tier = motionStyle === "gentle" ? spring.gentle : spring.slow;
     const icons = useIcons();
     const XIcon = icons.x;
     const shape = useShape();
@@ -215,10 +219,10 @@ const DialogContent = forwardRef<HTMLDivElement, DialogContentProps>(
       if (exitOpen) return;
       const id = setTimeout(
         () => exitActionsRef?.current?.unmount(),
-        exitFallbackMs(spring.slow)
+        exitFallbackMs(tier)
       );
       return () => clearTimeout(id);
-    }, [exitOpen, exitActionsRef]);
+    }, [exitOpen, exitActionsRef, tier]);
 
     return (
       <DialogPrimitive.Portal container={container ?? undefined}>
@@ -245,7 +249,7 @@ const DialogContent = forwardRef<HTMLDivElement, DialogContentProps>(
                 )}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: exiting ? 0 : 1 }}
-                transition={exiting ? spring.slow.exit : spring.slow}
+                transition={exiting ? tier.exit : tier}
               />
             );
           }}
@@ -296,14 +300,14 @@ const DialogContent = forwardRef<HTMLDivElement, DialogContentProps>(
                   ...(baseStyle as React.CSSProperties | undefined),
                   ...(props.style as React.CSSProperties | undefined),
                 }}
-                initial={{ opacity: 0, scale: 0.97, x: "-50%", y: position === "top" ? 0 : "-50%" }}
+                initial={{ opacity: 0, scale: motionStyle === "gentle" ? 0.98 : 0.97, x: "-50%", y: position === "top" ? 0 : "-50%" }}
                 animate={{
                   opacity: exiting ? 0 : 1,
-                  scale: exiting ? 0.97 : 1,
+                  scale: exiting ? (motionStyle === "gentle" ? 0.98 : 0.97) : 1,
                   x: "-50%",
                   y: position === "top" ? 0 : "-50%",
                 }}
-                transition={exiting ? spring.slow.exit : spring.slow}
+                transition={exiting ? tier.exit : tier}
                 onAnimationComplete={() => {
                   if (exiting) exitActionsRef?.current?.unmount();
                 }}

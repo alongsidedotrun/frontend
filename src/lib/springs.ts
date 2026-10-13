@@ -20,6 +20,14 @@ export const spring = {
     bounce: 0.12,
     exit: { duration: 0.16 },
   },
+  // Large panels (the two-pane workspace dialogs): no bounce and a longer
+  // settle, so a big surface eases in rather than snapping.
+  gentle: {
+    type: "spring" as const,
+    duration: 0.36,
+    bounce: 0,
+    exit: { duration: 0.24 },
+  },
 } as const;
 
 // Fallback delay (ms) for deferred-unmount timers that guard an exit tween:
