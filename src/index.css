@@ -1030,6 +1030,15 @@
   /* Dictation "listening" indicator (compose-box.tsx) -- three bars
      bouncing out of phase (150ms stagger per bar) reads as a live
      equalizer instead of a static toggled icon. */
+  /* Blinking caret in the active box of the code input (ui/code-input.tsx). */
+  @keyframes caret-blink {
+    0%, 70%, 100% {
+      opacity: 1;
+      }
+    20%, 50% {
+      opacity: 0;
+      }
+    }
   /* One-shot press dip for menu triggers (compose-box.tsx's PRESS_EFFECT):
      Base UI keeps data-pressed on a trigger for as long as its menu is open,
      so a held scale would stay shrunk; this plays once per press instead.

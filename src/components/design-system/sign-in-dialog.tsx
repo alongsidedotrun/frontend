@@ -1,10 +1,12 @@
 import { Trans, useTranslation } from "react-i18next";
 import { useEffect, useId, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion, type Variants } from "motion/react";
 import { Backdrop } from "@/components/design-system/backdrop";
 import { WorkspaceBrandIcon } from "@/components/design-system/workspace-brand-icon";
 import { GitHubMarkIcon, GoogleIcon } from "@/components/icons/brand-icons";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { CodeInput } from "@/components/ui/code-input";
 import { Input } from "@/components/ui/input";
 import { useEmailSignIn, useSignInFlow, type EmailError } from "@/lib/use-sign-in";
 
@@ -61,6 +63,17 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
   const errorText = (error: EmailError) =>
     error === "failed" && email.step === "email" ? t("auth.errors.sendCode") : t(EMAIL_ERROR_KEYS[error]);
 
+  const stepKey = phase === "waiting" ? "waiting" : email.step;
+  // Forward (+1) into the code or the browser wait, back (-1) to the email form.
+  const direction = stepKey === "email" ? -1 : 1;
+  const reduceMotion = useReducedMotion();
+  const shift = reduceMotion ? 0 : 16;
+  const stepMotion: Variants = {
+    enter: (dir: number) => ({ opacity: 0, x: dir * shift }),
+    center: { opacity: 1, x: 0, transition: { duration: 0.22, ease: [0.22, 1, 0.36, 1] } },
+    exit: (dir: number) => ({ opacity: 0, x: -dir * shift, transition: { duration: 0.14, ease: [0.4, 0, 1, 1] } }),
+  };
+
   const providerLabel = provider === "github" ? t("auth.continueWithGitHub") : t("auth.continueWithGoogle");
 
   return (
@@ -71,7 +84,19 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
           <div className="flex flex-col items-center bg-[var(--redesign-primary-surface)] p-8 text-center">
             <WorkspaceBrandIcon size={32} />
 
-            <div className="my-auto flex w-full max-w-[18rem] flex-col gap-6 py-8">
+            <div className="my-auto w-full max-w-[18rem] py-8">
+              {/* Each step slides in from the side it comes from: forward to
+                  the code (or the browser wait), back to the email form. */}
+              <AnimatePresence mode="wait" initial={false} custom={direction}>
+              <motion.div
+                key={stepKey}
+                custom={direction}
+                variants={stepMotion}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                className="flex flex-col gap-6"
+              >
               {phase === "waiting" ? (
                 <>
                   <div className="flex flex-col gap-1.5">
@@ -115,25 +140,25 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
                       verify(code);
                     }}
                   >
-                    <label htmlFor={codeId} className="sr-only">{t("auth.codeLabel")}</label>
-                    <Input
-                      id={codeId}
-                      autoFocus
-                      value={code}
-                      onChange={(event) => {
-                        const digits = event.target.value.replace(/\D/g, "").slice(0, CODE_LENGTH);
-                        setCode(digits);
-                        email.clearError();
-                        // A full code (typed or pasted) checks itself.
-                        verify(digits);
-                      }}
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      placeholder={"0".repeat(CODE_LENGTH)}
-                      aria-invalid={email.error === "invalid_code" || email.error === "expired" || undefined}
-                      disabled={email.busy}
-                      className="h-9 border-[var(--redesign-sidebar-border)] bg-background text-center font-mono text-[18px] tracking-[0.5em] indent-[0.5em] placeholder:text-muted-foreground/40 md:text-[18px]"
-                    />
+                    <div className="flex flex-col items-center gap-2.5">
+                      <CodeInput
+                        id={codeId}
+                        autoFocus
+                        length={CODE_LENGTH}
+                        value={code}
+                        onChange={(digits) => {
+                          setCode(digits);
+                          email.clearError();
+                          // A full code (typed or pasted) checks itself.
+                          verify(digits);
+                        }}
+                        invalid={email.error === "invalid_code" || email.error === "expired"}
+                        aria-describedby={`${codeId}-label`}
+                      />
+                      <label id={`${codeId}-label`} htmlFor={codeId} className="text-[13px] text-foreground">
+                        {t("auth.codeLabel")}
+                      </label>
+                    </div>
                     {email.error && <p className="text-[12px] text-destructive">{errorText(email.error)}</p>}
                     <Button type="submit" variant="primary" disabled={code.length !== CODE_LENGTH} loading={email.busy}>
                       {t("auth.verify")}
@@ -217,6 +242,8 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
                   </div>
                 </>
               )}
+              </motion.div>
+              </AnimatePresence>
             </div>
 
             {/* One line at full dialog width (windows 792px+): bleeds 24px into the
