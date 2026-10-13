@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
-import { Check, ChevronsUpDown, CircleDashed, ImagePlus } from "lucide-react";
+import { Check, ChevronsUpDown, CircleDashed } from "lucide-react";
+import { Backdrop } from "@/components/design-system/backdrop";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -114,8 +115,8 @@ export function GettingStartedSummary({
                   </button>
                 </PopoverTrigger>
                 <PopoverContent side="right" align="end" className="w-[var(--redesign-sidebar-footer-task-popover-width)] gap-[var(--redesign-sidebar-footer-task-popover-gap)] rounded-[var(--redesign-workspace-menu-radius)] border border-[var(--redesign-sidebar-border)] bg-[var(--redesign-primary-surface)] p-[var(--redesign-sidebar-footer-task-popover-padding)] ring-0">
-                  <div className="flex aspect-[var(--redesign-sidebar-footer-task-image-ratio)] items-center justify-center overflow-hidden rounded-[var(--redesign-control-radius)] bg-muted/70 text-muted-foreground/55">
-                    {step.image ?? <ImagePlus aria-hidden="true" strokeWidth={1.5} className="size-[var(--redesign-sidebar-footer-task-image-icon-size)]" />}
+                  <div className="relative flex aspect-[var(--redesign-sidebar-footer-task-image-ratio)] items-center justify-center overflow-hidden rounded-[var(--redesign-control-radius)] bg-muted/70 text-muted-foreground/55">
+                    {step.image ?? <Backdrop />}
                   </div>
                   <div>
                     <h3 className="text-[length:var(--redesign-font-size-md)] font-medium text-foreground">{step.label}</h3>

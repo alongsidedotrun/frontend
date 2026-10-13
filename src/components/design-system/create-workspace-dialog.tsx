@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { ChevronDown, ImagePlus, Upload } from "lucide-react";
+import { Backdrop } from "@/components/design-system/backdrop";
 import { WorkspaceBrandIcon } from "@/components/design-system/workspace-brand-icon";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -162,8 +163,9 @@ function WorkspacePreview({ name, logo }: { name: string; logo: string | null })
   return (
     <div
       aria-hidden="true"
-      className="relative hidden overflow-hidden border-l border-border bg-[color-mix(in_srgb,var(--focus-accent)_7%,var(--redesign-sidebar-surface))] sm:block"
+      className="relative hidden overflow-hidden border-l border-border sm:block"
     >
+      <Backdrop />
       <div className="absolute top-10 left-10 -right-6 -bottom-6 rounded-tl-[calc(var(--radius)*1.4)] border border-[var(--redesign-sidebar-border)] bg-[var(--redesign-sidebar-surface)] p-4">
         <div className="flex h-7 items-center gap-2">
           {logo ? (
