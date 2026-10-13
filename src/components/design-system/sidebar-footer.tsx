@@ -31,19 +31,34 @@ type GettingStartedSummaryProps = {
 
 function SetupProgressRing({ completedSteps, totalSteps }: { completedSteps: number; totalSteps: number }) {
   const progress = totalSteps ? Math.min(Math.max(completedSteps / totalSteps, 0), 1) : 0;
-  const degrees = `${progress * 360}deg`;
-  const ringMask = "radial-gradient(circle, transparent 0 calc(50% - var(--redesign-sidebar-footer-progress-inset)), #000 calc(50% - var(--redesign-sidebar-footer-progress-inset)))";
+  // A track circle with the blue progress arc drawn over it from the top,
+  // its ends rounded (stroke-linecap round). Drawn in a 16-unit box: 3-unit
+  // stroke on a radius-6.5 circle, the same weight the ring had before.
+  const radius = 6.5;
+  const circumference = 2 * Math.PI * radius;
+  // Inline, so the sidebar's 1px icon-stroke rule (index.css, data-icon-stroke)
+  // doesn't thin the ring or measure its dash in screen pixels.
+  const stroke = (color: string) => ({ stroke: color, strokeWidth: 3, vectorEffect: "none" as const });
   return (
-    <span
+    <svg
       key={`${completedSteps}-${totalSteps}`}
       aria-hidden="true"
-      className="size-[var(--redesign-sidebar-footer-progress-size)] shrink-0 animate-[redesign-progress-ring_400ms_ease-out] rounded-full"
-      style={{
-        background: `conic-gradient(var(--focus-accent) 0deg ${degrees}, var(--redesign-progress-track) ${degrees} 360deg)`,
-        maskImage: ringMask,
-        WebkitMaskImage: ringMask,
-      }}
-    />
+      viewBox="0 0 16 16"
+      className="size-[var(--redesign-sidebar-footer-progress-size)] shrink-0 -rotate-90 animate-[redesign-progress-ring_400ms_ease-out]"
+    >
+      <circle cx="8" cy="8" r={radius} fill="none" style={stroke("var(--redesign-progress-track)")} />
+      {progress > 0 && (
+        <circle
+          cx="8"
+          cy="8"
+          r={radius}
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={`${progress * circumference} ${circumference}`}
+          style={stroke("var(--focus-accent)")}
+        />
+      )}
+    </svg>
   );
 }
 
