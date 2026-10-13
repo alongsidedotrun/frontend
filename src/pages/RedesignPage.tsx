@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { IconComponent } from "@/lib/icon-context";
 import { cn } from "@/lib/utils";
 import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
 import { useLocation, useNavigate, useOutlet } from "react-router-dom";
-import { CircleArrowUp, CircleHelp, Plus, Search } from "lucide-react";
+import { CircleArrowUp, CircleHelp, Plus, Search, ShieldCheck } from "lucide-react";
 import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
 import { CreateWorkspaceDialog } from "@/components/design-system/create-workspace-dialog";
 import { SignInDialog } from "@/components/design-system/sign-in-dialog";
@@ -10,7 +11,7 @@ import { useSignInDialogHost } from "@/lib/use-sign-in";
 import { useIdentity } from "@/lib/identity";
 import { signOut } from "@/lib/auth";
 import { loadWorkspaceColor, loadWorkspaceLogo, saveWorkspaceColor, saveWorkspaceDescription, saveWorkspaceLogo } from "@/lib/workspace-logos";
-import { LogOutIcon, MessageChatCircleIcon, Settings01Icon, SettingsIcon, UserIcon } from "@/components/icons/untitled-ui";
+import { BubbleChatIcon, IntegrationsIcon, LogOutIcon, MessageChatCircleIcon, PaletteIcon, ProvidersIcon, Settings01Icon, SettingsIcon, UserIcon } from "@/components/icons/untitled-ui";
 import { SplitView } from "@/components/design-system/split-view";
 import { AppTopBar } from "@/components/app-top-bar";
 import { QuickActions, type QuickActionItem } from "@/components/design-system/quick-actions";
@@ -105,6 +106,17 @@ const GETTING_STARTED_STEPS: readonly GettingStartedStep[] = [
   { id: "data", label: "Acknowledge your data", description: "Review how your local data is stored and protected." },
   { id: "provider", label: "Set up an AI provider", description: "Connect a provider to begin using its models." },
   { id: "chat", label: "Create a chat", description: "Start a new conversation in your workspace." },
+];
+
+// Quick actions entries for each settings page, in the order they're listed there.
+const SETTINGS_COMMANDS: readonly { section: SettingsSection; label: string; description: string; icon: IconComponent; keywords: string[] }[] = [
+  { section: "general", label: "General", description: "Language, notifications and getting started", icon: SettingsIcon, keywords: ["language", "timezone", "notifications", "tips"] },
+  { section: "appearance", label: "Appearance", description: "Theme, fonts and chat width", icon: PaletteIcon, keywords: ["theme", "dark", "light", "font", "transparency"] },
+  { section: "chat", label: "Chat", description: "Default provider, effort and usage", icon: BubbleChatIcon, keywords: ["provider", "effort", "usage"] },
+  { section: "profile", label: "Profile", description: "Your account, photo and sign-in", icon: UserIcon, keywords: ["account", "picture", "sign in", "log out"] },
+  { section: "security", label: "Security", description: "Data protection and encryption", icon: ShieldCheck, keywords: ["privacy", "encryption", "data"] },
+  { section: "provider", label: "Providers", description: "Connect AI providers", icon: ProvidersIcon, keywords: ["models", "api key", "ai"] },
+  { section: "apps", label: "Apps", description: "Connected apps", icon: IntegrationsIcon, keywords: ["integrations", "connect"] },
 ];
 
 const SETTINGS_SECTIONS: readonly SettingsSection[] = ["profile", "general", "appearance", "chat", "security", "provider", "apps"];
@@ -482,6 +494,16 @@ export function RedesignPage() {
       group: "Settings",
       onSelect: () => navigate("/settings/general"),
     },
+    // Each settings page on its own, straight to that page.
+    ...SETTINGS_COMMANDS.map(({ section, label, description, icon, keywords }) => ({
+      value: `settings-${section}`,
+      label,
+      description,
+      icon,
+      keywords: ["settings", ...keywords],
+      group: "Settings",
+      onSelect: () => navigate(`/settings/${section}`),
+    })),
     ...chats.map((chat) => ({
       value: `chat-${chat.id}`,
       label: chat.name,
