@@ -67,6 +67,7 @@ import {
   useUserDisplayName,
 } from "@/lib/user";
 import { signOut, useIsSignedIn } from "@/lib/auth";
+import { openSignInDialog } from "@/lib/use-sign-in";
 import { useIdentity } from "@/lib/identity";
 import { Command, ShieldCheck } from "lucide-react";
 import { loadDataAcknowledgement, loadDataAcknowledgementTime } from "@/lib/data-acknowledgement";
@@ -1709,7 +1710,8 @@ function ProfileSection() {
             onClick={() => {
               if (isSignedIn) {
                 signOut();
-              } else {
+              } else if (!openSignInDialog()) {
+                // No dialog host mounted (outside the main shell): the page.
                 navigate("/auth", { state: { from: location.pathname } });
               }
             }}
