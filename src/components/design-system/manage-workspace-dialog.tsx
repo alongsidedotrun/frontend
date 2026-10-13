@@ -95,18 +95,18 @@ export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, o
                   <WorkspaceBrandIcon size={40} />
                   <span className="text-[13px] font-medium text-foreground">{workspace.name}</span>
                 </div>
-                <p className="text-[12px] text-muted-foreground">
-                  The Alongside workspace comes with the app, so it can't be renamed, changed or deleted. Create a workspace to set your own name and logo.
-                  Once you have, you can archive the Alongside workspace to hide it from the sidebar, and restore it any time from the workspace menu.
+                <p className="text-[12px] leading-relaxed text-muted-foreground">
+                  It comes with the app, so it can't be renamed or deleted. Once you've created another workspace, you can archive this one and restore it later from the workspace menu.
                 </p>
                 {error && <p className="text-[12px] text-destructive">{error}</p>}
                 <div className="mt-auto flex items-center gap-2">
-                  <Button type="button" variant="tertiary" onClick={() => onOpenChange(false)}>
+                  <Button type="button" variant="tertiary" size="compact" onClick={() => onOpenChange(false)}>
                     Close
                   </Button>
                   <Button
                     type="button"
                     variant="tertiary"
+                    size="compact"
                     disabled={!canArchive || saving}
                     title={canArchive ? undefined : "Create another workspace first"}
                     onClick={() => void onArchive?.()}
