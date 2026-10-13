@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ChevronDown, Command, Plus, Search } from "lucide-react";
 import { Backdrop } from "@/components/design-system/backdrop";
 import { WorkspaceBrandIcon, workspaceMonogram, type WorkspaceMonogram } from "@/components/design-system/workspace-brand-icon";
@@ -25,6 +26,7 @@ const EMPTY: WorkspaceFieldValues = { name: "", description: "", logo: null, col
  * they're entered.
  */
 export function CreateWorkspaceDialog({ open, onOpenChange, onCreate, saving = false, error }: CreateWorkspaceDialogProps) {
+  const { t } = useTranslation();
   const [values, setValues] = useState<WorkspaceFieldValues>(EMPTY);
 
   // Start fresh each time the dialog opens.
@@ -52,18 +54,18 @@ export function CreateWorkspaceDialog({ open, onOpenChange, onCreate, saving = f
             }}
           >
             <div className="flex flex-col gap-1">
-              <DialogTitle className="text-[18px] font-medium text-foreground">Create workspace</DialogTitle>
-              <DialogDescription className="sr-only">Add a logo and a name for your new workspace.</DialogDescription>
+              <DialogTitle className="text-[18px] font-medium text-foreground">{t("workspace.create.title")}</DialogTitle>
+              <DialogDescription className="sr-only">{t("workspace.create.description")}</DialogDescription>
             </div>
 
             <WorkspaceFields values={values} onChange={setValues} nameError={error} autoFocusName />
 
             <div className="mt-auto flex items-center gap-2">
               <Button type="button" variant="tertiary" onClick={() => onOpenChange(false)}>
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button type="submit" variant="primary" className="flex-1" disabled={!trimmed || saving}>
-                Create workspace
+                {t("workspace.create.title")}
               </Button>
             </div>
           </form>
@@ -89,6 +91,7 @@ function Bar({ className }: { className?: string }) {
  * Same 28px rows and spacing as the sidebar.
  */
 export function WorkspacePreview({ name, logo, monogram }: { name: string; logo: string | null; monogram: WorkspaceMonogram | null }) {
+  const { t } = useTranslation();
   return (
     <div aria-hidden="true" className="relative hidden overflow-hidden sm:block">
       <Backdrop />
@@ -103,7 +106,7 @@ export function WorkspacePreview({ name, logo, monogram }: { name: string; logo:
             <span className="size-[18px] shrink-0 rounded-[6px] bg-muted-foreground/25" />
           )}
           <span className={cn("min-w-0 truncate text-[13px] font-medium", name ? "text-foreground" : "text-muted-foreground")}>
-            {name || "Your workspace"}
+            {name || t("workspace.preview.placeholderName")}
           </span>
           <ChevronDown aria-hidden="true" className="size-3.5 shrink-0 text-foreground" />
           <Search aria-hidden="true" className="ml-auto size-3.5 shrink-0 text-muted-foreground" />
@@ -111,7 +114,7 @@ export function WorkspacePreview({ name, logo, monogram }: { name: string; logo:
 
         {/* Quick actions field -- the same in every workspace, so shown as is. */}
         <div className="mt-3 mr-6 flex h-7 items-center justify-between rounded-[var(--radius)] border border-[var(--redesign-sidebar-border)] bg-[var(--redesign-quick-actions-surface)] px-3 text-muted-foreground">
-          <span className="text-[13px]">Quick actions</span>
+          <span className="text-[13px]">{t("shell.quickActions")}</span>
           <span className="flex items-center gap-1 text-[11px]">
             <Command aria-hidden="true" className="size-[11px]" />
             K
@@ -121,12 +124,12 @@ export function WorkspacePreview({ name, logo, monogram }: { name: string; logo:
         {/* New chat. */}
         <div className="mt-3 flex h-7 items-center gap-[9px] px-[var(--redesign-quick-actions-padding)] text-[13px] font-medium text-muted-foreground">
           <Plus aria-hidden="true" className="size-[15px] shrink-0" />
-          New chat
+          {t("common.newChat")}
         </div>
 
         {/* Projects and Chats: real headers with their +, and grey bars for
             the project/chat names -- the only part that varies. */}
-        {[{ label: "Projects", items: ["w-24", "w-16"] }, { label: "Chats", items: ["w-28", "w-20", "w-24"] }].map((section) => (
+        {[{ label: t("nav.projects"), items: ["w-24", "w-16"] }, { label: t("nav.chats"), items: ["w-28", "w-20", "w-24"] }].map((section) => (
           <div key={section.label} className="mt-[var(--redesign-sidebar-section-gap)] flex flex-col">
             <div className="flex h-7 items-center justify-between px-[var(--redesign-quick-actions-padding)] pr-8 text-muted-foreground">
               <span className="text-[11px] font-medium">{section.label}</span>

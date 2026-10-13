@@ -2224,7 +2224,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             {chatHeaderRenaming ? (
               <input
                 autoFocus
-                aria-label="Chat name"
+                aria-label={t("chat.nameAriaLabel")}
                 value={chatHeaderName}
                 onChange={(event) => setChatHeaderName(event.target.value)}
                 onBlur={(event) => void saveChatHeaderName(event.target.value)}
@@ -2265,7 +2265,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                   Rename
                 </DropdownSubItem>
                 {headerProjects.length > 0 ? (
-                  <DropdownSubMenuItem index={1} icon={FolderIcon} label="Add to project" className="gap-[7px] text-[12px]">
+                  <DropdownSubMenuItem index={1} icon={FolderIcon} label={t("nav.chat.addToProject")} className="gap-[7px] text-[12px]">
                     <BaseDropdownLabel>Projects</BaseDropdownLabel>
                     {headerProjects.map((project) => (
                       <DropdownSubItem
@@ -2280,7 +2280,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                 ) : (
                   <DropdownSubItem className="gap-2 text-[12px]" disabled>
                     <FolderIcon className="size-3.5" />
-                    Add to project
+                    {t("nav.chat.addToProject")}
                   </DropdownSubItem>
                 )}
               </BaseDropdownContent>

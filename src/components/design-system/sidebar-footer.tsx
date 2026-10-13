@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { Check, CircleDashed } from "lucide-react";
 import { LogInIcon, SettingsIcon } from "@/components/icons/untitled-ui";
 import { Backdrop } from "@/components/design-system/backdrop";
@@ -55,8 +56,9 @@ export function GettingStartedSummary({
   viewAllLabel,
   onViewAll,
 }: GettingStartedSummaryProps) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(defaultExpanded);
-  const count = `${completedSteps} of ${steps.length}`;
+  const count = t("shell.gettingStarted.count", { done: completedSteps, total: steps.length });
   const panelRadius = expanded
     ? "rounded-[var(--redesign-sidebar-footer-onboarding-radius)]"
     : "rounded-[var(--redesign-sidebar-footer-onboarding-collapsed-radius)]";
@@ -131,7 +133,7 @@ export function GettingStartedSummary({
                     onClick={step.onSelect}
                     className="h-[var(--redesign-sidebar-footer-task-action-height)] self-start rounded-[var(--redesign-dropdown-row-radius)] bg-[var(--focus-accent)] px-[var(--redesign-sidebar-footer-upgrade-padding)] text-[length:var(--redesign-font-size-compact)] font-medium text-white transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    {step.actionLabel ?? "Start task"}
+                    {step.actionLabel ?? t("shell.gettingStarted.startTask")}
                   </button>
                 </PopoverContent>
               </Popover>
@@ -169,6 +171,7 @@ type SidebarAccountFooterProps = {
  * profile menu) on the left, and a settings button on the right.
  */
 export function SidebarAccountFooter({ name, avatar, signedIn, onSignIn, onOpenSettings, profileSections }: SidebarAccountFooterProps) {
+  const { t } = useTranslation();
   const rowButton =
     "flex h-full min-w-0 flex-1 items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-left text-[length:var(--redesign-sidebar-primary-font-size)] font-medium text-foreground transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
   return (
@@ -176,7 +179,7 @@ export function SidebarAccountFooter({ name, avatar, signedIn, onSignIn, onOpenS
       {signedIn ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button type="button" aria-label="Open profile menu" className={rowButton}>
+            <button type="button" aria-label={t("shell.profileMenu.open")} className={rowButton}>
               <span className="size-[var(--redesign-sidebar-footer-avatar-size)] shrink-0 overflow-hidden rounded-full">{avatar}</span>
               <span className="min-w-0 flex-1 truncate">{name}</span>
             </button>
@@ -207,12 +210,12 @@ export function SidebarAccountFooter({ name, avatar, signedIn, onSignIn, onOpenS
         // Muted like New chat; the signed-in name above keeps the full text colour.
         <button type="button" onClick={onSignIn} className={cn(rowButton, "text-muted-foreground hover:text-foreground")}>
           <LogInIcon aria-hidden="true" className="size-[var(--redesign-quick-actions-icon-size)] shrink-0" />
-          <span className="truncate">Sign in</span>
+          <span className="truncate">{t("common.signIn")}</span>
         </button>
       )}
       <button
         type="button"
-        aria-label="Settings"
+        aria-label={t("nav.settings")}
         onClick={onOpenSettings}
         className={cn("grid size-7 shrink-0 place-items-center rounded-[var(--redesign-control-radius)] text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", PRESS_EFFECT, ICON_PRESS)}
       >

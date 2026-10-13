@@ -5,6 +5,7 @@ import {
   DropdownContent as BaseDropdownContent,
 } from "@/components/ui/dropdown";
 import { NotificationsMenuItems } from "@/components/nav-user";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
 
@@ -38,6 +39,7 @@ export function AppTopBar({
   title?: string;
   titleClassName?: string;
 }) {
+  const { t } = useTranslation();
   return (
     <div
       data-icon-stroke
@@ -53,15 +55,15 @@ export function AppTopBar({
       )}
     >
       <div className={cn("pointer-events-auto flex items-center gap-2 text-muted-foreground", controlsClassName)}>
-        <button type="button" aria-label="Go back" disabled={!canGoBack} onClick={onBack} className={cn("flex size-7 items-center justify-center rounded-md disabled:pointer-events-none disabled:opacity-30", PRESS_EFFECT, ICON_PRESS)}>
+        <button type="button" aria-label={t("nav.goBack.ariaLabel")} disabled={!canGoBack} onClick={onBack} className={cn("flex size-7 items-center justify-center rounded-md disabled:pointer-events-none disabled:opacity-30", PRESS_EFFECT, ICON_PRESS)}>
           <ArrowLeftIcon className="size-[14px]" />
         </button>
-        <button type="button" aria-label="Go forward" disabled={!canGoForward} onClick={onForward} className={cn("flex size-7 items-center justify-center rounded-md disabled:pointer-events-none disabled:opacity-30", PRESS_EFFECT, ICON_PRESS)}>
+        <button type="button" aria-label={t("topBar.goForward")} disabled={!canGoForward} onClick={onForward} className={cn("flex size-7 items-center justify-center rounded-md disabled:pointer-events-none disabled:opacity-30", PRESS_EFFECT, ICON_PRESS)}>
           <ArrowRightIcon className="size-[14px]" />
         </button>
         <button
           type="button"
-          aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
+          aria-label={collapsed ? t("topBar.expandNavigation") : t("topBar.collapseNavigation")}
           onClick={collapsed ? onExpand : onCollapseAll}
           className={cn(
             "flex size-7 items-center justify-center rounded-md",
@@ -80,7 +82,7 @@ export function AppTopBar({
             render={
               <button
                 type="button"
-                aria-label="Notifications"
+                aria-label={t("settings.general.notifications")}
                 className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-hover-2/50 hover:text-foreground"
               >
                 <BellIcon className="size-[14px]" />

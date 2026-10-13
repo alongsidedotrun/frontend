@@ -905,6 +905,8 @@ export interface CommandMenuTabsProps extends Omit<HTMLAttributes<HTMLDivElement
   /** Sits at the trailing edge of the tab row, hugging its content: a
    *  CommandMenuFilters, a Button. The tabs take the room that is left. */
   children?: ReactNode;
+  /** The tab bar's accessible name. @default "Filter results" */
+  tabsLabel?: string;
 }
 
 // Tells a CommandMenuFilters it is inside the tab row, where the row owns
@@ -912,7 +914,7 @@ export interface CommandMenuTabsProps extends Omit<HTMLAttributes<HTMLDivElement
 const TabsRowContext = createContext(false);
 
 const CommandMenuTabs = forwardRef<HTMLDivElement, CommandMenuTabsProps>(
-  ({ tabs, value, onValueChange, className, children, ...props }, ref) => {
+  ({ tabs, value, onValueChange, className, children, tabsLabel = "Filter results", ...props }, ref) => {
     const sizeClasses = useSize();
     const compact = sizeClasses.variant === "compact";
     const { tabsRef, setTabsMounted } = useCommandMenu();
@@ -964,7 +966,7 @@ const CommandMenuTabs = forwardRef<HTMLDivElement, CommandMenuTabsProps>(
               const tab = tabs[index];
               if (tab) onValueChange(tab.value);
             }}
-            aria-label="Filter results"
+            aria-label={tabsLabel}
           >
             {tabs.map((tab, index) => (
               <TabsSubtleItem key={tab.value} index={index} label={tab.label} icon={tab.icon} />
@@ -1359,10 +1361,12 @@ export interface CommandMenuFooterProps extends HTMLAttributes<HTMLDivElement> {
   hints?: readonly CommandMenuHint[];
   /** Replaces the hints entirely with your own content. */
   children?: ReactNode;
+  /** Words for the default hints, e.g. translated. @default Select / Tabs / Close */
+  labels?: { select?: string; tabs?: string; close?: string };
 }
 
 const CommandMenuFooter = forwardRef<HTMLDivElement, CommandMenuFooterProps>(
-  ({ hints, className, children, ...props }, ref) => {
+  ({ hints, className, children, labels, ...props }, ref) => {
     const { rows, highlight, tabsMounted } = useCommandMenu();
     const dialog = useContext(CommandMenuDialogContext);
     const compact = useSize().variant === "compact";
@@ -1374,9 +1378,9 @@ const CommandMenuFooter = forwardRef<HTMLDivElement, CommandMenuFooterProps>(
     const row = activeIndex === null ? undefined : rows[activeIndex];
     const action = hints ? null : row ? (row.action ?? row.label) : null;
     const resolved: readonly CommandMenuHint[] = hints ?? [
-      { label: "Select", keys: ["up", "down"] },
-      ...(tabsMounted ? [{ label: "Tabs", keys: ["left", "right"] }] : []),
-      ...(dialog ? [{ label: "Close", keys: "esc" }] : []),
+      { label: labels?.select ?? "Select", keys: ["up", "down"] },
+      ...(tabsMounted ? [{ label: labels?.tabs ?? "Tabs", keys: ["left", "right"] }] : []),
+      ...(dialog ? [{ label: labels?.close ?? "Close", keys: "esc" }] : []),
     ];
     return (
       <div
