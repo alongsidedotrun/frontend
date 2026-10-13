@@ -50,22 +50,17 @@
   }
 }
 
-/* Backdrop (design-system/backdrop.tsx): the light gradient sliding along its
-   200%-wide layer, the dark one turning on its oversized square (transform
-   only, no repaints), and a glint: dark most of its cycle, then a brief faint
-   flash.
+/* Backdrop (design-system/backdrop.tsx): the light gradient waving along its
+   400% layer, the dark one turning on its oversized square (transform
+   only, no repaints).
    Top level, not in @theme. */
-@keyframes backdrop-drift {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
+@keyframes backdrop-wave {
+  0%, 100% { transform: translate(0, -50%); }
+  50% { transform: translate(-75%, -50%); }
 }
 @keyframes backdrop-rotate {
   from { transform: translate(-50%, -50%) rotate(0deg); }
   to { transform: translate(-50%, -50%) rotate(360deg); }
-}
-@keyframes sparkle-twinkle {
-  0%, 70%, 100% { opacity: 0; }
-  80% { opacity: var(--glint-peak, 0.5); }
 }
 
 /* The Button's loading glyph (ui/button.tsx). Top level, not inside
