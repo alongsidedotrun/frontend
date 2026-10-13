@@ -1799,7 +1799,7 @@ export function ComposeBox({
                 <div
                   ref={modelListRefCallback}
                   onScroll={updateModelScrollThumb}
-                  className="max-h-[144px] w-[calc(100%+20px)] overflow-y-auto overscroll-y-contain pr-5 data-[scrolls=true]:pr-[29px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                  className="max-h-[144px] w-[calc(100%+20px)] overflow-x-hidden overflow-y-auto overscroll-y-contain pr-5 data-[scrolls=true]:pr-[29px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 >
                   {models.map((m) => {
                     const isSelected = selectedModels[0]?.value === m.value;

@@ -688,7 +688,7 @@ const DropdownContent = forwardRef<HTMLDivElement, DropdownContentProps>(
                   // Surface matches the redesign menus too: one 1px border and
                   // a light-mode-only shadow, replacing Elevated's ring
                   // shadow (which doubled up with an inset ring in dark mode).
-                  `relative flex flex-col w-72 max-w-full min-w-[var(--anchor-width)] max-h-[min(480px,var(--available-height))] overflow-y-auto ${DROPDOWN_PANEL_RADIUS} !bg-[var(--redesign-sidebar-overlay-surface)] border border-[var(--redesign-sidebar-elevated-border)] !shadow-[var(--redesign-sidebar-elevated-shadow)] p-[3px] [&_[role=separator]]:-mx-[3px] select-none outline-none`,
+                  `relative flex flex-col w-72 max-w-full min-w-[var(--anchor-width)] max-h-[min(480px,var(--available-height))] overflow-y-auto overflow-x-hidden ${DROPDOWN_PANEL_RADIUS} !bg-[var(--redesign-sidebar-overlay-surface)] border border-[var(--redesign-sidebar-elevated-border)] !shadow-[var(--redesign-sidebar-elevated-shadow)] p-[3px] [&_[role=separator]]:-mx-[3px] select-none outline-none`,
                   scrollOverflow && "pr-[11px] [&_[role=separator]]:-mr-[11px]",
                   className
                 )}
@@ -1005,7 +1005,7 @@ function DropdownSubMenuItem({
                     back out so they still run edge to edge. */}
                 <Menu.Popup
                   render={<Elevated offset={1} shadowLevel={3} />}
-                  className={cn(`flex flex-col min-w-40 max-w-full max-h-[min(480px,var(--available-height))] overflow-y-auto ${DROPDOWN_PANEL_RADIUS} !bg-[var(--redesign-sidebar-overlay-surface)] border border-[var(--redesign-sidebar-elevated-border)] !shadow-[var(--redesign-sidebar-elevated-shadow)] p-[3px] [&_[role=separator]]:-mx-[3px] outline-none`, popupClassName)}
+                  className={cn(`flex flex-col min-w-40 max-w-full max-h-[min(480px,var(--available-height))] overflow-y-auto overflow-x-hidden ${DROPDOWN_PANEL_RADIUS} !bg-[var(--redesign-sidebar-overlay-surface)] border border-[var(--redesign-sidebar-elevated-border)] !shadow-[var(--redesign-sidebar-elevated-shadow)] p-[3px] [&_[role=separator]]:-mx-[3px] outline-none`, popupClassName)}
                 >
                   {/* Elevated's own internal SurfaceProvider only wraps
                       whatever it renders as ITS OWN children -- none, used
