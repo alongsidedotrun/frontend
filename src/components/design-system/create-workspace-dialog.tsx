@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { LOGO_MIME_TYPES, MAX_DESCRIPTION_LENGTH, readLogoFile } from "@/lib/workspace-logos";
-import { IDENTITY_PALETTE, paletteIndexForName } from "@/lib/identity-palette";
+import { WORKSPACE_PALETTE, paletteIndexForName } from "@/lib/identity-palette";
 import { cn } from "@/lib/utils";
 
 type CreateWorkspaceDialogProps = {
@@ -60,7 +60,7 @@ export function CreateWorkspaceDialog({ open, onOpenChange, onCreate, saving = f
   const trimmed = name.trim();
   // Without a logo, the workspace gets its first letter on a palette colour.
   const monogram = workspaceMonogram(trimmed, colorIndex);
-  const selectedColor = colorIndex ?? (trimmed ? paletteIndexForName(trimmed) : null);
+  const selectedColor = colorIndex ?? (trimmed ? paletteIndexForName(trimmed, WORKSPACE_PALETTE.length) : null);
   const submit = () => {
     if (!trimmed || saving) return;
     void onCreate(trimmed, logo, description.trim() || null, colorIndex);
@@ -126,7 +126,7 @@ export function CreateWorkspaceDialog({ open, onOpenChange, onCreate, saving = f
               {/* Colour for the letter tile; hidden once a logo replaces it. */}
               {!logo && (
                 <div role="radiogroup" aria-label="Tile colour" className="flex items-center gap-2 pt-1">
-                  {IDENTITY_PALETTE.map((swatch, index) => {
+                  {WORKSPACE_PALETTE.map((swatch, index) => {
                     const selected = selectedColor === index;
                     return (
                       <button
