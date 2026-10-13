@@ -54,10 +54,6 @@ type WorkspaceBrandIconProps = {
   icon?: ComponentType<SVGProps<SVGSVGElement>>;
   /** Optional image logo for a workspace that does not ship an SVG component. */
   imageSrc?: string;
-  /** Apply the monochrome inverse treatment in light mode only. */
-  invertOnLight?: boolean;
-  /** Marks the supplied logo as monochrome and therefore safe to invert. */
-  monochrome?: boolean;
   className?: string;
   markClassName?: string;
 };
@@ -80,12 +76,9 @@ export function WorkspaceBrandIcon({
   size,
   icon: Icon = AlongsideLogo,
   imageSrc,
-  invertOnLight = false,
-  monochrome = false,
   className,
   markClassName,
 }: WorkspaceBrandIconProps) {
-  const useInvertedMonochrome = monochrome && invertOnLight;
   const radius = (tileRadiusPx(size) * TILE) / size;
   const clipId = useId();
   return (
@@ -99,7 +92,8 @@ export function WorkspaceBrandIcon({
         width={TILE}
         height={TILE}
         rx={radius}
-        className={useInvertedMonochrome ? "!fill-black dark:!fill-white" : "!fill-white dark:!fill-black"}
+        // One look in both themes: white tile, black mark (no theme inversion).
+        className="!fill-white"
       />
       {imageSrc ? (
         // An uploaded logo *is* the tile: full bleed, clipped to the tile's
@@ -115,7 +109,7 @@ export function WorkspaceBrandIcon({
             height={TILE}
             preserveAspectRatio="xMidYMid slice"
             clipPath={`url(#${clipId})`}
-            className={cn(useInvertedMonochrome && "invert dark:invert-0", markClassName)}
+            className={markClassName}
           />
         </>
       ) : (
@@ -130,7 +124,7 @@ export function WorkspaceBrandIcon({
             // own <g>/<path> too. The mark pins its colour and makes every
             // descendant inherit it, so a brand tile keeps its colours
             // wherever it's placed.
-            useInvertedMonochrome ? "!text-white dark:!text-black" : "!text-black dark:!text-white",
+            "!text-black",
             "[&_*]:![color:inherit]",
             markClassName,
           )}

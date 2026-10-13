@@ -253,7 +253,7 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
             className={`flex items-center justify-center gap-[clamp(6px,calc(4.36px+0.364cqw),8px)] overflow-hidden text-center transition-[max-height,margin,transform] duration-200 ${transitioningToChat ? "pointer-events-none invisible mb-0 max-h-0 -translate-y-2" : "mb-5 max-h-8 translate-y-0"}`}
           >
             <h1 className="shrink-0 text-[length:clamp(15px,calc(12.55px+0.545cqw),18px)] font-normal text-foreground">{t("home.workspacePrompt")}</h1>
-            <WorkspaceBrandIcon size={24} monochrome invertOnLight className="size-[round(clamp(20px,calc(16.73px+0.727cqw),24px),2px)]" />
+            <WorkspaceBrandIcon size={24} className="size-[round(clamp(20px,calc(16.73px+0.727cqw),24px),2px)]" />
             <span className="min-w-0 truncate text-[length:clamp(15px,calc(12.55px+0.545cqw),18px)] font-medium text-foreground">{workspaceName}</span>
           </div>
         <ComposeBox

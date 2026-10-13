@@ -62,7 +62,7 @@ const DEFAULT_WORKSPACE: WorkspaceRecord = {
 
 function toWorkspaceOption(workspace: WorkspaceRecord): WorkspaceOption {
   if (workspace.is_personal) {
-    return { id: workspace.id, name: workspace.name, icon: <WorkspaceBrandIcon size={18} monochrome invertOnLight /> };
+    return { id: workspace.id, name: workspace.name, icon: <WorkspaceBrandIcon size={18} /> };
   }
   // Logos live on this device for now (lib/workspace-logos.ts).
   const logo = loadWorkspaceLogo(workspace.id);
