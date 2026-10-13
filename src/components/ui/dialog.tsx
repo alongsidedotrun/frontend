@@ -186,10 +186,13 @@ interface DialogContentProps extends HTMLAttributes<HTMLDivElement> {
    *  panel whose height follows its content (a command menu) keeps its top
    *  edge still. @default "center" */
   position?: "center" | "top";
+  /** The element focused when the dialog opens. Defaults to the first
+   *  focusable element inside it. */
+  initialFocus?: React.RefObject<HTMLElement | null>;
 }
 
 const DialogContent = forwardRef<HTMLDivElement, DialogContentProps>(
-  ({ className, children, size = "sm", container, showCloseButton = true, position = "center", ...props }, ref) => {
+  ({ className, children, size = "sm", container, showCloseButton = true, position = "center", initialFocus, ...props }, ref) => {
     const icons = useIcons();
     const XIcon = icons.x;
     const shape = useShape();
@@ -249,6 +252,7 @@ const DialogContent = forwardRef<HTMLDivElement, DialogContentProps>(
         />
         <DialogPrimitive.Popup
           ref={ref}
+          initialFocus={initialFocus}
           render={(popupProps, state) => {
             const exiting = state.transitionStatus === "ending";
             const {
