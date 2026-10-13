@@ -100,7 +100,11 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
       <DialogContent size="xl" initialFocus={emailInputRef} className="!z-[120] max-w-[min(760px,calc(100vw-2rem))] overflow-hidden p-0">
         <div ref={measureRef} className="grid min-h-[480px] grid-cols-1 sm:grid-cols-2" style={{ minHeight }}>
           <div className="flex flex-col items-center bg-[var(--redesign-primary-surface)] p-8 text-center">
-            <WorkspaceBrandIcon size={32} />
+            {/* The logo with the name beside it, so the brand reads as one. */}
+            <div className="flex items-center gap-2">
+              <WorkspaceBrandIcon size={24} />
+              <span className="text-[16px] font-medium text-foreground">Alongside</span>
+            </div>
 
             <div className="my-auto w-full max-w-[18rem] py-8">
               {/* Each step slides in from the side it comes from: forward to
@@ -265,14 +269,13 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
               </AnimatePresence>
             </div>
 
-            {/* One line at full dialog width (windows 792px+): bleeds 24px into the
-                pane's 32px side padding at 10.5px, so the sentence (~348px)
-                fits the 380px pane; wraps on narrower windows instead of
-                spilling out. */}
-            <p className="-mx-6 text-[10.5px] leading-relaxed text-muted-foreground min-[792px]:whitespace-nowrap">
+            {/* Same width as the buttons above, inside the pane's padding.
+                Balanced wrapping keeps two lines even, and each link stays in
+                one piece, so "Policy" never sits alone on the second line. */}
+            <p className="w-full max-w-[18rem] text-[11.5px] leading-relaxed text-balance text-muted-foreground">
               <Trans
                 i18nKey="auth.terms"
-                components={[<a href="#" className="underline" key="0" />, <a href="#" className="underline" key="1" />]}
+                components={[<a href="#" className="whitespace-nowrap underline" key="0" />, <a href="#" className="whitespace-nowrap underline" key="1" />]}
               />
             </p>
           </div>
@@ -285,3 +288,4 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
     </Dialog>
   );
 }
+
