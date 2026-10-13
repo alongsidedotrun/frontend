@@ -2266,7 +2266,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                 </DropdownSubItem>
                 {headerProjects.length > 0 ? (
                   <DropdownSubMenuItem index={1} icon={FolderIcon} label={t("nav.chat.addToProject")} className="gap-[7px] text-[12px]">
-                    <BaseDropdownLabel>Projects</BaseDropdownLabel>
+                    <BaseDropdownLabel>{t("nav.projects")}</BaseDropdownLabel>
                     {headerProjects.map((project) => (
                       <DropdownSubItem
                         key={project.id}

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import type { IconComponent, IconComponentProps } from "@/lib/icon-context";
 import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
@@ -15,7 +16,7 @@ import { Button } from "@/components/ui/button";
 // submenu pair -- the reference component ships no submenu wrapper at
 // all -- used for the model/provider picker's provider > model tree and
 // each model's own nested "Set as default" menu.
-import { DropdownMenu as BaseDropdownMenu, DropdownTrigger as BaseDropdownTrigger, DropdownContent as BaseDropdownContent, DropdownLabel as BaseDropdownLabel, DropdownSubItem, DropdownSeparator, DropdownRowActionMenu, DropdownRowActionItem } from "@/components/ui/dropdown";
+import { DropdownMenu as BaseDropdownMenu, DropdownTrigger as BaseDropdownTrigger, DropdownContent as BaseDropdownContent, DropdownLabel as BaseDropdownLabel, DropdownSubItem, DropdownSubMenuItem, DropdownSeparator, DropdownRowActionMenu, DropdownRowActionItem } from "@/components/ui/dropdown";
 import { MenuItem as BaseMenuItem } from "@/components/ui/menu-item";
 import { Textarea } from "@/components/ui/textarea";
 import GlideMenu from "@/components/primitives/glide-menu";
@@ -1246,6 +1247,30 @@ export function ComposeBox({
     [cliAvailability]
   );
 
+  // The model picker's first level: each available provider with its models,
+  // providers in alphabetical order (Antigravity, Claude, Codex).
+  const providerGroups = useMemo(() => {
+    const groups = new Map<string, (typeof QUICK_CHAT_MODELS)[number][]>();
+    for (const m of sortedModelRows) groups.set(m.provider, [...(groups.get(m.provider) ?? []), m]);
+    return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
+  }, [sortedModelRows]);
+  // Each provider's mark as an icon component for its row. Memoized so a row
+  // keeps the same component (no remount) across renders.
+  const providerIcons = useMemo(
+    () =>
+      Object.fromEntries(
+        providerGroups.map(([provider, models]) => [
+          provider,
+          ({ size = 14, className }: IconComponentProps) => (
+            <span className={cn("inline-grid shrink-0 place-items-center", className)} style={{ width: size, height: size }}>
+              <ProviderIcon model={models[0]} className="size-full" />
+            </span>
+          ),
+        ]),
+      ) as Record<string, IconComponent>,
+    [providerGroups],
+  );
+
   useLayoutEffect(() => {
     if (!menu) return;
     const root = composeRootRef.current;
@@ -1664,22 +1689,7 @@ export function ComposeBox({
         <BaseDropdownMenu
           size="compact"
           onOpenChange={(nowOpen) => {
-            if (nowOpen) {
-              // Real fix, confirmed directly ("when i click at models
-              // after edit, the active hover is at gpt terra and not at
-              // the model the message selected before"): DropdownSubItem
-              // rows don't use the checkedIndex/proximity-hover system at
-              // all (that component's own top comment says so directly --
-              // a checkedIndex prop here would've been a silent no-op),
-              // they use Base UI's native highlight, which follows real
-              // DOM focus. rAF: the popup's own rows haven't mounted yet
-              // in this same tick the menu opens in.
-              requestAnimationFrame(() => {
-                const value = selectedModels[0]?.value;
-                if (value) modelRowRefs.current.get(value)?.focus();
-              });
-              return;
-            }
+            if (nowOpen) return;
             const button = modelTriggerRef.current;
             if (!button) return;
             const reblur = () => button.blur();
@@ -1766,142 +1776,103 @@ export function ComposeBox({
                 directly under "any raw Menu.Popup", not only nested inside
                 a DropdownSubMenuItem's own submenu -- exactly what's used
                 here now. */}
-            <BaseDropdownLabel>{t("compose.models")}</BaseDropdownLabel>
-            {/* Capped at 6 rows (6 * 24px = 144px), scrolling beyond that --
-                same cap-then-scroll treatment as the notifications list
-                (nav-user.tsx's own max-h-[208px] for 4 * 52px rows), per
-                explicit request ("this is the maximum size we should have
-                for models, once we reach more than 6 then we should get a
-                scrollbar like we do in notifications"). */}
-            {/* overflow-hidden on this outer wrapper, width/padding pushing
-                the inner scroll container's own right edge (and whatever
-                native scrollbar renders there) past it -- real bug,
-                confirmed directly ("we still getting two scrollbars, it
-                looks like when it goes active it places another scrollbar
-                on top"): this app's own Tauri shell is WKWebView on macOS,
-                and its OS-drawn overlay scrollbar (System Settings ->
-                Appearance -> "Show scroll bars: When scrolling"/
-                "Automatically") is a native AppKit NSScroller overlay, not
-                the CSS scrollbar-styling API's own "classic" scrollbar --
-                scrollbar-width:none/::-webkit-scrollbar{{display:none}}
-                (still kept below) only suppress the latter, so that native
-                overlay could still appear on top of the real custom thumb
-                the instant an actual scroll gesture activates it. Widening
-                the inner container past its own clipped parent physically
-                moves wherever that native overlay draws itself (always at
-                the scrollable element's own right edge) outside the
-                visible area entirely, regardless of which hiding API the
-                OS/WebKit version actually honors. */}
-            <div className="relative overflow-hidden">
-            <div
-              ref={modelListRefCallback}
-              onScroll={updateModelScrollThumb}
-              // overscroll-y-contain -- per explicit request/screenshot
-              // ("when scrolling up and down that reaches the boundary and
-              // make the top or bottom which are rounded flatten before
-              // moving back"): macOS's own rubber-band/elastic overscroll
-              // lets the content bounce past its real top/bottom edge for a
-              // moment, which pushed a square-cornered row past this
-              // panel's own rounded clip and read as the corner briefly
-              // "flattening". overscroll-behavior stops the scroll dead at
-              // the real boundary instead of letting it bounce past, so
-              // there's never a past-the-edge frame to clip oddly in the
-              // first place.
-              // data-[scrolls=true]:pr-[29px]: the custom thumb (right-0.5, w-1) sits
-              // over the rows' right end, so while the list scrolls the rows end 3px
-              // before it (20px native-overlay offset + 6px thumb + 3px gap).
-              className="max-h-[144px] w-[calc(100%+20px)] overflow-y-auto overscroll-y-contain pr-5 data-[scrolls=true]:pr-[29px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            >
-            {/* Sorted by provider's own display name (MODEL_PROVIDERS'
-                own comparator above), not QUICK_CHAT_MODELS' raw
-                declaration order -- confirmed directly as a real bug
-                ("the provider dropdown is not alphabetical, Claude models
-                are showing first than ChatGPT ones"): flattening this
-                list (this block's own comment above has the full history)
-                dropped the provider-grouping tier MODEL_PROVIDERS was
-                originally sorted for, so this flat list kept iterating
-                QUICK_CHAT_MODELS in its own file order (Claude declared
-                first) regardless. .sort() is stable, so models within the
-                same provider keep their existing relative order -- only
-                which provider's models come first changes. Model rows
-                themselves stay unprefixed (just the model's own name),
-                per explicit follow-up ("just the name of model, don't
-                need to include the provider"). */}
-            {sortedModelRows.map((m) => {
-              const isSelected = selectedModels[0]?.value === m.value;
-              return (
-                <DropdownSubItem
-                  key={m.value}
-                  ref={(el) => {
-                    if (el) modelRowRefs.current.set(m.value, el);
-                    else modelRowRefs.current.delete(m.value);
-                  }}
-                  // pr-11, not pr-9 -- per explicit request ("increase the
-                  // space/padding right when the row finishes as the three
-                  // dots is almost behind the scrollbar now"): the custom
-                  // scroll thumb (this list's own comment above) sits right
-                  // at the panel's edge, and pr-9's own reserved space no
-                  // longer left enough breathing room between it and the
-                  // "..." trigger just inside it.
-                  className={cn(
-                    "group/model-row relative py-1.5 pr-11 pl-2.5 text-[12px] whitespace-nowrap",
-                    isSelected && "bg-hover-2"
-                  )}
-                  onClick={() => selectModel(m)}
+            {/* Providers first (alphabetical), each opening its models in a
+                submenu headed by the provider's name. The model list keeps
+                its cap-then-scroll treatment and custom thumb (below); only
+                one submenu is open at a time, so they share the one list ref. */}
+            <BaseDropdownLabel>{t("compose.providers")}</BaseDropdownLabel>
+            {providerGroups.map(([provider, models], index) => (
+              <DropdownSubMenuItem
+                key={provider}
+                index={index}
+                icon={providerIcons[provider]}
+                label={provider}
+                chevron
+                className="text-[12px]"
+              >
+                <BaseDropdownLabel>{provider}</BaseDropdownLabel>
+                <div className="relative overflow-hidden">
+                <div
+                  ref={modelListRefCallback}
+                  onScroll={updateModelScrollThumb}
+                  className="max-h-[144px] w-[calc(100%+20px)] overflow-y-auto overscroll-y-contain pr-5 data-[scrolls=true]:pr-[29px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 >
-                  <ProviderIcon model={m} className="mr-2 inline size-3.5 shrink-0 align-[-3px]" />
-                  {modelDisplayName(m)}
-                  {/* Set as default -- per explicit request ("the three
-                      dots should show the options to set as default, i
-                      don't mind that this is the only option at the
-                      dropdown of the three dots"): a real menu (one real
-                      item today), not a direct click-to-set action.
-                      DropdownRowActionMenu (ui/dropdown.tsx) is a self-
-                      contained popover, not a Base UI Menu primitive --
-                      two Menu-based attempts before this one each broke
-                      differently (an independent Menu.Root wasn't
-                      recognized by the ancestor submenu's own outside-
-                      interaction bookkeeping and closed the whole chain on
-                      click; a real nested Menu.SubmenuRoot fought the
-                      row's own hover-intent and closed the instant the
-                      cursor moved off the "..." button toward its own
-                      content) -- see that component's own comment for the
-                      full history. DropdownRowActionItem, not
-                      DropdownSubItem, for the same reason: this popover
-                      isn't a Menu.Popup, so Menu.Item has no Menu.Root/
-                      SubmenuRoot context to attach to. */}
-                  <DropdownRowActionMenu
-                    triggerLabel={`Options for ${modelDisplayName(m)}`}
-                    // Same shared MoreTrigger every "..." in the app now
-                    // renders through (ui/more-trigger.tsx), color-only
-                    // (no bg) per explicit request -- DropdownRowActionMenu
-                    // itself now owns rendering it, describer included
-                    // ("make sure that the reusable three dots contains
-                    // the dropdown as well"). autoHide off: this row's own
-                    // group is named ("group/model-row", avoiding collision
-                    // with an ancestor's own unnamed "group"), so the real
-                    // visibility rule is passed through triggerClassName
-                    // instead of MoreTrigger's own default unnamed rule.
-                    autoHide={false}
-                    triggerClassName="absolute top-1/2 right-3 -translate-y-1/2 opacity-0 transition-opacity group-hover/model-row:opacity-100"
-                  >
-                    <DropdownRowActionItem
-                      className="py-1.5 pr-2.5 pl-2.5 text-[12px] whitespace-nowrap"
-                      onClick={() => void setAsDefaultModel(m)}
-                    >
-                      {chatId ? t("compose.setDefault.chat") : t("compose.setDefault.newChat")}
-                    </DropdownRowActionItem>
-                  </DropdownRowActionMenu>
-                </DropdownSubItem>
-              );
-            })}
-            </div>
-            <div
-              ref={modelThumbRef}
-              aria-hidden="true"
-              className="pointer-events-none absolute top-0 right-0.5 hidden w-1 rounded-full bg-[color:rgb(var(--overlay)/0.3)]"
-            />
-            </div>
+                  {models.map((m) => {
+                    const isSelected = selectedModels[0]?.value === m.value;
+                    return (
+                      <DropdownSubItem
+                        key={m.value}
+                        ref={(el) => {
+                          if (el) modelRowRefs.current.set(m.value, el);
+                          else modelRowRefs.current.delete(m.value);
+                        }}
+                        // pr-11, not pr-9 -- per explicit request ("increase the
+                        // space/padding right when the row finishes as the three
+                        // dots is almost behind the scrollbar now"): the custom
+                        // scroll thumb (this list's own comment above) sits right
+                        // at the panel's edge, and pr-9's own reserved space no
+                        // longer left enough breathing room between it and the
+                        // "..." trigger just inside it.
+                        className={cn(
+                          "group/model-row relative py-1.5 pr-11 pl-2.5 text-[12px] whitespace-nowrap",
+                          isSelected && "bg-hover-2"
+                        )}
+                        onClick={() => selectModel(m)}
+                      >
+                        {modelDisplayName(m)}
+                        {/* Set as default -- per explicit request ("the three
+                            dots should show the options to set as default, i
+                            don't mind that this is the only option at the
+                            dropdown of the three dots"): a real menu (one real
+                            item today), not a direct click-to-set action.
+                            DropdownRowActionMenu (ui/dropdown.tsx) is a self-
+                            contained popover, not a Base UI Menu primitive --
+                            two Menu-based attempts before this one each broke
+                            differently (an independent Menu.Root wasn't
+                            recognized by the ancestor submenu's own outside-
+                            interaction bookkeeping and closed the whole chain on
+                            click; a real nested Menu.SubmenuRoot fought the
+                            row's own hover-intent and closed the instant the
+                            cursor moved off the "..." button toward its own
+                            content) -- see that component's own comment for the
+                            full history. DropdownRowActionItem, not
+                            DropdownSubItem, for the same reason: this popover
+                            isn't a Menu.Popup, so Menu.Item has no Menu.Root/
+                            SubmenuRoot context to attach to. */}
+                        <DropdownRowActionMenu
+                          triggerLabel={t("compose.modelOptions", { model: modelDisplayName(m) })}
+                          // Same shared MoreTrigger every "..." in the app now
+                          // renders through (ui/more-trigger.tsx), color-only
+                          // (no bg) per explicit request -- DropdownRowActionMenu
+                          // itself now owns rendering it, describer included
+                          // ("make sure that the reusable three dots contains
+                          // the dropdown as well"). autoHide off: this row's own
+                          // group is named ("group/model-row", avoiding collision
+                          // with an ancestor's own unnamed "group"), so the real
+                          // visibility rule is passed through triggerClassName
+                          // instead of MoreTrigger's own default unnamed rule.
+                          autoHide={false}
+                          triggerClassName="absolute top-1/2 right-3 -translate-y-1/2 opacity-0 transition-opacity group-hover/model-row:opacity-100"
+                        >
+                          <DropdownRowActionItem
+                            className="py-1.5 pr-2.5 pl-2.5 text-[12px] whitespace-nowrap"
+                            onClick={() => void setAsDefaultModel(m)}
+                          >
+                            {chatId ? t("compose.setDefault.chat") : t("compose.setDefault.newChat")}
+                          </DropdownRowActionItem>
+                        </DropdownRowActionMenu>
+                      </DropdownSubItem>
+                    );
+                  })}
+                </div>
+                <div
+                  ref={modelThumbRef}
+                  aria-hidden="true"
+                  className="pointer-events-none absolute top-0 right-0.5 hidden w-1 rounded-full bg-[color:rgb(var(--overlay)/0.3)]"
+                />
+                </div>
+              </DropdownSubMenuItem>
+            ))}
             {/* Add provider -- matches Synara's own model picker (a real
                 reference app cloned for comparison, apps/web/src/
                 components/chat/ProviderModelPicker.tsx: a footer MenuItem
@@ -1922,13 +1893,13 @@ export function ComposeBox({
                 proximity item left in the whole popup, so it was "nearest"
                 no matter where the mouse actually was, lighting up
                 alongside whichever model row Base UI itself highlighted. */}
-            <DropdownSubItem
-              className="flex items-center gap-2 py-1.5 pr-2.5 pl-2.5 text-[12px] whitespace-nowrap text-foreground"
-              onClick={() => onOpenSettings?.()}
-            >
-              <PlusIcon className="size-3.5 shrink-0" />
-              {t("compose.addModel")}
-            </DropdownSubItem>
+            <BaseMenuItem
+              index={providerGroups.length}
+              icon={PlusIcon}
+              label={t("compose.addModel")}
+              className="text-[12px]"
+              onSelect={() => onOpenSettings?.()}
+            />
           </BaseDropdownContent>
         </BaseDropdownMenu>
         {/* Moved here from its own separate spot next to Effort, per explicit
