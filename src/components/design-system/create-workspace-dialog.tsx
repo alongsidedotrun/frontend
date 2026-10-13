@@ -163,16 +163,24 @@ export function CreateWorkspaceDialog({ open, onOpenChange, onCreate, saving = f
   );
 }
 
-/** A mini sidebar showing how the new workspace will look in the switcher. */
+/** Grey stand-in for a line of text or an icon in the preview. */
+function Bar({ className }: { className?: string }) {
+  return <span className={cn("block shrink-0 rounded-full bg-muted-foreground/15", className)} />;
+}
+
+/**
+ * A mini sidebar mirroring the real one top to bottom (workspace row, Quick
+ * actions, New chat, Projects/Chats sections, Getting Started, account row),
+ * with the new workspace's tile and name live and everything else as grey
+ * placeholders. Same 28px rows and spacing as the sidebar.
+ */
 function WorkspacePreview({ name, logo }: { name: string; logo: string | null }) {
   return (
-    <div
-      aria-hidden="true"
-      className="relative hidden overflow-hidden sm:block"
-    >
+    <div aria-hidden="true" className="relative hidden overflow-hidden sm:block">
       <Backdrop />
-      <div className="absolute top-10 left-10 -right-6 -bottom-6 rounded-tl-[calc(var(--radius)*1.4)] border border-[var(--redesign-sidebar-border)] bg-[var(--redesign-sidebar-surface)] p-4">
-        <div className="flex h-7 items-center gap-2">
+      <div className="absolute top-10 bottom-0 left-10 -right-6 flex flex-col rounded-tl-[calc(var(--radius)*1.4)] border border-r-0 border-b-0 border-[var(--redesign-sidebar-border)] bg-[var(--redesign-sidebar-surface)] px-[var(--redesign-sidebar-edge-padding)] pt-4">
+        {/* Workspace row: live tile + name, chevron, search on the right. */}
+        <div className="flex h-7 items-center gap-2 pr-6">
           {logo ? (
             <WorkspaceBrandIcon size={18} imageSrc={logo} />
           ) : (
@@ -182,15 +190,46 @@ function WorkspacePreview({ name, logo }: { name: string; logo: string | null })
             {name || "Your workspace"}
           </span>
           <ChevronDown aria-hidden="true" className="size-3.5 shrink-0 text-foreground" />
+          <Bar className="ml-auto size-3.5" />
         </div>
-        <div className="mt-3 h-7 rounded-[var(--radius)] border border-[var(--redesign-sidebar-border)] bg-[var(--redesign-quick-actions-surface)]" />
-        <div className="mt-5 flex flex-col gap-3.5">
-          {[72, 56, 80, 48, 64, 40].map((width, index) => (
-            <div key={index} className="flex items-center gap-2">
-              <span className="size-3 shrink-0 rounded-full bg-muted-foreground/20" />
-              <span className="h-2 rounded-full bg-muted-foreground/15" style={{ width: `${width}%` }} />
+
+        {/* Quick actions field. */}
+        <div className="mt-3 mr-6 flex h-7 items-center justify-between rounded-[var(--radius)] border border-[var(--redesign-sidebar-border)] bg-[var(--redesign-quick-actions-surface)] px-3">
+          <Bar className="h-2 w-20" />
+          <Bar className="h-2 w-6" />
+        </div>
+
+        {/* New chat. */}
+        <div className="mt-3 flex h-7 items-center gap-2 px-[var(--redesign-quick-actions-padding)]">
+          <Bar className="size-3" />
+          <Bar className="h-2 w-16" />
+        </div>
+
+        {/* Projects and Chats sections: header with +, then an empty state. */}
+        {[{ header: "w-14", empty: "w-20" }, { header: "w-10", empty: "w-16" }].map((section, index) => (
+          <div key={index} className="mt-[var(--redesign-sidebar-section-gap)] flex flex-col">
+            <div className="flex h-7 items-center justify-between px-[var(--redesign-quick-actions-padding)] pr-8">
+              <Bar className={cn("h-1.5", section.header)} />
+              <Bar className="size-2.5" />
             </div>
-          ))}
+            <div className="flex h-7 items-center px-[var(--redesign-quick-actions-padding)]">
+              <Bar className={cn("h-2 bg-muted-foreground/10", section.empty)} />
+            </div>
+          </div>
+        ))}
+
+        {/* Getting Started card, then the account row under a divider. */}
+        <div className="mt-auto mr-6 flex h-[30px] items-center gap-2 rounded-[var(--radius)] border border-[var(--redesign-sidebar-footer-onboarding-border)] bg-[var(--redesign-getting-started-surface)] px-[var(--redesign-quick-actions-padding)]">
+          <span className="size-3 shrink-0 rounded-full border-2 border-[var(--redesign-progress-track)]" />
+          <Bar className="h-2 w-20" />
+          <Bar className="ml-auto h-2 w-6" />
+        </div>
+        <div className="-mx-[var(--redesign-sidebar-edge-padding)] mt-3 border-t border-[var(--redesign-sidebar-border)] px-[var(--redesign-sidebar-edge-padding)]">
+          <div className="flex h-8 items-center gap-2 px-[var(--redesign-quick-actions-padding)] pr-8">
+            <Bar className="size-[18px]" />
+            <Bar className="h-2 w-12" />
+            <Bar className="ml-auto h-3 w-2" />
+          </div>
         </div>
       </div>
     </div>
