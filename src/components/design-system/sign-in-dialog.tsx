@@ -69,7 +69,11 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
               )}
             </div>
 
-            <p className="max-w-[18rem] text-[11px] leading-relaxed text-muted-foreground">
+            {/* One line at full dialog width (windows 792px+): bleeds 24px into the
+                pane's 32px side padding at 10.5px, so the sentence (~348px)
+                fits the 380px pane; wraps on narrower windows instead of
+                spilling out. */}
+            <p className="-mx-6 text-[10.5px] leading-relaxed text-muted-foreground min-[792px]:whitespace-nowrap">
               <Trans
                 i18nKey="auth.terms"
                 components={[<a href="#" className="underline" key="0" />, <a href="#" className="underline" key="1" />]}
