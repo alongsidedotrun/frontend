@@ -976,7 +976,10 @@ function DropdownSubMenuItem({
       <AnimatePresence>
         {open && (
           <Menu.Portal>
-            <Menu.Positioner side="right" align="start" sideOffset={4} className="outline-none" style={{ zIndex }}>
+            {/* sideOffset 10: the trigger row sits 4px inside its panel (3px
+                padding + 1px border), so this leaves a 6px gap between the
+                two panels, the same gap a menu leaves below its trigger. */}
+            <Menu.Positioner side="right" align="start" sideOffset={10} className="outline-none" style={{ zIndex }}>
               <motion.div
                 initial={{ opacity: 0, scale: 0.96 }}
                 animate={{ opacity: 1, scale: 1, transition: spring.fast }}
