@@ -50,6 +50,23 @@
   }
 }
 
+/* The Button's loading glyph (ui/button.tsx). Top level, not inside
+   @theme: Tailwind drops @theme keyframes that no --animate-* token uses,
+   which left the spinner frozen. */
+@keyframes spinner-move {
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+@keyframes spinner-dash {
+  0%, 100% {
+    stroke-dasharray: 15 85;
+  }
+  50% {
+    stroke-dasharray: 40 60;
+  }
+}
+
 @keyframes onboarding-word-in {
   from {
     opacity: 0;
@@ -511,19 +528,6 @@
     }
   to {
     opacity: 0;
-    }
-  }
-  @keyframes spinner-move {
-  to {
-    stroke-dashoffset: -100;
-    }
-  }
-  @keyframes spinner-dash {
-  0%, 100% {
-    stroke-dasharray: 15 85;
-    }
-  50% {
-    stroke-dasharray: 40 60;
     }
   }
   --text-display: var(--fs-display);
