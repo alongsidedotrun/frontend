@@ -21,6 +21,7 @@ import {
   type Ref,
 } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
+import { Trans, useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { spring, exitFallbackMs } from "@/lib/springs";
 import { fontWeights } from "@/lib/font-weight";
@@ -555,6 +556,7 @@ export interface SidebarShellProps extends MotionSafeDivProps {
  *  Ships the resize/collapse rail handle on its inner edge by default. */
 const SidebarShell = forwardRef<HTMLDivElement, SidebarShellProps>(
   ({ side, variant, bordered = true, rail = true, railTooltipOpen, className, children, ...props }, ref) => {
+    const { t } = useTranslation();
     const {
       open,
       width,
@@ -744,7 +746,7 @@ const SidebarShell = forwardRef<HTMLDivElement, SidebarShellProps>(
                 intent delay, click mode on press. */}
             <button
               type="button"
-              aria-label="Peek sidebar"
+              aria-label={t("sidebar.peek")}
               aria-expanded={isPeeking}
               className={cn(
                 "group/peek-strip absolute inset-y-0 z-40 w-3 cursor-pointer outline-none",
@@ -907,6 +909,7 @@ function useShortcutKey(): string {
  *  keystroke by default. */
 const SidebarTrigger = forwardRef<HTMLButtonElement, SidebarTriggerProps>(
   ({ onClick, size, children, ...props }, ref) => {
+    const { t } = useTranslation();
     const {
       toggleSidebar,
       open,
@@ -940,7 +943,7 @@ const SidebarTrigger = forwardRef<HTMLButtonElement, SidebarTriggerProps>(
                 re-applies it — otherwise the shortcut row would sit taller
                 than a tooltip without a chip. */}
             <span className="[text-box:trim-both_cap_alphabetic]">
-              {collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              {collapsed ? t("sidebar.expand") : t("sidebar.collapse")}
             </span>
             <ShortcutKbd>{shortcutKey}</ShortcutKbd>
           </span>
@@ -951,7 +954,7 @@ const SidebarTrigger = forwardRef<HTMLButtonElement, SidebarTriggerProps>(
           variant="ghost"
           size={size ?? iconSize}
           data-sidebar="trigger"
-          aria-label="Toggle Sidebar"
+          aria-label={t("sidebar.toggle")}
           onClick={(event) => {
             onClick?.(event);
             toggleSidebar();
@@ -1000,6 +1003,7 @@ export interface SidebarRailProps extends HTMLAttributes<HTMLButtonElement> {
  *  brightens the edge border. */
 const SidebarRail = forwardRef<HTMLButtonElement, SidebarRailProps>(
   ({ className, tooltipOpen, ...props }, ref) => {
+    const { t } = useTranslation();
     const { toggleSidebar, setOpen, setWidth, side, setIsResizing } = useSidebar();
     const shortcutKey = useShortcutKey();
     const railRef = useRef<HTMLButtonElement | null>(null);
@@ -1077,11 +1081,11 @@ const SidebarRail = forwardRef<HTMLButtonElement, SidebarRailProps>(
           // lopsided padding.
           <span className="flex flex-col items-start gap-2">
             <span className="[text-box:trim-both_cap_alphabetic]">
-              <span style={semibold}>Drag</span> to resize
+              <Trans i18nKey="sidebar.dragToResize" components={[<span style={semibold} key="0" />]} />
             </span>
             <span className="flex items-center gap-1.5">
               <span className="[text-box:trim-both_cap_alphabetic]">
-                <span style={semibold}>Click</span> to collapse
+                <Trans i18nKey="sidebar.clickToCollapse" components={[<span style={semibold} key="0" />]} />
               </span>
               <ShortcutKbd>{shortcutKey}</ShortcutKbd>
             </span>
@@ -1096,7 +1100,7 @@ const SidebarRail = forwardRef<HTMLButtonElement, SidebarRailProps>(
           }}
           type="button"
           data-sidebar="rail"
-          aria-label="Resize or collapse sidebar"
+          aria-label={t("sidebar.resizeOrCollapse")}
           tabIndex={-1}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}

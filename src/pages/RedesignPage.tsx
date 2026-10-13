@@ -636,8 +636,8 @@ export function RedesignPage() {
               <SidebarAccountFooter
                 signedIn={identity.signedIn}
                 onSignIn={openSignIn}
-                name={identity.displayName ?? "Guest"}
-                avatar={<DefaultAvatar name={identity.displayName ?? "Guest"} />}
+                name={identity.displayName ?? ""}
+                avatar={<DefaultAvatar name={identity.displayName ?? ""} />}
                 onOpenSettings={() => navigate("/settings/general")}
                 profileSections={profileMenuSections(t, () => navigate("/settings/profile"), () => signOut())}
               />

@@ -11,7 +11,7 @@ import {
 import { MenuItem as BaseMenuItem } from "@/components/ui/menu-item";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { displayName, useUserDisplayName } from "@/lib/user";
+import { GUEST_NAME, useUserDisplayName } from "@/lib/user";
 
 type TaskBucket = "today" | "week" | "later";
 
@@ -246,7 +246,10 @@ export function OverviewPage() {
     <main className="flex min-h-0 flex-1 overflow-y-auto bg-background">
       <div className="mx-auto flex w-full max-w-[46rem] flex-col px-4 pt-4 pb-10 sm:px-7 sm:pt-6">
         <h1 className="text-[17px] tracking-normal text-foreground">
-          {t(greetingKeyForHour(now.getHours()), { name: displayName(userName, t) })}
+          {/* Signed out there's no name to greet, just the time of day. */}
+          {userName === GUEST_NAME
+            ? t(`${greetingKeyForHour(now.getHours())}Plain`)
+            : t(greetingKeyForHour(now.getHours()), { name: userName })}
         </h1>
         <div className="mt-0.5 flex items-baseline gap-1.5">
           <p className="text-[12px] text-muted-foreground">{dateLabel}</p>

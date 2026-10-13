@@ -90,7 +90,6 @@
     "lucide-react": "^1.39.0",
     "motion": "^13.1.1",
     "pdf-lib": "^1.17.1",
-    "pdfjs-dist": "^6.4.299",
     "platejs": "^53.3.11",
     "radix-ui": "^1.6.7",
     "react": "^19.2.8",
