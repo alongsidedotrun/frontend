@@ -244,7 +244,6 @@ export function RedesignPage() {
   }
 
   useEffect(() => {
-    document.title = "Alongside redesign";
     void fetch("/workspaces")
       .then((response) => response.ok ? response.json() as Promise<WorkspaceRecord[]> : Promise.reject(new Error("Could not load workspaces")))
       .then((loaded) => syncWorkspaces(loaded.length ? loaded : [DEFAULT_WORKSPACE]))
