@@ -1,5 +1,5 @@
 import { Trans, useTranslation } from "react-i18next";
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion, type Variants } from "motion/react";
 import { Backdrop } from "@/components/design-system/backdrop";
 import { WorkspaceBrandIcon } from "@/components/design-system/workspace-brand-icon";
@@ -49,10 +49,25 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
   const emailInputRef = useRef<HTMLInputElement>(null);
   const codeId = useId();
 
+  // The dialog keeps the tallest height it has had since opening, so moving
+  // to a shorter step (the browser wait, the code) never shrinks it. Starts
+  // over on the next open.
+  const [minHeight, setMinHeight] = useState<number>();
+  const resizeObserver = useRef<ResizeObserver | null>(null);
+  const measureRef = useCallback((element: HTMLDivElement | null) => {
+    resizeObserver.current?.disconnect();
+    resizeObserver.current = null;
+    if (!element) return;
+    const observer = new ResizeObserver(() => setMinHeight((current) => Math.max(current ?? 0, element.offsetHeight)));
+    observer.observe(element);
+    resizeObserver.current = observer;
+  }, []);
+
   // Closing the dialog stops waiting for a browser sign-in in progress and
   // starts the next one from the beginning.
   useEffect(() => {
     if (open) return;
+    setMinHeight(undefined);
     cancel();
     email.reset();
     setCode("");
@@ -83,7 +98,7 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
     // !z-[120]: above the app top bar (z-[110]), like the other shell dialogs.
     <Dialog open={open} onOpenChange={onOpenChange} backdropClassName="!z-[120]">
       <DialogContent size="xl" initialFocus={emailInputRef} className="!z-[120] max-w-[min(760px,calc(100vw-2rem))] overflow-hidden p-0">
-        <div className="grid min-h-[480px] grid-cols-1 sm:grid-cols-2">
+        <div ref={measureRef} className="grid min-h-[480px] grid-cols-1 sm:grid-cols-2" style={{ minHeight }}>
           <div className="flex flex-col items-center bg-[var(--redesign-primary-surface)] p-8 text-center">
             <WorkspaceBrandIcon size={32} />
 
