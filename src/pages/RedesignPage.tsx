@@ -5,8 +5,9 @@ import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-syste
 import { CreateWorkspaceDialog } from "@/components/design-system/create-workspace-dialog";
 import { SignInDialog } from "@/components/design-system/sign-in-dialog";
 import { useSignInDialogHost } from "@/lib/use-sign-in";
+import { useIdentity } from "@/lib/identity";
 import { loadWorkspaceColor, loadWorkspaceLogo, saveWorkspaceColor, saveWorkspaceDescription, saveWorkspaceLogo } from "@/lib/workspace-logos";
-import { LogInIcon, MessageChatCircleIcon, Settings01Icon, Settings04Icon } from "@/components/icons/untitled-ui";
+import { MessageChatCircleIcon, Settings01Icon, Settings04Icon } from "@/components/icons/untitled-ui";
 import { SplitView } from "@/components/design-system/split-view";
 import { AppTopBar } from "@/components/app-top-bar";
 import { QuickActions, type QuickActionItem } from "@/components/design-system/quick-actions";
@@ -78,10 +79,9 @@ function toWorkspaceOption(workspace: WorkspaceRecord): WorkspaceOption {
   return { id: workspace.id, name: workspace.name, icon };
 }
 
-function profileActionSections(onOpenSettings: () => void, onSignIn: () => void): readonly (readonly WorkspaceMenuAction[])[] {
+function profileActionSections(onOpenSettings: () => void): readonly (readonly WorkspaceMenuAction[])[] {
   return [
     [
-      { id: "sign-in", label: "Sign in", icon: LogInIcon, onSelect: onSignIn },
       { id: "settings", label: "Settings", icon: Settings04Icon, onSelect: onOpenSettings },
       { id: "help", label: "Help", icon: CircleHelp },
     ],
@@ -131,6 +131,7 @@ export function RedesignPage() {
   // openSignInDialog in lib/use-sign-in.ts).
   const [signInOpen, setSignInOpen] = useState(false);
   const openSignIn = useCallback(() => setSignInOpen(true), []);
+  const identity = useIdentity();
   useSignInDialogHost(openSignIn);
   const [manageWorkspacesOpen, setManageWorkspacesOpen] = useState(false);
   const [workspaceNames, setWorkspaceNames] = useState<Record<string, string>>({});
@@ -583,9 +584,11 @@ export function RedesignPage() {
             <GettingStartedSummary label="Getting Started" steps={GETTING_STARTED_STEPS} completedSteps={0} />
             <div className="-mx-[var(--redesign-sidebar-edge-padding)] mt-[var(--redesign-sidebar-section-gap)] border-t border-[var(--redesign-sidebar-border)] px-[var(--redesign-sidebar-edge-padding)] pt-2">
               <SidebarAccountFooter
-                name="Guest"
-                avatar={<DefaultAvatar name="Guest" />}
-                actionSections={profileActionSections(() => navigate("/settings/general"), openSignIn)}
+                signedIn={identity.signedIn}
+                onSignIn={openSignIn}
+                name={identity.displayName ?? "Guest"}
+                avatar={<DefaultAvatar name={identity.displayName ?? "Guest"} />}
+                actionSections={profileActionSections(() => navigate("/settings/general"))}
               />
             </div>
           </footer>
