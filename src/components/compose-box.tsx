@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { loadModelCatalog, useModelCatalogVersion } from "@/lib/model-catalog";
 import type { IconComponent, IconComponentProps } from "@/lib/icon-context";
 import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
 import { useTranslation } from "react-i18next";
@@ -534,12 +535,15 @@ function ContextDropdown({
 function EffortSliderPanel({
   effort,
   onChange,
+  levels = EFFORT_LEVELS,
 }: {
   effort: EffortLevel;
   onChange: (level: EffortLevel) => void;
+  // The selected model's own levels (its CLI's list); all five otherwise.
+  levels?: readonly EffortLevel[];
 }) {
   const { t } = useTranslation();
-  const activeIndex = EFFORT_LEVELS.indexOf(effort);
+  const activeIndex = Math.max(0, levels.indexOf(effort));
 
   return (
     <div className="flex flex-col gap-2">
@@ -584,12 +588,12 @@ function EffortSliderPanel({
         <input
           type="range"
           min={0}
-          max={EFFORT_LEVELS.length - 1}
+          max={levels.length - 1}
           step={1}
           value={activeIndex}
           aria-label={t("compose.effort")}
           onPointerDown={(event) => event.stopPropagation()}
-          onChange={(event) => onChange(EFFORT_LEVELS[Number(event.target.value)])}
+          onChange={(event) => onChange(levels[Number(event.target.value)])}
           // h-3.5, matching the thumb's own size-3.5 -- per explicit follow-up
           // ("the bg should be the same size as the white slider"): the track
           // used to be a thin h-1 line with a much larger thumb sitting on
@@ -610,7 +614,7 @@ function EffortSliderPanel({
             has the real white thumb sitting on it, and a second dot right
             under/beside it would just look like visual noise. */}
         <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-[6px]">
-          {EFFORT_LEVELS.map((level, i) => (
+          {levels.map((level, i) => (
             <span key={level} className={i === activeIndex ? "" : "size-1 rounded-full bg-white/50"} />
           ))}
         </div>
@@ -906,6 +910,12 @@ export function ComposeBox({
     });
   }
   useEffect(checkCliAvailability, []);
+  // Each provider CLI's own model list (lib/model-catalog.ts): applied from
+  // the last session's copy at load, refreshed here and when the picker opens.
+  const catalogVersion = useModelCatalogVersion();
+  useEffect(() => {
+    void loadModelCatalog();
+  }, []);
   // loadLastPermissionMode() first -- per explicit request ("all these
   // three should have a last_effort, last_permission, last_context saved
   // as well for loading purposes"): was a bare hardcoded "manual" with no
@@ -1240,12 +1250,34 @@ export function ComposeBox({
   // below) and the actual rendered row order read off the exact same
   // array, not two independently-sorted copies that could drift.
   const sortedModelRows = useMemo(
+    // catalogVersion: QUICK_CHAT_MODELS changes in place when the providers'
+    // own lists arrive (lib/model-catalog.ts).
     () =>
       QUICK_CHAT_MODELS.filter((m) => m.configured && cliAvailability[m.provider] === true).sort((a, b) =>
         (PROVIDER_DISPLAY[a.provider]?.primary ?? a.provider).localeCompare(PROVIDER_DISPLAY[b.provider]?.primary ?? b.provider)
       ),
-    [cliAvailability]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cliAvailability, catalogVersion]
   );
+
+  // The selected model's own effort levels, when its CLI lists them: [] means
+  // it has no effort setting (the Effort control hides); undefined (an older
+  // built-in entry) offers all five.
+  const modelEfforts = useMemo(() => {
+    const efforts = selectedModels[0]?.efforts;
+    return efforts ? EFFORT_LEVELS.filter((level) => efforts.includes(level)) : undefined;
+  }, [selectedModels]);
+  // Picking a model that doesn't offer the current effort moves to its own
+  // default, or else the nearest level it does offer.
+  useEffect(() => {
+    if (!modelEfforts?.length || modelEfforts.includes(effort)) return;
+    const preferred = selectedModels[0]?.defaultEffort as EffortLevel | undefined;
+    const nearest = [...modelEfforts].sort(
+      (a, b) => Math.abs(EFFORT_LEVELS.indexOf(a) - EFFORT_LEVELS.indexOf(effort)) - Math.abs(EFFORT_LEVELS.indexOf(b) - EFFORT_LEVELS.indexOf(effort)),
+    )[0];
+    setEffort(preferred && modelEfforts.includes(preferred) ? preferred : nearest);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modelEfforts]);
 
   // The model picker's first level: each available provider with its models,
   // providers in alphabetical order (Antigravity, Claude, Codex).
@@ -1689,7 +1721,10 @@ export function ComposeBox({
         <BaseDropdownMenu
           size="compact"
           onOpenChange={(nowOpen) => {
-            if (nowOpen) return;
+            if (nowOpen) {
+              void loadModelCatalog();
+              return;
+            }
             const button = modelTriggerRef.current;
             if (!button) return;
             const reblur = () => button.blur();
@@ -1822,6 +1857,7 @@ export function ComposeBox({
                           isSelected && "bg-hover-2"
                         )}
                         onClick={() => selectModel(m)}
+                        title={m.description}
                       >
                         {modelDisplayName(m)}
                         {/* Set as default -- per explicit request ("the three
@@ -1936,6 +1972,8 @@ export function ComposeBox({
             made it vanish entirely once the compose box stopped
             pre-selecting a default model, confirmed directly as a real
             regression ("Effort is missing from the tool row"). */}
+        {/* Hidden for a model whose CLI lists no effort setting (e.g. Haiku). */}
+        {modelEfforts?.length !== 0 && (
         <BaseDropdownMenu
           size="compact"
           onOpenChange={(nowOpen) => {
@@ -1965,6 +2003,7 @@ export function ComposeBox({
           />
           <BaseDropdownContent side="bottom" align="center" sideOffset={6} className="w-56 min-w-0 p-3">
             <EffortSliderPanel
+              levels={modelEfforts}
               effort={effort}
               onChange={(level) => {
                 effortTouchedRef.current = true;
@@ -1974,6 +2013,7 @@ export function ComposeBox({
             />
           </BaseDropdownContent>
         </BaseDropdownMenu>
+        )}
         {/* Manual / Plan / Auto -- how the agent asks before acting
             ("type of access for the AI", matching Synara's own
             RuntimeUsageControls: approval-required/auto/full-access, the

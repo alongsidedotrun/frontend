@@ -46,6 +46,8 @@ export default defineConfig({
       // built, not a new regression today.
       "/projects": "http://127.0.0.1:3000",
       "/workspaces": "http://127.0.0.1:3000",
+      // Each provider CLI's own model list (backend/src/models.rs).
+      "/models": "http://127.0.0.1:3000",
       "/inbox-items": "http://127.0.0.1:3000",
       "/inbox-mentions": "http://127.0.0.1:3000",
       "/search": "http://127.0.0.1:3000",
