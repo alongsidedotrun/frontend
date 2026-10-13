@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { LOGO_MIME_TYPES, MAX_DESCRIPTION_LENGTH, readLogoFile } from "@/lib/workspace-logos";
-import { WORKSPACE_PALETTE, paletteIndexForName } from "@/lib/identity-palette";
+import { WORKSPACE_HUE_COUNT, WORKSPACE_PALETTE, WORKSPACE_SWATCH_ORDER, paletteIndexForName } from "@/lib/identity-palette";
 import { cn } from "@/lib/utils";
 
 export type WorkspaceFieldValues = {
@@ -49,7 +49,7 @@ export function WorkspaceFields({ values, onChange, nameError, autoFocusName }: 
   const trimmed = values.name.trim();
   // Without a logo, the workspace gets its first letter on a palette colour.
   const monogram = workspaceMonogram(trimmed, values.colorIndex);
-  const selectedColor = values.colorIndex ?? (trimmed ? paletteIndexForName(trimmed, WORKSPACE_PALETTE.length) : null);
+  const selectedColor = values.colorIndex ?? (trimmed ? paletteIndexForName(trimmed, WORKSPACE_HUE_COUNT) : null);
 
   return (
     <>
@@ -95,7 +95,9 @@ export function WorkspaceFields({ values, onChange, nameError, autoFocusName }: 
         {/* Colour for the letter tile; hidden once a logo replaces it. */}
         {!values.logo && (
           <div role="radiogroup" aria-label="Tile colour" className="flex items-center gap-2 pt-1">
-            {WORKSPACE_PALETTE.map((swatch, index) => {
+            {WORKSPACE_SWATCH_ORDER.map((index) => {
+              const swatch = WORKSPACE_PALETTE[index];
+              const dot = swatch.swatch ?? swatch.fg;
               const selected = selectedColor === index;
               return (
                 <button
@@ -108,9 +110,13 @@ export function WorkspaceFields({ values, onChange, nameError, autoFocusName }: 
                   onClick={() => set({ colorIndex: index })}
                   className={cn(
                     "size-5 rounded-full outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-ring",
+                    // White and Black get a hairline so they show on light and dark surfaces.
+                    swatch.swatch && "shadow-[inset_0_0_0_1px_var(--redesign-sidebar-border)]",
                     selected && "ring-2 ring-offset-2 ring-offset-[var(--redesign-primary-surface)]",
                   )}
-                  style={{ backgroundColor: swatch.fg, ...(selected ? { ["--tw-ring-color" as string]: swatch.fg } : {}) }}
+                  // The selection ring takes the dot's colour; White and Black use the
+                  // text colour, which shows in both themes.
+                  style={{ backgroundColor: dot, ...(selected ? { ["--tw-ring-color" as string]: swatch.swatch ? "var(--foreground)" : dot } : {}) }}
                 />
               );
             })}
