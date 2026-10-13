@@ -106,12 +106,23 @@ const quickActions = (t: Translate): readonly QuickActionItem[] => [
   { id: "chats", label: t("common.newChat"), icon: Plus },
 ];
 
-const GETTING_STARTED_STEP_IDS = ["profile", "data", "provider", "chat"] as const;
-const gettingStartedSteps = (t: Translate): readonly GettingStartedStep[] =>
+// Getting started: the essentials, each done when the real thing is (a
+// provider connected, a chat sent, signed in, a chat shared), each opening
+// where to do it.
+const GETTING_STARTED_STEP_IDS = ["provider", "message", "account", "multiplayer"] as const;
+const GETTING_STARTED_DONE_KEY = "alongside_getting_started_done";
+type GettingStartedStepId = (typeof GETTING_STARTED_STEP_IDS)[number];
+const gettingStartedSteps = (
+  t: Translate,
+  done: Record<GettingStartedStepId, boolean>,
+  open: Record<GettingStartedStepId, () => void>,
+): readonly GettingStartedStep[] =>
   GETTING_STARTED_STEP_IDS.map((id) => ({
     id,
     label: t(`shell.gettingStarted.${id}.label`),
     description: t(`shell.gettingStarted.${id}.description`),
+    complete: done[id],
+    onSelect: open[id],
   }));
 
 // Quick actions entries for each settings page, in the order they're listed
@@ -170,6 +181,10 @@ export function RedesignPage() {
   const [inboxMentions, setInboxMentions] = useState<InboxMention[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [chats, setChats] = useState<Chat[]>([]);
+  // Getting started's own checks: any provider CLI connected, and hosting on
+  // (a chat shared). Re-read on each navigation; both are cheap local calls.
+  const [providerReady, setProviderReady] = useState(false);
+  const [hostingOn, setHostingOn] = useState(false);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
@@ -543,6 +558,68 @@ export function RedesignPage() {
     })),
   ], [activeChatId, chats, navigate, routeChatId, t]);
 
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all(
+      ["claude", "codex", "antigravity"].map((cli) =>
+        fetch(`/cli/${cli}/available`)
+          .then((response) => (response.ok ? (response.json() as Promise<{ available?: boolean }>) : null))
+          .then((data) => Boolean(data?.available))
+          .catch(() => false),
+      ),
+    ).then((ready) => {
+      if (!cancelled) setProviderReady(ready.some(Boolean));
+    });
+    void fetch("/host/status")
+      .then((response) => (response.ok ? (response.json() as Promise<{ hosting?: boolean }>) : null))
+      .then((data) => {
+        if (!cancelled) setHostingOn(Boolean(data?.hosting));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [location.pathname]);
+
+  // A step stays done once it has been done (deleting every chat or signing
+  // out later doesn't untick it), remembered on this device.
+  const liveDone: Record<GettingStartedStepId, boolean> = {
+    provider: providerReady,
+    message: chats.length > 0,
+    account: identity.signedIn,
+    multiplayer: hostingOn,
+  };
+  const [rememberedDone, setRememberedDone] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(GETTING_STARTED_DONE_KEY) ?? "[]") as string[];
+    } catch {
+      return [];
+    }
+  });
+  const newlyDone = GETTING_STARTED_STEP_IDS.filter((id) => liveDone[id] && !rememberedDone.includes(id));
+  useEffect(() => {
+    if (newlyDone.length === 0) return;
+    const next = [...rememberedDone, ...newlyDone];
+    setRememberedDone(next);
+    try {
+      localStorage.setItem(GETTING_STARTED_DONE_KEY, JSON.stringify(next));
+    } catch {
+      // storage blocked: still shown done while the live check holds
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newlyDone.join(",")]);
+  const steps = gettingStartedSteps(
+    t,
+    Object.fromEntries(GETTING_STARTED_STEP_IDS.map((id) => [id, liveDone[id] || rememberedDone.includes(id)])) as Record<GettingStartedStepId, boolean>,
+    {
+      provider: () => navigate("/settings/provider"),
+      message: () => navigate("/new/chat"),
+      account: () => (identity.signedIn ? navigate("/settings/profile") : openSignIn()),
+      // Sharing happens from a chat (/share there): the latest one, or a new one.
+      multiplayer: () => navigate(chats[0] ? `/chat/${chats[0].id}` : "/new/chat"),
+    },
+  );
+
   return (
     <>
     <SplitView
@@ -640,7 +717,7 @@ export function RedesignPage() {
           )}
           </div>
           <footer className="mt-auto pt-[var(--redesign-sidebar-section-gap)]">
-            <GettingStartedSummary label={t("shell.gettingStarted.label")} steps={gettingStartedSteps(t)} completedSteps={0} />
+            <GettingStartedSummary label={t("shell.gettingStarted.label")} steps={steps} completedSteps={steps.filter((step) => step.complete).length} />
             <div className="-mx-[var(--redesign-sidebar-edge-padding)] mt-[var(--redesign-sidebar-section-gap)] border-t border-[var(--redesign-sidebar-border)] px-[var(--redesign-sidebar-edge-padding)] pt-2">
               <SidebarAccountFooter
                 signedIn={identity.signedIn}
