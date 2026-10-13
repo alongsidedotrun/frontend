@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { beginSignIn, waitForSignIn } from "@/lib/auth";
+import { beginSignIn, startEmailSignIn, verifyEmailCode, waitForSignIn, type SignInProvider } from "@/lib/auth";
 
 export type SignInPhase = "idle" | "waiting" | "failed" | "timeout";
 
 /**
  * The browser sign-in flow shared by the /auth page and the sign-in dialog:
- * open the identity provider's page in the system browser, then wait for the
- * backend to report the account signed in (lib/auth.ts).
+ * open the provider's page (or the hosted sign-in page) in the system
+ * browser, then wait for the backend to report the account signed in
+ * (lib/auth.ts).
  */
 export function useSignInFlow(onSignedIn: () => void) {
   const [phase, setPhase] = useState<SignInPhase>("idle");
@@ -16,11 +17,15 @@ export function useSignInFlow(onSignedIn: () => void) {
 
   useEffect(() => () => controller.current?.abort(), []);
 
-  async function start() {
+  // The provider last started, so "open again" reopens the same one.
+  const [provider, setProvider] = useState<SignInProvider | undefined>(undefined);
+
+  async function start(nextProvider: SignInProvider | undefined = provider) {
+    setProvider(nextProvider);
     controller.current?.abort();
     const current = new AbortController();
     controller.current = current;
-    if (!(await beginSignIn())) {
+    if (!(await beginSignIn(nextProvider))) {
       setPhase("failed");
       return;
     }
@@ -39,7 +44,78 @@ export function useSignInFlow(onSignedIn: () => void) {
     setPhase("idle");
   }
 
-  return { phase, start, cancel };
+  return { phase, provider, start, cancel };
+}
+
+export type EmailStep = "email" | "code";
+export type EmailError = "invalid_email" | "rate_limited" | "invalid_code" | "expired" | "failed";
+
+// Seconds before another code can be sent to the same address.
+export const RESEND_COOLDOWN_S = 30;
+
+/**
+ * Email sign-in inside the dialog: send a one-time code to the address, then
+ * check the code typed in. `onUnsupported` runs when the backend has no email
+ * endpoints yet, so the caller can fall back to the browser sign-in.
+ */
+export function useEmailSignIn(onSignedIn: () => void, onUnsupported: () => void) {
+  const [step, setStep] = useState<EmailStep>("email");
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<EmailError | null>(null);
+  const [cooldown, setCooldown] = useState(0);
+  const onSignedInRef = useRef(onSignedIn);
+  onSignedInRef.current = onSignedIn;
+  const onUnsupportedRef = useRef(onUnsupported);
+  onUnsupportedRef.current = onUnsupported;
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setTimeout(() => setCooldown((value) => value - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
+
+  async function send(address: string = email) {
+    const trimmed = address.trim();
+    if (!trimmed || busy) return;
+    setBusy(true);
+    setError(null);
+    const result = await startEmailSignIn(trimmed);
+    setBusy(false);
+    if (result === "unsupported") {
+      onUnsupportedRef.current();
+      return;
+    }
+    if (result !== "sent") {
+      setError(result);
+      return;
+    }
+    setEmail(trimmed);
+    setStep("code");
+    setCooldown(RESEND_COOLDOWN_S);
+  }
+
+  async function verify(code: string) {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    const result = await verifyEmailCode(code);
+    setBusy(false);
+    if (result === "signed-in") {
+      reset();
+      onSignedInRef.current();
+      return;
+    }
+    setError(result);
+  }
+
+  function reset() {
+    setStep("email");
+    setError(null);
+    setBusy(false);
+  }
+
+  return { step, email, busy, error, cooldown, send, verify, reset, clearError: () => setError(null) };
 }
 
 // Lets anything (e.g. Settings) open the sign-in dialog when the shell that
