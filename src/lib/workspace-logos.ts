@@ -46,6 +46,27 @@ export function saveWorkspaceDescription(workspaceId: string, description: strin
   }
 }
 
+const COLOR_KEY_PREFIX = "alongside_workspace_color:";
+
+/** Palette index picked for a workspace's letter tile, if one was picked. */
+export function loadWorkspaceColor(workspaceId: string): number | null {
+  try {
+    const raw = localStorage.getItem(COLOR_KEY_PREFIX + workspaceId);
+    return raw === null ? null : Number(raw);
+  } catch {
+    return null;
+  }
+}
+
+export function saveWorkspaceColor(workspaceId: string, index: number | null) {
+  try {
+    if (index === null) localStorage.removeItem(COLOR_KEY_PREFIX + workspaceId);
+    else localStorage.setItem(COLOR_KEY_PREFIX + workspaceId, String(index));
+  } catch {
+    // Quota or storage disabled: the tile falls back to the name's colour.
+  }
+}
+
 /** Reads an uploaded logo as a data URL, or explains why it was rejected. */
 export function readLogoFile(file: File): Promise<{ dataUrl: string } | { error: string }> {
   if (!LOGO_MIME_TYPES.includes(file.type)) {

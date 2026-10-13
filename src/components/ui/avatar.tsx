@@ -4,6 +4,7 @@ import { Avatar as AvatarPrimitive } from "radix-ui"
 import { cn } from "@/lib/utils"
 import { AlongsideLogo } from "@/components/icons/alongside-logo"
 import { getUserAvatarSeed, getUserDisplayName, useUserAvatarImage } from "@/lib/user"
+import { IDENTITY_PALETTE, paletteIndexForName } from "@/lib/identity-palette"
 
 function Avatar({
   className,
@@ -68,23 +69,9 @@ function AvatarFallback({
 // different one at chat and at sidebar"). Soft tint background with the
 // mark itself in a deeper shade of the same hue, matching the reference
 // screenshot's own pastel-circle-plus-glyph look.
-const AVATAR_PALETTE: { bg: string; fg: string }[] = [
-  { bg: "#FCEACB", fg: "#C17F2B" }, // amber
-  { bg: "#DCEEE1", fg: "#3E8B67" }, // sage green
-  { bg: "#E7DEF5", fg: "#7C5CB8" }, // lavender
-  { bg: "#DAE8FB", fg: "#3D6FB4" }, // sky blue
-  { bg: "#FBE0E6", fg: "#BF5170" }, // coral pink
-  { bg: "#D8F1EE", fg: "#2C948B" }, // teal
-]
-
-// Deterministic per `name` (same idea as the boring-avatars fallback this
-// replaces) so the same person always lands on the same color, across
-// every place their name is passed in.
-function paletteIndexForName(name: string, count: number) {
-  let hash = 0
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0
-  return hash % count
-}
+// Palette and name hash live in lib/identity-palette.ts, shared with the
+// default workspace tiles.
+const AVATAR_PALETTE = IDENTITY_PALETTE
 
 // Goes inside AvatarFallback wherever there's no uploaded/real avatar
 // image, in place of a plain initial-letter circle -- also used directly

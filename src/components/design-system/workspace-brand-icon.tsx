@@ -1,5 +1,6 @@
 import { useId, type ComponentType, type SVGProps } from "react";
 import { AlongsideLogo } from "@/components/icons/alongside-logo";
+import { IDENTITY_PALETTE, paletteIndexForName } from "@/lib/identity-palette";
 import { cn } from "@/lib/utils";
 
 /**
@@ -54,6 +55,11 @@ type WorkspaceBrandIconProps = {
   icon?: ComponentType<SVGProps<SVGSVGElement>>;
   /** Optional image logo for a workspace that does not ship an SVG component. */
   imageSrc?: string;
+  /**
+   * Default tile for a workspace without a logo: its first letter in `fg` on
+   * a `bg` tile (see workspaceMonogram). Ignored when imageSrc is set.
+   */
+  monogram?: WorkspaceMonogram;
   className?: string;
   markClassName?: string;
 };
@@ -72,10 +78,21 @@ type WorkspaceBrandIconProps = {
  * Image marks use <image> in the same svg; preserveAspectRatio keeps any
  * source resolution contained and centred in the artwork box.
  */
+export type WorkspaceMonogram = { letter: string; bg: string; fg: string };
+
+/** First letter of the workspace name on its palette colour (picked or from the name). */
+export function workspaceMonogram(name: string, colorIndex?: number | null): WorkspaceMonogram | null {
+  const letter = Array.from(name.trim())[0];
+  if (!letter) return null;
+  const { bg, fg } = IDENTITY_PALETTE[colorIndex ?? paletteIndexForName(name.trim())] ?? IDENTITY_PALETTE[0];
+  return { letter: letter.toLocaleUpperCase(), bg, fg };
+}
+
 export function WorkspaceBrandIcon({
   size,
   icon: Icon = AlongsideLogo,
   imageSrc,
+  monogram,
   className,
   markClassName,
 }: WorkspaceBrandIconProps) {
@@ -94,10 +111,24 @@ export function WorkspaceBrandIcon({
         width={TILE}
         height={TILE}
         rx={radius}
-        // One look in both themes: white tile, black mark (no theme inversion).
-        className="!fill-white"
+        // One look in both themes: white tile, black mark (no theme
+        // inversion); a monogram tile takes its palette colour instead.
+        className={monogram && !imageSrc ? undefined : "!fill-white"}
+        style={monogram && !imageSrc ? { fill: monogram.bg } : undefined}
       />
-      {imageSrc ? (
+      {!imageSrc && monogram ? (
+        <text
+          x={TILE / 2}
+          y={TILE / 2}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fontSize={30}
+          fontWeight={600}
+          style={{ fill: monogram.fg }}
+        >
+          {monogram.letter}
+        </text>
+      ) : imageSrc ? (
         // An uploaded logo *is* the tile: full bleed, clipped to the tile's
         // rounded corners, so it matches the tile size and radius everywhere
         // (the rect underneath only shows through transparent logos).
