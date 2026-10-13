@@ -840,7 +840,10 @@ const DropdownSeparator = forwardRef<
   <div
     ref={ref}
     role="separator"
-    className={cn("my-1 h-px shrink-0 bg-border/60", className)}
+    // 3px each side, the same inset rows have from the panel's edge, so a
+    // highlighted row never touches the line (as in the redesign menus'
+    // RedesignDropdownSeparator).
+    className={cn("my-[3px] h-px shrink-0 bg-border/60", className)}
     {...props}
   />
 ));
@@ -934,24 +937,6 @@ function DropdownSubMenuItem({
             aria-label={label}
             className={cn(
               `relative z-10 flex ${sizeClasses.control} shrink-0 items-center ${sizeClasses.gap} ${shape.item} ${sizeClasses.itemPx} cursor-pointer outline-none`,
-              // Same divider-adjacent margin-cancel rule as MenuItem's own
-              // itemClassName (menu-item.tsx's own comment has the full
-              // reasoning) -- a submenu trigger row (e.g. "Add to project")
-              // sits right next to a DropdownSeparator just as often as a
-              // plain MenuItem does. has-[~...] (any later sibling), not
-              // has-[+...] (immediate next sibling only) -- real bug,
-              // confirmed via screenshot ("the add project looks right but
-              // when i hover over that creates the space again"): opening
-              // this row's own submenu (openOnHover, Base UI's default)
-              // inserts a floating-ui positioning node as a real sibling
-              // right after this row while open, which made the separator
-              // no longer this row's *immediate* next sibling and broke the
-              // `+` match specifically while hovered/open. `~` still
-              // matches with that extra node in between. Safe here (unlike
-              // MenuItem's own `+`) because a menu only ever has one
-              // submenu trigger immediately before a given divider, so
-              // there's no earlier row this could wrongly also match.
-              "[[role=separator]+&]:-mt-1 has-[~[role=separator]]:-mb-1",
               // px-2 -- same border-clearance fix as MenuItem's own
               // itemClassName (menu-item.tsx's own comment has the full
               // reasoning).
@@ -1063,15 +1048,6 @@ const DropdownSubItem = forwardRef<HTMLDivElement, DropdownSubItemProps>(
     const highlightClass = SURFACE_DATA_HIGHLIGHTED_BG[Math.min(level + 1, 8)];
     const rowClassName = cn(
       `relative flex ${useSize().control} shrink-0 items-center ${useSize().itemPx} cursor-pointer outline-none ${highlightClass} data-disabled:pointer-events-none data-disabled:opacity-50 ${shape.item}`,
-      // Same divider-adjacent margin-cancel rule as MenuItem's own
-      // itemClassName (menu-item.tsx's own comment has the full reasoning)
-      // -- a DropdownSubItem sits right next to a DropdownSeparator just
-      // as often as a plain MenuItem does (e.g. the flattened model list's
-      // own "Add provider" row after its separator). `+` (immediate
-      // sibling), not `~`, is safe here: unlike DropdownSubMenuItem, this
-      // row never opens its own submenu, so no floating-ui node is ever
-      // inserted between it and a following separator.
-      "[[role=separator]+&]:-mt-1 has-[+[role=separator]]:-mb-1",
       // px-2 -- same border-clearance fix as MenuItem's own itemClassName
       // (menu-item.tsx's own comment has the full reasoning).
       "px-2",
