@@ -1,6 +1,6 @@
 import { useId, type ComponentType, type SVGProps } from "react";
 import { AlongsideLogo } from "@/components/icons/alongside-logo";
-import { WORKSPACE_PALETTE, paletteIndexForName } from "@/lib/identity-palette";
+import { WORKSPACE_HUE_COUNT, WORKSPACE_PALETTE, paletteIndexForName } from "@/lib/identity-palette";
 import { cn } from "@/lib/utils";
 
 /**
@@ -78,14 +78,14 @@ type WorkspaceBrandIconProps = {
  * Image marks use <image> in the same svg; preserveAspectRatio keeps any
  * source resolution contained and centred in the artwork box.
  */
-export type WorkspaceMonogram = { letter: string; bg: string; fg: string };
+export type WorkspaceMonogram = { letter: string; bg: string; fg: string; darkEdge?: boolean };
 
 /** First letter of the workspace name on its palette colour (picked or from the name). */
 export function workspaceMonogram(name: string, colorIndex?: number | null): WorkspaceMonogram | null {
   const letter = Array.from(name.trim())[0];
   if (!letter) return null;
-  const { bg, fg } = WORKSPACE_PALETTE[colorIndex ?? paletteIndexForName(name.trim(), WORKSPACE_PALETTE.length)] ?? WORKSPACE_PALETTE[0];
-  return { letter: letter.toLocaleUpperCase(), bg, fg };
+  const { bg, fg, darkEdge } = WORKSPACE_PALETTE[colorIndex ?? paletteIndexForName(name.trim(), WORKSPACE_HUE_COUNT)] ?? WORKSPACE_PALETTE[0];
+  return { letter: letter.toLocaleUpperCase(), bg, fg, darkEdge };
 }
 
 export function WorkspaceBrandIcon({
@@ -176,7 +176,11 @@ export function WorkspaceBrandIcon({
         strokeWidth={edgeInset * 2}
         // Light mode only: on dark surfaces the white tile already stands
         // out, and the dark border colour would read as a ring inside it.
-        className="stroke-[var(--redesign-sidebar-footer-onboarding-border)] dark:stroke-transparent"
+        // A black letter tile keeps a faint light edge there instead.
+        className={cn(
+          "stroke-[var(--redesign-sidebar-footer-onboarding-border)]",
+          monogram?.darkEdge && !imageSrc ? "dark:stroke-white/15" : "dark:stroke-transparent",
+        )}
       />
     </svg>
   );
