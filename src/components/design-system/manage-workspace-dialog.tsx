@@ -1,6 +1,5 @@
 import { useEffect, useId, useState } from "react";
 import { workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
-import { AlongsideLogo } from "@/components/icons/alongside-logo";
 import { WorkspaceFields, type WorkspaceFieldValues } from "@/components/design-system/workspace-fields";
 import { WorkspacePreview } from "@/components/design-system/create-workspace-dialog";
 import { Button } from "@/components/ui/button";
@@ -32,10 +31,8 @@ type ManageWorkspaceDialogProps = {
   onSave: (change: WorkspaceChange) => Promise<void> | void;
   /** Deletes the workspace; resolves once deleted (the dialog then closes). */
   onDelete: () => Promise<void> | void;
-  /** Whether another workspace is showing, so this one can be archived. */
-  canArchive?: boolean;
-  /** Archives (hides) the built-in workspace; resolves once done. */
-  onArchive?: () => Promise<void> | void;
+  /** Whether another workspace exists: the last one can't be deleted. */
+  canDelete?: boolean;
   saving?: boolean;
   error?: string | null;
 };
@@ -47,10 +44,11 @@ function valuesOf(workspace: ManagedWorkspace): WorkspaceFieldValues {
 /**
  * Two-pane dialog for the current workspace, laid out like Create workspace:
  * its logo or letter tile, name and description on the left with a live
- * sidebar preview on the right, and deleting it at the bottom. The built-in
- * Alongside workspace can't be changed or deleted.
+ * sidebar preview on the right, and deleting it at the bottom. Every
+ * workspace, Personal included, works the same way; only the last one can't
+ * be deleted.
  */
-export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, onDelete, canArchive = false, onArchive, saving = false, error }: ManageWorkspaceDialogProps) {
+export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, onDelete, canDelete = false, saving = false, error }: ManageWorkspaceDialogProps) {
   const [values, setValues] = useState<WorkspaceFieldValues>(() => valuesOf(workspace));
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [confirmName, setConfirmName] = useState("");
@@ -86,42 +84,11 @@ export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, o
             <div className="flex flex-col gap-1">
               <DialogTitle className="text-[18px] font-medium text-foreground">Manage workspace</DialogTitle>
               <DialogDescription className="text-[12px] text-muted-foreground">
-                {workspace.is_personal ? "Your built-in workspace." : "Change how this workspace looks, or delete it."}
+                Change how this workspace looks, or delete it.
               </DialogDescription>
             </div>
 
-            {workspace.is_personal ? (
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center gap-3">
-                  {/* Same 40px tile and 18px glyph as Create workspace's logo placeholder. */}
-                  <span className="grid size-10 shrink-0 place-items-center rounded-[8.94px] border border-[var(--redesign-sidebar-footer-onboarding-border)] bg-white text-black dark:border-transparent">
-                    <AlongsideLogo aria-hidden="true" className="size-[18px]" />
-                  </span>
-                  <span className="text-[13px] font-medium text-foreground">{workspace.name}</span>
-                </div>
-                <div className="flex flex-col gap-1.5 text-[12px] leading-relaxed text-muted-foreground">
-                  <p>It comes with the app, so it can't be renamed or deleted.</p>
-                  <p>Once you've created another workspace, you can archive this one and restore it later from the workspace menu.</p>
-                </div>
-                {error && <p className="text-[12px] text-destructive">{error}</p>}
-                <div className="mt-auto flex items-center gap-2">
-                  <Button type="button" variant="tertiary" size="compact" onClick={() => onOpenChange(false)}>
-                    Close
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="tertiary"
-                    size="compact"
-                    disabled={!canArchive || saving}
-                    title={canArchive ? undefined : "Create another workspace first"}
-                    onClick={() => void onArchive?.()}
-                  >
-                    Archive workspace
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <>
+            <>
                 <form
                   className="flex flex-col gap-6"
                   onSubmit={(event) => {
@@ -129,7 +96,7 @@ export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, o
                     if (changed && trimmedName && !saving) void onSave(change);
                   }}
                 >
-                  <WorkspaceFields values={values} onChange={setValues} nameError={error} />
+                  <WorkspaceFields values={values} onChange={setValues} nameError={confirmingDelete ? null : error} />
                   <div className="flex items-center gap-2">
                     <Button type="button" variant="tertiary" onClick={() => onOpenChange(false)}>
                       Cancel
@@ -142,8 +109,10 @@ export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, o
 
                 <section className="flex flex-col gap-2 border-t border-[var(--redesign-sidebar-border)] pt-5">
                   <span className="text-[13px] font-medium text-foreground">Delete workspace</span>
-                  <span className="text-[12px] text-muted-foreground">Removes this workspace from Alongside. This can't be undone.</span>
-                  {confirmingDelete ? (
+                  <span className="text-[12px] text-muted-foreground">
+                    {canDelete ? "Removes this workspace from Alongside. This can't be undone." : "This is your only workspace, so it can't be deleted. Create another workspace first."}
+                  </span>
+                  {!canDelete ? null : confirmingDelete ? (
                     <form
                       className="flex flex-col gap-2 pt-1"
                       onSubmit={(event) => {
@@ -162,6 +131,7 @@ export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, o
                         autoComplete="off"
                         className="h-8 border-[var(--redesign-sidebar-border)] bg-background text-[13px]"
                       />
+                      {error && <p className="text-[12px] text-destructive">{error}</p>}
                       <div className="flex items-center gap-2">
                         <Button type="button" variant="tertiary" size="compact" onClick={() => { setConfirmingDelete(false); setConfirmName(""); }}>
                           Keep workspace
@@ -185,15 +155,13 @@ export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, o
                     </div>
                   )}
                 </section>
-              </>
-            )}
+            </>
           </div>
 
           <WorkspacePreview
             name={previewName}
-            logo={workspace.is_personal ? null : values.logo}
-            monogram={workspace.is_personal ? null : workspaceMonogram(previewName, values.colorIndex)}
-            builtIn={workspace.is_personal}
+            logo={values.logo}
+            monogram={workspaceMonogram(previewName, values.colorIndex)}
           />
         </div>
       </DialogContent>
