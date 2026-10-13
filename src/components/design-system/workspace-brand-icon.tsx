@@ -81,6 +81,8 @@ export function WorkspaceBrandIcon({
 }: WorkspaceBrandIconProps) {
   const radius = (tileRadiusPx(size) * TILE) / size;
   const clipId = useId();
+  // Half a CSS pixel in viewBox units, for the 1px hairline edge below.
+  const edgeInset = (0.5 * TILE) / size;
   return (
     <svg
       aria-hidden="true"
@@ -130,6 +132,21 @@ export function WorkspaceBrandIcon({
           )}
         />
       )}
+      {/* Hairline edge, the Getting Started card's barely-visible border, so
+          the white tile reads as a tile on light surfaces (light mode only). Drawn last so it
+          also edges uploaded logos; inset half a pixel to stay inside. */}
+      <rect
+        x={edgeInset}
+        y={edgeInset}
+        width={TILE - edgeInset * 2}
+        height={TILE - edgeInset * 2}
+        rx={Math.max(0, radius - edgeInset)}
+        fill="none"
+        strokeWidth={edgeInset * 2}
+        // Light mode only: on dark surfaces the white tile already stands
+        // out, and the dark border colour would read as a ring inside it.
+        className="stroke-[var(--redesign-sidebar-footer-onboarding-border)] dark:stroke-transparent"
+      />
     </svg>
   );
 }
