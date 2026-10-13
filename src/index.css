@@ -50,17 +50,12 @@
   }
 }
 
-/* Backdrop (design-system/backdrop.tsx): the light gradient waving along its
-   400% layer, the dark one turning on its oversized square (transform
-   only, no repaints).
+/* Backdrop (design-system/backdrop.tsx): each theme's gradient waving along
+   its 400% layer (transform only, no repaints).
    Top level, not in @theme. */
 @keyframes backdrop-wave {
   0%, 100% { transform: translate(0, -50%); }
   50% { transform: translate(-75%, -50%); }
-}
-@keyframes backdrop-rotate {
-  from { transform: translate(-50%, -50%) rotate(0deg); }
-  to { transform: translate(-50%, -50%) rotate(360deg); }
 }
 
 /* The Button's loading glyph (ui/button.tsx). Top level, not inside
