@@ -1,9 +1,14 @@
 import { useState, type ReactNode } from "react";
-import { Check, ChevronDown, ChevronsUpDown, CircleDashed, ImagePlus } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { Check, CircleCheck, CircleDashed, X } from "lucide-react";
+import { LogInIcon, SettingsIcon } from "@/components/icons/untitled-ui";
+import { Backdrop } from "@/components/design-system/backdrop";
 import { cn } from "@/lib/utils";
+import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { DropdownActionRow, DropdownActionSection, type DropdownAction } from "@/components/design-system/dropdown-action-list";
+import { RedesignDropdownContent, RedesignDropdownSeparator } from "@/components/design-system/redesign-dropdown";
 
 export type GettingStartedStep = {
   id: string;
@@ -22,23 +27,40 @@ type GettingStartedSummaryProps = {
   defaultExpanded?: boolean;
   viewAllLabel?: string;
   onViewAll?: () => void;
+  /** Once every step is done, the count becomes an X that calls this. */
+  onDismiss?: () => void;
 };
 
 function SetupProgressRing({ completedSteps, totalSteps }: { completedSteps: number; totalSteps: number }) {
   const progress = totalSteps ? Math.min(Math.max(completedSteps / totalSteps, 0), 1) : 0;
-  const degrees = `${progress * 360}deg`;
-  const ringMask = "radial-gradient(circle, transparent 0 calc(50% - var(--redesign-sidebar-footer-progress-inset)), #000 calc(50% - var(--redesign-sidebar-footer-progress-inset)))";
+  // A track circle with the blue progress arc drawn over it from the top,
+  // its ends rounded (stroke-linecap round). Drawn in a 16-unit box: 3-unit
+  // stroke on a radius-6.5 circle, the same weight the ring had before.
+  const radius = 6.5;
+  const circumference = 2 * Math.PI * radius;
+  // Inline, so the sidebar's 1px icon-stroke rule (index.css, data-icon-stroke)
+  // doesn't thin the ring or measure its dash in screen pixels.
+  const stroke = (color: string) => ({ stroke: color, strokeWidth: 3, vectorEffect: "none" as const });
   return (
-    <span
+    <svg
       key={`${completedSteps}-${totalSteps}`}
       aria-hidden="true"
-      className="size-[var(--redesign-sidebar-footer-progress-size)] shrink-0 animate-[redesign-progress-ring_400ms_ease-out] rounded-full"
-      style={{
-        background: `conic-gradient(var(--focus-accent) 0deg ${degrees}, var(--redesign-progress-track) ${degrees} 360deg)`,
-        maskImage: ringMask,
-        WebkitMaskImage: ringMask,
-      }}
-    />
+      viewBox="0 0 16 16"
+      className="size-[var(--redesign-sidebar-footer-progress-size)] shrink-0 -rotate-90 animate-[redesign-progress-ring_400ms_ease-out]"
+    >
+      <circle cx="8" cy="8" r={radius} fill="none" style={stroke("var(--redesign-progress-track)")} />
+      {progress > 0 && (
+        <circle
+          cx="8"
+          cy="8"
+          r={radius}
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={`${progress * circumference} ${circumference}`}
+          style={stroke("var(--focus-accent)")}
+        />
+      )}
+    </svg>
   );
 }
 
@@ -50,9 +72,12 @@ export function GettingStartedSummary({
   defaultExpanded = false,
   viewAllLabel,
   onViewAll,
+  onDismiss,
 }: GettingStartedSummaryProps) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(defaultExpanded);
-  const count = `${completedSteps} of ${steps.length}`;
+  const count = t("shell.gettingStarted.count", { done: completedSteps, total: steps.length });
+  const allDone = steps.length > 0 && completedSteps >= steps.length;
   const panelRadius = expanded
     ? "rounded-[var(--redesign-sidebar-footer-onboarding-radius)]"
     : "rounded-[var(--redesign-sidebar-footer-onboarding-collapsed-radius)]";
@@ -62,74 +87,96 @@ export function GettingStartedSummary({
 
   return (
     <div
-      className={cn(panelRadius, "border border-[var(--redesign-sidebar-border)]")}
-      style={{ backgroundColor: "var(--redesign-sidebar-overlay-surface)" }}
+      className={cn(
+        panelRadius,
+        "border border-[var(--redesign-sidebar-footer-onboarding-border)]",
+        "shadow-[var(--redesign-sidebar-footer-onboarding-shadow)]",
+        // Same side inset as the collapsed row; 6px top / 8px bottom. The
+        // last task row carries ~5.5px of its own space under its circle, so
+        // these make the visible gaps equal: panel edge to ring = last circle
+        // to panel edge (13.5px). The header shifts down 6px on open.
+        expanded && "px-[var(--redesign-quick-actions-padding)] pt-1.5 pb-2",
+      )}
+      style={{ backgroundColor: "var(--redesign-getting-started-surface)" }}
     >
+      <div className="relative">
       <button
         type="button"
         aria-expanded={expanded}
         onClick={() => setExpanded((current) => !current)}
         className={cn(
-          "w-full text-[length:var(--redesign-font-size-base)] text-foreground/70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          // Full colour in both states: unlike the muted sidebar rows, this is a
+          // reminder that should stand out.
+          "w-full text-[length:var(--redesign-font-size-base)] font-normal text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           triggerRadius,
-          expanded
-            ? "flex min-h-[var(--redesign-sidebar-footer-row-height)] flex-col items-stretch gap-2 px-[var(--redesign-sidebar-footer-content-inset)] pb-0 pt-4"
-            : "flex h-[var(--redesign-sidebar-footer-row-height)] items-center gap-[var(--redesign-quick-actions-icon-gap)] px-[var(--redesign-quick-actions-padding)]",
+          // One row in both states (ring, label, count), per request -- the
+          // label stays beside the ring when expanded instead of wrapping under it.
+          "flex h-[var(--redesign-sidebar-footer-row-height)] items-center gap-[var(--redesign-quick-actions-icon-gap)]",
+          expanded ? "p-0" : "px-[var(--redesign-quick-actions-padding)]",
           !expanded && "hover:bg-muted/50 hover:text-foreground",
         )}
       >
-        {expanded ? (
-          <>
-            <span className="flex items-center">
-              <SetupProgressRing completedSteps={completedSteps} totalSteps={steps.length} />
-              <span className="ml-auto shrink-0 text-[length:var(--redesign-font-size-compact)] text-foreground/70">{count}</span>
-              <ChevronDown aria-hidden="true" strokeWidth={2} className="ml-[var(--redesign-quick-actions-icon-gap)] size-[var(--redesign-sidebar-footer-chevron-size)] shrink-0 rotate-180 transition-transform duration-200" />
-            </span>
-            <span className="min-w-0 truncate text-left">{label}</span>
-          </>
+        {allDone ? (
+          // Everything done: a solid green tick in place of the ring.
+          <span className="flex size-[var(--redesign-sidebar-footer-progress-size)] shrink-0 items-center justify-center rounded-full bg-[var(--redesign-success)] text-white animate-[redesign-progress-ring_400ms_ease-out]">
+            <Check aria-hidden="true" strokeWidth={3} style={{ vectorEffect: "none" }} className="size-[65%]" />
+          </span>
         ) : (
-          <>
-            <SetupProgressRing completedSteps={completedSteps} totalSteps={steps.length} />
-            <span className="min-w-0 flex-1 truncate text-left">{label}</span>
-            <span className="shrink-0 text-[length:var(--redesign-font-size-compact)] text-foreground/70">{count}</span>
-            <ChevronDown aria-hidden="true" strokeWidth={2} className="size-[var(--redesign-sidebar-footer-chevron-size)] shrink-0 transition-transform duration-200" />
-          </>
+          <SetupProgressRing completedSteps={completedSteps} totalSteps={steps.length} />
         )}
+        <span className="min-w-0 flex-1 truncate text-left font-medium">{label}</span>
+        {/* Room for the X (a sibling, as buttons can't nest) once all done. */}
+        {allDone && onDismiss ? <span aria-hidden="true" className="size-5 shrink-0" /> : <span className="shrink-0 text-[length:var(--redesign-font-size-compact)]">{count}</span>}
       </button>
+      {allDone && onDismiss && (
+        <button
+          type="button"
+          aria-label={t("shell.gettingStarted.dismiss")}
+          onClick={onDismiss}
+          className={cn(
+            "absolute top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded-[var(--redesign-dropdown-row-radius)] text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            expanded ? "right-0" : "right-[var(--redesign-quick-actions-padding)]",
+            PRESS_EFFECT,
+            ICON_PRESS,
+          )}
+        >
+          <X aria-hidden="true" strokeWidth={2} className="size-3.5" />
+        </button>
+      )}
+      </div>
       <div className={cn("grid transition-[grid-template-rows,opacity] duration-200 ease-out", expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")}>
-        <div className="min-h-0 overflow-hidden">
-          <div className="flex flex-col gap-[var(--redesign-quick-actions-row-gap)] px-[var(--redesign-sidebar-footer-steps-side-padding)] pb-[var(--redesign-sidebar-footer-steps-bottom-padding)] pt-[var(--redesign-sidebar-footer-steps-top-padding)]">
+        <div className="-mx-[var(--redesign-sidebar-footer-task-hover-bleed)] min-h-0 w-[calc(100%+2*var(--redesign-sidebar-footer-task-hover-bleed))] overflow-hidden px-[var(--redesign-sidebar-footer-task-hover-bleed)]">
+          <div className="flex flex-col gap-1.5 pt-1.5">
             {steps.map((step) => (
               <Popover key={step.id}>
                 <PopoverTrigger asChild>
                   <button
                     type="button"
-                    className="group flex h-[var(--redesign-sidebar-footer-task-row-height)] items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-left text-[length:var(--redesign-font-size-base)] text-foreground opacity-50 transition-[color,opacity] hover:bg-muted/70 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="group -mx-[var(--redesign-sidebar-footer-task-hover-bleed)] flex h-[var(--redesign-sidebar-footer-task-row-height)] w-[calc(100%+2*var(--redesign-sidebar-footer-task-hover-bleed))] items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-sidebar-footer-task-hover-bleed)] text-left text-[length:var(--redesign-font-size-base)] font-medium text-foreground/50 transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {step.complete ? (
-                      <span className="flex size-[var(--redesign-sidebar-footer-task-indicator-size)] shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                        <Check aria-hidden="true" strokeWidth={2} className="size-[65%]" />
-                      </span>
+                      // Done: an outlined tick and the label struck through.
+                      <CircleCheck aria-hidden="true" strokeWidth={2} className="size-[var(--redesign-sidebar-footer-task-indicator-size)] shrink-0 text-muted-foreground" />
                     ) : (
                       <CircleDashed aria-hidden="true" strokeWidth={2} className="size-[var(--redesign-sidebar-footer-task-indicator-size)] shrink-0 text-current" />
                     )}
-                    <span className="truncate">{step.label}</span>
+                    <span className={cn("truncate", step.complete && "text-muted-foreground line-through decoration-muted-foreground/70")}>{step.label}</span>
                   </button>
                 </PopoverTrigger>
                 <PopoverContent side="right" align="end" className="w-[var(--redesign-sidebar-footer-task-popover-width)] gap-[var(--redesign-sidebar-footer-task-popover-gap)] rounded-[var(--redesign-workspace-menu-radius)] border border-[var(--redesign-sidebar-border)] bg-[var(--redesign-primary-surface)] p-[var(--redesign-sidebar-footer-task-popover-padding)] ring-0">
-                  <div className="flex aspect-[var(--redesign-sidebar-footer-task-image-ratio)] items-center justify-center overflow-hidden rounded-[var(--redesign-control-radius)] bg-muted/70 text-muted-foreground/55">
-                    {step.image ?? <ImagePlus aria-hidden="true" strokeWidth={1.5} className="size-[var(--redesign-sidebar-footer-task-image-icon-size)]" />}
+                  <div className="relative flex aspect-[var(--redesign-sidebar-footer-task-image-ratio)] items-center justify-center overflow-hidden rounded-[var(--redesign-control-radius)] bg-muted/70 text-muted-foreground/55">
+                    {step.image ?? <Backdrop />}
                   </div>
                   <div>
                     <h3 className="text-[length:var(--redesign-font-size-md)] font-medium text-foreground">{step.label}</h3>
-                    {step.description && <p className="mt-[var(--redesign-sidebar-footer-task-description-gap)] text-[length:var(--redesign-font-size-base)] leading-relaxed text-muted-foreground">{step.description}</p>}
+                    {step.description && <p className="mt-[var(--redesign-sidebar-footer-task-description-gap)] text-[length:var(--redesign-font-size-base)] font-medium leading-relaxed text-muted-foreground">{step.description}</p>}
                   </div>
                   <button
                     type="button"
                     onClick={step.onSelect}
                     className="h-[var(--redesign-sidebar-footer-task-action-height)] self-start rounded-[var(--redesign-dropdown-row-radius)] bg-[var(--focus-accent)] px-[var(--redesign-sidebar-footer-upgrade-padding)] text-[length:var(--redesign-font-size-compact)] font-medium text-white transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    {step.actionLabel ?? "Start task"}
+                    {step.actionLabel ?? t("shell.gettingStarted.startTask")}
                   </button>
                 </PopoverContent>
               </Popover>
@@ -138,7 +185,7 @@ export function GettingStartedSummary({
               <button
                 type="button"
                 onClick={onViewAll}
-                className="h-[var(--redesign-sidebar-footer-task-row-height)] self-start rounded-[var(--redesign-control-radius)] pl-[var(--redesign-quick-actions-padding)] pr-[var(--redesign-quick-actions-padding)] text-[length:var(--redesign-font-size-base)] font-medium text-[var(--focus-accent)] transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-auto self-start rounded-[var(--redesign-control-radius)] pt-1.5 text-[length:var(--redesign-font-size-base)] font-medium leading-none text-[var(--focus-accent)] transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {viewAllLabel}
               </button>
@@ -153,48 +200,70 @@ export function GettingStartedSummary({
 type SidebarAccountFooterProps = {
   name: string;
   avatar: ReactNode;
-  actionSections: readonly (readonly DropdownAction[])[];
+  /** Signed out: the left side is a Sign in button instead of the profile. */
+  signedIn: boolean;
+  onSignIn: () => void;
+  /** The settings button on the right goes straight to Settings. */
+  onOpenSettings: () => void;
+  /** Menu opened by clicking the profile once signed in (profile, help, upgrade, sign out). */
+  profileSections: readonly (readonly DropdownAction[])[];
 };
 
-/** Account dropdown matching the workspace menu's action rows and spacing. */
-export function SidebarAccountFooter({ name, avatar, actionSections }: SidebarAccountFooterProps) {
+/**
+ * Account row: Sign in (signed out) or the profile (signed in, opening the
+ * profile menu) on the left, and a settings button on the right.
+ */
+export function SidebarAccountFooter({ name, avatar, signedIn, onSignIn, onOpenSettings, profileSections }: SidebarAccountFooterProps) {
+  const { t } = useTranslation();
+  const rowButton =
+    "flex h-full min-w-0 flex-1 items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-left text-[length:var(--redesign-sidebar-primary-font-size)] font-medium text-foreground transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label="Open profile menu"
-          className="flex h-[var(--redesign-sidebar-footer-account-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <span className="size-[var(--redesign-sidebar-footer-avatar-size)] shrink-0 overflow-hidden rounded-full">{avatar}</span>
-          <span className="min-w-0 flex-1 truncate text-[length:var(--redesign-font-size-base)] text-foreground/70">{name}</span>
-          <ChevronsUpDown aria-hidden="true" strokeWidth={1.5} className="size-[var(--redesign-sidebar-footer-chevron-size)] shrink-0 text-muted-foreground" />
+    <div className="flex h-[var(--redesign-sidebar-footer-account-row-height)] w-full items-center gap-1">
+      {signedIn ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button type="button" aria-label={t("shell.profileMenu.open")} className={rowButton}>
+              <span className="size-[var(--redesign-sidebar-footer-avatar-size)] shrink-0 overflow-hidden rounded-full">{avatar}</span>
+              <span className="min-w-0 flex-1 truncate">{name}</span>
+            </button>
+          </DropdownMenuTrigger>
+          <RedesignDropdownContent
+            side="top"
+            align="start"
+            sideOffset={6}
+            viewportClassName="overflow-visible rounded-[var(--redesign-workspace-menu-radius)] p-0"
+          >
+            {profileSections.map((section, index) => (
+              <div key={section.map((action) => action.id).join("-")}>
+                {index > 0 && <RedesignDropdownSeparator />}
+                <DropdownActionSection className="gap-[var(--redesign-quick-actions-row-gap)] py-0">
+                  {section.map((action) => (
+                    <DropdownActionRow
+                      key={action.id}
+                      action={action}
+                      className="h-[var(--redesign-sidebar-footer-task-row-height)] gap-[var(--redesign-workspace-trigger-gap)] px-[var(--redesign-menu-horizontal-padding)]"
+                    />
+                  ))}
+                </DropdownActionSection>
+              </div>
+            ))}
+          </RedesignDropdownContent>
+        </DropdownMenu>
+      ) : (
+        // Muted like New chat; the signed-in name above keeps the full text colour.
+        <button type="button" onClick={onSignIn} className={cn(rowButton, "text-muted-foreground hover:text-foreground")}>
+          <LogInIcon aria-hidden="true" className="size-[var(--redesign-quick-actions-icon-size)] shrink-0" />
+          <span className="truncate">{t("common.signIn")}</span>
         </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        side="top"
-        align="start"
-        sideOffset={6}
-        className="w-[var(--redesign-workspace-menu-width)] rounded-[var(--redesign-workspace-menu-radius)] border border-border"
-        viewportClassName="overflow-visible rounded-[var(--redesign-workspace-menu-radius)] p-0"
-        style={{ backgroundColor: "var(--redesign-sidebar-overlay-surface)" }}
+      )}
+      <button
+        type="button"
+        aria-label={t("nav.settings")}
+        onClick={onOpenSettings}
+        className={cn("grid size-7 shrink-0 place-items-center rounded-[var(--redesign-control-radius)] text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", PRESS_EFFECT, ICON_PRESS)}
       >
-        <div className="flex flex-col px-[var(--redesign-menu-horizontal-padding)]">
-          {actionSections.map((section, index) => (
-            <div key={section.map((action) => action.id).join("-")}>
-              {index > 0 && <DropdownMenuSeparator />}
-              <DropdownActionSection
-                className={cn(
-                  index === 0 && "pt-[var(--redesign-menu-first-section-top-padding)]",
-                  index === actionSections.length - 1 && "pb-[var(--redesign-menu-last-section-bottom-padding)]",
-                )}
-              >
-                {section.map((action) => <DropdownActionRow key={action.id} action={action} />)}
-              </DropdownActionSection>
-            </div>
-          ))}
-        </div>
-      </DropdownMenuContent>
-    </DropdownMenu>
+        <SettingsIcon aria-hidden="true" className="size-[var(--redesign-workspace-chevron-size)]" />
+      </button>
+    </div>
   );
 }

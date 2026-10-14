@@ -1,191 +1,842 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { cn } from "cn"
-import { Select as SelectPrimitive } from "radix-ui"
-import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
+import {
+  Children,
+  forwardRef,
+  isValidElement,
+  useRef,
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  createContext,
+  useContext,
+  type ReactNode,
+  type HTMLAttributes,
+} from "react";
+import { motion, AnimatePresence } from "motion/react";
+import { cva, type VariantProps } from "class-variance-authority";
+import { Select as SelectPrimitive } from "@base-ui/react/select";
+import type { IconComponent } from "@/lib/icon-context";
+import { cn } from "@/lib/utils";
+import { spring, exitFallbackMs } from "@/lib/springs";
+import { useFluidHover, useRegisterFluidHoverItem } from "@/hooks/use-fluid-hover";
+import { useShape, shapeMap } from "@/lib/shape-context";
+import { SizeProvider, useSize, typeClass, type SizeVariant } from "@/lib/size-context";
+import { Elevated } from "@/lib/elevated";
+import {
+  popupMotionClass,
+  popupScrollAreaClass,
+  popupViewportClass,
+  isDisabledRow,
+} from "@/lib/popup";
+import { useKeyboardNavGate } from "@/hooks/use-keyboard-nav-gate";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { FluidHoverHighlight } from "@/components/fluid-hover-highlight";
+
+
+// ---------------------------------------------------------------------------
+// Select context
+//
+// Built on Base UI's Select primitive, which owns positioning (collision
+// flipping, anchor tracking), dismissal (outside press, focus-out, Escape
+// nesting inside dialogs), list keyboard navigation + typeahead, combobox
+// ARIA, and the hidden form input. This layer keeps the
+// fluid-hover overlays, the spring open/close animation (every close calls
+// preventUnmountOnClose, and the content releases the unmount through
+// actionsRef once the exit spring ends), and the animated checkmark.
+// ---------------------------------------------------------------------------
+
+// How long a selection holds the popup open before closing, so the
+// acknowledgment — the checkmark drawing in and the selected background
+// springing to the picked row — is visible instead of being cut off by the
+// ~60ms close fade. Escape and outside presses still close immediately.
+const selectionAckMs = 300;
+
+interface SelectContextValue {
+  value: string;
+  open: boolean;
+  actionsRef: React.RefObject<{ unmount: () => void; close: () => void } | null>;
+}
+
+const SelectContext = createContext<SelectContextValue | null>(null);
+
+function useSelectContext() {
+  const ctx = useContext(SelectContext);
+  if (!ctx) throw new Error("Select compound components must be inside <Select>");
+  return ctx;
+}
+
+// Content context for fluid hover
+interface SelectContentContextValue {
+  registerItem: (index: number, element: HTMLElement | null) => void;
+  activeIndex: number | null;
+  checkedIndex?: number;
+}
+
+const SelectContentContext =
+  createContext<SelectContentContextValue | null>(null);
+
+// ---------------------------------------------------------------------------
+// Select (root)
+// ---------------------------------------------------------------------------
+
+// The trigger follows the global pill/rounded shape; the popup does not.
+// Like Dropdown and Combobox, the list keeps the smaller "rounded" radii
+// whatever the rest of the UI is shaped: pill corners on a popover distort
+// its padding and break the concentric fit of the rows' hover and selection
+// backgrounds inside it.
+const popupShape = shapeMap.rounded;
+
+interface SelectProps {
+  children: ReactNode;
+  value?: string;
+  defaultValue?: string;
+  onValueChange?: (value: any) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  disabled?: boolean;
+  name?: string;
+  required?: boolean;
+  /** Pins trigger and popup to one step of the size ladder (default 36px,
+   *  compact 28px — see /docs/sizes). Omitted, both follow the surrounding
+   *  SizeProvider. */
+  size?: SizeVariant;
+}
+
+/**
+ * Walk the children tree collecting `{ value, label }` pairs from SelectItem
+ * elements. Passed to Base UI's `items` prop so the trigger can resolve the
+ * label of an initial value before the popup has ever mounted (items only
+ * render while open). Non-string labels fall back to the raw value, matching
+ * the previous labelMap behaviour.
+ */
+function collectSelectItems(
+  node: ReactNode,
+  out: { value: string; label: ReactNode }[] = []
+) {
+  Children.forEach(node, (child) => {
+    if (!isValidElement(child)) return;
+    const props = child.props as { value?: unknown; children?: ReactNode };
+    if (typeof props.value === "string") {
+      out.push({
+        value: props.value,
+        label:
+          typeof props.children === "string" ? props.children : props.value,
+      });
+    } else if (props.children) {
+      collectSelectItems(props.children, out);
+    }
+  });
+  return out;
+}
 
 function Select({
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Root>) {
-  return <SelectPrimitive.Root data-slot="select" {...props} />
-}
-
-function SelectGroup({
-  className,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Group>) {
-  return (
-    <SelectPrimitive.Group
-      data-slot="select-group"
-      className={cn("scroll-my-1 p-1", className)}
-      {...props}
-    />
-  )
-}
-
-function SelectValue({
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Value>) {
-  return <SelectPrimitive.Value data-slot="select-value" {...props} />
-}
-
-function SelectTrigger({
-  className,
-  size = "default",
   children,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Trigger> & {
-  size?: "sm" | "default"
-}) {
-  return (
-    <SelectPrimitive.Trigger
-      data-slot="select-trigger"
-      data-size={size}
-      className={cn(
-        "flex w-fit items-center justify-between gap-1.5 rounded-lg border border-input bg-transparent py-2 pr-2 pl-2.5 text-sm whitespace-nowrap transition-colors outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 data-placeholder:text-muted-foreground data-[size=default]:h-8 data-[size=sm]:h-7 data-[size=sm]:rounded-[min(var(--radius-md),10px)] *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 dark:bg-input/30 dark:hover:bg-input/50 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className
-      )}
-      {...props}
-    >
-      {children}
-      <SelectPrimitive.Icon asChild>
-        <ChevronDownIcon className="pointer-events-none size-4 text-muted-foreground" />
-      </SelectPrimitive.Icon>
-    </SelectPrimitive.Trigger>
-  )
-}
+  value,
+  defaultValue,
+  onValueChange,
+  open: openProp,
+  onOpenChange,
+  disabled = false,
+  name,
+  required,
+  size,
+}: SelectProps) {
+  const [internalValue, setInternalValue] = useState(defaultValue ?? "");
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = openProp ?? internalOpen;
+  const actionsRef = useRef<{ unmount: () => void; close: () => void } | null>(null);
+  const currentValue = value !== undefined ? value : internalValue;
 
-function SelectContent({
-  className,
-  children,
-  position = "item-aligned",
-  align = "center",
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Content>) {
-  return (
-    <SelectPrimitive.Portal>
-      <SelectPrimitive.Content
-        data-slot="select-content"
-        data-align-trigger={position === "item-aligned"}
-        className={cn("relative z-50 max-h-(--radix-select-content-available-height) min-w-36 origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[align-trigger=true]:animate-none data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", position ==="popper"&&"data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1", className )}
-        position={position}
-        align={align}
-        {...props}
+  const items = useMemo(() => collectSelectItems(children), [children]);
+
+  const handleValueChange = useCallback(
+    (next: string | null) => {
+      const v = next ?? "";
+      if (value === undefined) setInternalValue(v);
+      onValueChange?.(v);
+    },
+    [value, onValueChange]
+  );
+
+  const ackTimeoutRef = useRef<number | null>(null);
+  const cancelAckClose = useCallback(() => {
+    if (ackTimeoutRef.current !== null) {
+      clearTimeout(ackTimeoutRef.current);
+      ackTimeoutRef.current = null;
+    }
+  }, []);
+  useEffect(() => cancelAckClose, [cancelAckClose]);
+
+  // Picking an item acknowledges before closing: the close is deferred by
+  // selectionAckMs so the checkmark draw and the selected background's spring
+  // to the picked row are seen. Every other close reason (Escape, outside
+  // press, trigger toggle, focus-out) closes immediately and cancels any
+  // pending acknowledgment; re-picking within the window restarts it.
+  // Every close holds Base UI's unmount for the exit spring. The deferred one
+  // holds it now: the opt-out carries over to the close applied later.
+  const handleOpenChange = useCallback(
+    (
+      nextOpen: boolean,
+      eventDetails: { reason: string; preventUnmountOnClose: () => void }
+    ) => {
+      if (!nextOpen) eventDetails.preventUnmountOnClose();
+      if (!nextOpen && eventDetails.reason === "item-press") {
+        cancelAckClose();
+        ackTimeoutRef.current = window.setTimeout(() => {
+          ackTimeoutRef.current = null;
+          if (openProp === undefined) setInternalOpen(false);
+          onOpenChange?.(false);
+        }, selectionAckMs);
+        return;
+      }
+      cancelAckClose();
+      if (openProp === undefined) setInternalOpen(nextOpen);
+      onOpenChange?.(nextOpen);
+    },
+    [cancelAckClose, onOpenChange, openProp]
+  );
+
+  const ctx = useMemo(
+    () => ({ value: currentValue, open, actionsRef }),
+    [currentValue, open]
+  );
+
+  // A size prop pins the whole compound (trigger + portalled popup — React
+  // context crosses portals) to one step of the ladder.
+  const root = (
+    <SelectContext.Provider value={ctx}>
+      <SelectPrimitive.Root
+        // Always controlled; "" (no selection) maps to Base UI's null.
+        value={currentValue === "" ? null : currentValue}
+        onValueChange={handleValueChange}
+        open={open}
+        onOpenChange={handleOpenChange}
+        actionsRef={actionsRef}
+        items={items}
+        disabled={disabled}
+        name={name}
+        required={required}
+        // Non-modal: the page keeps scrolling and the Positioner tracks the
+        // anchor, so the popup follows its trigger instead of detaching.
+        modal={false}
       >
-        <SelectScrollUpButton />
-        <SelectPrimitive.Viewport
-          data-position={position}
+        {children}
+      </SelectPrimitive.Root>
+    </SelectContext.Provider>
+  );
+
+  return size ? <SizeProvider size={size}>{root}</SizeProvider> : root;
+}
+
+Select.displayName = "Select";
+
+// ---------------------------------------------------------------------------
+// SelectTrigger
+// ---------------------------------------------------------------------------
+
+const triggerVariants = cva(
+  [
+    "group inline-flex items-center justify-between outline-none cursor-pointer",
+    "transition-all duration-80",
+    "disabled:opacity-50 disabled:pointer-events-none",
+    "focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
+  ],
+  {
+    variants: {
+      variant: {
+        bordered:
+          "border border-border bg-transparent text-foreground hover:bg-hover",
+        borderless:
+          "border border-transparent bg-transparent text-foreground hover:bg-hover",
+      },
+    },
+    defaultVariants: {
+      variant: "bordered",
+    },
+  }
+);
+
+interface SelectTriggerProps
+  extends HTMLAttributes<HTMLButtonElement>,
+    VariantProps<typeof triggerVariants> {
+  icon?: IconComponent;
+  placeholder?: string;
+  error?: string;
+  /** Size override for the trigger alone. Prefer the `size` prop on <Select>
+   *  (or a surrounding SizeProvider) so the popup matches. */
+  size?: SizeVariant;
+}
+
+const SelectTrigger = forwardRef<HTMLButtonElement, SelectTriggerProps>(
+  (
+    {
+      className,
+      variant,
+      icon: Icon,
+      placeholder = "Select…",
+      error,
+      size,
+      children: _children,
+      ...props
+    },
+    ref
+  ) => {
+    const shape = useShape();
+    const sizeClasses = useSize(size);
+    const compact = sizeClasses.variant === "compact";
+
+    return (
+      <div className="flex flex-col gap-1">
+        <SelectPrimitive.Trigger
+          ref={ref}
+          aria-invalid={!!error || undefined}
           className={cn(
-            "data-[position=popper]:h-(--radix-select-trigger-height) data-[position=popper]:w-full data-[position=popper]:min-w-(--radix-select-trigger-width)",
-            position === "popper" && ""
+            triggerVariants({ variant }),
+            sizeClasses.control,
+            sizeClasses.text,
+            sizeClasses.px,
+            sizeClasses.gap,
+            compact ? "min-w-[128px]" : "min-w-[160px]",
+            shape.input,
+            error && "border-destructive/50 hover:border-destructive/50",
+            className
           )}
+          {...props}
+        >
+          <span className={cn("flex items-center min-w-0 flex-1", sizeClasses.gap)}>
+            {Icon && (
+              <Icon
+                size={sizeClasses.icon}
+                strokeWidth={1.5}
+                className="shrink-0 text-muted-foreground transition-[color,stroke-width] duration-80 group-hover:text-foreground group-hover:stroke-[2]"
+              />
+            )}
+            <SelectPrimitive.Value
+              placeholder={placeholder}
+              // py-1/-my-1: truncate's overflow:hidden clips at the padding
+              // box, and the trimmed box excludes ascenders/descenders — the
+              // padding gives glyphs room while the negative margin keeps the
+              // trimmed layout box.
+              className="min-w-0 flex-1 text-left truncate [text-box:trim-both_cap_alphabetic] py-1 -my-1 data-[placeholder]:text-muted-foreground"
+            />
+          </span>
+
+          <svg
+            width={sizeClasses.icon}
+            height={sizeClasses.icon}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="shrink-0 text-muted-foreground transition-colors duration-80 group-hover:text-foreground"
+          >
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </SelectPrimitive.Trigger>
+        {error && (
+          <span className="text-[length:var(--fs-caption,12px)] leading-[var(--lh-caption,16px)] text-destructive pl-3">{error}</span>
+        )}
+      </div>
+    );
+  }
+);
+
+SelectTrigger.displayName = "SelectTrigger";
+
+const SelectValue = SelectPrimitive.Value;
+
+// ---------------------------------------------------------------------------
+// SelectContent
+// ---------------------------------------------------------------------------
+
+interface SelectContentProps {
+  className?: string;
+  children: ReactNode;
+}
+
+const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(
+  ({ className, children }, ref) => {
+    const { open, value, actionsRef } = useSelectContext();
+    const shape = popupShape;
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    const hover = useFluidHover(containerRef, { isItemDisabled: isDisabledRow });
+    const {
+      activeIndex,
+      setActiveIndex,
+      itemRects,
+      isMeasured,
+      handlers,
+      registerItem,
+      remeasure,
+    } = hover;
+
+    const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+
+    // Keyboard focus ring gate: seeded from the trigger's :focus-visible at
+    // open, earned by navigation keys inside the popup.
+    const { keyboardNavRef, trackKeyboardNav } = useKeyboardNavGate(open);
+    const [checkedIndex, setCheckedIndex] = useState<number | undefined>(
+      undefined
+    );
+
+    // Release Base UI's deferred unmount once the exit tween has played.
+    // onAnimationComplete on the motion.div is the primary signal; this
+    // timeout is a fallback for throttled/background tabs where rAF-driven
+    // animation callbacks can stall. The popup exits with spring.fast, so the
+    // fallback tracks that tier's exit duration plus a safety buffer.
+    useEffect(() => {
+      if (open) return;
+      const id = setTimeout(
+        () => actionsRef.current?.unmount(),
+        exitFallbackMs(spring.fast)
+      );
+      return () => clearTimeout(id);
+    }, [open, actionsRef]);
+
+    // Fresh rects once per open. Measuring is the hook's job — it owns the
+    // one coalesced pass that item registration and container resizes both
+    // feed into, and a second pass from elsewhere is what used to land a
+    // corrected rect on an already-mounted overlay. The popup keeps its items
+    // registered while it sits hidden between opens, so registration alone
+    // would never trigger a fresh pass on reopen.
+    useEffect(() => {
+      if (!open) return;
+      remeasure();
+    }, [open, remeasure]);
+
+    // Detect the checked row. Deliberately does NOT remeasure on a value
+    // change while open: the rows haven't moved, so the published rects stay
+    // trustworthy and only checkedIndex switches — which lets the selected
+    // marker spring from the old row to the picked one (the selection
+    // acknowledgment) instead of unmounting and snapping.
+    useEffect(() => {
+      if (!open) return;
+      // Double rAF: first waits for React commit, second for layout
+      let inner: number;
+      const outer = requestAnimationFrame(() => {
+        inner = requestAnimationFrame(() => {
+          const container = containerRef.current;
+          if (container) {
+            const items = Array.from(
+              container.querySelectorAll("[data-fluid-hover-index]")
+            ) as HTMLElement[];
+            const idx = items.findIndex(
+              (el) => el.getAttribute("data-value") === value
+            );
+            setCheckedIndex(idx !== -1 ? idx : undefined);
+          }
+        });
+      });
+      return () => {
+        cancelAnimationFrame(outer);
+        cancelAnimationFrame(inner);
+      };
+    }, [open, value]);
+
+    // Reset every overlay index as the close begins. checkedIndex otherwise
+    // lags one open behind value (picking an item closes the popup before the
+    // effect above re-syncs it), and a leftover activeIndex is worse: Base UI
+    // keeps the popup mounted through the exit tween, so on reopen the hover
+    // pill would still be sitting on the previously active row and spring from
+    // there to the row that auto-focus lands on.
+    // Done during the render that closes it.
+    const [overlaysOpen, setOverlaysOpen] = useState(open);
+    if (overlaysOpen !== open) {
+      setOverlaysOpen(open);
+      if (!open) {
+        setCheckedIndex(undefined);
+        setActiveIndex(null);
+        setFocusedIndex(null);
+      }
+    }
+
+    // Overlays read rects only once the hook reports the item set fully
+    // measured. Positioning one from an incomplete pass mounts it at the wrong
+    // row, and the correcting pass then springs it across the list.
+    const checkedRect =
+      isMeasured && checkedIndex != null ? itemRects[checkedIndex] : null;
+    const focusRect =
+      isMeasured && focusedIndex !== null ? itemRects[focusedIndex] : null;
+
+    const contentCtx = useMemo(
+      () => ({ registerItem, activeIndex, checkedIndex }),
+      [registerItem, activeIndex, checkedIndex]
+    );
+
+    return (
+      <SelectPrimitive.Portal>
+        <SelectPrimitive.Positioner
+          side="bottom"
+          align="start"
+          sideOffset={6}
+          alignItemWithTrigger={false}
+          className="z-50 outline-none"
+        >
+          <motion.div
+            className={popupMotionClass}
+            initial={{ opacity: 0, y: "var(--popup-enter-y)", scaleY: 0.96 }}
+            animate={
+              open
+                ? { opacity: 1, y: 0, scaleY: 1 }
+                : { opacity: 0, y: "var(--popup-enter-y)", scaleY: 0.96 }
+            }
+            transition={open ? spring.fast : spring.fast.exit}
+            // The close held Base UI's unmount (preventUnmountOnClose); release it once
+            // the exit spring has finished so the close animation fully plays.
+            onAnimationComplete={() => {
+              if (!open) actionsRef.current?.unmount();
+            }}
+          >
+            <SelectContentContext.Provider value={contentCtx}>
+              <SelectPrimitive.Popup
+                render={
+                  <Elevated
+                    offset={2}
+                    shadowLevel={3}
+                    ref={ref}
+                  />
+                }
+                // Capture phase: the primitive moves focus during its own keydown
+                // handling, so the nav flag must be set before then.
+                onKeyDownCapture={trackKeyboardNav}
+                onMouseEnter={() => {
+                  handlers.onMouseEnter();
+                  setFocusedIndex(null);
+                }}
+                onMouseMove={handlers.onMouseMove}
+                onMouseLeave={handlers.onMouseLeave}
+                onClick={handlers.onClick}
+                onFocus={(e) => {
+                  const indexAttr = (e.target as HTMLElement)
+                    .closest("[data-fluid-hover-index]")
+                    ?.getAttribute("data-fluid-hover-index");
+                  if (indexAttr != null) {
+                    const idx = Number(indexAttr);
+                    setActiveIndex(idx);
+                    setFocusedIndex(
+                      keyboardNavRef.current &&
+                        (e.target as HTMLElement).matches(":focus-visible")
+                        ? idx
+                        : null
+                    );
+                  }
+                }}
+                onBlur={(e) => {
+                  // The popup itself takes focus when the pointer leaves a row; only a
+                  // departure from the whole popup ends the hover session.
+                  if (e.currentTarget.contains(e.relatedTarget as Node))
+                    return;
+                  setFocusedIndex(null);
+                  setActiveIndex(null);
+                }}
+                className={cn(
+                  // min-w tracks the trigger via the Positioner's --anchor-width
+                  // var, matching the pre-migration minWidth: triggerRect.width.
+                  `flex flex-col min-w-[var(--anchor-width)] max-h-[min(300px,var(--available-height))] overflow-hidden ${shape.container} select-none outline-none`,
+                  className
+                )}
+              >
+                {/* The list scrolls inside a ScrollArea; this wrapper is the rows'
+                    offsetParent, so the overlays scroll with them. */}
+                <ScrollArea className={popupScrollAreaClass} viewportClassName={cn(popupViewportClass, "scroll-fade")}>
+                  <div
+                    ref={containerRef}
+                    className="relative flex flex-col p-1"
+                  >
+                {/* The three overlays are torn down as the close begins rather
+                    than exit-animated, because an overlay still mounted when the
+                    popup reopens is one AnimatePresence re-adopts under its old
+                    key: `initial` never runs again, so it keeps the position of the
+                    row it had before and animates from there to the new one. The
+                    popup's own fade covers their disappearance. */}
+                {/* Selected background */}
+                {open && (
+                  <AnimatePresence>
+                    {checkedRect && (
+                      <motion.div
+                        className={`absolute ${shape.bg} bg-active pointer-events-none`}
+                        // Position lives in `animate` so an in-session value
+                        // change springs the marker to the picked row (the
+                        // selection acknowledgment). Safe against the reopen
+                        // slide: the `open &&` teardown means no marker
+                        // survives a close, and a fresh mount with
+                        // initial={false} renders snapped at these values.
+                        initial={false}
+                        animate={{
+                          top: checkedRect.top,
+                          left: checkedRect.left,
+                          width: checkedRect.width,
+                          height: checkedRect.height,
+                          opacity: 1,
+                        }}
+                        exit={{ opacity: 0, transition: spring.moderate.exit }}
+                        transition={{
+                          ...spring.moderate,
+                          opacity: { duration: 0.08 },
+                        }}
+                      />
+                    )}
+                  </AnimatePresence>
+                )}
+
+                {/* Hover background */}
+                <FluidHoverHighlight
+                  hover={hover}
+                  hidden={!open}
+                  className={shape.bg}
+                />
+
+                {/* Focus ring */}
+                {open && (
+                  <AnimatePresence>
+                    {focusRect && (
+                      <motion.div
+                        className={`absolute ${shape.focusRing} pointer-events-none z-20 border border-[color:var(--focus-ring,#6B97FF)]`}
+                        initial={false}
+                        animate={{
+                          left: focusRect.left - 2,
+                          top: focusRect.top - 2,
+                          width: focusRect.width + 4,
+                          height: focusRect.height + 4,
+                        }}
+                        exit={{ opacity: 0, transition: spring.fast.exit }}
+                        transition={{
+                          ...spring.fast,
+                          opacity: { duration: 0.08 },
+                        }}
+                      />
+                    )}
+                  </AnimatePresence>
+                )}
+
+                {children}
+                  </div>
+                </ScrollArea>
+              </SelectPrimitive.Popup>
+            </SelectContentContext.Provider>
+          </motion.div>
+        </SelectPrimitive.Positioner>
+      </SelectPrimitive.Portal>
+    );
+  }
+);
+
+SelectContent.displayName = "SelectContent";
+
+// ---------------------------------------------------------------------------
+// SelectItem
+// ---------------------------------------------------------------------------
+
+interface SelectItemProps extends HTMLAttributes<HTMLDivElement> {
+  icon?: IconComponent;
+  index?: number;
+  value: string;
+  disabled?: boolean;
+}
+
+const SelectItem = forwardRef<HTMLDivElement, SelectItemProps>(
+  (
+    {
+      className,
+      children,
+      icon: Icon,
+      value,
+      index = 0,
+      disabled = false,
+      ...props
+    },
+    ref
+  ) => {
+    const selectCtx = useSelectContext();
+    const contentCtx = useContext(SelectContentContext);
+    const internalRef = useRef<HTMLDivElement>(null);
+    const shape = popupShape;
+    const sizeClasses = useSize();
+    const compact = sizeClasses.variant === "compact";
+
+    // Register with fluid hover. Depends on the (stable) registerItem
+    // rather than the content context, which is rebuilt on every activeIndex
+    // change: keying the effect to the whole context re-ran it per mousemove,
+    // unregistering and re-registering every row and so keeping the hook's
+    // measurement permanently unsettled while the pointer moved.
+    const registerItem = contentCtx?.registerItem;
+    useRegisterFluidHoverItem(registerItem, index, internalRef);
+
+    const isActive = contentCtx?.activeIndex === index;
+    const isChecked = selectCtx.value === value;
+
+    return (
+      <SelectPrimitive.Item
+        value={value}
+        disabled={disabled}
+        label={typeof children === "string" ? children : undefined}
+        render={
+          <div
+            ref={(node: HTMLDivElement | null) => {
+              (
+                internalRef as React.MutableRefObject<HTMLDivElement | null>
+              ).current = node;
+              if (typeof ref === "function") ref(node);
+              else if (ref)
+                (ref as React.MutableRefObject<HTMLDivElement | null>).current =
+                  node;
+            }}
+            data-fluid-hover-index={index}
+            data-value={value}
+            className={cn(
+              // Fixed height (was py-2 around a 19.5px line box ≈ 35.5px) so
+              // the text-box trim on the item text doesn't shrink the row.
+              // shrink-0: the popup is a max-height flex column, so without it
+              // a long list compresses rows to fit instead of scrolling.
+              `relative z-10 flex ${sizeClasses.control} shrink-0 items-center ${sizeClasses.gap} ${shape.item} ${sizeClasses.itemPx} ${sizeClasses.text} cursor-pointer outline-none select-none`,
+              "transition-[color] duration-80",
+              isActive || isChecked
+                ? "text-foreground"
+                : "text-muted-foreground",
+              disabled && "opacity-50 pointer-events-none",
+              className
+            )}
+            {...props}
+          />
+        }
+      >
+        {Icon && (
+          <Icon
+            size={sizeClasses.icon}
+            strokeWidth={isActive || isChecked ? 2 : 1.5}
+            className="shrink-0 transition-[color,stroke-width] duration-80"
+          />
+        )}
+
+        <SelectPrimitive.ItemText
+          // py-1/-my-1 keeps truncate's overflow:hidden from clipping
+          // ascenders/descenders outside the trimmed box.
+          render={<span className="flex-1 min-w-0 truncate [text-box:trim-both_cap_alphabetic] py-1 -my-1" />}
         >
           {children}
-        </SelectPrimitive.Viewport>
-        <SelectScrollDownButton />
-      </SelectPrimitive.Content>
-    </SelectPrimitive.Portal>
-  )
-}
+        </SelectPrimitive.ItemText>
 
-function SelectLabel({
-  className,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Label>) {
-  return (
-    <SelectPrimitive.Label
-      data-slot="select-label"
-      className={cn("px-1.5 py-1 text-xs text-muted-foreground", className)}
-      {...props}
-    />
-  )
-}
+        {/* Always-rendered fixed slot so the check appearing/disappearing
+            never changes the row's intrinsic width — without it the whole
+            popup resizes when a selection lands. */}
+        <span
+          aria-hidden
+          className={cn("shrink-0", compact ? "w-3.5 h-3.5" : "w-4 h-4")}
+        >
+          {/* initial={false}: a row checked at mount shows the finished
+              check instead of drawing it, so default selections don't
+              animate on page load. */}
+          <AnimatePresence initial={false}>
+            {isChecked && (
+              <motion.svg
+                key="check"
+                width={sizeClasses.icon}
+                height={sizeClasses.icon}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-foreground"
+                initial={{ opacity: 1 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 1 }}
+              >
+                <motion.path
+                  d="M4 12L9 17L20 6"
+                  initial={{ pathLength: 0 }}
+                  animate={{
+                    pathLength: 1,
+                    transition: { duration: 0.08, ease: "easeOut" },
+                  }}
+                  exit={{
+                    pathLength: 0,
+                    transition: { duration: 0.04, ease: "easeIn" },
+                  }}
+                />
+              </motion.svg>
+            )}
+          </AnimatePresence>
+        </span>
+      </SelectPrimitive.Item>
+    );
+  }
+);
 
-function SelectItem({
-  className,
+SelectItem.displayName = "SelectItem";
+
+// ---------------------------------------------------------------------------
+// SelectGroup + SelectLabel + SelectSeparator
+// ---------------------------------------------------------------------------
+
+function SelectGroup({
   children,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Item>) {
-  return (
-    <SelectPrimitive.Item
-      data-slot="select-item"
-      className={cn(
-        "relative flex w-full cursor-default items-center gap-1.5 rounded-md py-1 pr-8 pl-1.5 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
-        className
-      )}
-      {...props}
-    >
-      <span className="pointer-events-none absolute right-2 flex size-4 items-center justify-center">
-        <SelectPrimitive.ItemIndicator>
-          <CheckIcon className="pointer-events-none" />
-        </SelectPrimitive.ItemIndicator>
-      </span>
-      <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
-    </SelectPrimitive.Item>
-  )
-}
-
-function SelectSeparator({
   className,
   ...props
-}: React.ComponentProps<typeof SelectPrimitive.Separator>) {
+}: HTMLAttributes<HTMLDivElement>) {
   return (
-    <SelectPrimitive.Separator
-      data-slot="select-separator"
-      className={cn("pointer-events-none -mx-1 my-1 h-px bg-border", className)}
-      {...props}
-    />
-  )
+    <div role="group" className={className} {...props}>
+      {children}
+    </div>
+  );
 }
 
-function SelectScrollUpButton({
-  className,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.ScrollUpButton>) {
-  return (
-    <SelectPrimitive.ScrollUpButton
-      data-slot="select-scroll-up-button"
-      className={cn(
-        "z-10 flex cursor-default items-center justify-center bg-popover py-1 [&_svg:not([class*='size-'])]:size-4",
-        className
-      )}
-      {...props}
-    >
-      <ChevronUpIcon
+SelectGroup.displayName = "SelectGroup";
+
+const SelectLabel = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => {
+    // Group labels are the caption role of the type scale — see /docs/sizes.
+    const compact = useSize().variant === "compact";
+    return (
+      <div
+        ref={ref}
+        className={cn(
+          "px-2 py-1.5 shrink-0 text-muted-foreground",
+          typeClass("caption", compact ? "compact" : "default"),
+          className
+        )}
+        {...props}
       />
-    </SelectPrimitive.ScrollUpButton>
-  )
-}
+    );
+  }
+);
 
-function SelectScrollDownButton({
-  className,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.ScrollDownButton>) {
-  return (
-    <SelectPrimitive.ScrollDownButton
-      data-slot="select-scroll-down-button"
-      className={cn(
-        "z-10 flex cursor-default items-center justify-center bg-popover py-1 [&_svg:not([class*='size-'])]:size-4",
-        className
-      )}
-      {...props}
-    >
-      <ChevronDownIcon
-      />
-    </SelectPrimitive.ScrollDownButton>
-  )
-}
+SelectLabel.displayName = "SelectLabel";
+
+const SelectSeparator = forwardRef<
+  HTMLDivElement,
+  HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    role="separator"
+    className={cn("my-1 -mx-1 h-px shrink-0 bg-border/60", className)}
+    {...props}
+  />
+));
+
+SelectSeparator.displayName = "SelectSeparator";
+
+// ---------------------------------------------------------------------------
+// Exports
+// ---------------------------------------------------------------------------
 
 export {
   Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectScrollDownButton,
-  SelectScrollUpButton,
-  SelectSeparator,
   SelectTrigger,
   SelectValue,
-}
+  SelectContent,
+  SelectItem,
+  SelectGroup,
+  SelectLabel,
+  SelectSeparator,
+  triggerVariants,
+};
+
+export type { SelectProps, SelectTriggerProps, SelectContentProps, SelectItemProps };

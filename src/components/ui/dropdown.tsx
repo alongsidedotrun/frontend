@@ -15,7 +15,7 @@ import {
   type ComponentProps,
 } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, type Transition } from "framer-motion";
 import { Menu } from "@base-ui/react/menu";
 import type { MenuTriggerProps } from "@base-ui/react/menu";
 import {
@@ -58,7 +58,7 @@ const shape = shapeMap.rounded;
 // applied to the other dropdowns"). shape.container (rounded-xl) stays as
 // the default for non-dropdown callers (ui/card.tsx), which this constant
 // intentionally doesn't touch.
-const DROPDOWN_PANEL_RADIUS = "rounded-3xl";
+const DROPDOWN_PANEL_RADIUS = "rounded-xl"; // card tier, 11.2px -- matches the redesign menus
 
 // ---------------------------------------------------------------------------
 // Panel context — shared by the inline Dropdown and the popup DropdownContent.
@@ -397,6 +397,13 @@ interface DropdownContentProps {
    *  `{ side: "none", align: "none" }` for a trigger like that to rule
    *  the flip/shift middleware out entirely. */
   collisionAvoidance?: MenuPositionerProps["collisionAvoidance"];
+  /** Forwarded to Menu.Positioner: position against this instead of the
+   *  trigger (e.g. a rect frozen at open, so a trigger that resizes while
+   *  its menu is open doesn't drag the menu along). */
+  anchor?: MenuPositionerProps["anchor"];
+  /** Optional motion overrides for a menu that needs a more deliberate reveal. */
+  transition?: Transition;
+  exitTransition?: Transition;
 }
 
 const DropdownContent = forwardRef<HTMLDivElement, DropdownContentProps>(
@@ -409,6 +416,9 @@ const DropdownContent = forwardRef<HTMLDivElement, DropdownContentProps>(
       align = "start",
       sideOffset = 6,
       collisionAvoidance,
+      anchor,
+      transition,
+      exitTransition,
     },
     ref
   ) => {
@@ -481,6 +491,33 @@ const DropdownContent = forwardRef<HTMLDivElement, DropdownContentProps>(
       };
     }, [open, measureItems]);
 
+    // While the list overflows, reserve room on the right for the scrollbar
+    // (macOS draws it over the content) so row hover/active backgrounds stop
+    // short of it; menus that don't scroll keep their even 3px inset.
+    const [scrollOverflow, setScrollOverflow] = useState(false);
+    useEffect(() => {
+      if (!open) return;
+      const el = containerRef.current;
+      if (!el) return;
+      const check = () => setScrollOverflow(el.scrollHeight > el.clientHeight + 1);
+      const resize = new ResizeObserver(check);
+      resize.observe(el);
+      const mutate = new MutationObserver(check);
+      mutate.observe(el, { childList: true, subtree: true });
+      const frame = requestAnimationFrame(check);
+      return () => {
+        resize.disconnect();
+        mutate.disconnect();
+        cancelAnimationFrame(frame);
+      };
+    }, [open]);
+    // Row widths change with the padding, so the highlight layer re-measures.
+    useEffect(() => {
+      if (!open) return;
+      const frame = requestAnimationFrame(() => measureItems());
+      return () => cancelAnimationFrame(frame);
+    }, [scrollOverflow, open, measureItems]);
+
     const activeRect = activeIndex !== null ? itemRects[activeIndex] : null;
     const checkedRect = checkedIndex != null ? itemRects[checkedIndex] : null;
     const focusRect = focusedIndex !== null ? itemRects[focusedIndex] : null;
@@ -543,6 +580,7 @@ const DropdownContent = forwardRef<HTMLDivElement, DropdownContentProps>(
           align={align}
           sideOffset={sideOffset}
           collisionAvoidance={collisionAvoidance}
+          anchor={anchor}
           className="outline-none"
           style={{ zIndex }}
         >
@@ -556,7 +594,7 @@ const DropdownContent = forwardRef<HTMLDivElement, DropdownContentProps>(
                 ? { opacity: 1, y: 0, scaleY: 1 }
                 : { opacity: 0, y: side === "top" ? 4 : -4, scaleY: 0.96 }
             }
-            transition={open ? spring.fast : spring.fast.exit}
+            transition={open ? transition ?? spring.fast : exitTransition ?? spring.fast.exit}
             style={{
               transformOrigin: side === "top" ? "bottom center" : "top center",
             }}
@@ -650,8 +688,14 @@ const DropdownContent = forwardRef<HTMLDivElement, DropdownContentProps>(
                 }}
                 className={cn(
                   // min-w tracks the trigger via the Positioner's
-                  // --anchor-width var.
-                  `relative flex flex-col w-72 max-w-full min-w-[var(--anchor-width)] max-h-[min(480px,var(--available-height))] overflow-y-auto ${DROPDOWN_PANEL_RADIUS} select-none outline-none`,
+                  // --anchor-width var. p-[3px]: rows sit 3px inside the
+                  // panel (11.2px corner - 8px row corner), matching the
+                  // redesign menus; separators bleed back out edge to edge.
+                  // Surface matches the redesign menus too: one 1px border and
+                  // a light-mode-only shadow, replacing Elevated's ring
+                  // shadow (which doubled up with an inset ring in dark mode).
+                  `relative flex flex-col w-72 max-w-full min-w-[var(--anchor-width)] max-h-[min(480px,var(--available-height))] overflow-y-auto overflow-x-hidden ${DROPDOWN_PANEL_RADIUS} !bg-[var(--redesign-sidebar-overlay-surface)] border border-[var(--redesign-sidebar-elevated-border)] !shadow-[var(--redesign-sidebar-elevated-shadow)] p-[3px] [&_[role=separator]]:-mx-[3px] select-none outline-none`,
+                  scrollOverflow && "pr-[11px] [&_[role=separator]]:-mr-[11px]",
                   className
                 )}
               >
@@ -802,7 +846,10 @@ const DropdownSeparator = forwardRef<
   <div
     ref={ref}
     role="separator"
-    className={cn("my-1 h-px shrink-0 bg-border/60", className)}
+    // 3px each side, the same inset rows have from the panel's edge, so a
+    // highlighted row never touches the line (as in the redesign menus'
+    // RedesignDropdownSeparator).
+    className={cn("my-[3px] h-px shrink-0 bg-border/60", className)}
     {...props}
   />
 ));
@@ -831,7 +878,11 @@ interface DropdownSubMenuItemProps {
    *  models is the current selection"), independent of the submenu's own
    *  open state. */
   checked?: boolean;
+  /** A trailing chevron, saying the row opens a submenu. */
+  chevron?: boolean;
   className?: string;
+  /** Extra classes for the submenu's panel (e.g. padding). */
+  popupClassName?: string;
   /** The submenu's own content -- typically a Menu.RadioGroup of
    *  Menu.RadioItem rows (see DropdownSubItem below for pre-styled ones). */
   children: ReactNode;
@@ -842,7 +893,9 @@ function DropdownSubMenuItem({
   icon: Icon,
   label,
   checked,
+  chevron = false,
   className,
+  popupClassName,
   children,
 }: DropdownSubMenuItemProps) {
   const { registerItem, activeIndex, setOpenSubmenuIndex } = useDropdown();
@@ -890,24 +943,6 @@ function DropdownSubMenuItem({
             aria-label={label}
             className={cn(
               `relative z-10 flex ${sizeClasses.control} shrink-0 items-center ${sizeClasses.gap} ${shape.item} ${sizeClasses.itemPx} cursor-pointer outline-none`,
-              // Same divider-adjacent margin-cancel rule as MenuItem's own
-              // itemClassName (menu-item.tsx's own comment has the full
-              // reasoning) -- a submenu trigger row (e.g. "Add to project")
-              // sits right next to a DropdownSeparator just as often as a
-              // plain MenuItem does. has-[~...] (any later sibling), not
-              // has-[+...] (immediate next sibling only) -- real bug,
-              // confirmed via screenshot ("the add project looks right but
-              // when i hover over that creates the space again"): opening
-              // this row's own submenu (openOnHover, Base UI's default)
-              // inserts a floating-ui positioning node as a real sibling
-              // right after this row while open, which made the separator
-              // no longer this row's *immediate* next sibling and broke the
-              // `+` match specifically while hovered/open. `~` still
-              // matches with that extra node in between. Safe here (unlike
-              // MenuItem's own `+`) because a menu only ever has one
-              // submenu trigger immediately before a given divider, so
-              // there's no earlier row this could wrongly also match.
-              "[[role=separator]+&]:-mt-1 has-[~[role=separator]]:-mb-1",
               // px-2 -- same border-clearance fix as MenuItem's own
               // itemClassName (menu-item.tsx's own comment has the full
               // reasoning).
@@ -938,11 +973,19 @@ function DropdownSubMenuItem({
             <path d="M4 12L9 17L20 6" />
           </svg>
         )}
+        {chevron && (
+          <svg aria-hidden="true" width={sizeClasses.icon} height={sizeClasses.icon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isActive || open ? 2 : 1.5} strokeLinecap="round" strokeLinejoin="round" className={cn("shrink-0 transition-[color,stroke-width] duration-80 rtl:-scale-x-100", isActive || open ? "text-foreground" : "text-muted-foreground")}>
+            <path d="M9 6L15 12L9 18" />
+          </svg>
+        )}
       </Menu.SubmenuTrigger>
       <AnimatePresence>
         {open && (
           <Menu.Portal>
-            <Menu.Positioner side="right" align="start" sideOffset={4} className="outline-none" style={{ zIndex }}>
+            {/* sideOffset 10: the trigger row sits 4px inside its panel (3px
+                padding + 1px border), so this leaves a 6px gap between the
+                two panels, the same gap a menu leaves below its trigger. */}
+            <Menu.Positioner side="right" align="start" sideOffset={10} className="outline-none" style={{ zIndex }}>
               <motion.div
                 initial={{ opacity: 0, scale: 0.96 }}
                 animate={{ opacity: 1, scale: 1, transition: spring.fast }}
@@ -951,9 +994,12 @@ function DropdownSubMenuItem({
                   if (!open) actionsRef.current?.unmount();
                 }}
               >
+                {/* p-[3px]: rows sit 3px inside the panel (11.2px corner - 8px
+                    row corner), matching the redesign menus; separators bleed
+                    back out so they still run edge to edge. */}
                 <Menu.Popup
                   render={<Elevated offset={1} shadowLevel={3} />}
-                  className={`flex flex-col min-w-40 max-w-full max-h-[min(480px,var(--available-height))] overflow-y-auto ${DROPDOWN_PANEL_RADIUS} outline-none`}
+                  className={cn(`flex flex-col min-w-40 max-w-full max-h-[min(480px,var(--available-height))] overflow-y-auto overflow-x-hidden ${DROPDOWN_PANEL_RADIUS} !bg-[var(--redesign-sidebar-overlay-surface)] border border-[var(--redesign-sidebar-elevated-border)] !shadow-[var(--redesign-sidebar-elevated-shadow)] p-[3px] [&_[role=separator]]:-mx-[3px] outline-none`, popupClassName)}
                 >
                   {/* Elevated's own internal SurfaceProvider only wraps
                       whatever it renders as ITS OWN children -- none, used
@@ -1011,15 +1057,6 @@ const DropdownSubItem = forwardRef<HTMLDivElement, DropdownSubItemProps>(
     const highlightClass = SURFACE_DATA_HIGHLIGHTED_BG[Math.min(level + 1, 8)];
     const rowClassName = cn(
       `relative flex ${useSize().control} shrink-0 items-center ${useSize().itemPx} cursor-pointer outline-none ${highlightClass} data-disabled:pointer-events-none data-disabled:opacity-50 ${shape.item}`,
-      // Same divider-adjacent margin-cancel rule as MenuItem's own
-      // itemClassName (menu-item.tsx's own comment has the full reasoning)
-      // -- a DropdownSubItem sits right next to a DropdownSeparator just
-      // as often as a plain MenuItem does (e.g. the flattened model list's
-      // own "Add provider" row after its separator). `+` (immediate
-      // sibling), not `~`, is safe here: unlike DropdownSubMenuItem, this
-      // row never opens its own submenu, so no floating-ui node is ever
-      // inserted between it and a following separator.
-      "[[role=separator]+&]:-mt-1 has-[+[role=separator]]:-mb-1",
       // px-2 -- same border-clearance fix as MenuItem's own itemClassName
       // (menu-item.tsx's own comment has the full reasoning).
       "px-2",

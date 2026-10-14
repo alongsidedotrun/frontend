@@ -5,7 +5,10 @@ import {
   DropdownContent as BaseDropdownContent,
 } from "@/components/ui/dropdown";
 import { NotificationsMenuItems } from "@/components/nav-user";
+import { useTranslation } from "react-i18next";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
 
 export function AppTopBar({
   collapsed = false,
@@ -19,6 +22,9 @@ export function AppTopBar({
   controlsClassName,
   showNotifications = true,
   collapseButtonHover = true,
+  title,
+  titleClassName,
+  actions,
 }: {
   collapsed?: boolean;
   canGoBack?: boolean;
@@ -31,9 +37,16 @@ export function AppTopBar({
   controlsClassName?: string;
   showNotifications?: boolean;
   collapseButtonHover?: boolean;
+  /** Contextual name for the active content, such as its project and chat. */
+  title?: ReactNode;
+  titleClassName?: string;
+  /** Controls at the right end, such as a chat's Share button. */
+  actions?: ReactNode;
 }) {
+  const { t } = useTranslation();
   return (
     <div
+      data-icon-stroke
       data-tauri-drag-region
       onMouseDown={(event) => {
         if (event.button !== 0 || (event.target instanceof Element && event.target.closest("button"))) return;
@@ -46,40 +59,48 @@ export function AppTopBar({
       )}
     >
       <div className={cn("pointer-events-auto flex items-center gap-2 text-muted-foreground", controlsClassName)}>
-        <button type="button" aria-label="Go back" disabled={!canGoBack} onClick={onBack} className="flex size-7 items-center justify-center rounded-md hover:bg-hover-2/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-30">
+        <button type="button" aria-label={t("nav.goBack.ariaLabel")} disabled={!canGoBack} onClick={onBack} className={cn("flex size-7 items-center justify-center rounded-md disabled:pointer-events-none disabled:opacity-30", PRESS_EFFECT, ICON_PRESS)}>
           <ArrowLeftIcon className="size-[14px]" />
         </button>
-        <button type="button" aria-label="Go forward" disabled={!canGoForward} onClick={onForward} className="flex size-7 items-center justify-center rounded-md hover:bg-hover-2/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-30">
+        <button type="button" aria-label={t("topBar.goForward")} disabled={!canGoForward} onClick={onForward} className={cn("flex size-7 items-center justify-center rounded-md disabled:pointer-events-none disabled:opacity-30", PRESS_EFFECT, ICON_PRESS)}>
           <ArrowRightIcon className="size-[14px]" />
         </button>
         <button
           type="button"
-          aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
+          aria-label={collapsed ? t("topBar.expandNavigation") : t("topBar.collapseNavigation")}
           onClick={collapsed ? onExpand : onCollapseAll}
           className={cn(
-            "flex size-7 items-center justify-center rounded-md hover:text-foreground",
+            "flex size-7 items-center justify-center rounded-md",
+            PRESS_EFFECT,
+            ICON_PRESS,
             collapseButtonHover && "hover:bg-hover-2/50",
           )}
         >
           <SidebarLeftIcon className="size-[14px]" />
         </button>
       </div>
-      {showNotifications && <BaseDropdownMenu size="compact">
-        <BaseDropdownTrigger
-          render={
-            <button
-              type="button"
-              aria-label="Notifications"
-              className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-hover-2/50 hover:text-foreground"
-            >
-              <BellIcon className="size-[14px]" />
-            </button>
-          }
-        />
-        <BaseDropdownContent side="bottom" align="end" sideOffset={6} className="w-72 min-w-0 rounded-3xl font-normal">
-          <NotificationsMenuItems />
-        </BaseDropdownContent>
-      </BaseDropdownMenu>}
+      <div className="pointer-events-auto flex items-center gap-2">
+        {title && <span className={cn("max-w-56 truncate text-[length:var(--redesign-chat-text)] font-medium text-foreground", titleClassName)}>{title}</span>}
+        {/* Pinned to the right end: the shell positions the controls and the
+            title absolutely, so nothing else here pushes this over. */}
+        {actions && <div className="absolute right-3 flex items-center gap-2">{actions}</div>}
+        {showNotifications && <BaseDropdownMenu size="compact">
+          <BaseDropdownTrigger
+            render={
+              <button
+                type="button"
+                aria-label={t("settings.general.notifications")}
+                className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-hover-2/50 hover:text-foreground"
+              >
+                <BellIcon className="size-[14px]" />
+              </button>
+            }
+          />
+          <BaseDropdownContent side="bottom" align="end" sideOffset={6} className="w-72 min-w-0 rounded-3xl font-normal">
+            <NotificationsMenuItems />
+          </BaseDropdownContent>
+        </BaseDropdownMenu>}
+      </div>
     </div>
   );
 }

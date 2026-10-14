@@ -184,20 +184,6 @@ const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
       // menu popups are max-height flex columns — without it a long list
       // compresses rows to fit instead of scrolling.
       `relative z-10 flex ${sizeClasses.control} shrink-0 items-center ${sizeClasses.gap} ${shape.item} ${sizeClasses.itemPx} cursor-pointer outline-none`,
-      // Pure-CSS sibling rules, not a per-call-site className -- per
-      // explicit request ("can we make sure to have one reusable component
-      // for dropdowns so we don't need to keep editing multiple dropdowns")
-      // after the same "gap between hover and divider line" bug kept
-      // recurring across sidebar-nav.tsx/AppLayout.tsx/nav-user.tsx one
-      // dropdown at a time. DropdownSeparator (ui/dropdown.tsx) still
-      // reserves its own my-1 breathing room around the line itself, but
-      // now every row automatically cancels the half of that margin it
-      // touches -- a row right after a separator pulls itself up
-      // ([role=separator]+&), a row right before one pulls its own bottom
-      // up (has-[+[role=separator]]) -- so the hover fill always reaches
-      // the line with no gap, for any dropdown, without editing this class
-      // per row ever again.
-      "[[role=separator]+&]:-mt-1 has-[+[role=separator]]:-mb-1",
       // px-3, overriding sizeClasses.itemPx's own px-2/px-1.5 -- per
       // explicit request ("increase the width of items inside the
       // dropdown as they are too close to the border"): the panel's own
@@ -435,4 +421,5 @@ const CustomMenuItem = forwardRef<HTMLDivElement, CustomMenuItemProps>(
 CustomMenuItem.displayName = "CustomMenuItem";
 
 export { MenuItem, CustomMenuItem };
+export type { MenuItemProps };
 export default MenuItem;

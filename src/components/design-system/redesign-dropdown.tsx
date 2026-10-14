@@ -1,0 +1,51 @@
+import type { ReactNode } from "react";
+import { cn } from "@/lib/utils";
+import { DropdownMenuContent, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+
+type RedesignDropdownContentProps = {
+  children: ReactNode;
+  className?: string;
+  viewportClassName?: string;
+  side?: "top" | "right" | "bottom" | "left";
+  align?: "start" | "center" | "end";
+  sideOffset?: number;
+};
+
+/** Shared shell for redesign dropdowns, keeping workspace and account menus visually aligned. */
+export function RedesignDropdownContent({
+  children,
+  className,
+  viewportClassName,
+  ...props
+}: RedesignDropdownContentProps) {
+  return (
+    <DropdownMenuContent
+      className={cn(
+        "w-[var(--redesign-workspace-menu-width)] max-h-[calc(100vh-2rem)] rounded-[var(--redesign-workspace-menu-radius)] border",
+        className,
+      )}
+      style={{
+        backgroundColor: "var(--redesign-sidebar-overlay-surface)",
+        borderColor: "var(--redesign-sidebar-elevated-border)",
+        boxShadow: "var(--redesign-sidebar-elevated-shadow)",
+      }}
+      viewportClassName={cn(
+        "max-h-[calc(100vh-2rem)] overflow-visible rounded-[var(--redesign-workspace-menu-radius)] p-0",
+        viewportClassName,
+      )}
+      {...props}
+    >
+      <div className="flex min-h-full flex-col px-[round(var(--redesign-workspace-menu-padding),1px)] py-[round(var(--redesign-workspace-menu-vertical-padding),1px)]">
+        {children}
+      </div>
+    </DropdownMenuContent>
+  );
+}
+
+export function RedesignDropdownSeparator() {
+  return (
+    <DropdownMenuSeparator
+      className="my-[3px] ml-[calc(var(--redesign-workspace-menu-padding)*-1)] w-[calc(100%+var(--redesign-workspace-menu-padding)+var(--redesign-workspace-menu-padding))] bg-foreground/5"
+    />
+  );
+}

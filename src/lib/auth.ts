@@ -1,9 +1,10 @@
 import { clearIdentity, getIdentity, refreshIdentity, useIdentity } from "@/lib/identity";
 import { clearLocalUserName, getLocalUserName } from "@/lib/user";
 
-// Sign-in is the system browser on the identity provider's page (never this WebView); the
-// backend (backend/src/auth.rs) owns the credential and this file only starts the flow, waits
-// for it, and reads the result. Signing in stays optional: it is needed only for multiplayer.
+// The backend (backend/src/auth.rs) owns the credential; this file only starts a sign-in, waits
+// for it, and reads the result. Two ways in (issue #26): an email code entered in the app's own
+// dialog, or Google/GitHub in the system browser (never this WebView, which those providers
+// block). Signing in stays optional: it is needed only for multiplayer.
 export function getIsSignedIn(): boolean {
   return getIdentity().signedIn;
 }
@@ -12,10 +13,18 @@ export function useIsSignedIn(): boolean {
   return useIdentity().signedIn;
 }
 
-// Opens the system browser on the sign-in page.
-export async function beginSignIn(): Promise<boolean> {
+export type SignInProvider = "google" | "github";
+
+// Opens the system browser to sign in, straight on the provider's page when one is given. A
+// backend that predates provider sign-in ignores the body and opens the hosted sign-in page,
+// where the same provider can still be picked.
+export async function beginSignIn(provider?: SignInProvider): Promise<boolean> {
   try {
-    const response = await fetch("/identity/sign-in", { method: "POST" });
+    const response = await fetch("/identity/sign-in", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(provider ? { provider } : {}),
+    });
     return response.ok;
   } catch {
     return false;
@@ -38,6 +47,54 @@ export async function waitForSignIn(signal: AbortSignal): Promise<"signed-in" | 
     await new Promise((resolve) => setTimeout(resolve, POLL_MS));
   }
   return signal.aborted ? "cancelled" : "timeout";
+}
+
+// Email sign-in, entirely in the app: the backend sends a one-time code to the address, and the
+// code typed into the dialog finishes the sign-in (or creates the account, for a new address).
+// Endpoints answer 200 on success, or an error status with `{ "error": "<code>" }`.
+//   POST /identity/email/start   { email }  -> errors: invalid_email, rate_limited
+//   POST /identity/email/verify  { code }   -> errors: invalid_code, expired, rate_limited,
+//                                              no_pending_sign_in, sign_up_incomplete
+// "unsupported" is a backend without these endpoints yet (404/405): callers fall back to the
+// browser sign-in.
+export type EmailStartResult = "sent" | "unsupported" | "invalid_email" | "rate_limited" | "failed";
+export type EmailVerifyResult = "signed-in" | "invalid_code" | "expired" | "rate_limited" | "sign_up_incomplete" | "failed";
+
+async function postIdentity(path: string, body: unknown): Promise<{ ok: boolean; status: number; error?: string }> {
+  try {
+    const response = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (response.ok) return { ok: true, status: response.status };
+    const data = (await response.json().catch(() => null)) as { error?: unknown } | null;
+    return { ok: false, status: response.status, error: typeof data?.error === "string" ? data.error : undefined };
+  } catch {
+    return { ok: false, status: 0 };
+  }
+}
+
+export async function startEmailSignIn(email: string): Promise<EmailStartResult> {
+  const result = await postIdentity("/identity/email/start", { email });
+  if (result.ok) return "sent";
+  if (result.status === 404 || result.status === 405) return "unsupported";
+  if (result.error === "invalid_email" || result.error === "rate_limited") return result.error;
+  return "failed";
+}
+
+export async function verifyEmailCode(code: string): Promise<EmailVerifyResult> {
+  const result = await postIdentity("/identity/email/verify", { code });
+  if (!result.ok) {
+    if (result.error === "invalid_code" || result.error === "expired" || result.error === "rate_limited" || result.error === "sign_up_incomplete") return result.error;
+    // The code step timed out on the backend: same as an expired code, a new one is needed.
+    if (result.error === "no_pending_sign_in") return "expired";
+    return "failed";
+  }
+  const identity = await refreshIdentity();
+  if (!identity.signedIn) return "failed";
+  await claimLocalChats();
+  return "signed-in";
 }
 
 // Chats made on this device before signing in were created under a local name; the account

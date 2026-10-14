@@ -21,6 +21,7 @@ import { DocsIcon, HelpCircleIcon, KeybindingsIcon, LogInIcon, LogOutIcon, Setti
 import { ProviderIcon } from "@/lib/quick-chat-models"
 import { ModelUsageBars, USAGE_PROVIDERS, useProviderUsagePercents } from "@/lib/use-usage"
 import { signOut, useIsSignedIn } from "@/lib/auth"
+import { openSignInDialog } from "@/lib/use-sign-in"
 import {
   dismissAllTurnNotifications,
   dismissTurnNotification,
@@ -342,7 +343,7 @@ export function AccountMenuItems({
         icon={isSignedIn ? LogOutIcon : LogInIcon}
         label={isSignedIn ? "Log out" : "Sign in"}
         className="gap-[7px] pl-2.5"
-        onSelect={() => (isSignedIn ? signOut() : navigate("/auth"))}
+        onSelect={() => (isSignedIn ? signOut() : openSignInDialog())}
       />
     </>
   )

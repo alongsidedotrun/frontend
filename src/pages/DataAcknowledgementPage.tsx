@@ -178,7 +178,7 @@ export function DataAcknowledgementPage() {
             <p className="mt-2 text-[13px] font-normal text-muted-foreground">
               {acknowledged
                 ? "The required setup is complete. Explore the recommended steps or close this page to start using Alongside."
-                : "Complete the required step to continue. You can return to Getting Started at any time to review the recommended steps."}
+                : "Complete the required step to continue. You can return to Getting started at any time to review the recommended steps."}
             </p>
           </div>
 

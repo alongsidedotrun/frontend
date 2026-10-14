@@ -1,0 +1,408 @@
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { Check, ChevronDown, ChevronRight, Circle, Plus } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  DropdownContent as BaseDropdownContent,
+  DropdownMenu as BaseDropdownMenu,
+  DropdownTrigger as BaseDropdownTrigger,
+} from "@/components/ui/dropdown";
+import { MenuItem as BaseMenuItem } from "@/components/ui/menu-item";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { GUEST_NAME, useUserDisplayName } from "@/lib/user";
+
+type TaskBucket = "today" | "week" | "later";
+
+type OverviewTask = {
+  id: string;
+  title: string;
+  bucket: TaskBucket;
+  completed: boolean;
+  due?: string;
+};
+
+type RecentSession = { id: string; name: string };
+
+type Mention = {
+  id: number;
+  chat_id: string;
+  chat_name: string;
+  sender: string;
+  content: string;
+};
+
+const OVERVIEW_TASKS_KEY = "alongside_overview_tasks";
+// A week stays a simple seven-day choice, consistently ordered from Monday.
+const WEEK_DUE_OPTIONS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
+
+function greetingKeyForHour(hour: number) {
+  if (hour < 12) return "overview.greeting.morning";
+  if (hour < 18) return "overview.greeting.afternoon";
+  return "overview.greeting.evening";
+}
+
+// A stored weekday (always the English name) shown in the app's language:
+// 2024-01-01 was a Monday, so day n of WEEK_DUE_OPTIONS is 2024-01-0(n+1).
+function weekdayLabel(day: string, language: string) {
+  const index = WEEK_DUE_OPTIONS.indexOf(day as typeof WEEK_DUE_OPTIONS[number]);
+  if (index < 0) return day;
+  return new Intl.DateTimeFormat(language, { weekday: "long" }).format(new Date(2024, 0, 1 + index, 12));
+}
+
+function nextHourDelay(now: Date) {
+  const nextHour = new Date(now);
+  nextHour.setHours(now.getHours() + 1, 0, 0, 0);
+  return nextHour.getTime() - now.getTime();
+}
+
+function formatLaterDue(value: string, language?: string) {
+  if (!value) return "";
+  const due = new Date(`${value}T12:00:00`);
+  return Number.isNaN(due.getTime())
+    ? value
+    : new Intl.DateTimeFormat(language, { month: "short", day: "numeric", year: "numeric" }).format(due);
+}
+
+function localDateValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function loadTasks(): OverviewTask[] {
+  try {
+    const stored = localStorage.getItem(OVERVIEW_TASKS_KEY);
+    const parsed = stored ? JSON.parse(stored) : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((task): task is OverviewTask =>
+        typeof task?.id === "string"
+        && typeof task?.title === "string"
+        && ["today", "week", "later"].includes(task?.bucket)
+        && typeof task?.completed === "boolean",
+      )
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function initials(name: string) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "?";
+}
+
+function TaskCount({ count }: { count: number }) {
+  return <span className="rounded-md border border-border px-1.5 py-px text-[11px] text-muted-foreground">{count}</span>;
+}
+
+function TaskSectionContent({ open, children }: { open: boolean; children: React.ReactNode }) {
+  return (
+    <AnimatePresence initial={false}>
+      {open && (
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: "auto", opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          transition={{ height: { duration: 0.2, ease: "easeInOut" }, opacity: { duration: 0.14 } }}
+          className="overflow-hidden"
+        >
+          {children}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/** The redesign's workspace landing page. */
+export function OverviewPage() {
+  const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
+  const userName = useUserDisplayName();
+  const [now, setNow] = useState(() => new Date());
+  const [tasks, setTasks] = useState<OverviewTask[]>(loadTasks);
+  const [taskTitle, setTaskTitle] = useState("");
+  const [weekTaskTitle, setWeekTaskTitle] = useState("");
+  const [laterTaskTitle, setLaterTaskTitle] = useState("");
+  const [laterTaskDue, setLaterTaskDue] = useState("");
+  const [laterDueOpen, setLaterDueOpen] = useState(false);
+  const [todayOpen, setTodayOpen] = useState(true);
+  const [weekOpen, setWeekOpen] = useState(false);
+  const [laterOpen, setLaterOpen] = useState(false);
+  const [recentSessions, setRecentSessions] = useState<RecentSession[]>([]);
+  const [mentions, setMentions] = useState<Mention[]>([]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setNow(new Date()), nextHourDelay(now));
+    return () => window.clearTimeout(timer);
+  }, [now]);
+
+  useEffect(() => {
+    localStorage.setItem(OVERVIEW_TASKS_KEY, JSON.stringify(tasks));
+  }, [tasks]);
+
+  useEffect(() => {
+    void Promise.all([
+      fetch("/sessions").then((response) => response.ok ? response.json() as Promise<RecentSession[]> : []),
+      fetch("/inbox-mentions").then((response) => response.ok ? response.json() as Promise<Mention[]> : []),
+    ])
+      .then(([sessions, loadedMentions]) => {
+        setRecentSessions(sessions.slice(0, 6));
+        setMentions(loadedMentions.slice(0, 6));
+      })
+      .catch(() => {
+        setRecentSessions([]);
+        setMentions([]);
+      });
+  }, []);
+
+  const dateLabel = useMemo(
+    () => new Intl.DateTimeFormat(i18n.language, { weekday: "long", month: "long", day: "numeric" }).format(now),
+    [now],
+  );
+  const todayValue = useMemo(() => localDateValue(now), [now]);
+  const todayDate = useMemo(
+    () => new Date(now.getFullYear(), now.getMonth(), now.getDate()),
+    [now],
+  );
+  const selectedLaterDue = useMemo(
+    () => new Date(`${laterTaskDue || todayValue}T12:00:00`),
+    [laterTaskDue, todayValue],
+  );
+  const [weekTaskDue, setWeekTaskDue] = useState<string | null>(null);
+  const byBucket = (bucket: TaskBucket) => tasks.filter((task) => task.bucket === bucket);
+  const todayTasks = byBucket("today");
+  const weekTasks = byBucket("week");
+  const laterTasks = byBucket("later");
+  const tasksDueToday = todayTasks.filter((task) => !task.completed).length;
+
+  function addTodayTask() {
+    const title = taskTitle.trim();
+    if (!title) return;
+    setTasks((current) => [...current, {
+      id: crypto.randomUUID(),
+      title,
+      bucket: "today",
+      completed: false,
+    }]);
+    setTaskTitle("");
+  }
+
+  function addWeekTask() {
+    const title = weekTaskTitle.trim();
+    if (!title || !weekTaskDue) return;
+    setTasks((current) => [...current, {
+      id: crypto.randomUUID(),
+      title,
+      bucket: "week",
+      completed: false,
+      due: weekTaskDue,
+    }]);
+    setWeekTaskTitle("");
+  }
+
+  function addLaterTask() {
+    const title = laterTaskTitle.trim();
+    if (!title || !laterTaskDue) return;
+    setTasks((current) => [...current, {
+      id: crypto.randomUUID(),
+      title,
+      bucket: "later",
+      completed: false,
+      due: formatLaterDue(laterTaskDue, i18n.language),
+    }]);
+    setLaterTaskTitle("");
+    setLaterTaskDue("");
+  }
+
+  function setLaterDuePickerOpen(open: boolean) {
+    if (open && !laterTaskDue) setLaterTaskDue(todayValue);
+    setLaterDueOpen(open);
+  }
+
+  function toggleTask(id: string) {
+    setTasks((current) => current.map((task) => task.id === id ? { ...task, completed: !task.completed } : task));
+  }
+
+  function taskRows(items: OverviewTask[]) {
+    return items.map((task) => (
+      <button
+        key={task.id}
+        type="button"
+        onClick={() => toggleTask(task.id)}
+        className="flex h-8 w-full items-center gap-1.5 border-t border-border px-2 text-left text-[13px] transition-colors hover:bg-muted/40"
+      >
+        {task.completed
+          ? <span className="flex size-3.5 shrink-0 items-center justify-center rounded-full bg-foreground text-background"><Check className="size-2" strokeWidth={2.5} /></span>
+          : <Circle className="size-3.5 shrink-0 text-muted-foreground/55" strokeWidth={1.8} />}
+        <span className={`min-w-0 truncate ${task.completed ? "text-muted-foreground line-through" : "text-foreground"}`}>{task.title}</span>
+        {task.due && <span className="ml-auto shrink-0 text-[10px] text-muted-foreground/70">{weekdayLabel(task.due, i18n.language)}</span>}
+      </button>
+    ));
+  }
+
+  return (
+    <main className="flex min-h-0 flex-1 overflow-y-auto bg-background">
+      <div className="mx-auto flex w-full max-w-[46rem] flex-col px-4 pt-4 pb-10 sm:px-7 sm:pt-6">
+        <h1 className="text-[17px] tracking-normal text-foreground">
+          {/* Signed out there's no name to greet, just the time of day. */}
+          {userName === GUEST_NAME
+            ? t(`${greetingKeyForHour(now.getHours())}Plain`)
+            : t(greetingKeyForHour(now.getHours()), { name: userName })}
+        </h1>
+        <div className="mt-0.5 flex items-baseline gap-1.5">
+          <p className="text-[12px] text-muted-foreground">{dateLabel}</p>
+          <span aria-hidden="true" className="text-[12px] text-muted-foreground/70">·</span>
+          <p className="text-[12px] text-muted-foreground/70">
+            {tasksDueToday === 0 ? t("overview.noTasksToday") : t("overview.tasksDueToday", { count: tasksDueToday })}
+          </p>
+        </div>
+
+        <section className="mt-6" aria-labelledby="overview-tasks-heading">
+          <h2 id="overview-tasks-heading" className="text-[16px] tracking-normal text-foreground">{t("overview.myTasks")}</h2>
+          <div className="mt-2 overflow-hidden rounded-xl border border-border">
+            <button type="button" onClick={() => setTodayOpen((open) => !open)} className="flex h-8 w-full items-center gap-1.5 px-2 text-left text-[14px] hover:bg-muted/30">
+              <ChevronDown className={`size-3 text-muted-foreground transition-transform ${todayOpen ? "" : "-rotate-90"}`} />
+              <span className="flex-1">{t("overview.today")}</span>
+              <TaskCount count={todayTasks.filter((task) => !task.completed).length} />
+            </button>
+            <TaskSectionContent open={todayOpen}>
+              <div className="flex h-8 items-center gap-1.5 border-t border-border px-2">
+                <Plus className="size-3 shrink-0 text-muted-foreground/60" />
+                <input
+                  value={taskTitle}
+                  onChange={(event) => setTaskTitle(event.target.value)}
+                  onKeyDown={(event) => { if (event.key === "Enter") addTodayTask(); }}
+                  placeholder={t("overview.addToday")}
+                  className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground/60"
+                />
+              </div>
+              {taskRows(todayTasks)}
+            </TaskSectionContent>
+            <button type="button" onClick={() => setWeekOpen((open) => !open)} className="flex h-8 w-full items-center gap-1.5 border-t border-border px-2 text-left text-[14px] hover:bg-muted/30">
+              <ChevronRight className={`size-3 text-muted-foreground transition-transform ${weekOpen ? "rotate-90" : ""}`} />
+              <span className="flex-1">{t("overview.thisWeek")}</span>
+              <TaskCount count={weekTasks.filter((task) => !task.completed).length} />
+            </button>
+            <TaskSectionContent open={weekOpen}>
+              <div className="flex h-8 items-center gap-1.5 border-t border-border px-2">
+                <Plus className="size-3 shrink-0 text-muted-foreground/60" />
+                <input
+                  value={weekTaskTitle}
+                  onChange={(event) => setWeekTaskTitle(event.target.value)}
+                  onKeyDown={(event) => { if (event.key === "Enter") addWeekTask(); }}
+                  placeholder={t("overview.addThisWeek")}
+                  className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground/60"
+                />
+                <BaseDropdownMenu size="compact">
+                  <BaseDropdownTrigger
+                    render={
+                      <button type="button" className="flex shrink-0 items-center gap-1 rounded-[var(--redesign-hover-radius)] px-1.5 py-1 text-[12px] text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                        <span>{weekTaskDue ? weekdayLabel(weekTaskDue, i18n.language) : t("overview.due")}</span>
+                        <ChevronDown aria-hidden="true" className="size-3" />
+                      </button>
+                    }
+                  />
+                  <BaseDropdownContent
+                    side="bottom"
+                    align="end"
+                    sideOffset={4}
+                    checkedIndex={weekTaskDue ? WEEK_DUE_OPTIONS.indexOf(weekTaskDue as typeof WEEK_DUE_OPTIONS[number]) : undefined}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    exitTransition={{ duration: 0.16, ease: "easeIn" }}
+                    className="w-32 min-w-0"
+                  >
+                    {WEEK_DUE_OPTIONS.map((due, index) => (
+                      <BaseMenuItem
+                        key={due}
+                        index={index}
+                        label={weekdayLabel(due, i18n.language)}
+                        checked={due === weekTaskDue}
+                        onSelect={() => setWeekTaskDue(due)}
+                      />
+                    ))}
+                  </BaseDropdownContent>
+                </BaseDropdownMenu>
+              </div>
+              {taskRows(weekTasks)}
+            </TaskSectionContent>
+            <button type="button" onClick={() => setLaterOpen((open) => !open)} className="flex h-8 w-full items-center gap-1.5 border-t border-border px-2 text-left text-[14px] hover:bg-muted/30">
+              <ChevronRight className={`size-3 text-muted-foreground transition-transform ${laterOpen ? "rotate-90" : ""}`} />
+              <span className="flex-1">{t("overview.later")}</span>
+              <TaskCount count={laterTasks.filter((task) => !task.completed).length} />
+            </button>
+            <TaskSectionContent open={laterOpen}>
+              <div className="flex h-8 items-center gap-1.5 border-t border-border px-2">
+                <Plus className="size-3 shrink-0 text-muted-foreground/60" />
+                <input
+                  value={laterTaskTitle}
+                  onChange={(event) => setLaterTaskTitle(event.target.value)}
+                  onKeyDown={(event) => { if (event.key === "Enter") addLaterTask(); }}
+                  placeholder={t("overview.addLater")}
+                  className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground/60"
+                />
+                <Popover open={laterDueOpen} onOpenChange={setLaterDuePickerOpen}>
+                  <PopoverTrigger asChild>
+                    <button type="button" className="ml-auto flex h-7 shrink-0 items-center gap-1 rounded-[var(--redesign-hover-radius)] px-1.5 text-[12px] text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                      <span>{laterTaskDue ? formatLaterDue(laterTaskDue, i18n.language) : t("overview.due")}</span>
+                      <ChevronDown aria-hidden="true" className={`size-3 transition-transform duration-200 ${laterDueOpen ? "rotate-180" : ""}`} />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" sideOffset={4} className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={selectedLaterDue}
+                      onSelect={(date) => {
+                        if (!date) return;
+                        setLaterTaskDue(localDateValue(date));
+                        setLaterDueOpen(false);
+                      }}
+                      disabled={{ before: todayDate }}
+                      captionLayout="dropdown"
+                      startMonth={todayDate}
+                      endMonth={new Date(todayDate.getFullYear() + 10, 11)}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              {taskRows(laterTasks)}
+            </TaskSectionContent>
+          </div>
+        </section>
+
+        <section className="mt-6" aria-labelledby="overview-recent-heading">
+          <h2 id="overview-recent-heading" className="text-[16px] tracking-normal text-foreground">{t("overview.recentlyVisited")}</h2>
+          {recentSessions.length > 0 ? (
+            <div className="mt-2 flex gap-2.5 overflow-x-auto pb-1">
+              {recentSessions.map((session) => (
+                <button key={session.id} type="button" onClick={() => navigate(`/chat/${session.id}`)} className="w-[13rem] shrink-0 rounded-xl border border-border p-2.5 text-left transition-colors hover:bg-muted/30">
+                  <span className="flex size-6 items-center justify-center rounded-md bg-focus-accent/15 text-[12px] font-medium text-focus-accent">{session.name.slice(0, 1).toUpperCase()}</span>
+                  <p className="mt-3 truncate text-[14px] text-foreground">{session.name}</p>
+                  <p className="mt-0.5 text-[12px] text-muted-foreground/70">{t("settings.nav.chat")}</p>
+                </button>
+              ))}
+            </div>
+          ) : <p className="mt-2 text-[12px] text-muted-foreground/70">{t("overview.recentlyVisitedEmpty")}</p>}
+        </section>
+
+        <section className="mt-6" aria-labelledby="overview-mentions-heading">
+          <h2 id="overview-mentions-heading" className="text-[16px] tracking-normal text-foreground">{t("overview.recentMentions")}</h2>
+          {mentions.length > 0 ? (
+            <div className="mt-2 overflow-hidden rounded-xl border border-border">
+              {mentions.map((mention, index) => (
+                <button key={mention.id} type="button" onClick={() => navigate(`/chat/${mention.chat_id}`)} className={`flex w-full items-center gap-2 p-2.5 text-left transition-colors hover:bg-muted/30 ${index ? "border-t border-border" : ""}`}>
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-focus-accent/15 text-[11px] text-focus-accent">{initials(mention.sender)}</span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-[13px] text-foreground">{t("overview.mentionIn", { sender: mention.sender, chat: mention.chat_name })}</span>
+                    <span className="mt-px block truncate text-[12px] text-muted-foreground/70">{mention.content}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : <p className="mt-2 text-[12px] text-muted-foreground/70">{t("overview.recentMentionsEmpty")}</p>}
+        </section>
+      </div>
+    </main>
+  );
+}

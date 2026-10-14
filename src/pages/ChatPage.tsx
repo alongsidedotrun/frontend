@@ -1,14 +1,15 @@
 import { Trans, useTranslation } from "react-i18next";
 import i18n from "@/i18n";
-import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useOutletContext, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { spring } from "@/lib/springs";
 import { isAutoScrollSuppressed, suppressAutoScroll } from "@/lib/chat-scroll-suppress";
-import { getUserDisplayName } from "@/lib/user";
+import { GUEST_NAME, getUserDisplayName } from "@/lib/user";
 import { ComposeBox, toImageInputs, type ImageAttachment } from "@/components/compose-box";
 import { JoinRequests, type JoinRequest } from "@/components/join-requests";
 import { clearPresence, setPresence, type Person } from "@/lib/presence";
+import { openShareDialog } from "@/lib/use-share";
 import { FileDiffGroup, diffToRows, type DiffRow } from "@/components/FileDiff";
 import type { SettingsSection } from "@/components/settings-overlay";
 import { effortLabel, type EffortLevel } from "@/lib/effort";
@@ -21,12 +22,22 @@ import { DefaultAvatar } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  DropdownMenu as BaseDropdownMenu,
+  DropdownTrigger as BaseDropdownTrigger,
+  DropdownContent as BaseDropdownContent,
+  DropdownLabel as BaseDropdownLabel,
+  DropdownSubMenuItem,
+  DropdownSubItem,
+} from "@/components/ui/dropdown";
+import { MoreTrigger } from "@/components/ui/more-trigger";
+import {
   CheckIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   CopyIcon,
   EditIcon,
+  FolderIcon,
   ResearchIcon,
   RotateCcwIcon,
   ThumbsDownIcon,
@@ -35,6 +46,13 @@ import {
   XIcon,
 } from "@/components/icons/untitled-ui";
 import { ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
+import { RELAY_JOIN_REQUESTED_EVENT } from "@/lib/use-share";
+
+// A file in a shared chat (#460), as a message refers to it.
+type SharedFile = { file_id: string; name: string; media_type: string; size: number };
+
+// Provider brand names, as another participant's run reports which one it ran on (#462). Not translated.
+const PROVIDER_NAMES: Record<string, string> = { claude: "Claude", codex: "Codex", antigravity: "Antigravity" };
 import { lastUsedReady, loadLastContext, loadLastModel, saveLastContext, saveLastModel } from "@/lib/last-used";
 import { StreamingText } from "@/components/streaming-text";
 import { ThinkingState } from "@/components/thinking-state";
@@ -82,6 +100,12 @@ type ChatRow =
       // triggers. images/effort are kept here (not just text) so Retry can
       // resend the exact same attempt, attachments included.
       failed?: { errorText: string; images: ImageAttachment[]; effort: EffortLevel };
+      // #462: a message that came through the relay -- its sequence there, and whether it's this
+      // person's own. Someone else's has no Resend or Edit here.
+      relaySequence?: number;
+      mine?: boolean;
+      // #460: files sent with it in a shared chat (read from this device's own copy).
+      files?: SharedFile[];
     }
   | {
       kind: "agent";
@@ -125,6 +149,10 @@ type ChatRow =
       // the same way a real editor's own tool-call trace does -- bold label,
       // muted monospace detail -- rather than one plain sentence.
       toolCallLines?: { label: string; detail?: string }[];
+      // #462: another participant ran this reply on their own provider ("Alice · Claude"), and which run
+      // it is -- live updates and the final reply land on this same row.
+      runBy?: string;
+      relayRunId?: string;
     }
   | { kind: "command"; id: string; text: string; time: string }
   // name/summary/input real, not fabricated -- name and input are the tool_use
@@ -236,7 +264,7 @@ function normalizeToolName(name: string): string {
 }
 
 function messageTime() {
-  return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return new Date().toLocaleTimeString(i18n.language, { hour: "2-digit", minute: "2-digit" });
 }
 
 // Per explicit request: a message's own displayed time should read differently
@@ -256,14 +284,14 @@ function messageTime() {
 function formatMessageTimestamp(ms: number): string {
   const date = new Date(ms);
   const now = new Date();
-  const time = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const time = date.toLocaleTimeString(i18n.language, { hour: "2-digit", minute: "2-digit" });
   const isSameDay = date.toDateString() === now.toDateString();
   if (isSameDay) return time;
   const oneDayMs = 24 * 60 * 60 * 1000;
   const daysAgo = Math.floor((now.getTime() - date.getTime()) / oneDayMs);
   const isSameWeek = daysAgo < 7 && date.getDay() !== now.getDay();
   if (isSameWeek) {
-    const dayName = date.toLocaleDateString([], { weekday: "long" });
+    const dayName = date.toLocaleDateString(i18n.language, { weekday: "long" });
     return `${dayName} ${time}`;
   }
   const monthFirst = isMonthFirstDateOrder(loadLanguage());
@@ -321,6 +349,8 @@ function nextRowId() {
 // pure flourish on top of it.
 export type ChatPageShellContext = {
   chatName: string;
+  /** The workspace/project context displayed at the chat canvas's top edge. */
+  contextLabel?: string;
   receiveChatNameFromServer: (name: string) => void;
   refreshSidebarLists: () => void;
   openSettings: (section: SettingsSection) => void;
@@ -354,7 +384,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // chat_name_updated) -- receiveChatNameFromServer's own existing refresh
   // call only fires on a successful rename, not on every real message.
   const outletContext = useOutletContext<ChatPageShellContext>();
-  const { chatName, receiveChatNameFromServer, refreshSidebarLists, openSettings, openFile, rightPanelOpen, notifyFilesTouched } =
+  const { chatName, contextLabel, receiveChatNameFromServer, refreshSidebarLists, openSettings, openFile, rightPanelOpen, notifyFilesTouched } =
     shellContextOverride ?? outletContext;
   // Real correction, per explicit follow-up ("we reduce to 400px but
   // there's so much space around it, instead of reducing the content to
@@ -370,9 +400,74 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // least 100px maybe? 50px on left and 50px right? because now its too
   // close to the borders").
   const chatSidePadding = rightPanelOpen ? "px-[50px]" : "px-3 sm:px-5";
+  const [chatHeaderMenuOpen, setChatHeaderMenuOpen] = useState(false);
+  const [chatHeaderRenaming, setChatHeaderRenaming] = useState(false);
+  const [chatHeaderName, setChatHeaderName] = useState(contextLabel ?? chatName);
+  const [headerProjects, setHeaderProjects] = useState<Array<{ id: string; name: string }>>([]);
   const [rows, setRows] = useState<ChatRow[]>([]);
+
+  useEffect(() => {
+    setChatHeaderName(contextLabel ?? chatName);
+  }, [chatName, contextLabel]);
+
+  useEffect(() => {
+    if (!chatHeaderMenuOpen) return;
+    void fetch("/projects")
+      .then((response) => response.ok ? response.json() as Promise<Array<{ id: string; name: string }>> : [])
+      .then(setHeaderProjects)
+      .catch(() => setHeaderProjects([]));
+  }, [chatHeaderMenuOpen]);
+
+  async function saveChatHeaderName(nextName: string) {
+    const name = nextName.trim() || "Untitled chat";
+    setChatHeaderRenaming(false);
+    setChatHeaderName(name);
+    if (!sessionId || name === chatName) return;
+
+    const response = await fetch(`/sessions/${sessionId}/name`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    if (response.ok) receiveChatNameFromServer(name);
+  }
+
+  async function assignChatHeaderProject(projectId: string) {
+    if (!sessionId) return;
+    const response = await fetch(`/sessions/${sessionId}/project`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project_id: projectId }),
+    });
+    if (response.ok) refreshSidebarLists();
+  }
   // People waiting for this chat's host to let them in (components/join-requests.tsx).
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
+  // #462: whether this chat is shared through the relay right now, and -- when it is -- whether the next
+  // message is just for the people in it ("Just chat") instead of also asking this person's own agent.
+  const [sharedChat, setSharedChat] = useState(false);
+  const [justChat, setJustChat] = useState(false);
+  // #460: a shared file's state as it changes while the chat is open (arrived, gone, delivered).
+  const [fileStates, setFileStates] = useState<Record<string, string>>({});
+  const justChatRef = useRef(false);
+  justChatRef.current = sharedChat && justChat;
+  useEffect(() => {
+    if (!sessionId) return;
+    let cancelled = false;
+    const check = () =>
+      void fetch(`/sessions/${sessionId}/relay/status`)
+        .then((response) => (response.ok ? (response.json() as Promise<{ syncing?: boolean }>) : null))
+        .then((status) => {
+          if (!cancelled) setSharedChat(Boolean(status?.syncing));
+        })
+        .catch(() => {});
+    check();
+    const timer = setInterval(check, 10_000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [sessionId]);
   // Real bug, confirmed via a real CI build failure (TS6133, "awaitingReply declared
   // but never read"): the old `awaitingReply` React state was fully superseded by
   // turnInProgress below and awaitingReplyRef (the imperative guard used throughout
@@ -576,6 +671,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // its own top-level `let` variables directly.
   const awaitingReplyRef = useRef(false);
   const historyReplayedRef = useRef(false);
+  // The first human row is the continuation of HomePage's composer handoff,
+  // not an independently arriving message. Keep it solid when the composer
+  // lands; ordinary live rows still use their entrance animation.
+  const suppressInitialHandoffHumanEntranceRef = useRef(false);
+  const noEntranceRowIdsRef = useRef<Set<string>>(new Set());
   const lastHumanPromptRef = useRef("");
   // Real bug, confirmed via a real transcript ("the retry did not do at the
   // first message but it sent a second message"): retryLastMessage (below)
@@ -785,6 +885,50 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // disappears, then rebuilds" flash confirmed directly ("the < return is
   // glitched when i come back, it flashes/disappears the message").
   const pendingBranchReplayRef = useRef<ChatRow[] | null>(null);
+  // ChatPage stays mounted while the redesign swaps routes, so its local
+  // transcript must be treated as session-scoped rather than component-scoped.
+  // This ref also lets an old socket discard a final event in the tiny window
+  // before React runs that effect's cleanup for the previous session.
+  const activeSessionIdRef = useRef(sessionId);
+
+  useLayoutEffect(() => {
+    activeSessionIdRef.current = sessionId;
+    lastEventIdRef.current = 0;
+    awaitingReplyRef.current = false;
+    historyReplayedRef.current = false;
+    suppressInitialHandoffHumanEntranceRef.current = false;
+    noEntranceRowIdsRef.current = new Set();
+    historicalRowIdsRef.current = new Set();
+    rowElsRef.current = new Map();
+    pendingBranchReplayRef.current = null;
+    lastHumanPromptRef.current = "";
+    lastHumanEventIdRef.current = undefined;
+    turnStartedAtRef.current = null;
+    firstAgentRowIdRef.current = null;
+    pausedAtRef.current = null;
+    pausedTotalMsRef.current = 0;
+    searchQueryRef.current = null;
+    liveReasoningTextRef.current = null;
+    liveToolCallLinesRef.current = [];
+    sawRealReplyRef.current = false;
+    hasPinnedDefaultModelRef.current = false;
+    projectIdRef.current = null;
+    compactedAboveRef.current = false;
+
+    setRows([]);
+    setJoinRequests([]);
+    setPrompt("");
+    setPendingEditEventId(null);
+    setTurnInProgress(false);
+    setWaitingPhase(null);
+    setLiveReasoningText(null);
+    setLiveElapsedSec(null);
+    setViewportVisibleRowIds(new Set());
+    setHistoricalRowsRevealed(false);
+    setDefaultEffortValue(undefined);
+    setAutocompactValue("500000");
+    setAutocompactScope("chat");
+  }, [sessionId]);
 
   function pushRow(row: ChatRow) {
     if (!historyReplayedRef.current) historicalRowIdsRef.current.add(row.id);
@@ -846,16 +990,23 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // Requests still waiting on the host when this chat opens (events only carry changes).
   useEffect(() => {
     if (!sessionId) return;
+    let cancelled = false;
     fetch(`/sessions/${sessionId}/join-requests`)
       .then((response) => (response.ok ? response.json() : []))
-      .then((pending: JoinRequest[]) => setJoinRequests(pending))
+      .then((pending: JoinRequest[]) => {
+        if (!cancelled) setJoinRequests(pending);
+      })
       .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [sessionId]);
 
   useEffect(() => {
     if (!sessionId) return;
 
     function handleEvent(raw: string) {
+      if (activeSessionIdRef.current !== sessionId) return;
       let event: Record<string, unknown>;
       try {
         event = JSON.parse(raw);
@@ -955,7 +1106,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         if (effort) sentEffortRef.current = effort;
         const myName = getUserDisplayName();
         const senderName = sender || myName;
-        pushRow({
+        const humanRow: Extract<ChatRow, { kind: "human" }> = {
           kind: "human",
           id: nextRowId(),
           text,
@@ -978,7 +1129,15 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           time: turnStartedAtRef.current !== null ? formatMessageTimestamp(turnStartedAtRef.current) : messageTime(),
           eventId: event.event_id as number | undefined,
           branch: event.branch as { group: string; index: number; total: number } | undefined,
-        });
+          relaySequence: typeof event.relay_sequence === "number" ? event.relay_sequence : undefined,
+          mine: typeof event.mine === "boolean" ? event.mine : undefined,
+          files: Array.isArray(event.attachments) ? (event.attachments as SharedFile[]) : undefined,
+        };
+        if (suppressInitialHandoffHumanEntranceRef.current) {
+          noEntranceRowIdsRef.current.add(humanRow.id);
+          suppressInitialHandoffHumanEntranceRef.current = false;
+        }
+        pushRow(humanRow);
         // Only show the waiting indicator for a live message, not while
         // replaying history -- otherwise every replayed human message
         // spawns its own indicator ahead of a reply that already exists a
@@ -987,10 +1146,15 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         // message is exactly the moment it should first appear in Recents;
         // replaying an existing chat's own already-recorded history isn't a
         // new "creation" and would just refetch the same list redundantly.
+        // #462: in a shared chat, only this person's own message sent to their agent gets a reply to wait
+        // for -- not someone else's, and not one sent as "Just chat".
+        const expectsMyReply = event.mine !== false && !(event.mine === true && justChatRef.current);
         if (historyReplayedRef.current) {
-          awaitingReplyRef.current = true;
-          setTurnInProgress(true);
-          setWaitingPhase("waiting");
+          if (expectsMyReply) {
+            awaitingReplyRef.current = true;
+            setTurnInProgress(true);
+            setWaitingPhase("waiting");
+          }
           refreshSidebarLists();
         }
         return;
@@ -1014,6 +1178,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       }
 
       if (type === "user_joined") {
+        // "Guest" is never shown: a signed-out join gets no marker.
+        if (event.name === GUEST_NAME) return;
         pushMarker(i18n.t("chat.userJoined", { name: event.name }));
         return;
       }
@@ -1194,6 +1360,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             if (pending.sessionId === sessionId) {
               sessionStorage.removeItem("alongside_pending_message");
               lastHumanPromptRef.current = pending.prompt;
+              suppressInitialHandoffHumanEntranceRef.current = true;
               // No local sentEffortRef write here any more -- the server's own
               // human_message broadcast (which this POST triggers) is what sets
               // it now, the same authoritative path every other send uses.
@@ -1217,6 +1384,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                   images: pending.images,
                   effort: pending.effort,
                 }),
+              }).then((response) => {
+                // POST only resolves after the human event is persisted, so
+                // refresh now as well as on the WebSocket event below. This
+                // keeps the sidebar live even if that broadcast is delayed.
+                if (response.ok) refreshSidebarLists();
               });
             }
           } catch {
@@ -1243,7 +1415,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       if (type === "provider_rate_limit" || type === "claude_rate_limit") {
         const resetsAt = typeof event.resets_at === "number" ? event.resets_at : null;
         const resetsAtLabel = resetsAt
-          ? new Date(resetsAt * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          ? new Date(resetsAt * 1000).toLocaleTimeString(i18n.language, { hour: "2-digit", minute: "2-digit" })
           : null;
         // Provider-agnostic wording now, not "Claude is..." -- per explicit
         // request ("ALS-011 and ALS-012 should be the same error for all
@@ -1488,6 +1660,44 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         return;
       }
 
+      // #462: another participant's agent run -- live while it runs (`relay_run_progress`, never stored),
+      // then its recorded reply (`assistant` with `relay_run_id`). Both land on one row per run.
+      if ((type === "relay_run_progress" || type === "assistant") && typeof event.relay_run_id === "string") {
+        const blocks = ((event.message as { content?: { type: string; text?: string; name?: string }[] } | undefined)?.content ?? []);
+        const text = blocks.filter((b) => b.type === "text" && b.text).map((b) => b.text).join("\n\n");
+        const toolCallLines = blocks.filter((b) => b.type === "tool_use" && b.name).map((b) => ({ label: b.name as string }));
+        const runBy = typeof event.run_by === "string" ? event.run_by : "";
+        const providerName = typeof event.provider === "string" ? PROVIDER_NAMES[event.provider] ?? event.provider : "";
+        const runId = event.relay_run_id;
+        const time = typeof event.created_at === "string" ? formatMessageTimestamp(parseServerTimestampMs(event.created_at)) : messageTime();
+        if (type === "assistant") awaitingReplyRef.current = false;
+        setRows((prev) => {
+          const at = prev.findIndex((r) => r.kind === "agent" && r.relayRunId === runId);
+          if (at >= 0) {
+            const next = [...prev];
+            next[at] = { ...(prev[at] as Extract<ChatRow, { kind: "agent" }>), text, toolCallLines: toolCallLines.length ? toolCallLines : undefined };
+            return next;
+          }
+          if (!text && toolCallLines.length === 0) return prev;
+          const row: ChatRow = {
+            kind: "agent",
+            id: nextRowId(),
+            text,
+            runBy,
+            relayRunId: runId,
+            modelLabel: providerName ? `${runBy} · ${providerName}` : runBy,
+            // Their provider's mark, not this person's selected model's.
+            model: QUICK_CHAT_MODELS.find((m) => m.provider.toLowerCase() === event.provider) ?? modelRef.current,
+            animate: false,
+            time,
+            effort: sentEffortRef.current,
+            toolCallLines: toolCallLines.length ? toolCallLines : undefined,
+          };
+          return [...prev, row];
+        });
+        return;
+      }
+
       if (type === "assistant" && event.message) {
         const content = (
           event.message as {
@@ -1646,6 +1856,34 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       // chat_path -> a full link: the backend doesn't know this page's own origin
       // (Tauri release vs. a self-hosted domain vs. 127.0.0.1:3000 in dev), only this
       // browser/webview does.
+      // #462: another participant's agent run that failed or was stopped.
+      if (type === "relay_run_ended") {
+        const name = typeof event.run_by === "string" ? event.run_by : "";
+        const text = event.status === "stopped" ? i18n.t("chat.relayRun.stopped", { name }) : i18n.t("chat.relayRun.failed", { name, message: (event.message as string | null) ?? "" });
+        pushRow({ kind: "command", id: nextRowId(), text, time: messageTime() });
+        return;
+      }
+      // #460: one of this chat's shared files arrived, expired, or reached everyone.
+      if (type === "relay_file_state") {
+        setFileStates((current) => ({ ...current, [event.file_id as string]: event.state as string }));
+        return;
+      }
+      // #460: one of this person's own files expired before reaching everyone; they still have it.
+      if (type === "relay_file_undelivered") {
+        const missing = Array.isArray(event.missing) ? (event.missing as string[]).join(", ") : "";
+        pushRow({ kind: "command", id: nextRowId(), text: i18n.t("chat.files.undelivered", { name: event.name as string, missing }), time: messageTime() });
+        return;
+      }
+      // #460: how this device's own request to join is going.
+      if (type === "join_status") {
+        pushRow({ kind: "command", id: nextRowId(), text: i18n.t(`chat.joinStatus.${event.status as string}`), time: messageTime() });
+        return;
+      }
+      // #460: someone asked to join a chat this person can let people into.
+      if (type === "relay_join_requested") {
+        window.dispatchEvent(new Event(RELAY_JOIN_REQUESTED_EVENT));
+        return;
+      }
       if (type === "share_result") {
         awaitingReplyRef.current = false;
         setTurnInProgress(false);
@@ -1844,6 +2082,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   ) {
     const trimmed = text.trim();
     if (!trimmed || !sessionId) return;
+    // /share opens the Share dialog (#213) rather than being sent as a message.
+    if (trimmed === "/share" && images.length === 0) {
+      openShareDialog(sessionId);
+      return;
+    }
 
     // No local sentEffortRef write here any more -- that was the actual bug
     // (reported: "I set Low, the reply's own dial showed Medium," then again
@@ -1889,6 +2132,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         // spelling_instruction). Sent on every turn, not just once, since the
         // preference can change mid-session.
         spelling_language: loadLanguage(),
+        chat_only: sharedChat && justChat ? true : undefined,
       }),
     });
 
@@ -1908,7 +2152,9 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         text: trimmed,
         displayName: getUserDisplayName(),
         time: messageTime(),
-        failed: { errorText: i18n.t("chat.errors.sendFailed", { status: res.status }), images, effort },
+        // #462: a shared chat refuses what can't go through the relay (images, for now, or something that
+        // looks like a password or key) with 422.
+        failed: { errorText: sharedChat ? sharedSendError(res.status) ?? i18n.t("chat.errors.sendFailed", { status: res.status }) : i18n.t("chat.errors.sendFailed", { status: res.status }), images, effort },
       });
     }
   }
@@ -2098,7 +2344,77 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     (waitingPhase === "working" && liveElapsedSec !== null ? ` ${formatWorkedDuration(liveElapsedSec)}` : "");
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="relative flex min-h-0 flex-1 flex-col bg-background">
+      {contextLabel && (
+        <div className={`absolute top-3 right-0 left-0 z-10 ${chatSidePadding}`}>
+          <div className="group/chat-context inline-flex items-center gap-0.5">
+            {chatHeaderRenaming ? (
+              <input
+                autoFocus
+                aria-label={t("chat.nameAriaLabel")}
+                value={chatHeaderName}
+                onChange={(event) => setChatHeaderName(event.target.value)}
+                onBlur={(event) => void saveChatHeaderName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") event.currentTarget.blur();
+                  if (event.key === "Escape") {
+                    setChatHeaderName(contextLabel);
+                    setChatHeaderRenaming(false);
+                  }
+                }}
+                className="h-5 w-44 rounded-sm border border-border bg-transparent px-1 text-[12px] font-normal text-foreground outline-none focus:border-ring"
+              />
+            ) : (
+              <h1 className="max-w-56 truncate text-[12px] font-normal text-muted-foreground/60 transition-colors duration-150 group-hover/chat-context:text-foreground group-focus-within/chat-context:text-foreground">
+                {contextLabel}
+              </h1>
+            )}
+            <BaseDropdownMenu size="compact" open={chatHeaderMenuOpen} onOpenChange={setChatHeaderMenuOpen}>
+              <BaseDropdownTrigger
+                render={
+                  <MoreTrigger
+                    aria-label={`Options for ${contextLabel}`}
+                    active={chatHeaderMenuOpen}
+                    className="group-hover/chat-context:opacity-100"
+                  />
+                }
+              />
+              <BaseDropdownContent side="bottom" align="start" className="w-40 overflow-hidden">
+                <BaseDropdownLabel>Chat</BaseDropdownLabel>
+                <DropdownSubItem
+                  className="gap-2 text-[12px]"
+                  onClick={() => {
+                    setChatHeaderMenuOpen(false);
+                    setChatHeaderRenaming(true);
+                  }}
+                >
+                  <EditIcon className="size-3.5" />
+                  Rename
+                </DropdownSubItem>
+                {headerProjects.length > 0 ? (
+                  <DropdownSubMenuItem index={1} icon={FolderIcon} label={t("nav.chat.addToProject")} className="gap-[7px] text-[12px]">
+                    <BaseDropdownLabel>{t("nav.projects")}</BaseDropdownLabel>
+                    {headerProjects.map((project) => (
+                      <DropdownSubItem
+                        key={project.id}
+                        className="py-1.5 pl-2.5 text-[12px]"
+                        onClick={() => void assignChatHeaderProject(project.id)}
+                      >
+                        {project.name}
+                      </DropdownSubItem>
+                    ))}
+                  </DropdownSubMenuItem>
+                ) : (
+                  <DropdownSubItem className="gap-2 text-[12px]" disabled>
+                    <FolderIcon className="size-3.5" />
+                    {t("nav.chat.addToProject")}
+                  </DropdownSubItem>
+                )}
+              </BaseDropdownContent>
+            </BaseDropdownMenu>
+          </div>
+        </div>
+      )}
       <ScrollArea className="min-h-0 flex-1" viewportRef={chatLogRef} viewportClassName={chatSidePadding}>
         {/* max-w-[45rem] (720px) replaced with the shared PAGE_CONTENT_WIDTH
             (800px, page-content.tsx) -- same fix as the compose box below
@@ -2123,7 +2439,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             at all -- scrollToBottomIfNear (this file, called from pushRow)
             and the replay_complete handler's own scrollTop = scrollHeight
             already handle it in JS, the exact same pattern dray uses. */}
-        <div ref={chatContentRef} className="t-chat-width mx-auto flex w-full flex-1 flex-col gap-3 pt-16 pb-3" style={{ maxWidth: "var(--chat-max-width)" }}>
+        <div ref={chatContentRef} className="t-chat-width mx-auto flex w-full flex-1 flex-col gap-3 pt-16 pb-3 [&_p]:font-[inherit] [&_p]:tracking-[inherit]" style={{ maxWidth: "var(--chat-max-width)" }}>
           {/* t-row-in -- per explicit request ("coming in very quickly, is there a
               transition like fade in"): every LIVE row mounting (human, agent, tool,
               reasoning, marker, command, permission alike) fades/slides in once,
@@ -2229,7 +2545,9 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             if (skipIds.has(row.id)) return null;
             const isHistorical = historicalRowIdsRef.current.has(row.id);
             const rowClassName = !isHistorical
-              ? "t-row-in"
+              ? noEntranceRowIdsRef.current.has(row.id)
+                ? "opacity-100"
+                : "t-row-in"
               : !historicalRowsRevealed
                 ? "opacity-0"
                 : viewportVisibleRowIds.has(row.id)
@@ -2279,6 +2597,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                   onRetryFailedMessage={retryFailedMessage}
                   onResendMessage={resendMessage}
                   onEditMessage={editMessage}
+                  sessionId={sessionId}
+                  fileStates={fileStates}
                   onSwitchBranch={switchBranch}
                   onOpenFile={openFile}
                   toolGroup={groupStarts.get(row.id)}
@@ -2309,7 +2629,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             // to accept this page's own four phase labels and to pull its
             // gradient from this app's real theme tokens instead of the
             // component's own hardcoded grays -- that file's own comment
-            // has the full reasoning). text-[13px] to match this app's
+            // has the full reasoning). the --redesign-chat-text size to match this app's
             // own agent-reply text size, same reasoning the row's
             // previous size bump already established.
             <div className="flex items-center gap-2 py-1">
@@ -2382,6 +2702,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           })()}
         </AnimatePresence>
         {sessionId && <JoinRequests sessionId={sessionId} requests={joinRequests} onDecided={(id) => setJoinRequests((current) => current.filter((r) => r.id !== id))} />}
+        {sharedChat && <AgentModeSwitch justChat={justChat} onChange={setJustChat} />}
         <ComposeBox
           // Forces a remount whenever a *new* edit starts (editMessage's
           // own comment above has the full reasoning) -- ComposeBox's own
@@ -2494,16 +2815,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
 // One real shared component now, not three separately-sized copies of the same
 // idea -- confirmed directly as a real bug (reported: "our time at our message
 // is not the same size... I thought it was the same component"), human/command
-// rows were still on the old text-xs span, only the agent row's own had been
-// resized to text-2xs. showDisclaimer is the one real difference between them:
-// only an actual AI reply carries "AI can make mistakes" -- a human's own
-// message or Alongside's own /share reply doesn't need reviewing the same way.
-function MessageTime({ time, showDisclaimer }: { time: string; showDisclaimer?: boolean }) {
-  const { t } = useTranslation();
+// rows were still on an older span, only the agent row's own had been resized.
+function MessageTime({ time }: { time: string }) {
   return (
-    <p className="px-1 text-2xs text-muted-foreground">
+    <p className="px-1 text-[length:var(--redesign-chat-meta)] text-muted-foreground">
       {time}
-      {showDisclaimer && <span className="opacity-50"> {t("chat.disclaimer")}</span>}
     </p>
   );
 }
@@ -2516,6 +2832,8 @@ function ChatRowView({
   onRetryFailedMessage,
   onResendMessage,
   onEditMessage,
+  sessionId,
+  fileStates,
   onSwitchBranch,
   onOpenFile,
   toolGroup,
@@ -2528,6 +2846,8 @@ function ChatRowView({
   onRetryFailedMessage: (row: Extract<ChatRow, { kind: "human" }>) => void;
   onResendMessage: (row: Extract<ChatRow, { kind: "human" }>) => void;
   onEditMessage: (row: Extract<ChatRow, { kind: "human" }>) => void;
+  sessionId?: string;
+  fileStates?: Record<string, string>;
   onSwitchBranch: (group: string, index: number) => void;
   onOpenFile: (path: string) => void;
   // Set only on the first row of a run of consecutive same-kind Write/Edit
@@ -2576,7 +2896,7 @@ function ChatRowView({
   // preloadProviderIcons-cached well before that reveal fires anyway).
   const [iconLoaded, setIconLoaded] = useState(() => row.kind !== "agent" || !row.animate);
   if (row.kind === "marker") {
-    return <div className="text-center text-xs text-muted-foreground/70"><ErrorText message={row.text} /></div>;
+    return <div className="text-center text-[length:var(--redesign-chat-meta)] text-muted-foreground/70"><ErrorText message={row.text} /></div>;
   }
 
   if (row.kind === "tool") {
@@ -2647,13 +2967,13 @@ function ChatRowView({
             sitting 4px inset from that same edge instead of flush with it,
             reading as a gap on whichever side the row is aligned to. */}
         <div className="flex items-center gap-1.5">
-          {/* size-5 (20px), matching ProviderIcon's own size on the agent
+          {/* size-4 (16px), matching ProviderIcon's own size on the agent
               row below exactly -- both sides of the conversation keep the
               same size mark now. */}
-          <span className="size-5 shrink-0 overflow-hidden rounded-full">
+          <span className="size-4 shrink-0 overflow-hidden rounded-full">
             <DefaultAvatar name={row.displayName} />
           </span>
-          <span className="text-xs text-muted-foreground">{isSelf ? "Me" : row.displayName}</span>
+          <span className="text-[length:var(--redesign-chat-meta)] text-muted-foreground">{isSelf ? i18n.t("chat.me") : row.displayName}</span>
         </div>
         {/* transition-[max-width]: sm: is a real viewport breakpoint, so
             without this the bubble snapped width instantly at 640px while
@@ -2677,7 +2997,7 @@ function ChatRowView({
         <div
           className={`flex w-fit max-w-[85%] items-center gap-2.5 transition-[max-width] duration-200 ${isSelf ? "ml-auto" : "mr-auto"}`}
         >
-          {/* text-[13px] leading-relaxed -- matches the agent reply's own text exactly
+          {/* --redesign-chat-text leading-relaxed -- matches the agent reply's own text exactly
               (the block below this one's own comment has the same values), was text-sm
               (14px, no leading-relaxed) -- per explicit request, "our own text is quite
               big[,] make that match the size of the texts of the agent". */}
@@ -2701,24 +3021,31 @@ function ChatRowView({
               --foreground comment has the full history), so this is now a literal
               shared token rather than two colors that happened to match. */}
           <div
-            className={`rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap text-foreground ${
+            className={`rounded-[var(--redesign-chat-bubble-radius)] px-[var(--redesign-chat-bubble-padding-x)] py-[var(--redesign-chat-bubble-padding-y)] text-[length:var(--redesign-chat-text)] leading-relaxed whitespace-pre-wrap text-foreground ${
               row.failed ? "border border-destructive/40" : ""
             } bg-accent`}
           >
             {row.text}
           </div>
         </div>
+        {row.files && row.files.length > 0 && sessionId && (
+          <div className={`flex max-w-[85%] flex-wrap items-start gap-2 ${isSelf ? "ml-auto justify-end" : "mr-auto"}`}>
+            {row.files.map((file) => (
+              <AttachmentView key={`${file.file_id}-${fileStates?.[file.file_id] ?? ""}`} sessionId={sessionId} file={file} sender={row.displayName} mine={isSelf} />
+            ))}
+          </div>
+        )}
         {row.failed ? (
           // Real bug, confirmed directly ("my messaged should have gone to
           // the chat and with an error underneath so i can click retry") --
           // see sendMessage's own comment (above) for why this row exists
           // at all instead of the window.alert() it replaced.
           <div className="flex items-center gap-2 px-1">
-            <span className="text-2xs text-destructive"><ErrorText message={row.failed.errorText} /></span>
+            <span className="text-[length:var(--redesign-chat-meta)] text-destructive"><ErrorText message={row.failed.errorText} /></span>
             <button
               type="button"
               onClick={() => onRetryFailedMessage(row)}
-              className="text-2xs font-medium text-muted-foreground underline hover:text-foreground"
+              className="text-[length:var(--redesign-chat-meta)] font-medium text-muted-foreground underline hover:text-foreground"
             >
               {t("common.retry")}
             </button>
@@ -2739,7 +3066,7 @@ function ChatRowView({
                   ever been edited, but total stays 1 until a second branch
                   genuinely exists) -- most messages never show this. */}
               {row.branch && row.branch.total > 1 && (
-                <div className="flex items-center gap-0.5 text-2xs text-muted-foreground">
+                <div className="flex items-center gap-0.5 text-[length:var(--redesign-chat-meta)] text-muted-foreground">
                   <button
                     type="button"
                     disabled={row.branch.index <= 0}
@@ -2791,6 +3118,10 @@ function ChatRowView({
                   </TooltipTrigger>
                   <TooltipContent>{t("chat.cancelEdit")}</TooltipContent>
                 </Tooltip>
+              ) : row.mine === false ? (
+                // #462: someone else's message in a shared chat: not this person's to resend, edit or run
+                // (a personal provider account answers only its owner's own messages).
+                null
               ) : (
                 <>
                   <Tooltip>
@@ -2844,12 +3175,12 @@ function ChatRowView({
               label (row.displayName above) exactly: both are identity labels above
               a message, and this one read larger/bolder than its symmetric
               counterpart for no reason tied to anything on screen. */}
-          <span className="text-xs text-muted-foreground">Alongside</span>
+          <span className="text-[length:var(--redesign-chat-meta)] text-muted-foreground">Alongside</span>
         </div>
         {/* max-w-[95%], matching the agent row's own reply width below (not
             the human bubble's 80%) -- this is Alongside's own /share reply,
             not a human message. */}
-        <div className="max-w-[95%] px-1 text-sm whitespace-pre-wrap transition-[max-width] duration-200"><ErrorText message={row.text} /></div>
+        <div className="max-w-[95%] px-1 text-[length:var(--redesign-chat-text)] whitespace-pre-wrap transition-[max-width] duration-200"><ErrorText message={row.text} /></div>
         <MessageTime time={row.time} />
       </div>
     );
@@ -2890,17 +3221,17 @@ function ChatRowView({
         </div>
       )}
       <div className="flex items-center gap-1.5 px-1">
-        {/* size-5 (20px), not size-6 -- per explicit request ("make sure
+        {/* size-4 (16px; was size-5) -- per explicit request ("make sure
             that both icons are size 5 to match the size of the font at
-            the messages"), matching the row's own text-xs label next to
+            the messages"), matching the row's own text-[length:var(--redesign-chat-meta)] label next to
             it instead of running larger than it. */}
-        <ProviderIcon model={row.model} className="size-5" onLoad={() => setIconLoaded(true)} />
+        <ProviderIcon model={row.model} className="size-4" onLoad={() => setIconLoaded(true)} />
         {/* text-xs, no font-medium -- same fix as the "command" row's own
             "Alongside" label just above: matches the "human" row's sender-name
             label exactly, its real symmetric counterpart. */}
-        <span className="text-xs text-muted-foreground">{row.modelLabel}</span>
+        <span className="text-[length:var(--redesign-chat-meta)] text-muted-foreground">{row.modelLabel}</span>
       </div>
-      {/* text-[13px] leading-relaxed -- matches the reference component's own reply
+      {/* --redesign-chat-text leading-relaxed -- matches the reference component's own reply
           text size exactly (was text-sm/14px with Tailwind's default leading), per
           explicit request. No more whitespace-pre-wrap -- streamdown (streaming-
           text.tsx) now renders real markdown blocks with their own real paragraph/
@@ -2912,8 +3243,10 @@ function ChatRowView({
           the human bubble used -- the two should read differently now, an
           AI reply spans nearly the full column while a human message stays
           visually distinct as a bubble. */}
-      <div className="max-w-[95%] px-1 text-[13px] leading-relaxed transition-[max-width] duration-200">
-        <StreamingText text={row.text} animate={row.animate} onDone={() => setActionsVisible(true)} />
+      <div className="max-w-[95%] px-1 text-[length:var(--redesign-chat-text)] leading-relaxed transition-[max-width] duration-200">
+        {/* A live run from someone else (#462) grows in place; StreamingText keeps its first text, so it's
+            remounted on each update (without animation). */}
+        <StreamingText key={row.relayRunId ? row.text : undefined} text={row.text} animate={row.animate} onDone={() => setActionsVisible(true)} />
       </div>
       {/* Sources now lives inside AgentMessageActions' own row, after effort --
           per explicit request (was its own separate block below the row before).
@@ -2934,8 +3267,10 @@ function ChatRowView({
           motion, not a separate animation to maintain. */}
       {actionsVisible && (
         <div className="t-row-in flex w-full flex-col items-start gap-1">
-          <AgentMessageActions text={row.text} onRetry={onRetry} effort={row.effort} />
-          <MessageTime time={row.time} showDisclaimer />
+          {/* #462: someone else's run -- their effort isn't known here, and retrying would rerun it as
+              this person's own turn. */}
+          <AgentMessageActions text={row.text} onRetry={row.runBy ? undefined : onRetry} effort={row.runBy ? undefined : row.effort} />
+          <MessageTime time={row.time} />
         </div>
       )}
     </div>
@@ -3001,7 +3336,7 @@ function ToolRow({ name, summary, input }: { name: string; summary: string | nul
         type="button"
         disabled={!hasInput}
         onClick={() => setOpen((prev) => !prev)}
-        className="flex items-center gap-1 text-xs text-muted-foreground italic disabled:cursor-default"
+        className="flex items-center gap-1 text-[length:var(--redesign-chat-meta)] text-muted-foreground italic disabled:cursor-default"
       >
         <span>
           {name}
@@ -3012,7 +3347,7 @@ function ToolRow({ name, summary, input }: { name: string; summary: string | nul
         )}
       </button>
       {open && (
-        <pre className="mt-1 max-w-full overflow-x-auto rounded-lg bg-muted px-2.5 py-2 text-[11px] whitespace-pre-wrap text-muted-foreground">
+        <pre className="mt-1 max-w-full overflow-x-auto rounded-lg bg-muted px-2.5 py-2 text-[length:var(--redesign-chat-meta)] whitespace-pre-wrap text-muted-foreground">
           {JSON.stringify(input, null, 2)}
         </pre>
       )}
@@ -3111,8 +3446,8 @@ function SourceLink({ source }: { source: { label: string; href: string } }) {
           onError={() => setFaviconFailed(true)}
         />
       )}
-      <span className="min-w-0 text-xs text-foreground">
-        {source.label || hostname} <span className="font-mono text-2xs text-muted-foreground opacity-50">{hostname}</span>
+      <span className="min-w-0 text-[length:var(--redesign-chat-meta)] text-foreground">
+        {source.label || hostname} <span className="font-mono text-[length:var(--redesign-chat-meta)] text-muted-foreground opacity-50">{hostname}</span>
       </span>
     </a>
   );
@@ -3158,7 +3493,7 @@ function TurnWorkDisclosure({
   // Plain, non-interactive label instead, exactly like Claude's own replies
   // that genuinely didn't use extended thinking this turn.
   if (!trimmedDetail && !hasToolLines) {
-    const labelEl = live ? <ThinkingState text={label} /> : <span className="text-xs text-muted-foreground">{label}</span>;
+    const labelEl = live ? <ThinkingState text={label} /> : <span className="text-[length:var(--redesign-chat-meta)] text-muted-foreground">{label}</span>;
     return <div className="px-1">{labelEl}</div>;
   }
   // ThinkingReasoning (per explicit request, adopted from
@@ -3301,7 +3636,7 @@ function PermissionCard({
             ? t("chat.perm.deniedNoResponse")
             : t("chat.perm.denied");
     return (
-      <div className="flex items-center gap-1.5 px-1 text-xs text-muted-foreground">
+      <div className="flex items-center gap-1.5 px-1 text-[length:var(--redesign-chat-meta)] text-muted-foreground">
         {status === "allow" ? <CheckIcon className="size-3.5 shrink-0" /> : <XIcon className="size-3.5 shrink-0" />}
         <span>
           {toolName}: {label}
@@ -3311,11 +3646,11 @@ function PermissionCard({
   }
 
   return (
-    <div className="flex w-full flex-col gap-2.5 rounded-2xl border border-border bg-sidebar p-3">
+    <div className="flex w-full flex-col gap-2.5 rounded-[var(--redesign-chat-bubble-radius)] border border-border bg-sidebar p-3">
       {/* No icon beside the title any more -- per explicit follow-up
           ("we should have no icons there at the title"). */}
       <div className="flex items-center gap-2">
-        <p className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">{t("chat.perm.allowToRun", { tool: toolName })}</p>
+        <p className="min-w-0 flex-1 truncate text-[length:var(--redesign-chat-text)] font-medium text-foreground">{t("chat.perm.allowToRun", { tool: toolName })}</p>
         {/* Per explicit follow-up ("is missing the x at the right top to
             cancel it and fully stop the command") -- denies this specific
             permission (the same real endpoint Deny already calls) and
@@ -3336,7 +3671,7 @@ function PermissionCard({
         </button>
       </div>
       {commandText && (
-        <pre className="max-w-full overflow-x-auto rounded-lg bg-muted px-2.5 py-2 text-[11px] whitespace-pre-wrap text-foreground">
+        <pre className="max-w-full overflow-x-auto rounded-lg bg-muted px-2.5 py-2 text-[length:var(--redesign-chat-meta)] whitespace-pre-wrap text-foreground">
           {commandText}
         </pre>
       )}
@@ -3380,11 +3715,11 @@ function PermissionCard({
               if (event.key === "Enter" && otherText.trim()) void answer("deny", otherText.trim());
             }}
             placeholder={t("chat.perm.other")}
-            className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground"
+            className="min-w-0 flex-1 bg-transparent text-[length:var(--redesign-chat-text)] text-foreground outline-none placeholder:text-muted-foreground"
           />
         </div>
       </div>
-      <p className="px-2.5 text-2xs text-muted-foreground">{t("chat.perm.escToCancel")}</p>
+      <p className="px-2.5 text-[length:var(--redesign-chat-meta)] text-muted-foreground">{t("chat.perm.escToCancel")}</p>
     </div>
   );
 }
@@ -3408,7 +3743,7 @@ function PermissionOptionRow({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 text-left text-[13px] text-foreground transition-colors hover:bg-hover-2/50 disabled:opacity-50"
+      className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 text-left text-[length:var(--redesign-chat-text)] text-foreground transition-colors hover:bg-hover-2/50 disabled:opacity-50"
     >
       <span className="flex size-4 shrink-0 items-center justify-center rounded bg-hover-2/50 text-[10px] font-semibold text-muted-foreground">
         {number}
@@ -3424,8 +3759,8 @@ function AgentMessageActions({
   effort,
 }: {
   text: string;
-  onRetry: () => void;
-  effort: EffortLevel;
+  onRetry?: () => void;
+  effort?: EffortLevel;
 }) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
@@ -3554,6 +3889,7 @@ function AgentMessageActions({
         </TooltipTrigger>
         <TooltipContent>{t("chat.badResponse")}</TooltipContent>
       </Tooltip>
+      {onRetry && (
       <Tooltip>
         <TooltipTrigger asChild>
           <button onClick={onRetry} className={iconButtonClass(false)}>
@@ -3562,6 +3898,7 @@ function AgentMessageActions({
         </TooltipTrigger>
         <TooltipContent>{t("common.retry")}</TooltipContent>
       </Tooltip>
+      )}
       <Tooltip>
         <TooltipTrigger asChild>
           <button onClick={toggleReadAloud} className={iconButtonClass(speaking)}>
@@ -3575,7 +3912,7 @@ function AgentMessageActions({
           having a graph that we can only see when we hover bc is not
           clear"): the graph on its own read as decorative until you
           hovered it, unlike every other real value on this row. */}
-      <span className="px-1 text-xs text-muted-foreground">{effortLabel(effort)} effort</span>
+      {effort && <span className="px-1 text-[length:var(--redesign-chat-meta)] text-muted-foreground">{effortLabel(effort)} effort</span>}
       {/* Sources -- same row as every other action, after effort, per explicit
           request (was its own separate block below the row before). A real
           dropdown trigger now, not a hover tooltip -- per explicit request:
@@ -3592,7 +3929,7 @@ function AgentMessageActions({
           className={`${iconButtonClass(sourcesOpen)} w-auto gap-1 px-1.5`}
         >
           <ResearchIcon className="size-3 shrink-0" />
-          <span className="text-2xs">{t("chat.sources", { count: sources.length })}</span>
+          <span className="text-[length:var(--redesign-chat-meta)]">{t("chat.sources", { count: sources.length })}</span>
           <ChevronDownIcon className={`size-3 shrink-0 transition-transform ${sourcesOpen ? "rotate-180" : ""}`} />
         </button>
       )}
@@ -3640,4 +3977,76 @@ function AgentMessageActions({
       )}
     </div>
   );
+}
+
+// #462: in a shared chat, whether a message also asks this person's own agent (the default, as in a solo
+// chat) or is just for the people in it.
+function AgentModeSwitch({ justChat, onChange }: { justChat: boolean; onChange: (justChat: boolean) => void }) {
+  const { t } = useTranslation();
+  const option = (active: boolean) =>
+    `h-6 rounded-md px-2.5 text-[12px] transition-colors ${active ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"}`;
+  return (
+    <div role="radiogroup" aria-label={t("chat.agentMode.label")} className="mb-2 inline-flex items-center gap-0.5 self-start rounded-lg bg-muted/60 p-0.5">
+      <button type="button" role="radio" aria-checked={!justChat} className={option(!justChat)} onClick={() => onChange(false)}>
+        {t("chat.agentMode.ask")}
+      </button>
+      <button type="button" role="radio" aria-checked={justChat} className={option(justChat)} onClick={() => onChange(true)}>
+        {t("chat.agentMode.justChat")}
+      </button>
+    </div>
+  );
+}
+
+// What a shared-chat send's failure means (#460, #462), or null for the generic message.
+function sharedSendError(status: number): string | null {
+  if (status === 413) return i18n.t("chat.errors.fileTooLarge");
+  if (status === 429) return i18n.t("chat.errors.fileAllowance");
+  if (status === 422) return i18n.t("chat.errors.sharedNotSent");
+  return null;
+}
+
+// A file in a shared chat (#460), from this device's own copy: the picture itself, or a chip for other
+// kinds. Still on its way: "Receiving…". Gone before it got here: ask the sender to send it again.
+export function AttachmentView({ sessionId, file, sender, mine }: { sessionId: string; file: SharedFile; sender: string; mine: boolean }) {
+  const { t } = useTranslation();
+  const url = `/sessions/${sessionId}/relay/files/${file.file_id}`;
+  const [state, setState] = useState<"loading" | "ready" | "pending" | "gone">("loading");
+  useEffect(() => {
+    let cancelled = false;
+    void fetch(url, { method: "GET" })
+      .then(async (response) => {
+        if (cancelled) return;
+        if (response.ok) return setState("ready");
+        const body = (await response.json().catch(() => ({}))) as { state?: string };
+        setState(body.state === "pending" ? "pending" : "gone");
+      })
+      .catch(() => !cancelled && setState("gone"));
+    return () => {
+      cancelled = true;
+    };
+  }, [url]);
+  const chip = "flex max-w-64 flex-col gap-0.5 rounded-[var(--redesign-chat-bubble-radius)] border border-[var(--redesign-sidebar-border)] px-3 py-2 text-[12px]";
+  if (state === "ready" && file.media_type.startsWith("image/")) {
+    return <img src={url} alt={file.name} className="max-h-64 max-w-64 rounded-[var(--redesign-chat-bubble-radius)] object-contain" />;
+  }
+  if (state === "ready") {
+    return (
+      <a href={url} download={file.name} className={`${chip} text-foreground hover:bg-muted/50`}>
+        <span className="truncate font-medium">{file.name}</span>
+        <span className="text-muted-foreground">{formatBytes(file.size)}</span>
+      </a>
+    );
+  }
+  return (
+    <div className={`${chip} text-muted-foreground`}>
+      <span className="truncate font-medium text-foreground">{file.name}</span>
+      <span>{state === "gone" ? (mine ? t("chat.files.goneMine") : t("chat.files.gone", { name: sender })) : t("chat.files.receiving")}</span>
+    </div>
+  );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

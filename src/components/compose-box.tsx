@@ -1,4 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { loadModelCatalog, useModelCatalogVersion } from "@/lib/model-catalog";
+import type { IconComponent, IconComponentProps } from "@/lib/icon-context";
+import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { PROVIDER_DISPLAY, ProviderIcon, QUICK_CHAT_MODELS, modelDisplayName } from "@/lib/quick-chat-models";
@@ -14,7 +17,7 @@ import { Button } from "@/components/ui/button";
 // submenu pair -- the reference component ships no submenu wrapper at
 // all -- used for the model/provider picker's provider > model tree and
 // each model's own nested "Set as default" menu.
-import { DropdownMenu as BaseDropdownMenu, DropdownTrigger as BaseDropdownTrigger, DropdownContent as BaseDropdownContent, DropdownLabel as BaseDropdownLabel, DropdownSubItem, DropdownSeparator, DropdownRowActionMenu, DropdownRowActionItem } from "@/components/ui/dropdown";
+import { DropdownMenu as BaseDropdownMenu, DropdownTrigger as BaseDropdownTrigger, DropdownContent as BaseDropdownContent, DropdownLabel as BaseDropdownLabel, DropdownSubItem, DropdownSubMenuItem, DropdownSeparator, DropdownRowActionMenu, DropdownRowActionItem } from "@/components/ui/dropdown";
 import { MenuItem as BaseMenuItem } from "@/components/ui/menu-item";
 import { Textarea } from "@/components/ui/textarea";
 import GlideMenu from "@/components/primitives/glide-menu";
@@ -25,7 +28,6 @@ import {
   ClearIcon,
   CompareIcon,
   DocIcon,
-  IntegrationsIcon,
   MicIcon,
   PlusIcon,
   ShareIcon,
@@ -92,6 +94,30 @@ function modelSelectionLabel(selected: typeof QUICK_CHAT_MODELS) {
   if (selected.length === 0) return i18n.t("compose.model");
   return modelDisplayName(selected[0]);
 }
+
+// Hover fade and press scale: PRESS_EFFECT / ICON_PRESS (lib/press-effect.ts).
+// For the Button-based controls (+, mic): hides Button's hover/press surface
+// (its first, aria-hidden child span) and pins the icon stroke, which Button
+// otherwise thickens from 1.5 to 2 on hover.
+// Bottom-row control sizes, scaled with the compose box's own width (it's the
+// @container, so cqw is the box) and clamped between a narrow-box minimum
+// (~400px box) and the full size (800px box). Pixel sizes round to even
+// numbers so centred glyphs land on whole pixels. Icon sizes go through
+// [&_svg]:!size-* because Button forces [&_svg]:h-4 w-4 on its icons.
+const COMPOSE_TOOL_VARS = {
+  "--compose-tool-h": "round(clamp(22px, calc(16px + 1.5cqw), 28px), 2px)",
+  "--compose-tool-text": "clamp(11px, calc(10px + 0.25cqw), 12px)",
+  "--compose-tool-icon": "round(clamp(12px, calc(10px + 0.5cqw), 14px), 2px)",
+  "--compose-plus-icon": "round(clamp(14px, calc(12px + 0.5cqw), 16px), 2px)",
+  "--compose-action-size": "round(clamp(20px, calc(16px + 1cqw), 24px), 2px)",
+  "--compose-mic-icon": "round(clamp(14px, calc(12px + 0.5cqw), 16px), 2px)",
+  "--compose-send-icon": "round(clamp(10px, calc(8px + 0.5cqw), 12px), 2px)",
+  // Pulls the + so its glyph's visible edge (5/24 into the svg) lines up with
+  // the placeholder text, 4px inside the content edge, at any scaled size.
+  "--compose-plus-offset":
+    "calc(4px - (var(--compose-tool-h) - var(--compose-plus-icon)) / 2 - var(--compose-plus-icon) * 5 / 24)",
+} as React.CSSProperties;
+const NO_HOVER_SURFACE = "[&>span:first-child]:hidden [&_svg]:!stroke-[1.5]";
 
 // How the agent asks before acting -- beside the model trigger, per
 // explicit request. Real for all three providers now: Codex
@@ -160,7 +186,7 @@ export function toImageInputs(images: ImageAttachment[]) {
   return images.map((image) => {
     const [header, data] = image.dataUrl.split(",", 2);
     const mediaType = header.match(/^data:(.+);base64$/)?.[1] ?? "image/png";
-    return { media_type: mediaType, data };
+    return { media_type: mediaType, data, name: image.name };
   });
 }
 
@@ -221,28 +247,9 @@ function parseToken(draft: string): { query: string; start: number } | null {
   };
 }
 
-// @ is back (issue #287) -- explicitly reintroduced after the earlier "remove
-// all @ commands" request, but with a real roster behind it this time: every
-// known integration always shows here, connected or not, so `@github`/
-// `@gmail`/`@google-doc` are always typeable -- send_message (server.rs)
-// explicitly tells the user to connect it in Settings if they mention one
-// that isn't, rather than this menu only ever showing what's already
-// connected (which would make an unconnected integration look like it
-// doesn't exist at all, not just "not set up yet").
-function parseAtToken(draft: string): { query: string; start: number } | null {
-  const match = /(^|\s)@([\w-]*)$/.exec(draft);
-  if (!match) return null;
-  return {
-    query: match[2].toLowerCase(),
-    start: match.index + match[1].length,
-  };
-}
-
-const AT_ROWS: SlashRow[] = [
-  { key: "github", kind: "placeholder", label: "@github", desc: "Ask GitHub -- issues, PRs, repos", icon: <IntegrationsIcon className="size-4" /> },
-  { key: "gmail", kind: "placeholder", label: "@gmail", desc: "Ask Gmail -- read or draft email", icon: <IntegrationsIcon className="size-4" /> },
-  { key: "google-doc", kind: "placeholder", label: "@google-doc", desc: "Ask Google Docs", icon: <IntegrationsIcon className="size-4" /> },
-];
+// The @ menu (issue #287: @github/@gmail/@google-doc integration mentions)
+// is hidden for now, per request, until the feature works end to end.
+// Restore parseAtToken/AT_ROWS from git history (commit "remove the @ menu").
 
 export type ComposeBoxHandle = {
   selectedModels: typeof QUICK_CHAT_MODELS;
@@ -478,7 +485,7 @@ function ContextDropdown({
           </button>
         }
       />
-      <BaseDropdownContent side="top" align="center" sideOffset={6} className="w-52 min-w-0">
+      <BaseDropdownContent side="bottom" align="center" sideOffset={6} className="w-52 min-w-0">
         <BaseDropdownLabel>
           {autocompactScope === "project" ? t("settings.chat.compactPerProject.title") : autocompactScope === "global" ? t("settings.chat.compactGlobal.title") : t("settings.chat.compactPerChat.title")}
         </BaseDropdownLabel>
@@ -528,12 +535,15 @@ function ContextDropdown({
 function EffortSliderPanel({
   effort,
   onChange,
+  levels = EFFORT_LEVELS,
 }: {
   effort: EffortLevel;
   onChange: (level: EffortLevel) => void;
+  // The selected model's own levels (its CLI's list); all five otherwise.
+  levels?: readonly EffortLevel[];
 }) {
   const { t } = useTranslation();
-  const activeIndex = EFFORT_LEVELS.indexOf(effort);
+  const activeIndex = Math.max(0, levels.indexOf(effort));
 
   return (
     <div className="flex flex-col gap-2">
@@ -578,12 +588,12 @@ function EffortSliderPanel({
         <input
           type="range"
           min={0}
-          max={EFFORT_LEVELS.length - 1}
+          max={levels.length - 1}
           step={1}
           value={activeIndex}
           aria-label={t("compose.effort")}
           onPointerDown={(event) => event.stopPropagation()}
-          onChange={(event) => onChange(EFFORT_LEVELS[Number(event.target.value)])}
+          onChange={(event) => onChange(levels[Number(event.target.value)])}
           // h-3.5, matching the thumb's own size-3.5 -- per explicit follow-up
           // ("the bg should be the same size as the white slider"): the track
           // used to be a thin h-1 line with a much larger thumb sitting on
@@ -604,7 +614,7 @@ function EffortSliderPanel({
             has the real white thumb sitting on it, and a second dot right
             under/beside it would just look like visual noise. */}
         <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-[6px]">
-          {EFFORT_LEVELS.map((level, i) => (
+          {levels.map((level, i) => (
             <span key={level} className={i === activeIndex ? "" : "size-1 rounded-full bg-white/50"} />
           ))}
         </div>
@@ -619,6 +629,7 @@ export function ComposeBox({
   onSubmit,
   placeholder,
   placeholderCycle,
+  initialHeight,
   autoFocus,
   awaitingReply,
   onStop,
@@ -658,6 +669,9 @@ export function ComposeBox({
   // a single static placeholder. See AnimatedPlaceholder below for the
   // actual swap sequence/timing.
   placeholderCycle?: string[];
+  // New-chat only: gives the centred composer a more generous writing area
+  // before it transitions into the standard compact chat composer.
+  initialHeight?: boolean;
   autoFocus?: boolean;
   // Chat-only: while true, the send button becomes a stop button.
   awaitingReply?: boolean;
@@ -756,6 +770,8 @@ export function ComposeBox({
     const thumb = modelThumbRef.current;
     if (!el || !thumb) return;
     const { scrollTop, scrollHeight, clientHeight } = el;
+    // Lets the rows stop short of the thumb while the list scrolls.
+    el.dataset.scrolls = String(scrollHeight > clientHeight + 1);
     if (scrollHeight <= clientHeight + 1) {
       thumb.style.display = "none";
       return;
@@ -894,6 +910,12 @@ export function ComposeBox({
     });
   }
   useEffect(checkCliAvailability, []);
+  // Each provider CLI's own model list (lib/model-catalog.ts): applied from
+  // the last session's copy at load, refreshed here and when the picker opens.
+  const catalogVersion = useModelCatalogVersion();
+  useEffect(() => {
+    void loadModelCatalog();
+  }, []);
   // loadLastPermissionMode() first -- per explicit request ("all these
   // three should have a last_effort, last_permission, last_context saved
   // as well for loading purposes"): was a bare hardcoded "manual" with no
@@ -946,12 +968,20 @@ export function ComposeBox({
   // real transition -- no model selected yet at mount, one picked a moment
   // later (HomePage's own new-chat flow) -- still gets the fade.
   const [modeVisible, setModeVisible] = useState(() => selectedModels.length > 0);
+  const [modeFade, setModeFade] = useState(false);
+  const composeMountedAtRef = useRef(performance.now());
   const hasModel = selectedModels.length > 0;
   useEffect(() => {
     if (!hasModel) {
       setModeVisible(false);
       return;
     }
+    // While the page settles (its model arriving), it just appears.
+    if (performance.now() - composeMountedAtRef.current < SETTLE_MS) {
+      setModeVisible(true);
+      return;
+    }
+    setModeFade(true);
     const timer = setTimeout(() => setModeVisible(true), 10);
     return () => clearTimeout(timer);
   }, [hasModel]);
@@ -965,6 +995,12 @@ export function ComposeBox({
   // that hint fades out on focus (not just once real text is typed) and
   // fades back in on blur, same as it would if the box were cleared.
   const [textareaFocused, setTextareaFocused] = useState(false);
+  // The text just sent, drawn over the (already cleared) textarea while it
+  // fades out, so sending doesn't snap the box empty.
+  const [sentGhost, setSentGhost] = useState<{ text: string; key: number } | null>(null);
+  const fadeOutSent = () => {
+    if (value.trim()) setSentGhost((ghost) => ({ text: value, key: (ghost?.key ?? 0) + 1 }));
+  };
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const composerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -998,6 +1034,11 @@ export function ComposeBox({
   const modelRowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const modeTriggerRef = useRef<HTMLButtonElement>(null);
   const effortTriggerRef = useRef<HTMLButtonElement>(null);
+  // Model/effort/permission menus stay where they opened even as their
+  // trigger's label (and so its width and position) changes underneath.
+  const modelAnchor = useFrozenAnchor(modelTriggerRef);
+  const effortAnchor = useFrozenAnchor(effortTriggerRef);
+  const modeAnchor = useFrozenAnchor(modeTriggerRef);
   // Kept current every render (no dependency array to go stale) -- read
   // by the "press space to focus" listener below, which registers itself
   // exactly once for this component's whole lifetime instead of tearing
@@ -1069,17 +1110,23 @@ export function ComposeBox({
   }
 
   const slashToken = dismissed ? null : parseToken(value);
-  const atToken = dismissed ? null : parseAtToken(value);
-  const token = slashToken ?? atToken;
-  const menu: "slash" | "at" | null = slashToken ? "slash" : atToken ? "at" : null;
+  const token = slashToken;
+  const menu: "slash" | null = slashToken ? "slash" : null;
   const query = token?.query ?? "";
 
+  // The / menu opens toward whichever side has room: downward when the
+  // composer sits mid-page (a fresh new chat), upward once it's pinned to the
+  // bottom (an ongoing chat). Measured before paint each time it opens or its
+  // rows change, so it never flashes on the wrong side.
+  const composeRootRef = useRef<HTMLDivElement>(null);
+  const tokenMenuRef = useRef<HTMLDivElement>(null);
+  const [tokenMenuSide, setTokenMenuSide] = useState<"top" | "bottom">("top");
+  // Caps the menu to the space on its chosen side (short windows), so it
+  // scrolls instead of running off screen.
+  const [tokenMenuMaxHeight, setTokenMenuMaxHeight] = useState<number | undefined>(undefined);
+
   const rows =
-    menu === "slash"
-      ? SLASH_ROWS.filter((r) => r.label.slice(1).startsWith(query))
-      : menu === "at"
-        ? AT_ROWS.filter((r) => r.label.slice(1).startsWith(query))
-        : [];
+    menu === "slash" ? SLASH_ROWS.filter((r) => r.label.slice(1).startsWith(query)) : [];
 
   useEffect(() => {
     setActive(0);
@@ -1222,28 +1269,92 @@ export function ComposeBox({
   // below) and the actual rendered row order read off the exact same
   // array, not two independently-sorted copies that could drift.
   const sortedModelRows = useMemo(
+    // catalogVersion: QUICK_CHAT_MODELS changes in place when the providers'
+    // own lists arrive (lib/model-catalog.ts).
     () =>
       QUICK_CHAT_MODELS.filter((m) => m.configured && cliAvailability[m.provider] === true).sort((a, b) =>
         (PROVIDER_DISPLAY[a.provider]?.primary ?? a.provider).localeCompare(PROVIDER_DISPLAY[b.provider]?.primary ?? b.provider)
       ),
-    [cliAvailability]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cliAvailability, catalogVersion]
   );
+
+  // The selected model's own effort levels, when its CLI lists them: [] means
+  // it has no effort setting (the Effort control hides); undefined (an older
+  // built-in entry) offers all five.
+  const modelEfforts = useMemo(() => {
+    const efforts = selectedModels[0]?.efforts;
+    return efforts ? EFFORT_LEVELS.filter((level) => efforts.includes(level)) : undefined;
+  }, [selectedModels]);
+  // Picking a model that doesn't offer the current effort moves to its own
+  // default, or else the nearest level it does offer.
+  useEffect(() => {
+    if (!modelEfforts?.length || modelEfforts.includes(effort)) return;
+    const preferred = selectedModels[0]?.defaultEffort as EffortLevel | undefined;
+    const nearest = [...modelEfforts].sort(
+      (a, b) => Math.abs(EFFORT_LEVELS.indexOf(a) - EFFORT_LEVELS.indexOf(effort)) - Math.abs(EFFORT_LEVELS.indexOf(b) - EFFORT_LEVELS.indexOf(effort)),
+    )[0];
+    setEffort(preferred && modelEfforts.includes(preferred) ? preferred : nearest);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modelEfforts]);
+
+  // The model picker's first level: each available provider with its models,
+  // providers in alphabetical order (Antigravity, Claude, Codex).
+  const providerGroups = useMemo(() => {
+    const groups = new Map<string, (typeof QUICK_CHAT_MODELS)[number][]>();
+    for (const m of sortedModelRows) groups.set(m.provider, [...(groups.get(m.provider) ?? []), m]);
+    return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
+  }, [sortedModelRows]);
+  // Each provider's mark as an icon component for its row. Memoized so a row
+  // keeps the same component (no remount) across renders.
+  const providerIcons = useMemo(
+    () =>
+      Object.fromEntries(
+        providerGroups.map(([provider, models]) => [
+          provider,
+          ({ size = 14, className }: IconComponentProps) => (
+            <span className={cn("inline-grid shrink-0 place-items-center", className)} style={{ width: size, height: size }}>
+              <ProviderIcon model={models[0]} className="size-full" />
+            </span>
+          ),
+        ]),
+      ) as Record<string, IconComponent>,
+    [providerGroups],
+  );
+
+  useLayoutEffect(() => {
+    if (!menu) return;
+    const root = composeRootRef.current;
+    if (!root) return;
+    const menuHeight = tokenMenuRef.current?.scrollHeight ?? 0;
+    const rect = root.getBoundingClientRect();
+    const margin = 12;
+    const spaceBelow = window.innerHeight - rect.bottom - margin;
+    const spaceAbove = rect.top - margin;
+    // Below when it fits there; otherwise whichever side has more room.
+    const side = spaceBelow >= menuHeight || spaceBelow >= spaceAbove ? "bottom" : "top";
+    setTokenMenuSide(side);
+    setTokenMenuMaxHeight(Math.max(0, Math.floor(side === "bottom" ? spaceBelow : spaceAbove)));
+  }, [menu, rows.length]);
 
   return (
     // @container: its own width, not the host page's -- ChatPage doesn't
     // wrap this in a @container the way HomePage does, so the @[...]:
     // classes below (button row wrapping, padding/radius scaling) need
     // their own container context to work on both pages.
-    <div data-compose-box className="relative @container">
-      {/* ── / (slash) menu -- bottom-full, not top-full: this composer is
-          pinned to the bottom of the page on both HomePage and ChatPage
-          now, so opening downward (tried first) could run the menu off
-          the bottom of the viewport; growing upward over the box instead
-          -- same direction the reference component this was ported from
-          uses -- keeps it fully on screen regardless of where the
-          composer itself sits. ─────────────────────────────────────── */}
+    <div ref={composeRootRef} data-compose-box className="relative @container" style={COMPOSE_TOOL_VARS}>
+      {/* ── / menu -- opens below the composer when there's room
+          (mid-page on a new chat) and above it when there isn't (pinned to
+          the bottom in a chat); see tokenMenuSide. ─────────────────────── */}
       {menu && (
-        <div className="absolute inset-x-0 bottom-full z-20 mb-1 overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+        <div
+          ref={tokenMenuRef}
+          style={{ maxHeight: tokenMenuMaxHeight }}
+          className={cn(
+            "absolute inset-x-0 z-20 overflow-y-auto rounded-2xl border border-border bg-surface shadow-sm",
+            tokenMenuSide === "bottom" ? "top-full mt-1" : "bottom-full mb-1",
+          )}
+        >
           {/* onClick/onMouseDown only -- DOM focus deliberately never
               moves to these rows (arrow-key nav below stays on the
               textarea itself and just updates `active`). GlideMenu's own
@@ -1264,7 +1375,7 @@ export function ComposeBox({
               comment above has the fuller history). p-1, on this wrapper
               now, not the outer container -- max-h-[224px] + overflow-y-
               auto caps the menu to a scrollable window instead of growing
-              indefinitely as AT_ROWS/SLASH_ROWS grow, and keeping the
+              indefinitely as SLASH_ROWS grows, and keeping the
               outer container itself unpadded is what lets the guide
               text's own border-t below span the box's full width edge-to-
               edge, same as top-bar.tsx's search dropdown footer, instead
@@ -1396,7 +1507,8 @@ export function ComposeBox({
           void addImageFiles(event.dataTransfer.files);
         }}
         className={cn(
-          "flex flex-col rounded-[var(--row-radius)] border border-border bg-background px-2 py-2 transition-[padding,border-color] duration-200 [contain:layout_style] @[420px]:px-3 @[420px]:py-3",
+          "flex flex-col rounded-[calc(var(--radius)*2)] border border-border bg-background px-2 pt-2 pb-[7px] transition-[min-height,padding,border-color] duration-200 [contain:layout_style] @[420px]:px-3 @[420px]:pt-3 @[420px]:pb-1.5",
+          initialHeight && "min-h-32 justify-between",
           dragActive && "border-ring",
           // border-focus-accent -- matches the sidebar/inbox search inputs'
           // own focus-visible:border-focus-accent exactly (sidebar-nav.tsx's
@@ -1471,7 +1583,7 @@ export function ComposeBox({
             // center line the real Textarea (below) and the mic/send
             // buttons share.
             <div
-              className={`pointer-events-none absolute inset-0 flex items-center px-1 transition-opacity duration-300 ${value || textareaFocused ? "opacity-0" : "opacity-100"}`}
+              className={`pointer-events-none absolute inset-0 flex items-center px-1 text-[length:var(--redesign-chat-text)] transition-opacity duration-300 ${value || textareaFocused ? "opacity-0" : "opacity-100"}`}
             >
               <AnimatedPlaceholder messages={[placeholder, ...placeholderCycle]} />
             </div>
@@ -1521,6 +1633,7 @@ export function ComposeBox({
               event.preventDefault();
               if (!value.trim()) return;
               if (awaitingReply && onSteer) {
+                fadeOutSent();
                 onSteer(value);
                 onChange("");
                 return;
@@ -1529,6 +1642,7 @@ export function ComposeBox({
                 triggerModelShake();
                 return;
               }
+              fadeOutSent();
               onSubmit(images, effort);
               setImages([]);
             }
@@ -1558,95 +1672,25 @@ export function ComposeBox({
           // practice. Fixed instead, so the JS effect above (which works
           // identically everywhere) is the one real mechanism, not competing
           // with a native behavior that may or may not be applying.
-          className="max-h-[40vh] min-h-0 resize-none overflow-y-auto border-none bg-transparent px-1 py-1 font-normal shadow-none transition-[height] duration-150 ease-out [field-sizing:fixed] placeholder:text-ink-3 placeholder:opacity-100 placeholder:transition-opacity placeholder:duration-200 focus:placeholder:opacity-0 dark:bg-transparent"
+          className="max-h-[40vh] min-h-0 resize-none overflow-y-auto border-none bg-transparent px-1 py-1 text-[length:var(--redesign-chat-text)] font-normal shadow-none transition-[height] duration-150 ease-out [field-sizing:fixed] placeholder:text-ink-3 placeholder:opacity-100 placeholder:transition-opacity placeholder:duration-200 focus:placeholder:opacity-0 dark:bg-transparent"
         />
-        </div>
-        {/* Attach button moved out entirely (per explicit request) -- it
-            now sits to the left of the Select model trigger in the row
-            below the box's own closing tag, not in here any more.
-            shrink-0: this group keeps its own natural width when the
-            textarea sibling (above) is the one that grows/shrinks with the
-            box's own width. */}
-        <div className="flex shrink-0 items-center gap-1">
-          {/* Speech-to-text via the browser's built-in SpeechRecognition --
-              same "real browser API, not an AI feature" honesty as
-              ChatPage's own read-aloud (Web Speech API's other half).
-              Equalizer bars while listening (index.css's own eq-bounce
-              keyframe), instead of a static mic glyph, so it actually
-              reads as "recording" rather than just a toggled color. */}
-          <Button
-            size="icon"
-            variant={listening ? "default" : "ghost"}
-            onClick={toggleSpeechToText}
-            aria-label={listening ? t("compose.dictation.stop") : t("compose.dictation.start")}
-            // text-foreground, not text-ink-2 -- per explicit request ("the
-            // compose box... tools needs to be updated to the new color"),
-            // matching the sidebar's own move off its dimmer resting tone.
-            className={cn("size-[30px]", !listening && "text-foreground")}
-          >
-            {listening ? (
-              <span className="flex h-3.5 items-end gap-[2.5px]">
-                {[0, 1, 2].map((i) => (
-                  <span
-                    key={i}
-                    className="w-[2.5px] rounded-full bg-current"
-                    style={{ height: "100%", animation: `eq-bounce 900ms ease-in-out ${i * 150}ms infinite` }}
-                  />
-                ))}
-              </span>
-            ) : (
-              // strokeWidth 1.5, not the icon's own default 2 -- per
-              // explicit request ("reduce the stroke of the mic to 1.5?
-              // for some reason looks too strong").
-              <MicIcon className="size-[18px]" strokeWidth={1.5} />
-            )}
-          </Button>
-          {awaitingReply ? (
-            <Button size="icon" variant="outline" onClick={onStop} aria-label={t("compose.stop")} className="size-[30px]">
-              <SquareIcon className="fill-current" />
-            </Button>
-          ) : (
-            <Button
-              size="icon"
-              variant="ghost"
-              // disabled only on empty text, not on missing model any more
-              // -- a disabled button swallows its own click entirely, which
-              // is what made "tried to send with no model" produce no
-              // feedback at all before. Still clickable with no model
-              // selected so the onClick below can actually see the attempt
-              // and shake the model trigger instead.
-              disabled={!value.trim()}
-              onClick={() => {
-                if (selectedModels.length === 0) {
-                  triggerModelShake();
-                  return;
-                }
-                onSubmit(images, effort);
-                setImages([]);
-              }}
-              aria-label={t("compose.send")}
-              // hover/active reference index.css's own
-              // --send-button-bg-hover/-active tokens (color-mix computed
-              // there, in plain CSS, not inline here -- see that token's
-              // own comment for why: an inline color-mix(...) arbitrary
-              // value silently never applied at all). This had no hover/
-              // click feedback at all before (hover:bg was set to the
-              // exact same value as the resting bg, which silently
-              // canceled ghost's own hover:bg-muted instead of replacing
-              // it with anything). active darkens further than hover so a
-              // press still reads as a press even with the cursor sitting
-              // in the hover state already; Button's own base class
-              // already adds a 1px active:translate-y-px on top of this.
-              className="relative size-[30px] rounded-lg bg-[var(--send-button-bg)] hover:bg-[var(--send-button-bg-hover)] active:bg-[var(--send-button-bg-active)] disabled:opacity-100"
-            >
-              <ArrowUpIcon className="absolute top-1/2 left-1/2 size-[14px] -translate-x-1/2 -translate-y-1/2 text-white" strokeWidth={2} />
-            </Button>
-          )}
+        {sentGhost && (
+          // Same Textarea and classes as the real one, so the text sits
+          // exactly where it was typed while it fades up and out.
+          <Textarea
+            key={sentGhost.key}
+            aria-hidden="true"
+            tabIndex={-1}
+            readOnly
+            value={sentGhost.text}
+            onAnimationEnd={() => setSentGhost(null)}
+            className="pointer-events-none absolute inset-0 h-full min-h-0 resize-none overflow-hidden border-none bg-transparent px-1 py-1 text-[length:var(--redesign-chat-text)] font-normal shadow-none dark:bg-transparent animate-[compose-sent-out_260ms_ease-out_forwards] motion-reduce:animate-[compose-sent-out_1ms_forwards]"
+          />
+        )}
         </div>
         </div>
-      </div>
       {/* Attach + access mode (left group) / model + effort (right group),
-          one row below the bordered box entirely (moved out of the
+          one row at the bottom of the bordered composer (moved out of the
           toolbar row above, per explicit request), split into two groups
           matching Synara's own composer footer (a real reference app
           cloned for comparison, apps/web/src/components/ChatView.tsx:
@@ -1666,7 +1710,10 @@ export function ComposeBox({
           fixed height across its whole row) rather than the 26px this
           used before. */}
       <div className="mt-1.5 flex items-center justify-between gap-1">
-      <div className="flex items-center gap-1">
+      {/* translate-y-px: optical nudge, per request. The groups are measured
+          centred, but the filled send circle and the bottom-heavy mic on the
+          right make + and Model read as sitting higher. */}
+      <div className="flex translate-y-px items-center gap-1">
         <BaseDropdownMenu size="compact">
           <BaseDropdownTrigger
             render={
@@ -1674,7 +1721,13 @@ export function ComposeBox({
                 variant="ghost"
                 size="icon"
                 aria-label={t("compose.addAttachment")}
-                className="size-[28px] text-foreground hover:bg-hover-2/50"
+                // ml-[--compose-plus-offset]: lines the glyph's visible edge up
+                // with the placeholder text above -- 16px (12px narrow) from
+                // the box border at full size, the same
+                // inset as the send button (mr-1 on the trailing group). The
+                // gap under the row is 8px less (bottom padding), per request
+                // to sit the row lower in the box.
+                className={cn("ml-[var(--compose-plus-offset)] size-[var(--compose-tool-h)] text-foreground [&_svg]:!size-[var(--compose-plus-icon)]", NO_HOVER_SURFACE, PRESS_EFFECT, ICON_PRESS)}
               >
                 {/* size-3.5 (14px), not size-4 (16px) -- per an app-wide
                     compact-scale audit: this button's own box already matches
@@ -1684,7 +1737,7 @@ export function ComposeBox({
               </Button>
             }
           />
-          <BaseDropdownContent side="top" align="start" sideOffset={6} className="w-40 min-w-0">
+          <BaseDropdownContent side="bottom" align="start" sideOffset={6} className="w-40 min-w-0">
             <BaseDropdownLabel>{t("common.add")}</BaseDropdownLabel>
             <DropdownSubItem className="text-[12px] whitespace-nowrap" onClick={openFilePicker}>
               <AttachmentIcon className="mr-2 inline size-3.5 shrink-0 align-[-3px]" />
@@ -1702,20 +1755,9 @@ export function ComposeBox({
         <BaseDropdownMenu
           size="compact"
           onOpenChange={(nowOpen) => {
+            modelAnchor.freeze(nowOpen);
             if (nowOpen) {
-              // Real fix, confirmed directly ("when i click at models
-              // after edit, the active hover is at gpt terra and not at
-              // the model the message selected before"): DropdownSubItem
-              // rows don't use the checkedIndex/proximity-hover system at
-              // all (that component's own top comment says so directly --
-              // a checkedIndex prop here would've been a silent no-op),
-              // they use Base UI's native highlight, which follows real
-              // DOM focus. rAF: the popup's own rows haven't mounted yet
-              // in this same tick the menu opens in.
-              requestAnimationFrame(() => {
-                const value = selectedModels[0]?.value;
-                if (value) modelRowRefs.current.get(value)?.focus();
-              });
+              void loadModelCatalog();
               return;
             }
             const button = modelTriggerRef.current;
@@ -1727,10 +1769,9 @@ export function ComposeBox({
         >
           <BaseDropdownTrigger
             render={
-            <Button
+            <button
+              type="button"
               ref={modelTriggerRef}
-              variant="ghost"
-              size="sm"
               // whitespace-nowrap + max-w-[160px] truncate: without a
               // nowrap guard, this label wrapped letter-by-letter (flex
               // items don't get a natural min-width from text alone).
@@ -1742,26 +1783,31 @@ export function ComposeBox({
               // cramped line with mic/send inside the box; out here on its
               // own row, this trigger has the box's own full width to
               // itself.
-              className="t-input h-[28px] max-w-[160px] min-w-0 pr-1 pl-1.5 text-xs font-normal text-foreground hover:bg-hover-2/50 aria-expanded:bg-hover-2/50"
+              className={cn("t-input inline-flex h-[var(--compose-tool-h)] max-w-[160px] shrink-0 flex-row flex-nowrap items-center justify-center gap-1 whitespace-nowrap rounded-lg pr-1 pl-1.5 text-[length:var(--compose-tool-text)] leading-4 font-normal text-foreground outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]", PRESS_EFFECT)}
             >
               {/* size-3.5 (14px), not size-4 (16px) -- per an app-wide
                   compact-scale audit: this trigger's own h-[28px] already
                   matches the compact control token, the icon hadn't been
                   stepped down to match yet. */}
-              {selectedModels.length === 1 && <ProviderIcon model={selectedModels[0]} className="size-3.5 shrink-0" />}
-              <span className="truncate whitespace-nowrap">{modelSelectionLabel(selectedModels)}</span>
-              <ChevronDownIcon className="size-3.5 shrink-0" />
-            </Button>
+              {/* Picking a model glides the trigger to its new width while
+                  the new icon and name fade in. */}
+              <SwapLabel swapKey={selectedModels.map((m) => m.value).join(",")}>
+                <span className="inline-flex w-max items-center gap-1">
+                  {selectedModels.length === 1 && <ProviderIcon model={selectedModels[0]} className="size-[var(--compose-tool-icon)] shrink-0" />}
+                  <span className="max-w-[110px] truncate whitespace-nowrap">{modelSelectionLabel(selectedModels)}</span>
+                </span>
+              </SwapLabel>
+              <ChevronDownIcon className="size-[var(--compose-tool-icon)] shrink-0" />
+            </button>
             }
           />
           {/* border + shadow-sm, not this component's own default
               shadow-md ring-1 ring-foreground/10 -- same thin-border,
               soft-shadow treatment the inline / menu above uses, so the
-              two menus in this composer read as one family. side="top",
-              align="start" -- this trigger now sits at the very bottom of
-              the whole composer, so the menu has to open upward to stay
-              on screen (same reasoning the inline / menu itself already
-              uses -- see that menu's own top-level comment), and left-
+              two menus in this composer read as one family. side="bottom",
+              align="start" -- opens downward under its down chevron, and
+              the positioner flips it upward when there's no room below
+              (composer pinned to the bottom in a chat), and left-
               aligned under a left-aligned trigger instead of the old
               align="end" (which matched this being the *right*-most
               item in its old row -- no longer true out here on its own,
@@ -1781,10 +1827,14 @@ export function ComposeBox({
               so a per-callsite override here just fought it for no
               reason. */}
           <BaseDropdownContent
-            side="top"
+            side="bottom"
             align="start"
             sideOffset={6}
-            className="w-40 min-w-0"
+            anchor={modelAnchor.anchor}
+            // pb-[5px]: the Providers heading adds room at the top, so the
+            // bottom gets 2px more to match (last row's text to the edge =
+            // the edge to the heading's text).
+            className="w-40 min-w-0 pb-[5px]"
           >
             {/* Was one Radix RadioGroup wrapping every provider's own
                 submenu (a single value/onValueChange covering the whole
@@ -1806,139 +1856,105 @@ export function ComposeBox({
                 directly under "any raw Menu.Popup", not only nested inside
                 a DropdownSubMenuItem's own submenu -- exactly what's used
                 here now. */}
-            <BaseDropdownLabel>{t("compose.models")}</BaseDropdownLabel>
-            {/* Capped at 6 rows (6 * h-7 = 168px), scrolling beyond that --
-                same cap-then-scroll treatment as the notifications list
-                (nav-user.tsx's own max-h-[208px] for 4 * 52px rows), per
-                explicit request ("this is the maximum size we should have
-                for models, once we reach more than 6 then we should get a
-                scrollbar like we do in notifications"). */}
-            {/* overflow-hidden on this outer wrapper, width/padding pushing
-                the inner scroll container's own right edge (and whatever
-                native scrollbar renders there) past it -- real bug,
-                confirmed directly ("we still getting two scrollbars, it
-                looks like when it goes active it places another scrollbar
-                on top"): this app's own Tauri shell is WKWebView on macOS,
-                and its OS-drawn overlay scrollbar (System Settings ->
-                Appearance -> "Show scroll bars: When scrolling"/
-                "Automatically") is a native AppKit NSScroller overlay, not
-                the CSS scrollbar-styling API's own "classic" scrollbar --
-                scrollbar-width:none/::-webkit-scrollbar{{display:none}}
-                (still kept below) only suppress the latter, so that native
-                overlay could still appear on top of the real custom thumb
-                the instant an actual scroll gesture activates it. Widening
-                the inner container past its own clipped parent physically
-                moves wherever that native overlay draws itself (always at
-                the scrollable element's own right edge) outside the
-                visible area entirely, regardless of which hiding API the
-                OS/WebKit version actually honors. */}
-            <div className="relative overflow-hidden">
-            <div
-              ref={modelListRefCallback}
-              onScroll={updateModelScrollThumb}
-              // overscroll-y-contain -- per explicit request/screenshot
-              // ("when scrolling up and down that reaches the boundary and
-              // make the top or bottom which are rounded flatten before
-              // moving back"): macOS's own rubber-band/elastic overscroll
-              // lets the content bounce past its real top/bottom edge for a
-              // moment, which pushed a square-cornered row past this
-              // panel's own rounded clip and read as the corner briefly
-              // "flattening". overscroll-behavior stops the scroll dead at
-              // the real boundary instead of letting it bounce past, so
-              // there's never a past-the-edge frame to clip oddly in the
-              // first place.
-              className="max-h-[168px] w-[calc(100%+20px)] overflow-y-auto overscroll-y-contain pr-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            >
-            {/* Sorted by provider's own display name (MODEL_PROVIDERS'
-                own comparator above), not QUICK_CHAT_MODELS' raw
-                declaration order -- confirmed directly as a real bug
-                ("the provider dropdown is not alphabetical, Claude models
-                are showing first than ChatGPT ones"): flattening this
-                list (this block's own comment above has the full history)
-                dropped the provider-grouping tier MODEL_PROVIDERS was
-                originally sorted for, so this flat list kept iterating
-                QUICK_CHAT_MODELS in its own file order (Claude declared
-                first) regardless. .sort() is stable, so models within the
-                same provider keep their existing relative order -- only
-                which provider's models come first changes. Model rows
-                themselves stay unprefixed (just the model's own name),
-                per explicit follow-up ("just the name of model, don't
-                need to include the provider"). */}
-            {sortedModelRows.map((m) => {
-              const isSelected = selectedModels[0]?.value === m.value;
-              return (
-                <DropdownSubItem
-                  key={m.value}
-                  ref={(el) => {
-                    if (el) modelRowRefs.current.set(m.value, el);
-                    else modelRowRefs.current.delete(m.value);
-                  }}
-                  // pr-11, not pr-9 -- per explicit request ("increase the
-                  // space/padding right when the row finishes as the three
-                  // dots is almost behind the scrollbar now"): the custom
-                  // scroll thumb (this list's own comment above) sits right
-                  // at the panel's edge, and pr-9's own reserved space no
-                  // longer left enough breathing room between it and the
-                  // "..." trigger just inside it.
-                  className={cn(
-                    "group/model-row relative py-1.5 pr-11 pl-2.5 text-[12px] whitespace-nowrap",
-                    isSelected && "bg-hover-2"
-                  )}
-                  onClick={() => selectModel(m)}
+            {/* Providers first (alphabetical), each opening its models in a
+                submenu headed by the provider's name. The model list keeps
+                its cap-then-scroll treatment and custom thumb (below); only
+                one submenu is open at a time, so they share the one list ref. */}
+            <BaseDropdownLabel>{t("compose.providers")}</BaseDropdownLabel>
+            {providerGroups.map(([provider, models], index) => (
+              <DropdownSubMenuItem
+                key={provider}
+                index={index}
+                icon={providerIcons[provider]}
+                label={provider}
+                chevron
+                className="text-[12px]"
+                popupClassName="pb-[5px]"
+              >
+                <BaseDropdownLabel>{provider}</BaseDropdownLabel>
+                <div className="relative overflow-hidden">
+                <div
+                  ref={modelListRefCallback}
+                  onScroll={updateModelScrollThumb}
+                  className="max-h-[144px] w-[calc(100%+20px)] overflow-x-hidden overflow-y-auto overscroll-y-contain pr-5 data-[scrolls=true]:pr-[29px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 >
-                  <ProviderIcon model={m} className="mr-2 inline size-3.5 shrink-0 align-[-3px]" />
-                  {modelDisplayName(m)}
-                  {/* Set as default -- per explicit request ("the three
-                      dots should show the options to set as default, i
-                      don't mind that this is the only option at the
-                      dropdown of the three dots"): a real menu (one real
-                      item today), not a direct click-to-set action.
-                      DropdownRowActionMenu (ui/dropdown.tsx) is a self-
-                      contained popover, not a Base UI Menu primitive --
-                      two Menu-based attempts before this one each broke
-                      differently (an independent Menu.Root wasn't
-                      recognized by the ancestor submenu's own outside-
-                      interaction bookkeeping and closed the whole chain on
-                      click; a real nested Menu.SubmenuRoot fought the
-                      row's own hover-intent and closed the instant the
-                      cursor moved off the "..." button toward its own
-                      content) -- see that component's own comment for the
-                      full history. DropdownRowActionItem, not
-                      DropdownSubItem, for the same reason: this popover
-                      isn't a Menu.Popup, so Menu.Item has no Menu.Root/
-                      SubmenuRoot context to attach to. */}
-                  <DropdownRowActionMenu
-                    triggerLabel={`Options for ${modelDisplayName(m)}`}
-                    // Same shared MoreTrigger every "..." in the app now
-                    // renders through (ui/more-trigger.tsx), color-only
-                    // (no bg) per explicit request -- DropdownRowActionMenu
-                    // itself now owns rendering it, describer included
-                    // ("make sure that the reusable three dots contains
-                    // the dropdown as well"). autoHide off: this row's own
-                    // group is named ("group/model-row", avoiding collision
-                    // with an ancestor's own unnamed "group"), so the real
-                    // visibility rule is passed through triggerClassName
-                    // instead of MoreTrigger's own default unnamed rule.
-                    autoHide={false}
-                    triggerClassName="absolute top-1/2 right-3 -translate-y-1/2 opacity-0 transition-opacity group-hover/model-row:opacity-100"
-                  >
-                    <DropdownRowActionItem
-                      className="py-1.5 pr-2.5 pl-2.5 text-[12px] whitespace-nowrap"
-                      onClick={() => void setAsDefaultModel(m)}
-                    >
-                      {chatId ? t("compose.setDefault.chat") : t("compose.setDefault.newChat")}
-                    </DropdownRowActionItem>
-                  </DropdownRowActionMenu>
-                </DropdownSubItem>
-              );
-            })}
-            </div>
-            <div
-              ref={modelThumbRef}
-              aria-hidden="true"
-              className="pointer-events-none absolute top-0 right-0.5 hidden w-1 rounded-full bg-[color:rgb(var(--overlay)/0.3)]"
-            />
-            </div>
+                  {models.map((m) => {
+                    const isSelected = selectedModels[0]?.value === m.value;
+                    return (
+                      <DropdownSubItem
+                        key={m.value}
+                        ref={(el) => {
+                          if (el) modelRowRefs.current.set(m.value, el);
+                          else modelRowRefs.current.delete(m.value);
+                        }}
+                        // pr-11, not pr-9 -- per explicit request ("increase the
+                        // space/padding right when the row finishes as the three
+                        // dots is almost behind the scrollbar now"): the custom
+                        // scroll thumb (this list's own comment above) sits right
+                        // at the panel's edge, and pr-9's own reserved space no
+                        // longer left enough breathing room between it and the
+                        // "..." trigger just inside it.
+                        className={cn(
+                          "group/model-row relative py-1.5 pr-11 pl-2.5 text-[12px] whitespace-nowrap",
+                          isSelected && "bg-hover-2"
+                        )}
+                        onClick={() => selectModel(m)}
+                        title={m.description}
+                      >
+                        {modelDisplayName(m)}
+                        {/* Set as default -- per explicit request ("the three
+                            dots should show the options to set as default, i
+                            don't mind that this is the only option at the
+                            dropdown of the three dots"): a real menu (one real
+                            item today), not a direct click-to-set action.
+                            DropdownRowActionMenu (ui/dropdown.tsx) is a self-
+                            contained popover, not a Base UI Menu primitive --
+                            two Menu-based attempts before this one each broke
+                            differently (an independent Menu.Root wasn't
+                            recognized by the ancestor submenu's own outside-
+                            interaction bookkeeping and closed the whole chain on
+                            click; a real nested Menu.SubmenuRoot fought the
+                            row's own hover-intent and closed the instant the
+                            cursor moved off the "..." button toward its own
+                            content) -- see that component's own comment for the
+                            full history. DropdownRowActionItem, not
+                            DropdownSubItem, for the same reason: this popover
+                            isn't a Menu.Popup, so Menu.Item has no Menu.Root/
+                            SubmenuRoot context to attach to. */}
+                        <DropdownRowActionMenu
+                          triggerLabel={t("compose.modelOptions", { model: modelDisplayName(m) })}
+                          // Same shared MoreTrigger every "..." in the app now
+                          // renders through (ui/more-trigger.tsx), color-only
+                          // (no bg) per explicit request -- DropdownRowActionMenu
+                          // itself now owns rendering it, describer included
+                          // ("make sure that the reusable three dots contains
+                          // the dropdown as well"). autoHide off: this row's own
+                          // group is named ("group/model-row", avoiding collision
+                          // with an ancestor's own unnamed "group"), so the real
+                          // visibility rule is passed through triggerClassName
+                          // instead of MoreTrigger's own default unnamed rule.
+                          autoHide={false}
+                          triggerClassName="absolute top-1/2 right-3 -translate-y-1/2 opacity-0 transition-opacity group-hover/model-row:opacity-100"
+                        >
+                          <DropdownRowActionItem
+                            className="py-1.5 pr-2.5 pl-2.5 text-[12px] whitespace-nowrap"
+                            onClick={() => void setAsDefaultModel(m)}
+                          >
+                            {chatId ? t("compose.setDefault.chat") : t("compose.setDefault.newChat")}
+                          </DropdownRowActionItem>
+                        </DropdownRowActionMenu>
+                      </DropdownSubItem>
+                    );
+                  })}
+                </div>
+                <div
+                  ref={modelThumbRef}
+                  aria-hidden="true"
+                  className="pointer-events-none absolute top-0 right-0.5 hidden w-1 rounded-full bg-[color:rgb(var(--overlay)/0.3)]"
+                />
+                </div>
+              </DropdownSubMenuItem>
+            ))}
             {/* Add provider -- matches Synara's own model picker (a real
                 reference app cloned for comparison, apps/web/src/
                 components/chat/ProviderModelPicker.tsx: a footer MenuItem
@@ -1959,13 +1975,13 @@ export function ComposeBox({
                 proximity item left in the whole popup, so it was "nearest"
                 no matter where the mouse actually was, lighting up
                 alongside whichever model row Base UI itself highlighted. */}
-            <DropdownSubItem
-              className="flex items-center gap-2 py-1.5 pr-2.5 pl-2.5 text-[12px] whitespace-nowrap text-foreground"
-              onClick={() => onOpenSettings?.()}
-            >
-              <PlusIcon className="size-3.5 shrink-0" />
-              {t("compose.addModel")}
-            </DropdownSubItem>
+            <BaseMenuItem
+              index={providerGroups.length}
+              icon={PlusIcon}
+              label={t("compose.addModel")}
+              className="text-[12px]"
+              onSelect={() => onOpenSettings?.()}
+            />
           </BaseDropdownContent>
         </BaseDropdownMenu>
         {/* Moved here from its own separate spot next to Effort, per explicit
@@ -1982,7 +1998,65 @@ export function ComposeBox({
           />
         )}
       </div>
-      <div className="flex items-center gap-1">
+      <div className="mr-1 flex items-center gap-1">
+        {/* Effort -- now its own standalone trigger+dropdown next to the
+            model selector, matching Synara's own split layout (a real
+            reference app cloned for comparison: ProviderModelPicker +
+            TraitsPicker side by side for a fresh draft thread,
+            apps/web/src/components/ChatView.tsx), per explicit request
+            ("model selector plus the dropdown... effort, mic and send" --
+            effort called out as its own step, and a follow-up choice
+            confirming a separate button over keeping it nested in the
+            model dropdown). Unlike the access-mode picker in the leading
+            group, NOT gated on hasModel -- EFFORT_LEVELS is a fixed set
+            regardless of provider (unlike the access-mode picker's own
+            provider-dependent stance set), and gating this on hasModel
+            made it vanish entirely once the compose box stopped
+            pre-selecting a default model, confirmed directly as a real
+            regression ("Effort is missing from the tool row"). */}
+        {/* Hidden for a model whose CLI lists no effort setting (e.g. Haiku). */}
+        {modelEfforts?.length !== 0 && (
+        <BaseDropdownMenu
+          size="compact"
+          onOpenChange={(nowOpen) => {
+            effortAnchor.freeze(nowOpen);
+            if (!nowOpen) {
+              const button = effortTriggerRef.current;
+              if (!button) return;
+              const reblur = () => button.blur();
+              button.addEventListener("focus", reblur, { once: true });
+              setTimeout(() => button.removeEventListener("focus", reblur), 1000);
+            }
+          }}
+        >
+          <BaseDropdownTrigger
+            render={
+              <button
+                type="button"
+                ref={effortTriggerRef}
+                className={cn("inline-flex h-[var(--compose-tool-h)] shrink-0 flex-row flex-nowrap items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1.5 text-[length:var(--compose-tool-text)] leading-4 font-normal text-foreground outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]", PRESS_EFFECT)}
+              >
+                {/* Shows the current choice (e.g. "Low"), not a static
+                    "Effort" label -- per explicit request ("it should
+                    update from effort to the choice we did"). */}
+                <SwapLabel swapKey={effort}>{effortLabel(effort)}</SwapLabel>
+                <ChevronDownIcon className="size-[var(--compose-tool-icon)] shrink-0" />
+              </button>
+            }
+          />
+          <BaseDropdownContent side="bottom" align="center" sideOffset={6} anchor={effortAnchor.anchor} className="w-56 min-w-0 p-3">
+            <EffortSliderPanel
+              levels={modelEfforts}
+              effort={effort}
+              onChange={(level) => {
+                effortTouchedRef.current = true;
+                setEffort(level);
+                saveLastEffort(level);
+              }}
+            />
+          </BaseDropdownContent>
+        </BaseDropdownMenu>
+        )}
         {/* Manual / Plan / Auto -- how the agent asks before acting
             ("type of access for the AI", matching Synara's own
             RuntimeUsageControls: approval-required/auto/full-access, the
@@ -2004,13 +2078,14 @@ export function ComposeBox({
             opens asking before every action rather than something more
             permissive. */}
         {hasModel && (
-        <div className={`transition-opacity duration-300 ${modeVisible ? "opacity-100" : "opacity-0"}`}>
+        <div className={`${modeFade ? "transition-opacity duration-300" : ""} ${modeVisible ? "opacity-100" : "opacity-0"}`}>
         {/* size="compact" -- matches the app's own 28px row height
             everywhere else (BaseMenuItem's own useSize() would otherwise
             default to the reference's 36px "default" step). */}
         <BaseDropdownMenu
           size="compact"
           onOpenChange={(nowOpen) => {
+            modeAnchor.freeze(nowOpen);
             if (!nowOpen) {
               const button = modeTriggerRef.current;
               if (!button) return;
@@ -2022,18 +2097,19 @@ export function ComposeBox({
         >
           <BaseDropdownTrigger
             render={
-              <Button
+              <button
+                type="button"
                 ref={modeTriggerRef}
-                variant="ghost"
-                size="sm"
-                className="h-[28px] px-1.5 text-xs font-normal text-foreground hover:bg-hover-2/50 aria-expanded:bg-hover-2/50"
+                className={cn("inline-flex h-[var(--compose-tool-h)] shrink-0 flex-row flex-nowrap items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1.5 text-[length:var(--compose-tool-text)] leading-4 font-normal text-foreground outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]", PRESS_EFFECT)}
               >
-                {(() => {
-                  const found = modes.find((m) => m.value === mode);
-                  return found ? t(found.labelKey) : null;
-                })()}
-                <ChevronDownIcon className="size-3.5 shrink-0" />
-              </Button>
+                <SwapLabel swapKey={mode}>
+                  {(() => {
+                    const found = modes.find((m) => m.value === mode);
+                    return found ? t(found.labelKey) : null;
+                  })()}
+                </SwapLabel>
+                <ChevronDownIcon className="size-[var(--compose-tool-icon)] shrink-0" />
+              </button>
             }
           />
           {/* DropdownSubItem, not BaseMenuItem -- per explicit request ("do
@@ -2049,9 +2125,10 @@ export function ComposeBox({
               BaseDropdownContent's own Elevated surface supplies a real
               nesting-aware background/shadow. */}
           <BaseDropdownContent
-            side="top"
+            side="bottom"
             align="start"
             sideOffset={6}
+            anchor={modeAnchor.anchor}
             className="w-40 min-w-0"
           >
             {/* "Permission" describer -- matching the Provider/Model/Effort
@@ -2087,62 +2164,164 @@ export function ComposeBox({
         </BaseDropdownMenu>
         </div>
         )}
-        {/* Effort -- now its own standalone trigger+dropdown next to the
-            model selector, matching Synara's own split layout (a real
-            reference app cloned for comparison: ProviderModelPicker +
-            TraitsPicker side by side for a fresh draft thread,
-            apps/web/src/components/ChatView.tsx), per explicit request
-            ("model selector plus the dropdown... effort, mic and send" --
-            effort called out as its own step, and a follow-up choice
-            confirming a separate button over keeping it nested in the
-            model dropdown). Unlike the access-mode picker in the leading
-            group, NOT gated on hasModel -- EFFORT_LEVELS is a fixed set
-            regardless of provider (unlike the access-mode picker's own
-            provider-dependent stance set), and gating this on hasModel
-            made it vanish entirely once the compose box stopped
-            pre-selecting a default model, confirmed directly as a real
-            regression ("Effort is missing from the tool row"). */}
-        <BaseDropdownMenu
-          size="compact"
-          onOpenChange={(nowOpen) => {
-            if (!nowOpen) {
-              const button = effortTriggerRef.current;
-              if (!button) return;
-              const reblur = () => button.blur();
-              button.addEventListener("focus", reblur, { once: true });
-              setTimeout(() => button.removeEventListener("focus", reblur), 1000);
-            }
-          }}
+        <Button
+          size="icon"
+          variant={listening ? "default" : "ghost"}
+          onClick={toggleSpeechToText}
+          aria-label={listening ? t("compose.dictation.stop") : t("compose.dictation.start")}
+          className={cn("size-[var(--compose-action-size)] [&_svg]:!size-[var(--compose-mic-icon)]", PRESS_EFFECT, ICON_PRESS, !listening && ["text-foreground", NO_HOVER_SURFACE])}
         >
-          <BaseDropdownTrigger
-            render={
-              <Button
-                ref={effortTriggerRef}
-                variant="ghost"
-                size="sm"
-                className="h-[28px] px-1.5 text-xs font-normal text-foreground hover:bg-hover-2/50 aria-expanded:bg-hover-2/50"
-              >
-                {/* Shows the current choice (e.g. "Low"), not a static
-                    "Effort" label -- per explicit request ("it should
-                    update from effort to the choice we did"). */}
-                {effortLabel(effort)}
-                <ChevronDownIcon className="size-3.5 shrink-0" />
-              </Button>
-            }
-          />
-          <BaseDropdownContent side="top" align="end" sideOffset={6} className="w-56 min-w-0 p-3">
-            <EffortSliderPanel
-              effort={effort}
-              onChange={(level) => {
-                effortTouchedRef.current = true;
-                setEffort(level);
-                saveLastEffort(level);
-              }}
-            />
-          </BaseDropdownContent>
-        </BaseDropdownMenu>
+          {listening ? (
+            <span className="flex h-3.5 items-end gap-[2.5px]">
+              {[0, 1, 2].map((i) => (
+                <span key={i} className="w-[2.5px] rounded-full bg-current" style={{ height: "100%", animation: `eq-bounce 900ms ease-in-out ${i * 150}ms infinite` }} />
+              ))}
+            </span>
+          ) : (
+            <MicIcon className="size-[18px]" strokeWidth={1.5} />
+          )}
+        </Button>
+        {awaitingReply ? (
+          <Button size="icon" variant="outline" onClick={onStop} aria-label={t("compose.stop")} className="size-[var(--compose-action-size)] [&_svg]:!size-[var(--compose-send-icon)]">
+            <SquareIcon className="size-[12px] fill-current" />
+          </Button>
+        ) : (
+          <Button
+            size="icon"
+            variant="ghost"
+            disabled={!value.trim()}
+            onClick={() => {
+              if (selectedModels.length === 0) {
+                triggerModelShake();
+                return;
+              }
+              fadeOutSent();
+              onSubmit(images, effort);
+              setImages([]);
+            }}
+            aria-label={t("compose.send")}
+            // Inactive (the Getting Started ring's 30% accent track) until a
+            // model is picked and there's text -- a visual cue for what's
+            // missing. Text without a model stays clickable: the click shakes
+            // the Model picker (above) to point at it.
+            className={cn(
+              "relative size-[var(--compose-action-size)] rounded-full [&_svg]:!size-[var(--compose-send-icon)] transition-colors duration-300 ease-in-out disabled:opacity-100",
+              value.trim() && selectedModels.length > 0
+                ? "bg-[var(--send-button-bg)] hover:bg-[var(--send-button-bg-hover)] active:bg-[var(--send-button-bg-active)]"
+                : "bg-[var(--redesign-progress-track)]",
+            )}
+          >
+            <ArrowUpIcon className="absolute top-1/2 left-1/2 size-[12px] -translate-x-1/2 -translate-y-1/2 text-white" strokeWidth={2} />
+          </Button>
+        )}
       </div>
+    </div>
     </div>
     </div>
   );
 }
+
+/** A menu anchor pinned to where its trigger was when the menu opened.
+ *  freeze(true) on open captures the trigger's rect; freeze(false) on close
+ *  goes back to following the trigger live. */
+function useFrozenAnchor(triggerRef: React.RefObject<HTMLElement | null>) {
+  const rectRef = useRef<DOMRect | null>(null);
+  const anchor = useMemo(
+    () => ({
+      getBoundingClientRect: () => rectRef.current ?? triggerRef.current?.getBoundingClientRect() ?? new DOMRect(),
+    }),
+    [triggerRef],
+  );
+  const freeze = useCallback(
+    (open: boolean) => {
+      rectRef.current = open ? triggerRef.current?.getBoundingClientRect() ?? null : null;
+    },
+    [triggerRef],
+  );
+  return { anchor, freeze };
+}
+
+/** A trigger label swapped with transitions.dev's "Text states swap"
+ *  (.t-text-swap, index.css): the old label exits up with blur, the box then
+ *  glides to the new label's width (nothing clipped mid-way, so the chevron
+ *  never slides over text), and the new label enters from below. The width
+ *  only animates during a swap: any other size change (an icon loading, the
+ *  first render) just fits, so the toolbar never drifts on its own. */
+function SwapLabel({ swapKey, children }: { swapKey: string; children: ReactNode }) {
+  const [shown, setShown] = useState({ key: swapKey, children });
+  const [phase, setPhase] = useState<"rest" | "exit" | "enter-start">("rest");
+  // null: fits its content (no animation). A number: pinned for a swap.
+  const [width, setWidth] = useState<number | null>(null);
+  const outerRef = useRef<HTMLSpanElement>(null);
+  const innerRef = useRef<HTMLSpanElement>(null);
+  const latest = useRef({ key: swapKey, children });
+  latest.current = { key: swapKey, children };
+  // The key on screen, read by the effect without re-running it when a swap
+  // completes (that re-run would cancel the swap's own glide and release).
+  const shownKeyRef = useRef(swapKey);
+  const mountedAtRef = useRef(performance.now());
+
+  useEffect(() => {
+    if (swapKey === shownKeyRef.current) {
+      // Switched back before the swap finished: settle on what's shown.
+      setPhase("rest");
+      setWidth(null);
+      return;
+    }
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // A change right after mount is the page settling (the chat's own model
+    // and effort arriving), not a pick: it lands instantly, no swap or glide.
+    const settling = performance.now() - mountedAtRef.current < SETTLE_MS;
+    if (reduce || settling) {
+      shownKeyRef.current = latest.current.key;
+      setShown(latest.current);
+      return;
+    }
+    const dur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--text-swap-dur")) || 150;
+    setWidth(outerRef.current?.getBoundingClientRect().width ?? null);
+    setPhase("exit");
+    let frame = 0;
+    let release = 0;
+    const timer = window.setTimeout(() => {
+      shownKeyRef.current = latest.current.key;
+      setShown(latest.current);
+      setPhase("enter-start");
+      // Two frames: the enter-start pose (and the new width) paint first,
+      // then the label transitions back to rest.
+      frame = requestAnimationFrame(() => {
+        frame = requestAnimationFrame(() => setPhase("rest"));
+      });
+      // Back to fitting the content once the glide is over.
+      release = window.setTimeout(() => setWidth(null), SWAP_WIDTH_MS + 40);
+    }, dur);
+    return () => {
+      window.clearTimeout(timer);
+      window.clearTimeout(release);
+      cancelAnimationFrame(frame);
+    };
+  }, [swapKey]);
+
+  // The new label is in: glide from the pinned width to its natural width.
+  useLayoutEffect(() => {
+    if (phase === "enter-start" && innerRef.current) setWidth(innerRef.current.getBoundingClientRect().width);
+  }, [phase, shown.key]);
+
+  // Same key: show its latest content (e.g. a language change) directly.
+  const content = swapKey === shown.key ? children : shown.children;
+  return (
+    <span
+      ref={outerRef}
+      className={cn("inline-flex min-w-0 overflow-hidden", width !== null && "transition-[width] ease-out motion-reduce:transition-none")}
+      style={width === null ? undefined : { width, transitionDuration: `${SWAP_WIDTH_MS}ms` }}
+    >
+      <span ref={innerRef} className={cn("t-text-swap inline-flex w-max shrink-0 items-center", phase !== "rest" && `is-${phase}`)}>
+        {content}
+      </span>
+    </span>
+  );
+}
+
+const SWAP_WIDTH_MS = 180;
+// How long after the compose box mounts its trigger changes count as the
+// page settling rather than the user picking.
+const SETTLE_MS = 1200;

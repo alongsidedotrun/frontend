@@ -42,3 +42,15 @@ When adding any user-facing string: add one row to `translations.ts` with all se
 ## Component conventions
 
 **Chat-message bubbles are background-only, no border.** Human messages use `porch-input` as a flat fill with no `porch-border` ring; agent messages have no background at all. Decided to read closer to familiar chat platforms (background-only bubbles), reserving `porch-border` for elements that specifically need to stand out (form fields, panels, dropdowns) rather than routine chat content.
+
+**Corner radius looks like the controls' 8px.** Controls are 27px tall with an 8px radius. A rounded surface bigger than a control doesn't reuse `--radius`; it gets radius ≈ its one-line (base) height × 8/27, so its corners look the same as a control's. Measure against the base height, not the wrapped height, so the radius doesn't grow as content wraps. Prefer a CSS token that tracks the size, e.g. `--redesign-chat-bubble-radius` in `src/index.css` (about 12px on a 40px bubble).
+
+## Text size
+
+Chat text, compose text and sidebar/menu rows share one size, `--redesign-chat-text` in `src/index.css`: `clamp(0.75rem, calc(0.625rem + 0.25vw), 0.8125rem)`. It scales with the window from 12px up to a 13px cap. New text in those surfaces reads that token instead of a fixed size.
+
+## Motion
+
+- **Page transitions preload the incoming page.** `SidebarSurfaceTransition` (`src/components/design-system/sidebar-surface-transition.tsx`) mounts the incoming page invisibly as soon as the outgoing one starts fading out, so its data and settling effects are done before it fades in.
+- **Changing trigger labels use transitions.dev's "Text states swap".** The compose box's trigger labels (model, effort, permission) swap through `src/lib/use-text-swap.ts` and the matching section in `src/index.css`. Use the same recipe for any other label that changes in place.
+- **Two-pane dialogs use `motion="gentle"`** on `DialogContent` (`spring.gentle`, 0.98 scale), as the create- and manage-workspace dialogs do. The sign-in dialog still uses the default motion.
