@@ -25,6 +25,10 @@ export function useShareDialogHost(openShare: (sessionId: string) => void, openJ
   }, [openShare, openJoin]);
 }
 
+// Fired when the backend says someone just asked to join a chat this person can let people into (#460),
+// so the waiting list refreshes at once instead of at its next poll.
+export const RELAY_JOIN_REQUESTED_EVENT = "alongside:relay-join-requested";
+
 // The relay's refusal codes (story #459, #408/#409) as the translated error
 // each dialog shows; anything else falls back to the dialog's own generic one.
 export const SHARE_ERRORS: Record<string, string> = {
@@ -34,6 +38,7 @@ export const SHARE_ERRORS: Record<string, string> = {
   join_code_expired: "joinChat.errors.expired",
   join_code_used: "joinChat.errors.used",
   too_many_attempts: "joinChat.errors.tooMany",
+  already_member: "joinChat.errors.alreadyMember",
 };
 
 // What a person typed, in the XXXX-XXXX / XXXXX-XXXXX shape they're shown:

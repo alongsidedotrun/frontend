@@ -26,7 +26,8 @@ function backend(start: { refuse?: string; status?: number; disclosure?: boolean
         return { status: 428, body: { error: "disclosure_required", disclosure: "Joining sends your messages through the relay." } };
       }
       if (start.refuse) return { status: start.status ?? 403, body: { error: start.refuse } };
-      return { body: { relay_session_id: "7KQ2M-9XF4T" } };
+      // #460: asking to join waits for the owner or an editor to let this person in.
+      return { status: 202, body: { status: "waiting", request_id: "req-1", relay_session_id: "7KQ2M-9XF4T", expires_at: 0 } };
     }
     return undefined;
   });
@@ -77,7 +78,7 @@ describe("Join chat dialog (#213, #459)", () => {
     expect(join).toBeEnabled();
   });
 
-  it("joins with the chat ID and code and opens the new chat", async () => {
+  it("asks to join with the chat ID and code, then opens the new chat, where it waits to be let in", async () => {
     const calls = backend();
     renderDialog();
     await typeBoth();
@@ -102,6 +103,7 @@ describe("Join chat dialog (#213, #459)", () => {
     ["join_code_expired", 403, "ALS-022"],
     ["join_code_used", 403, "ALS-023"],
     ["too_many_attempts", 429, "ALS-024"],
+    ["already_member", 409, "ALS-030"],
     ["relay_unavailable", 502, "ALS-018"],
     ["something_else", 500, "ALS-025"],
   ] as const) {
