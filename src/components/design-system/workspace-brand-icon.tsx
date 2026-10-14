@@ -176,10 +176,12 @@ export function WorkspaceBrandIcon({
         strokeWidth={edgeInset * 2}
         // Light mode only: on dark surfaces the white tile already stands
         // out, and the dark border colour would read as a ring inside it.
-        // A black letter tile keeps a faint light edge there instead.
+        // A black letter tile keeps a faint light edge in both modes: the
+        // light-mode grey read as a ring around it from a distance.
         className={cn(
-          "stroke-[var(--redesign-sidebar-footer-onboarding-border)]",
-          monogram?.darkEdge && !imageSrc ? "dark:stroke-white/15" : "dark:stroke-transparent",
+          monogram?.darkEdge && !imageSrc
+            ? "stroke-white/15"
+            : "stroke-[var(--redesign-sidebar-footer-onboarding-border)] dark:stroke-transparent",
         )}
       />
     </svg>
