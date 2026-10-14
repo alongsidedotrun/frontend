@@ -18,7 +18,7 @@ import { ArchiveIcon, BubbleChatIcon, DeleteIcon, EditIcon, FolderIcon, Integrat
 import { SplitView } from "@/components/design-system/split-view";
 import { AppTopBar } from "@/components/app-top-bar";
 import { QuickActions, type QuickActionItem } from "@/components/design-system/quick-actions";
-import { SidebarSections, type SidebarItemMenuEntry, type SidebarSection } from "@/components/design-system/sidebar-sections";
+import { SidebarSections, type SidebarItemMenuEntry, type SidebarSection, type SidebarSectionItem } from "@/components/design-system/sidebar-sections";
 import { SidebarSurfaceTransition } from "@/components/design-system/sidebar-surface-transition";
 import { GettingStartedSummary, SidebarAccountFooter, type GettingStartedStep } from "@/components/design-system/sidebar-footer";
 import { SettingsSidebarNav, type SettingsSection } from "@/components/settings-overlay";
@@ -111,6 +111,7 @@ const quickActions = (t: Translate): readonly QuickActionItem[] => [
 // where to do it.
 const GETTING_STARTED_STEP_IDS = ["provider", "message", "account", "multiplayer"] as const;
 const GETTING_STARTED_DONE_KEY = "alongside_getting_started_done";
+const EXPANDED_PROJECTS_KEY = "alongside_expanded_projects";
 type GettingStartedStepId = (typeof GETTING_STARTED_STEP_IDS)[number];
 const gettingStartedSteps = (
   t: Translate,
@@ -188,6 +189,27 @@ export function RedesignPage() {
   // to add to the project being created from its "New project…" entry.
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [chatForNewProject, setChatForNewProject] = useState<string | null>(null);
+  // Projects open in the sidebar, remembered on this device.
+  const [expandedProjects, setExpandedProjects] = useState<ReadonlySet<string>>(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(EXPANDED_PROJECTS_KEY) ?? "[]") as string[]);
+    } catch {
+      return new Set();
+    }
+  });
+  const toggleProjectExpanded = useCallback((projectId: string) => {
+    setExpandedProjects((current) => {
+      const next = new Set(current);
+      if (next.has(projectId)) next.delete(projectId);
+      else next.add(projectId);
+      try {
+        localStorage.setItem(EXPANDED_PROJECTS_KEY, JSON.stringify([...next]));
+      } catch {
+        // storage blocked: stays open for this session
+      }
+      return next;
+    });
+  }, []);
   const [hostingOn, setHostingOn] = useState(false);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
@@ -215,6 +237,13 @@ export function RedesignPage() {
   const routeChatId = location.pathname.startsWith("/chat/")
     ? decodeURIComponent(location.pathname.slice("/chat/".length))
     : null;
+  // The open chat's project unfolds, so its row is never hidden. Not saved:
+  // closing the project again is the user's choice.
+  const openChatProjectId = chats.find((chat) => chat.id === (routeChatId ?? activeChatId))?.project_id ?? null;
+  useEffect(() => {
+    if (!openChatProjectId) return;
+    setExpandedProjects((current) => (current.has(openChatProjectId) ? current : new Set(current).add(openChatProjectId)));
+  }, [openChatProjectId]);
   const isSettingsRoute = location.pathname.startsWith("/settings");
   const settingsPathSection = location.pathname.split("/")[2] as SettingsSection | undefined;
   const settingsSection = settingsPathSection && SETTINGS_SECTIONS.includes(settingsPathSection)
@@ -470,6 +499,13 @@ export function RedesignPage() {
     { kind: "action", id: "delete", label: t("common.delete"), icon: DeleteIcon, destructive: true, onSelect: () => setProjectToDelete(project) },
   ];
 
+  const chatRow = (chat: Chat): SidebarSectionItem => ({
+    id: chat.id,
+    label: chat.name,
+    menu: chatMenu(chat),
+    onRename: (name: string) => void renameChat(chat.id, name),
+  });
+
   const chatsSidebarSections: readonly SidebarSection[] = [
     {
       id: "projects",
@@ -480,6 +516,9 @@ export function RedesignPage() {
         label: project.name,
         menu: projectMenu(project),
         onRename: (name: string) => void renameProject(project.id, name),
+        // A project expands to its chats.
+        children: chats.filter((chat) => chat.project_id === project.id).map(chatRow),
+        childrenEmptyLabel: t("shell.sections.noChats"),
       })),
       emptyLabel: t("shell.sections.noProjects"),
     },
@@ -487,12 +526,8 @@ export function RedesignPage() {
       id: "chats",
       label: t("nav.chats"),
       action: { label: t("common.newChat"), icon: Plus, onSelect: () => { setActiveChatId(null); } },
-      items: chats.map((chat) => ({
-        id: chat.id,
-        label: chat.name,
-        menu: chatMenu(chat),
-        onRename: (name: string) => void renameChat(chat.id, name),
-      })),
+      // Only chats outside a project; the rest are listed under their project.
+      items: chats.filter((chat) => !chat.project_id || !projects.some((project) => project.id === chat.project_id)).map(chatRow),
       emptyLabel: t("shell.sections.noChats"),
     },
   ];
@@ -825,6 +860,8 @@ export function RedesignPage() {
               <SidebarSections
                 sections={activeSidebarSurface === "inbox" ? inboxSidebarSections : chatsSidebarSections}
                 activeItemId={activeSidebarSurface === "chats" ? routeChatId ?? activeChatId ?? undefined : undefined}
+                expandedIds={expandedProjects}
+                onToggleExpanded={toggleProjectExpanded}
                 onItemSelect={activeSidebarSurface === "chats" ? (itemId) => {
                   // Navigating to the exact same chat creates a new location key,
                   // which in turn replays the routed chat surface. An active row
