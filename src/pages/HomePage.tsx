@@ -140,6 +140,10 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
     const model = selectedModelsRef.current[0];
     if (!model) return;
     setSending(true);
+    // Cleared right away so the compose box fades the sent text out (its
+    // own ghost) instead of holding it until the chat page swaps in.
+    const sentPrompt = prompt;
+    setPrompt("");
     try {
       const apiKey = localStorage.getItem("alongside_api_key") ?? "";
       // Only the first selected model actually starts the session --
@@ -243,7 +247,11 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
       }, 520);
       return;
     } finally {
-      if (handoffTimerRef.current === null) setSending(false);
+      if (handoffTimerRef.current === null) {
+        setSending(false);
+        // Didn't get to the chat: the text comes back to try again.
+        setPrompt((current) => current || sentPrompt);
+      }
     }
   }
 

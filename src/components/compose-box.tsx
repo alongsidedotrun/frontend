@@ -987,6 +987,12 @@ export function ComposeBox({
   // that hint fades out on focus (not just once real text is typed) and
   // fades back in on blur, same as it would if the box were cleared.
   const [textareaFocused, setTextareaFocused] = useState(false);
+  // The text just sent, drawn over the (already cleared) textarea while it
+  // fades out, so sending doesn't snap the box empty.
+  const [sentGhost, setSentGhost] = useState<{ text: string; key: number } | null>(null);
+  const fadeOutSent = () => {
+    if (value.trim()) setSentGhost((ghost) => ({ text: value, key: (ghost?.key ?? 0) + 1 }));
+  };
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const composerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -1614,6 +1620,7 @@ export function ComposeBox({
               event.preventDefault();
               if (!value.trim()) return;
               if (awaitingReply && onSteer) {
+                fadeOutSent();
                 onSteer(value);
                 onChange("");
                 return;
@@ -1622,6 +1629,7 @@ export function ComposeBox({
                 triggerModelShake();
                 return;
               }
+              fadeOutSent();
               onSubmit(images, effort);
               setImages([]);
             }
@@ -1653,6 +1661,19 @@ export function ComposeBox({
           // with a native behavior that may or may not be applying.
           className="max-h-[40vh] min-h-0 resize-none overflow-y-auto border-none bg-transparent px-1 py-1 font-normal shadow-none transition-[height] duration-150 ease-out [field-sizing:fixed] placeholder:text-ink-3 placeholder:opacity-100 placeholder:transition-opacity placeholder:duration-200 focus:placeholder:opacity-0 dark:bg-transparent"
         />
+        {sentGhost && (
+          // Same Textarea and classes as the real one, so the text sits
+          // exactly where it was typed while it fades up and out.
+          <Textarea
+            key={sentGhost.key}
+            aria-hidden="true"
+            tabIndex={-1}
+            readOnly
+            value={sentGhost.text}
+            onAnimationEnd={() => setSentGhost(null)}
+            className="pointer-events-none absolute inset-0 h-full min-h-0 resize-none overflow-hidden border-none bg-transparent px-1 py-1 font-normal shadow-none dark:bg-transparent animate-[compose-sent-out_260ms_ease-out_forwards] motion-reduce:animate-[compose-sent-out_1ms_forwards]"
+          />
+        )}
         </div>
         </div>
       {/* Attach + access mode (left group) / model + effort (right group),
@@ -1754,8 +1775,17 @@ export function ComposeBox({
                   compact-scale audit: this trigger's own h-[28px] already
                   matches the compact control token, the icon hadn't been
                   stepped down to match yet. */}
-              {selectedModels.length === 1 && <ProviderIcon model={selectedModels[0]} className="size-[var(--compose-tool-icon)] shrink-0" />}
-              <span className="truncate whitespace-nowrap">{modelSelectionLabel(selectedModels)}</span>
+              {/* Picking a model glides the trigger to its new width while
+                  the new icon and name fade in. */}
+              <SmoothWidth>
+                <span
+                  key={selectedModels.join(",")}
+                  className="inline-flex w-max items-center gap-1 animate-[compose-label-in_200ms_ease-out] motion-reduce:animate-none"
+                >
+                  {selectedModels.length === 1 && <ProviderIcon model={selectedModels[0]} className="size-[var(--compose-tool-icon)] shrink-0" />}
+                  <span className="max-w-[110px] truncate whitespace-nowrap">{modelSelectionLabel(selectedModels)}</span>
+                </span>
+              </SmoothWidth>
               <ChevronDownIcon className="size-[var(--compose-tool-icon)] shrink-0" />
             </button>
             }
@@ -2148,6 +2178,7 @@ export function ComposeBox({
                 triggerModelShake();
                 return;
               }
+              fadeOutSent();
               onSubmit(images, effort);
               setImages([]);
             }}
@@ -2170,5 +2201,32 @@ export function ComposeBox({
     </div>
     </div>
     </div>
+  );
+}
+
+/** Animates its own width to its content's: on a change the box glides from
+ *  the old width to the new one (CSS transition) instead of snapping. The
+ *  first render takes the content's width as is. */
+function SmoothWidth({ children }: { children: ReactNode }) {
+  const innerRef = useRef<HTMLSpanElement>(null);
+  const [width, setWidth] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const inner = innerRef.current;
+    if (!inner) return;
+    const measure = () => setWidth(inner.getBoundingClientRect().width);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(inner);
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <span
+      className="inline-flex min-w-0 overflow-hidden transition-[width] duration-200 ease-out motion-reduce:transition-none"
+      style={width === null ? undefined : { width }}
+    >
+      <span ref={innerRef} className="inline-flex w-max shrink-0">
+        {children}
+      </span>
+    </span>
   );
 }
