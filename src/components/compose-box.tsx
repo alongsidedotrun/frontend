@@ -186,7 +186,7 @@ export function toImageInputs(images: ImageAttachment[]) {
   return images.map((image) => {
     const [header, data] = image.dataUrl.split(",", 2);
     const mediaType = header.match(/^data:(.+);base64$/)?.[1] ?? "image/png";
-    return { media_type: mediaType, data };
+    return { media_type: mediaType, data, name: image.name };
   });
 }
 

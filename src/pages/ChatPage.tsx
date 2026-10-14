@@ -48,6 +48,9 @@ import {
 import { ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
 import { RELAY_JOIN_REQUESTED_EVENT } from "@/lib/use-share";
 
+// A file in a shared chat (#460), as a message refers to it.
+type SharedFile = { file_id: string; name: string; media_type: string; size: number };
+
 // Provider brand names, as another participant's run reports which one it ran on (#462). Not translated.
 const PROVIDER_NAMES: Record<string, string> = { claude: "Claude", codex: "Codex", antigravity: "Antigravity" };
 import { lastUsedReady, loadLastContext, loadLastModel, saveLastContext, saveLastModel } from "@/lib/last-used";
@@ -101,6 +104,8 @@ type ChatRow =
       // person's own. Someone else's has no Resend or Edit here.
       relaySequence?: number;
       mine?: boolean;
+      // #460: files sent with it in a shared chat (read from this device's own copy).
+      files?: SharedFile[];
     }
   | {
       kind: "agent";
@@ -442,6 +447,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // message is just for the people in it ("Just chat") instead of also asking this person's own agent.
   const [sharedChat, setSharedChat] = useState(false);
   const [justChat, setJustChat] = useState(false);
+  // #460: a shared file's state as it changes while the chat is open (arrived, gone, delivered).
+  const [fileStates, setFileStates] = useState<Record<string, string>>({});
   const justChatRef = useRef(false);
   justChatRef.current = sharedChat && justChat;
   useEffect(() => {
@@ -1124,6 +1131,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           branch: event.branch as { group: string; index: number; total: number } | undefined,
           relaySequence: typeof event.relay_sequence === "number" ? event.relay_sequence : undefined,
           mine: typeof event.mine === "boolean" ? event.mine : undefined,
+          files: Array.isArray(event.attachments) ? (event.attachments as SharedFile[]) : undefined,
         };
         if (suppressInitialHandoffHumanEntranceRef.current) {
           noEntranceRowIdsRef.current.add(humanRow.id);
@@ -1855,6 +1863,17 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         pushRow({ kind: "command", id: nextRowId(), text, time: messageTime() });
         return;
       }
+      // #460: one of this chat's shared files arrived, expired, or reached everyone.
+      if (type === "relay_file_state") {
+        setFileStates((current) => ({ ...current, [event.file_id as string]: event.state as string }));
+        return;
+      }
+      // #460: one of this person's own files expired before reaching everyone; they still have it.
+      if (type === "relay_file_undelivered") {
+        const missing = Array.isArray(event.missing) ? (event.missing as string[]).join(", ") : "";
+        pushRow({ kind: "command", id: nextRowId(), text: i18n.t("chat.files.undelivered", { name: event.name as string, missing }), time: messageTime() });
+        return;
+      }
       // #460: how this device's own request to join is going.
       if (type === "join_status") {
         pushRow({ kind: "command", id: nextRowId(), text: i18n.t(`chat.joinStatus.${event.status as string}`), time: messageTime() });
@@ -2135,7 +2154,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         time: messageTime(),
         // #462: a shared chat refuses what can't go through the relay (images, for now, or something that
         // looks like a password or key) with 422.
-        failed: { errorText: sharedChat && res.status === 422 ? i18n.t("chat.errors.sharedNotSent") : i18n.t("chat.errors.sendFailed", { status: res.status }), images, effort },
+        failed: { errorText: sharedChat ? sharedSendError(res.status) ?? i18n.t("chat.errors.sendFailed", { status: res.status }) : i18n.t("chat.errors.sendFailed", { status: res.status }), images, effort },
       });
     }
   }
@@ -2578,6 +2597,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                   onRetryFailedMessage={retryFailedMessage}
                   onResendMessage={resendMessage}
                   onEditMessage={editMessage}
+                  sessionId={sessionId}
+                  fileStates={fileStates}
                   onSwitchBranch={switchBranch}
                   onOpenFile={openFile}
                   toolGroup={groupStarts.get(row.id)}
@@ -2811,6 +2832,8 @@ function ChatRowView({
   onRetryFailedMessage,
   onResendMessage,
   onEditMessage,
+  sessionId,
+  fileStates,
   onSwitchBranch,
   onOpenFile,
   toolGroup,
@@ -2823,6 +2846,8 @@ function ChatRowView({
   onRetryFailedMessage: (row: Extract<ChatRow, { kind: "human" }>) => void;
   onResendMessage: (row: Extract<ChatRow, { kind: "human" }>) => void;
   onEditMessage: (row: Extract<ChatRow, { kind: "human" }>) => void;
+  sessionId?: string;
+  fileStates?: Record<string, string>;
   onSwitchBranch: (group: string, index: number) => void;
   onOpenFile: (path: string) => void;
   // Set only on the first row of a run of consecutive same-kind Write/Edit
@@ -3003,6 +3028,13 @@ function ChatRowView({
             {row.text}
           </div>
         </div>
+        {row.files && row.files.length > 0 && sessionId && (
+          <div className={`flex max-w-[85%] flex-wrap items-start gap-2 ${isSelf ? "ml-auto justify-end" : "mr-auto"}`}>
+            {row.files.map((file) => (
+              <AttachmentView key={`${file.file_id}-${fileStates?.[file.file_id] ?? ""}`} sessionId={sessionId} file={file} sender={row.displayName} mine={isSelf} />
+            ))}
+          </div>
+        )}
         {row.failed ? (
           // Real bug, confirmed directly ("my messaged should have gone to
           // the chat and with an error underneath so i can click retry") --
@@ -3963,4 +3995,58 @@ function AgentModeSwitch({ justChat, onChange }: { justChat: boolean; onChange: 
       </button>
     </div>
   );
+}
+
+// What a shared-chat send's failure means (#460, #462), or null for the generic message.
+function sharedSendError(status: number): string | null {
+  if (status === 413) return i18n.t("chat.errors.fileTooLarge");
+  if (status === 429) return i18n.t("chat.errors.fileAllowance");
+  if (status === 422) return i18n.t("chat.errors.sharedNotSent");
+  return null;
+}
+
+// A file in a shared chat (#460), from this device's own copy: the picture itself, or a chip for other
+// kinds. Still on its way: "Receiving…". Gone before it got here: ask the sender to send it again.
+export function AttachmentView({ sessionId, file, sender, mine }: { sessionId: string; file: SharedFile; sender: string; mine: boolean }) {
+  const { t } = useTranslation();
+  const url = `/sessions/${sessionId}/relay/files/${file.file_id}`;
+  const [state, setState] = useState<"loading" | "ready" | "pending" | "gone">("loading");
+  useEffect(() => {
+    let cancelled = false;
+    void fetch(url, { method: "GET" })
+      .then(async (response) => {
+        if (cancelled) return;
+        if (response.ok) return setState("ready");
+        const body = (await response.json().catch(() => ({}))) as { state?: string };
+        setState(body.state === "pending" ? "pending" : "gone");
+      })
+      .catch(() => !cancelled && setState("gone"));
+    return () => {
+      cancelled = true;
+    };
+  }, [url]);
+  const chip = "flex max-w-64 flex-col gap-0.5 rounded-[var(--redesign-chat-bubble-radius)] border border-[var(--redesign-sidebar-border)] px-3 py-2 text-[12px]";
+  if (state === "ready" && file.media_type.startsWith("image/")) {
+    return <img src={url} alt={file.name} className="max-h-64 max-w-64 rounded-[var(--redesign-chat-bubble-radius)] object-contain" />;
+  }
+  if (state === "ready") {
+    return (
+      <a href={url} download={file.name} className={`${chip} text-foreground hover:bg-muted/50`}>
+        <span className="truncate font-medium">{file.name}</span>
+        <span className="text-muted-foreground">{formatBytes(file.size)}</span>
+      </a>
+    );
+  }
+  return (
+    <div className={`${chip} text-muted-foreground`}>
+      <span className="truncate font-medium text-foreground">{file.name}</span>
+      <span>{state === "gone" ? (mine ? t("chat.files.goneMine") : t("chat.files.gone", { name: sender })) : t("chat.files.receiving")}</span>
+    </div>
+  );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
