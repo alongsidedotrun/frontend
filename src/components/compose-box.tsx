@@ -2235,75 +2235,78 @@ function useFrozenAnchor(triggerRef: React.RefObject<HTMLElement | null>) {
 
 /** A trigger label swapped with transitions.dev's "Text states swap"
  *  (.t-text-swap, index.css): the old label exits up with blur, the box then
- *  glides to the new label's width (SmoothWidth; nothing clipped mid-way, so
- *  the chevron never slides over text), and the new label enters from below. */
+ *  glides to the new label's width (nothing clipped mid-way, so the chevron
+ *  never slides over text), and the new label enters from below. The width
+ *  only animates during a swap: any other size change (an icon loading, the
+ *  first render) just fits, so the toolbar never drifts on its own. */
 function SwapLabel({ swapKey, children }: { swapKey: string; children: ReactNode }) {
   const [shown, setShown] = useState({ key: swapKey, children });
   const [phase, setPhase] = useState<"rest" | "exit" | "enter-start">("rest");
+  // null: fits its content (no animation). A number: pinned for a swap.
+  const [width, setWidth] = useState<number | null>(null);
+  const outerRef = useRef<HTMLSpanElement>(null);
+  const innerRef = useRef<HTMLSpanElement>(null);
   const latest = useRef({ key: swapKey, children });
   latest.current = { key: swapKey, children };
+  // The key on screen, read by the effect without re-running it when a swap
+  // completes (that re-run would cancel the swap's own glide and release).
+  const shownKeyRef = useRef(swapKey);
 
   useEffect(() => {
-    if (swapKey === shown.key) {
+    if (swapKey === shownKeyRef.current) {
       // Switched back before the swap finished: settle on what's shown.
       setPhase("rest");
+      setWidth(null);
       return;
     }
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduce) {
+      shownKeyRef.current = latest.current.key;
       setShown(latest.current);
       return;
     }
     const dur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--text-swap-dur")) || 150;
+    setWidth(outerRef.current?.getBoundingClientRect().width ?? null);
     setPhase("exit");
     let frame = 0;
+    let release = 0;
     const timer = window.setTimeout(() => {
+      shownKeyRef.current = latest.current.key;
       setShown(latest.current);
       setPhase("enter-start");
-      // Two frames: the enter-start pose paints first, then the label
-      // transitions back to rest.
+      // Two frames: the enter-start pose (and the new width) paint first,
+      // then the label transitions back to rest.
       frame = requestAnimationFrame(() => {
         frame = requestAnimationFrame(() => setPhase("rest"));
       });
+      // Back to fitting the content once the glide is over.
+      release = window.setTimeout(() => setWidth(null), SWAP_WIDTH_MS + 40);
     }, dur);
     return () => {
       window.clearTimeout(timer);
+      window.clearTimeout(release);
       cancelAnimationFrame(frame);
     };
-  }, [swapKey, shown.key]);
+  }, [swapKey]);
+
+  // The new label is in: glide from the pinned width to its natural width.
+  useLayoutEffect(() => {
+    if (phase === "enter-start" && innerRef.current) setWidth(innerRef.current.getBoundingClientRect().width);
+  }, [phase, shown.key]);
 
   // Same key: show its latest content (e.g. a language change) directly.
   const content = swapKey === shown.key ? children : shown.children;
   return (
-    <SmoothWidth>
-      <span className={cn("t-text-swap inline-flex w-max items-center", phase !== "rest" && `is-${phase}`)}>{content}</span>
-    </SmoothWidth>
-  );
-}
-
-/** Animates its own width to its content's: on a change the box glides from
- *  the old width to the new one (CSS transition) instead of snapping. The
- *  first render takes the content's width as is. */
-function SmoothWidth({ children }: { children: ReactNode }) {
-  const innerRef = useRef<HTMLSpanElement>(null);
-  const [width, setWidth] = useState<number | null>(null);
-  useLayoutEffect(() => {
-    const inner = innerRef.current;
-    if (!inner) return;
-    const measure = () => setWidth(inner.getBoundingClientRect().width);
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(inner);
-    return () => observer.disconnect();
-  }, []);
-  return (
     <span
-      className="inline-flex min-w-0 overflow-hidden transition-[width] duration-[180ms] ease-out motion-reduce:transition-none"
-      style={width === null ? undefined : { width }}
+      ref={outerRef}
+      className={cn("inline-flex min-w-0 overflow-hidden", width !== null && "transition-[width] ease-out motion-reduce:transition-none")}
+      style={width === null ? undefined : { width, transitionDuration: `${SWAP_WIDTH_MS}ms` }}
     >
-      <span ref={innerRef} className="inline-flex w-max shrink-0">
-        {children}
+      <span ref={innerRef} className={cn("t-text-swap inline-flex w-max shrink-0 items-center", phase !== "rest" && `is-${phase}`)}>
+        {content}
       </span>
     </span>
   );
 }
+
+const SWAP_WIDTH_MS = 180;
