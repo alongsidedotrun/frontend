@@ -968,12 +968,20 @@ export function ComposeBox({
   // real transition -- no model selected yet at mount, one picked a moment
   // later (HomePage's own new-chat flow) -- still gets the fade.
   const [modeVisible, setModeVisible] = useState(() => selectedModels.length > 0);
+  const [modeFade, setModeFade] = useState(false);
+  const composeMountedAtRef = useRef(performance.now());
   const hasModel = selectedModels.length > 0;
   useEffect(() => {
     if (!hasModel) {
       setModeVisible(false);
       return;
     }
+    // While the page settles (its model arriving), it just appears.
+    if (performance.now() - composeMountedAtRef.current < SETTLE_MS) {
+      setModeVisible(true);
+      return;
+    }
+    setModeFade(true);
     const timer = setTimeout(() => setModeVisible(true), 10);
     return () => clearTimeout(timer);
   }, [hasModel]);
@@ -2070,7 +2078,7 @@ export function ComposeBox({
             opens asking before every action rather than something more
             permissive. */}
         {hasModel && (
-        <div className={`transition-opacity duration-300 ${modeVisible ? "opacity-100" : "opacity-0"}`}>
+        <div className={`${modeFade ? "transition-opacity duration-300" : ""} ${modeVisible ? "opacity-100" : "opacity-0"}`}>
         {/* size="compact" -- matches the app's own 28px row height
             everywhere else (BaseMenuItem's own useSize() would otherwise
             default to the reference's 36px "default" step). */}
@@ -2251,6 +2259,7 @@ function SwapLabel({ swapKey, children }: { swapKey: string; children: ReactNode
   // The key on screen, read by the effect without re-running it when a swap
   // completes (that re-run would cancel the swap's own glide and release).
   const shownKeyRef = useRef(swapKey);
+  const mountedAtRef = useRef(performance.now());
 
   useEffect(() => {
     if (swapKey === shownKeyRef.current) {
@@ -2260,7 +2269,10 @@ function SwapLabel({ swapKey, children }: { swapKey: string; children: ReactNode
       return;
     }
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) {
+    // A change right after mount is the page settling (the chat's own model
+    // and effort arriving), not a pick: it lands instantly, no swap or glide.
+    const settling = performance.now() - mountedAtRef.current < SETTLE_MS;
+    if (reduce || settling) {
       shownKeyRef.current = latest.current.key;
       setShown(latest.current);
       return;
@@ -2310,3 +2322,6 @@ function SwapLabel({ swapKey, children }: { swapKey: string; children: ReactNode
 }
 
 const SWAP_WIDTH_MS = 180;
+// How long after the compose box mounts its trigger changes count as the
+// page settling rather than the user picking.
+const SETTLE_MS = 1200;
