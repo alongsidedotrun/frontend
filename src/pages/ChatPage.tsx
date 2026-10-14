@@ -2889,7 +2889,7 @@ function ChatRowView({
               --foreground comment has the full history), so this is now a literal
               shared token rather than two colors that happened to match. */}
           <div
-            className={`rounded-[var(--radius)] px-3.5 py-2.5 text-[length:var(--redesign-chat-text)] leading-relaxed whitespace-pre-wrap text-foreground ${
+            className={`rounded-[var(--redesign-chat-bubble-radius)] px-3.5 py-2.5 text-[length:var(--redesign-chat-text)] leading-relaxed whitespace-pre-wrap text-foreground ${
               row.failed ? "border border-destructive/40" : ""
             } bg-accent`}
           >
@@ -3499,7 +3499,7 @@ function PermissionCard({
   }
 
   return (
-    <div className="flex w-full flex-col gap-2.5 rounded-[var(--radius)] border border-border bg-sidebar p-3">
+    <div className="flex w-full flex-col gap-2.5 rounded-[var(--redesign-chat-bubble-radius)] border border-border bg-sidebar p-3">
       {/* No icon beside the title any more -- per explicit follow-up
           ("we should have no icons there at the title"). */}
       <div className="flex items-center gap-2">
