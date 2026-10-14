@@ -9,6 +9,7 @@ import { GUEST_NAME, getUserDisplayName } from "@/lib/user";
 import { ComposeBox, toImageInputs, type ImageAttachment } from "@/components/compose-box";
 import { JoinRequests, type JoinRequest } from "@/components/join-requests";
 import { clearPresence, setPresence, type Person } from "@/lib/presence";
+import { openShareDialog } from "@/lib/use-share";
 import { FileDiffGroup, diffToRows, type DiffRow } from "@/components/FileDiff";
 import type { SettingsSection } from "@/components/settings-overlay";
 import { effortLabel, type EffortLevel } from "@/lib/effort";
@@ -1965,6 +1966,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   ) {
     const trimmed = text.trim();
     if (!trimmed || !sessionId) return;
+    // /share opens the Share dialog (#213) rather than being sent as a message.
+    if (trimmed === "/share" && images.length === 0) {
+      openShareDialog(sessionId);
+      return;
+    }
 
     // No local sentEffortRef write here any more -- that was the actual bug
     // (reported: "I set Low, the reply's own dial showed Medium," then again

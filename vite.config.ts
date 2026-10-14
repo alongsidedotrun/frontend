@@ -30,6 +30,10 @@ export default defineConfig({
       "/identity": "http://127.0.0.1:3000",
       // Joining chats hosted on other machines (backend/src/remote.rs).
       "/remote": "http://127.0.0.1:3000",
+      // Whether any chat here was shared or joined through the relay, for
+      // Getting started (backend/src/relay_endpoints.rs). Per-chat relay
+      // routes are under /sessions.
+      "/relay": "http://127.0.0.1:3000",
       // Secure local-storage onboarding and route gating. Without this
       // prefix, Vite serves index.html for /storage/* and the JSON parse
       // failure makes SecureAppRoute redirect back into onboarding.
