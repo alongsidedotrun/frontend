@@ -35,6 +35,10 @@ export type SidebarSectionItem = {
   menu?: readonly SidebarItemMenuEntry[];
   /** Called with the new name when an in-place rename is confirmed. */
   onRename?: (name: string) => void;
+  /** Nested rows (a project's chats): the row gets a chevron and expands. */
+  children?: readonly SidebarSectionItem[];
+  /** Shown inside an expanded row that has no children. */
+  childrenEmptyLabel?: string;
 };
 
 export type SidebarSectionAction = {
@@ -55,6 +59,9 @@ type SidebarSectionsProps = {
   sections: readonly SidebarSection[];
   activeItemId?: string;
   onItemSelect?: (itemId: string) => void;
+  /** Rows with children that are open. */
+  expandedIds?: ReadonlySet<string>;
+  onToggleExpanded?: (itemId: string) => void;
   className?: string;
 };
 
@@ -62,7 +69,7 @@ type SidebarSectionsProps = {
  * Data-driven sidebar groups. A surface may begin with headings only and add
  * rows later without changing the surrounding navigation layout.
  */
-export function SidebarSections({ sections, activeItemId, onItemSelect, className }: SidebarSectionsProps) {
+export function SidebarSections({ sections, activeItemId, onItemSelect, expandedIds, onToggleExpanded, className }: SidebarSectionsProps) {
   return (
     <div className={cn("flex flex-col gap-[var(--redesign-sidebar-section-gap)]", className)}>
       {sections.map((section) => (
@@ -90,9 +97,26 @@ export function SidebarSections({ sections, activeItemId, onItemSelect, classNam
           </div>
           {section.items?.length ? (
             <div className="mt-[var(--redesign-sidebar-section-row-offset)] flex flex-col gap-[var(--redesign-quick-actions-row-gap)]">
-              {section.items.map((item) => (
-                <SidebarRow key={item.id} item={item} active={item.id === activeItemId} onSelect={() => onItemSelect?.(item.id)} />
-              ))}
+              {section.items.map((item) => {
+                if (!item.children) {
+                  return <SidebarRow key={item.id} item={item} active={item.id === activeItemId} onSelect={() => onItemSelect?.(item.id)} />;
+                }
+                const expanded = expandedIds?.has(item.id) ?? false;
+                return (
+                  <div key={item.id} className="flex flex-col gap-[var(--redesign-quick-actions-row-gap)]">
+                    <SidebarRow item={item} active={false} expanded={expanded} onSelect={() => onToggleExpanded?.(item.id)} />
+                    {expanded && (item.children.length ? (
+                      item.children.map((child) => (
+                        <SidebarRow key={child.id} item={child} active={child.id === activeItemId} nested onSelect={() => onItemSelect?.(child.id)} />
+                      ))
+                    ) : item.childrenEmptyLabel ? (
+                      <p className="flex h-[var(--redesign-quick-actions-row-height)] items-center pr-[var(--redesign-quick-actions-padding)] pl-[calc(var(--redesign-quick-actions-padding)+21px)] text-[length:var(--redesign-font-size-base)] font-medium text-muted-foreground opacity-70">
+                        {item.childrenEmptyLabel}
+                      </p>
+                    ) : null)}
+                  </div>
+                );
+              })}
             </div>
           ) : section.emptyLabel ? (
             <p className="mt-[var(--redesign-sidebar-section-row-offset)] px-[var(--redesign-quick-actions-padding)] text-[length:var(--redesign-font-size-base)] font-medium text-muted-foreground opacity-70">
@@ -106,7 +130,21 @@ export function SidebarSections({ sections, activeItemId, onItemSelect, classNam
 }
 
 /** One row: the item itself, its "..." menu on hover, and in-place rename. */
-function SidebarRow({ item, active, onSelect }: { item: SidebarSectionItem; active: boolean; onSelect: () => void }) {
+function SidebarRow({
+  item,
+  active,
+  onSelect,
+  expanded,
+  nested = false,
+}: {
+  item: SidebarSectionItem;
+  active: boolean;
+  onSelect: () => void;
+  // Set for a row with children: draws its chevron, turned down when open.
+  expanded?: boolean;
+  // A child row, indented under its parent.
+  nested?: boolean;
+}) {
   const { t } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -115,6 +153,22 @@ function SidebarRow({ item, active, onSelect }: { item: SidebarSectionItem; acti
   const rowClass = cn(
     "flex h-[var(--redesign-quick-actions-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-left text-[length:var(--redesign-sidebar-primary-font-size)] font-normal text-muted-foreground transition-colors",
     (active || menuOpen) && "bg-muted font-medium text-foreground",
+    // Children line up with their parent's label, past its chevron.
+    nested && "pl-[calc(var(--redesign-quick-actions-padding)+21px)]",
+  );
+  const chevron = expanded !== undefined && (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={cn("-ml-0.5 size-3.5 shrink-0 transition-transform duration-150 ease-out motion-reduce:transition-none", expanded && "rotate-90")}
+    >
+      <path d="M9 6L15 12L9 18" />
+    </svg>
   );
 
   if (renaming) {
@@ -150,12 +204,14 @@ function SidebarRow({ item, active, onSelect }: { item: SidebarSectionItem; acti
         type="button"
         onClick={onSelect}
         aria-current={active ? "page" : undefined}
+        aria-expanded={expanded}
         className={cn(
           rowClass,
           "hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           item.menu && "pr-8",
         )}
       >
+        {chevron}
         {Icon && <Icon aria-hidden="true" strokeWidth={2} className="size-[var(--redesign-quick-actions-icon-size)] shrink-0" />}
         <span className="truncate">{item.label}</span>
       </button>
