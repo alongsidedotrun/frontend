@@ -183,8 +183,8 @@ export function RedesignPage() {
   const [inboxMentions, setInboxMentions] = useState<InboxMention[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [chats, setChats] = useState<Chat[]>([]);
-  // Getting started's own checks: any provider CLI connected, and hosting on
-  // (a chat shared). Re-read on each navigation; both are cheap local calls.
+  // Getting started's own checks: any provider CLI connected, and a chat
+  // shared or joined through the relay. Re-read on each navigation; both are cheap local calls.
   const [providerReady, setProviderReady] = useState(false);
   // Sidebar row menus: the project awaiting delete confirmation, and the chat
   // to add to the project being created from its "New project…" entry.
@@ -211,7 +211,7 @@ export function RedesignPage() {
       return next;
     });
   }, []);
-  const [hostingOn, setHostingOn] = useState(false);
+  const [sharedOnce, setSharedOnce] = useState(false);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
@@ -714,10 +714,11 @@ export function RedesignPage() {
     ).then((ready) => {
       if (!cancelled) setProviderReady(ready.some(Boolean));
     });
-    void fetch("/host/status")
-      .then((response) => (response.ok ? (response.json() as Promise<{ hosting?: boolean }>) : null))
+    // Any chat shared or joined through the relay (the host-embedded gateway is development-only now).
+    void fetch("/relay/shared")
+      .then((response) => (response.ok ? (response.json() as Promise<{ shared?: boolean }>) : null))
       .then((data) => {
-        if (!cancelled) setHostingOn(Boolean(data?.hosting));
+        if (!cancelled) setSharedOnce(Boolean(data?.shared));
       })
       .catch(() => {});
     return () => {
@@ -731,7 +732,7 @@ export function RedesignPage() {
     provider: providerReady,
     message: chats.length > 0,
     account: identity.signedIn,
-    multiplayer: hostingOn,
+    multiplayer: sharedOnce,
   };
   // Closed with its X once every step was done; stays closed on this device.
   const [gettingStartedDismissed, setGettingStartedDismissed] = useState(() => {
