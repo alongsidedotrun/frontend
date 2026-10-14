@@ -24,6 +24,7 @@ export function AppTopBar({
   collapseButtonHover = true,
   title,
   titleClassName,
+  actions,
 }: {
   collapsed?: boolean;
   canGoBack?: boolean;
@@ -39,6 +40,8 @@ export function AppTopBar({
   /** Contextual name for the active content, such as its project and chat. */
   title?: ReactNode;
   titleClassName?: string;
+  /** Controls at the right end, such as a chat's Share button. */
+  actions?: ReactNode;
 }) {
   const { t } = useTranslation();
   return (
@@ -78,6 +81,9 @@ export function AppTopBar({
       </div>
       <div className="pointer-events-auto flex items-center gap-2">
         {title && <span className={cn("max-w-56 truncate text-[length:var(--redesign-chat-text)] font-medium text-foreground", titleClassName)}>{title}</span>}
+        {/* Pinned to the right end: the shell positions the controls and the
+            title absolutely, so nothing else here pushes this over. */}
+        {actions && <div className="absolute right-3 flex items-center gap-2">{actions}</div>}
         {showNotifications && <BaseDropdownMenu size="compact">
           <BaseDropdownTrigger
             render={

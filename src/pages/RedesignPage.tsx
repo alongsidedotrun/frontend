@@ -5,10 +5,13 @@ import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
 import { useLocation, useNavigate, useOutlet } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { ChevronRight, CircleArrowUp, CircleHelp, Plus, Search, ShieldCheck } from "lucide-react";
+import { ChevronRight, CircleArrowUp, CircleHelp, LogIn, Plus, Search, Share2, ShieldCheck } from "lucide-react";
 import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
 import { CreateWorkspaceDialog } from "@/components/design-system/create-workspace-dialog";
 import { SignInDialog } from "@/components/design-system/sign-in-dialog";
+import { ShareChatDialog } from "@/components/design-system/share-chat-dialog";
+import { JoinChatDialog } from "@/components/design-system/join-chat-dialog";
+import { useShareDialogHost } from "@/lib/use-share";
 import { useSignInDialogHost } from "@/lib/use-sign-in";
 import { useIdentity } from "@/lib/identity";
 import { signOut } from "@/lib/auth";
@@ -102,8 +105,11 @@ function profileMenuSections(t: Translate, onOpenProfile: () => void, onSignOut:
   ];
 }
 
+// New chat, and under it Join chat (someone else's, with their chat ID and
+// join code -- JoinChatDialog).
 const quickActions = (t: Translate): readonly QuickActionItem[] => [
   { id: "chats", label: t("common.newChat"), icon: Plus },
+  { id: "join", label: t("joinChat.title"), icon: LogIn },
 ];
 
 // Getting started: the essentials, each done when the real thing is (a
@@ -172,6 +178,17 @@ export function RedesignPage() {
   const openSignIn = useCallback(() => setSignInOpen(true), []);
   const identity = useIdentity();
   useSignInDialogHost(openSignIn);
+  // Share (for the chat it was opened on) and Join chat, also opened from the
+  // chat page's /share and Quick actions (lib/use-share.ts).
+  const [shareChatId, setShareChatId] = useState<string | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [joinOpen, setJoinOpen] = useState(false);
+  const openShare = useCallback((chatId: string) => {
+    setShareChatId(chatId);
+    setShareOpen(true);
+  }, []);
+  const openJoin = useCallback(() => setJoinOpen(true), []);
+  useShareDialogHost(openShare, openJoin);
   const [manageWorkspacesOpen, setManageWorkspacesOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
@@ -656,6 +673,15 @@ export function RedesignPage() {
       },
     },
     {
+      value: "join-chat",
+      label: t("joinChat.title"),
+      description: t("shell.commands.joinChat.description"),
+      icon: LogIn,
+      keywords: ["share", "multiplayer", "code", "invite"],
+      group: t("shell.commands.group.actions"),
+      onSelect: () => setJoinOpen(true),
+    },
+    {
       value: "new-project",
       label: t("nav.newProject.ariaLabel"),
       description: t("shell.commands.newProject.description"),
@@ -820,6 +846,12 @@ export function RedesignPage() {
               ) : null}
             </SidebarSurfaceTransition>
           }
+          // Share, at the right end, on a chat only.
+          actions={topBarChat ? (
+            <Button type="button" variant="tertiary" size="compact" leadingIcon={Share2} onClick={() => openShare(topBarChat.id)}>
+              {t("shareChat.button")}
+            </Button>
+          ) : null}
           titleClassName="absolute left-[calc(var(--redesign-sidebar-width)+16px)] max-w-[min(32rem,calc(100%-var(--redesign-sidebar-width)-6rem))] font-normal"
           showNotifications={false}
           collapseButtonHover={false}
@@ -868,6 +900,10 @@ export function RedesignPage() {
               activeId={location.pathname === "/new/chat" ? "chats" : undefined}
               onOpen={() => setQuickActionsOpen(true)}
               onActionSelect={(actionId) => {
+                if (actionId === "join") {
+                  setJoinOpen(true);
+                  return;
+                }
                 if (actionId === "chats") {
                   // Already on an empty new chat: nothing to do. Navigating to
                   // the same route would push a duplicate entry and re-render
@@ -953,6 +989,8 @@ export function RedesignPage() {
         ))}
       </SidebarSurfaceTransition>
       <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} />
+      <ShareChatDialog sessionId={shareChatId} open={shareOpen} onOpenChange={setShareOpen} />
+      <JoinChatDialog open={joinOpen} onOpenChange={setJoinOpen} />
       <CreateWorkspaceDialog
         open={newWorkspaceOpen}
         onOpenChange={setNewWorkspaceOpen}
