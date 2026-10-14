@@ -782,17 +782,26 @@ export function RedesignPage() {
           // The open chat's name (after its project, when it has one), at the
           // content's left edge: the controls stay inside the sidebar's width
           // even when it's collapsed, so this clears them either way.
-          title={topBarChat ? (
-            <span className="flex min-w-0 items-center gap-1">
-              {topBarProject && (
-                <>
-                  <span className="truncate text-muted-foreground">{topBarProject.name}</span>
-                  <ChevronRight aria-hidden="true" className="size-3 shrink-0 text-muted-foreground" />
-                </>
-              )}
-              <span className="truncate">{topBarChat.name}</span>
-            </span>
-          ) : undefined}
+          // Fades out and in with the page content (same surface key and timing).
+          title={
+            <SidebarSurfaceTransition
+              surfaceKey={redesignSurfaceKey}
+              className="flex min-w-0 bg-transparent"
+              contentClassName="flex min-w-0 items-center"
+            >
+              {topBarChat ? (
+                <span className="flex min-w-0 items-center gap-1">
+                  {topBarProject && (
+                    <>
+                      <span className="truncate text-muted-foreground">{topBarProject.name}</span>
+                      <ChevronRight aria-hidden="true" className="size-3 shrink-0 text-muted-foreground" />
+                    </>
+                  )}
+                  <span className="truncate">{topBarChat.name}</span>
+                </span>
+              ) : null}
+            </SidebarSurfaceTransition>
+          }
           titleClassName="absolute left-[calc(var(--redesign-sidebar-width)+16px)] max-w-[min(32rem,calc(100%-var(--redesign-sidebar-width)-6rem))] font-normal"
           showNotifications={false}
           collapseButtonHover={false}
