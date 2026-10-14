@@ -125,11 +125,10 @@
   --redesign-font-size-compact: 0.6875rem;
   /* Keep sidebar copy responsive, but cap small-screen reduction at 2px. */
   --redesign-font-size-base: clamp(0.75rem, 1vw, 0.8125rem);
-  /* Primary navigation is deliberately one step larger than supporting
-     sidebar copy, so the workspace, main menu, and profile don't read
-     undersized next to the app content. */
-  /* Fixed 13px for sidebar and menu rows, for the same reason. */
-  --redesign-sidebar-primary-font-size: 0.8125rem;
+  /* Sidebar and menu rows scale with the window exactly like the chat text
+     (12px up to an ~800px window, capped at 13px from ~1200px), so on small
+     screens the navigation never reads larger than the content. */
+  --redesign-sidebar-primary-font-size: var(--redesign-chat-text);
   --redesign-dropdown-font-size: clamp(0.6875rem, 1vw, 0.8125rem);
   /* Chat messages and the top bar title scale with the window, in step with
      the compose box's controls: 12px up to an ~800px window, capped at 13px
