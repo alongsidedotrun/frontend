@@ -5,7 +5,7 @@ import { useOutletContext, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { spring } from "@/lib/springs";
 import { isAutoScrollSuppressed, suppressAutoScroll } from "@/lib/chat-scroll-suppress";
-import { getUserDisplayName } from "@/lib/user";
+import { GUEST_NAME, getUserDisplayName } from "@/lib/user";
 import { ComposeBox, toImageInputs, type ImageAttachment } from "@/components/compose-box";
 import { JoinRequests, type JoinRequest } from "@/components/join-requests";
 import { clearPresence, setPresence, type Person } from "@/lib/presence";
@@ -1127,6 +1127,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       }
 
       if (type === "user_joined") {
+        // "Guest" is never shown: a signed-out join gets no marker.
+        if (event.name === GUEST_NAME) return;
         pushMarker(i18n.t("chat.userJoined", { name: event.name }));
         return;
       }
@@ -2686,13 +2688,13 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
 // idea -- confirmed directly as a real bug (reported: "our time at our message
 // is not the same size... I thought it was the same component"), human/command
 // rows were still on the old text-[length:var(--redesign-chat-meta)] span, only the agent row's own had been
-// resized to text-2xs. showDisclaimer is the one real difference between them:
+// resized to --redesign-chat-meta. showDisclaimer is the one real difference between them:
 // only an actual AI reply carries "AI can make mistakes" -- a human's own
 // message or Alongside's own /share reply doesn't need reviewing the same way.
 function MessageTime({ time, showDisclaimer }: { time: string; showDisclaimer?: boolean }) {
   const { t } = useTranslation();
   return (
-    <p className="px-1 text-2xs text-muted-foreground">
+    <p className="px-1 text-[length:var(--redesign-chat-meta)] text-muted-foreground">
       {time}
       {showDisclaimer && <span className="opacity-50"> {t("chat.disclaimer")}</span>}
     </p>
@@ -2905,11 +2907,11 @@ function ChatRowView({
           // see sendMessage's own comment (above) for why this row exists
           // at all instead of the window.alert() it replaced.
           <div className="flex items-center gap-2 px-1">
-            <span className="text-2xs text-destructive"><ErrorText message={row.failed.errorText} /></span>
+            <span className="text-[length:var(--redesign-chat-meta)] text-destructive"><ErrorText message={row.failed.errorText} /></span>
             <button
               type="button"
               onClick={() => onRetryFailedMessage(row)}
-              className="text-2xs font-medium text-muted-foreground underline hover:text-foreground"
+              className="text-[length:var(--redesign-chat-meta)] font-medium text-muted-foreground underline hover:text-foreground"
             >
               {t("common.retry")}
             </button>
@@ -2930,7 +2932,7 @@ function ChatRowView({
                   ever been edited, but total stays 1 until a second branch
                   genuinely exists) -- most messages never show this. */}
               {row.branch && row.branch.total > 1 && (
-                <div className="flex items-center gap-0.5 text-2xs text-muted-foreground">
+                <div className="flex items-center gap-0.5 text-[length:var(--redesign-chat-meta)] text-muted-foreground">
                   <button
                     type="button"
                     disabled={row.branch.index <= 0}
@@ -3203,7 +3205,7 @@ function ToolRow({ name, summary, input }: { name: string; summary: string | nul
         )}
       </button>
       {open && (
-        <pre className="mt-1 max-w-full overflow-x-auto rounded-lg bg-muted px-2.5 py-2 text-[11px] whitespace-pre-wrap text-muted-foreground">
+        <pre className="mt-1 max-w-full overflow-x-auto rounded-lg bg-muted px-2.5 py-2 text-[length:var(--redesign-chat-meta)] whitespace-pre-wrap text-muted-foreground">
           {JSON.stringify(input, null, 2)}
         </pre>
       )}
@@ -3303,7 +3305,7 @@ function SourceLink({ source }: { source: { label: string; href: string } }) {
         />
       )}
       <span className="min-w-0 text-[length:var(--redesign-chat-meta)] text-foreground">
-        {source.label || hostname} <span className="font-mono text-2xs text-muted-foreground opacity-50">{hostname}</span>
+        {source.label || hostname} <span className="font-mono text-[length:var(--redesign-chat-meta)] text-muted-foreground opacity-50">{hostname}</span>
       </span>
     </a>
   );
@@ -3527,7 +3529,7 @@ function PermissionCard({
         </button>
       </div>
       {commandText && (
-        <pre className="max-w-full overflow-x-auto rounded-lg bg-muted px-2.5 py-2 text-[11px] whitespace-pre-wrap text-foreground">
+        <pre className="max-w-full overflow-x-auto rounded-lg bg-muted px-2.5 py-2 text-[length:var(--redesign-chat-meta)] whitespace-pre-wrap text-foreground">
           {commandText}
         </pre>
       )}
@@ -3575,7 +3577,7 @@ function PermissionCard({
           />
         </div>
       </div>
-      <p className="px-2.5 text-2xs text-muted-foreground">{t("chat.perm.escToCancel")}</p>
+      <p className="px-2.5 text-[length:var(--redesign-chat-meta)] text-muted-foreground">{t("chat.perm.escToCancel")}</p>
     </div>
   );
 }
@@ -3783,7 +3785,7 @@ function AgentMessageActions({
           className={`${iconButtonClass(sourcesOpen)} w-auto gap-1 px-1.5`}
         >
           <ResearchIcon className="size-3 shrink-0" />
-          <span className="text-2xs">{t("chat.sources", { count: sources.length })}</span>
+          <span className="text-[length:var(--redesign-chat-meta)]">{t("chat.sources", { count: sources.length })}</span>
           <ChevronDownIcon className={`size-3 shrink-0 transition-transform ${sourcesOpen ? "rotate-180" : ""}`} />
         </button>
       )}
