@@ -38,11 +38,11 @@ describe("Waiting to join, in the sidebar (#460)", () => {
     await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.path.endsWith("/req-1/deny"))).toBe(true));
   });
 
-  it("shows ALS-029 when answering doesn't work", async () => {
+  it("shows ALS-028 when answering doesn't work", async () => {
     backend({ decideFails: true });
     render(<JoinRequestsCard enabled />);
     await userEvent.click(await screen.findByRole("button", { name: "Let in" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't answer Alice's request. Try again. (ALS-029)");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't answer Alice's request. Try again. (ALS-028)");
   });
 
   it("refreshes at once when the backend says someone asked", async () => {

@@ -103,7 +103,7 @@ describe("Join chat dialog (#213, #459)", () => {
     ["join_code_expired", 403, "ALS-022"],
     ["join_code_used", 403, "ALS-023"],
     ["too_many_attempts", 429, "ALS-024"],
-    ["already_member", 409, "ALS-030"],
+    ["already_member", 409, "ALS-029"],
     ["relay_unavailable", 502, "ALS-018"],
     ["something_else", 500, "ALS-025"],
   ] as const) {
