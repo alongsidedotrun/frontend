@@ -77,7 +77,7 @@ export function AppTopBar({
         </button>
       </div>
       <div className="pointer-events-auto flex items-center gap-2">
-        {title && <span className={cn("max-w-56 truncate text-[13px] font-medium text-foreground", titleClassName)}>{title}</span>}
+        {title && <span className={cn("max-w-56 truncate text-[length:var(--redesign-chat-text)] font-medium text-foreground", titleClassName)}>{title}</span>}
         {showNotifications && <BaseDropdownMenu size="compact">
           <BaseDropdownTrigger
             render={

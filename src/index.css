@@ -125,6 +125,11 @@
   /* Fixed 13px for sidebar and menu rows, for the same reason. */
   --redesign-sidebar-primary-font-size: 0.8125rem;
   --redesign-dropdown-font-size: clamp(0.6875rem, 1vw, 0.8125rem);
+  /* Chat messages and the top bar title scale with the window, in step with
+     the compose box's controls: 12px up to an ~800px window, capped at 13px
+     from ~1200px. Labels and timestamps sit one pixel under. */
+  --redesign-chat-text: clamp(0.75rem, calc(0.625rem + 0.25vw), 0.8125rem);
+  --redesign-chat-meta: clamp(0.6875rem, calc(0.5625rem + 0.25vw), 0.75rem);
   --redesign-font-size-sm: 0.875rem;
   --redesign-font-size-md: 1rem;
   --redesign-font-size-lg: 1.125rem;

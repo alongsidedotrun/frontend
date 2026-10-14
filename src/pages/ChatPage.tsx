@@ -2500,7 +2500,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             // to accept this page's own four phase labels and to pull its
             // gradient from this app's real theme tokens instead of the
             // component's own hardcoded grays -- that file's own comment
-            // has the full reasoning). text-[13px] to match this app's
+            // has the full reasoning). the --redesign-chat-text size to match this app's
             // own agent-reply text size, same reasoning the row's
             // previous size bump already established.
             <div className="flex items-center gap-2 py-1">
@@ -2685,7 +2685,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
 // One real shared component now, not three separately-sized copies of the same
 // idea -- confirmed directly as a real bug (reported: "our time at our message
 // is not the same size... I thought it was the same component"), human/command
-// rows were still on the old text-xs span, only the agent row's own had been
+// rows were still on the old text-[length:var(--redesign-chat-meta)] span, only the agent row's own had been
 // resized to text-2xs. showDisclaimer is the one real difference between them:
 // only an actual AI reply carries "AI can make mistakes" -- a human's own
 // message or Alongside's own /share reply doesn't need reviewing the same way.
@@ -2767,7 +2767,7 @@ function ChatRowView({
   // preloadProviderIcons-cached well before that reveal fires anyway).
   const [iconLoaded, setIconLoaded] = useState(() => row.kind !== "agent" || !row.animate);
   if (row.kind === "marker") {
-    return <div className="text-center text-xs text-muted-foreground/70"><ErrorText message={row.text} /></div>;
+    return <div className="text-center text-[length:var(--redesign-chat-meta)] text-muted-foreground/70"><ErrorText message={row.text} /></div>;
   }
 
   if (row.kind === "tool") {
@@ -2844,7 +2844,7 @@ function ChatRowView({
           <span className="size-5 shrink-0 overflow-hidden rounded-full">
             <DefaultAvatar name={row.displayName} />
           </span>
-          <span className="text-xs text-muted-foreground">{isSelf ? i18n.t("chat.me") : row.displayName}</span>
+          <span className="text-[length:var(--redesign-chat-meta)] text-muted-foreground">{isSelf ? i18n.t("chat.me") : row.displayName}</span>
         </div>
         {/* transition-[max-width]: sm: is a real viewport breakpoint, so
             without this the bubble snapped width instantly at 640px while
@@ -2868,7 +2868,7 @@ function ChatRowView({
         <div
           className={`flex w-fit max-w-[85%] items-center gap-2.5 transition-[max-width] duration-200 ${isSelf ? "ml-auto" : "mr-auto"}`}
         >
-          {/* text-[13px] leading-relaxed -- matches the agent reply's own text exactly
+          {/* --redesign-chat-text leading-relaxed -- matches the agent reply's own text exactly
               (the block below this one's own comment has the same values), was text-sm
               (14px, no leading-relaxed) -- per explicit request, "our own text is quite
               big[,] make that match the size of the texts of the agent". */}
@@ -2892,7 +2892,7 @@ function ChatRowView({
               --foreground comment has the full history), so this is now a literal
               shared token rather than two colors that happened to match. */}
           <div
-            className={`rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap text-foreground ${
+            className={`rounded-2xl px-3.5 py-2.5 text-[length:var(--redesign-chat-text)] leading-relaxed whitespace-pre-wrap text-foreground ${
               row.failed ? "border border-destructive/40" : ""
             } bg-accent`}
           >
@@ -3035,12 +3035,12 @@ function ChatRowView({
               label (row.displayName above) exactly: both are identity labels above
               a message, and this one read larger/bolder than its symmetric
               counterpart for no reason tied to anything on screen. */}
-          <span className="text-xs text-muted-foreground">Alongside</span>
+          <span className="text-[length:var(--redesign-chat-meta)] text-muted-foreground">Alongside</span>
         </div>
         {/* max-w-[95%], matching the agent row's own reply width below (not
             the human bubble's 80%) -- this is Alongside's own /share reply,
             not a human message. */}
-        <div className="max-w-[95%] px-1 text-sm whitespace-pre-wrap transition-[max-width] duration-200"><ErrorText message={row.text} /></div>
+        <div className="max-w-[95%] px-1 text-[length:var(--redesign-chat-text)] whitespace-pre-wrap transition-[max-width] duration-200"><ErrorText message={row.text} /></div>
         <MessageTime time={row.time} />
       </div>
     );
@@ -3083,15 +3083,15 @@ function ChatRowView({
       <div className="flex items-center gap-1.5 px-1">
         {/* size-5 (20px), not size-6 -- per explicit request ("make sure
             that both icons are size 5 to match the size of the font at
-            the messages"), matching the row's own text-xs label next to
+            the messages"), matching the row's own text-[length:var(--redesign-chat-meta)] label next to
             it instead of running larger than it. */}
         <ProviderIcon model={row.model} className="size-5" onLoad={() => setIconLoaded(true)} />
         {/* text-xs, no font-medium -- same fix as the "command" row's own
             "Alongside" label just above: matches the "human" row's sender-name
             label exactly, its real symmetric counterpart. */}
-        <span className="text-xs text-muted-foreground">{row.modelLabel}</span>
+        <span className="text-[length:var(--redesign-chat-meta)] text-muted-foreground">{row.modelLabel}</span>
       </div>
-      {/* text-[13px] leading-relaxed -- matches the reference component's own reply
+      {/* --redesign-chat-text leading-relaxed -- matches the reference component's own reply
           text size exactly (was text-sm/14px with Tailwind's default leading), per
           explicit request. No more whitespace-pre-wrap -- streamdown (streaming-
           text.tsx) now renders real markdown blocks with their own real paragraph/
@@ -3103,7 +3103,7 @@ function ChatRowView({
           the human bubble used -- the two should read differently now, an
           AI reply spans nearly the full column while a human message stays
           visually distinct as a bubble. */}
-      <div className="max-w-[95%] px-1 text-[13px] leading-relaxed transition-[max-width] duration-200">
+      <div className="max-w-[95%] px-1 text-[length:var(--redesign-chat-text)] leading-relaxed transition-[max-width] duration-200">
         <StreamingText text={row.text} animate={row.animate} onDone={() => setActionsVisible(true)} />
       </div>
       {/* Sources now lives inside AgentMessageActions' own row, after effort --
@@ -3192,7 +3192,7 @@ function ToolRow({ name, summary, input }: { name: string; summary: string | nul
         type="button"
         disabled={!hasInput}
         onClick={() => setOpen((prev) => !prev)}
-        className="flex items-center gap-1 text-xs text-muted-foreground italic disabled:cursor-default"
+        className="flex items-center gap-1 text-[length:var(--redesign-chat-meta)] text-muted-foreground italic disabled:cursor-default"
       >
         <span>
           {name}
@@ -3302,7 +3302,7 @@ function SourceLink({ source }: { source: { label: string; href: string } }) {
           onError={() => setFaviconFailed(true)}
         />
       )}
-      <span className="min-w-0 text-xs text-foreground">
+      <span className="min-w-0 text-[length:var(--redesign-chat-meta)] text-foreground">
         {source.label || hostname} <span className="font-mono text-2xs text-muted-foreground opacity-50">{hostname}</span>
       </span>
     </a>
@@ -3349,7 +3349,7 @@ function TurnWorkDisclosure({
   // Plain, non-interactive label instead, exactly like Claude's own replies
   // that genuinely didn't use extended thinking this turn.
   if (!trimmedDetail && !hasToolLines) {
-    const labelEl = live ? <ThinkingState text={label} /> : <span className="text-xs text-muted-foreground">{label}</span>;
+    const labelEl = live ? <ThinkingState text={label} /> : <span className="text-[length:var(--redesign-chat-meta)] text-muted-foreground">{label}</span>;
     return <div className="px-1">{labelEl}</div>;
   }
   // ThinkingReasoning (per explicit request, adopted from
@@ -3492,7 +3492,7 @@ function PermissionCard({
             ? t("chat.perm.deniedNoResponse")
             : t("chat.perm.denied");
     return (
-      <div className="flex items-center gap-1.5 px-1 text-xs text-muted-foreground">
+      <div className="flex items-center gap-1.5 px-1 text-[length:var(--redesign-chat-meta)] text-muted-foreground">
         {status === "allow" ? <CheckIcon className="size-3.5 shrink-0" /> : <XIcon className="size-3.5 shrink-0" />}
         <span>
           {toolName}: {label}
@@ -3506,7 +3506,7 @@ function PermissionCard({
       {/* No icon beside the title any more -- per explicit follow-up
           ("we should have no icons there at the title"). */}
       <div className="flex items-center gap-2">
-        <p className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">{t("chat.perm.allowToRun", { tool: toolName })}</p>
+        <p className="min-w-0 flex-1 truncate text-[length:var(--redesign-chat-text)] font-medium text-foreground">{t("chat.perm.allowToRun", { tool: toolName })}</p>
         {/* Per explicit follow-up ("is missing the x at the right top to
             cancel it and fully stop the command") -- denies this specific
             permission (the same real endpoint Deny already calls) and
@@ -3571,7 +3571,7 @@ function PermissionCard({
               if (event.key === "Enter" && otherText.trim()) void answer("deny", otherText.trim());
             }}
             placeholder={t("chat.perm.other")}
-            className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground"
+            className="min-w-0 flex-1 bg-transparent text-[length:var(--redesign-chat-text)] text-foreground outline-none placeholder:text-muted-foreground"
           />
         </div>
       </div>
@@ -3599,7 +3599,7 @@ function PermissionOptionRow({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 text-left text-[13px] text-foreground transition-colors hover:bg-hover-2/50 disabled:opacity-50"
+      className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 text-left text-[length:var(--redesign-chat-text)] text-foreground transition-colors hover:bg-hover-2/50 disabled:opacity-50"
     >
       <span className="flex size-4 shrink-0 items-center justify-center rounded bg-hover-2/50 text-[10px] font-semibold text-muted-foreground">
         {number}
@@ -3766,7 +3766,7 @@ function AgentMessageActions({
           having a graph that we can only see when we hover bc is not
           clear"): the graph on its own read as decorative until you
           hovered it, unlike every other real value on this row. */}
-      <span className="px-1 text-xs text-muted-foreground">{effortLabel(effort)} effort</span>
+      <span className="px-1 text-[length:var(--redesign-chat-meta)] text-muted-foreground">{effortLabel(effort)} effort</span>
       {/* Sources -- same row as every other action, after effort, per explicit
           request (was its own separate block below the row before). A real
           dropdown trigger now, not a hover tooltip -- per explicit request:
