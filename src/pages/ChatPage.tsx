@@ -2314,7 +2314,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             at all -- scrollToBottomIfNear (this file, called from pushRow)
             and the replay_complete handler's own scrollTop = scrollHeight
             already handle it in JS, the exact same pattern dray uses. */}
-        <div ref={chatContentRef} className="t-chat-width mx-auto flex w-full flex-1 flex-col gap-3 pt-16 pb-3" style={{ maxWidth: "var(--chat-max-width)" }}>
+        <div ref={chatContentRef} className="t-chat-width mx-auto flex w-full flex-1 flex-col gap-3 pt-16 pb-3 [&_p]:font-[inherit] [&_p]:tracking-[inherit]" style={{ maxWidth: "var(--chat-max-width)" }}>
           {/* t-row-in -- per explicit request ("coming in very quickly, is there a
               transition like fade in"): every LIVE row mounting (human, agent, tool,
               reasoning, marker, command, permission alike) fades/slides in once,
@@ -2687,16 +2687,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
 // One real shared component now, not three separately-sized copies of the same
 // idea -- confirmed directly as a real bug (reported: "our time at our message
 // is not the same size... I thought it was the same component"), human/command
-// rows were still on the old text-[length:var(--redesign-chat-meta)] span, only the agent row's own had been
-// resized to --redesign-chat-meta. showDisclaimer is the one real difference between them:
-// only an actual AI reply carries "AI can make mistakes" -- a human's own
-// message or Alongside's own /share reply doesn't need reviewing the same way.
-function MessageTime({ time, showDisclaimer }: { time: string; showDisclaimer?: boolean }) {
-  const { t } = useTranslation();
+// rows were still on an older span, only the agent row's own had been resized.
+function MessageTime({ time }: { time: string }) {
   return (
     <p className="px-1 text-[length:var(--redesign-chat-meta)] text-muted-foreground">
       {time}
-      {showDisclaimer && <span className="opacity-50"> {t("chat.disclaimer")}</span>}
     </p>
   );
 }
@@ -3128,7 +3123,7 @@ function ChatRowView({
       {actionsVisible && (
         <div className="t-row-in flex w-full flex-col items-start gap-1">
           <AgentMessageActions text={row.text} onRetry={onRetry} effort={row.effort} />
-          <MessageTime time={row.time} showDisclaimer />
+          <MessageTime time={row.time} />
         </div>
       )}
     </div>
