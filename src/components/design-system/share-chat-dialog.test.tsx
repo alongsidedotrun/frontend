@@ -15,9 +15,10 @@ const inFifteen = () => Math.floor(Date.now() / 1000) + 15 * 60;
 
 // A backend for one chat: not shared until started (asking for the disclosure
 // first), then a chat ID, a code and two members.
-function backend(options: { sharedBefore?: boolean; startError?: string; staysDisconnected?: boolean } = {}) {
+function backend(options: { sharedBefore?: boolean; startError?: string; staysDisconnected?: boolean; removeFails?: boolean } = {}) {
   let syncing = false;
   let code: { code: string; status: string; expires_at: number } | null = null;
+  let members = [{ id: "acct-gio", name: "Gio", role: "owner", online: true }, { id: "acct-alice", name: "Alice", role: "editor", online: false }];
   return mockFetch(({ method, path, body }) => {
     if (path === `/sessions/${CHAT}/relay/status`) return { body: { syncing, chat_id: syncing || options.sharedBefore ? "7KQ2M-9XF4T" : null } };
     if (path === `/sessions/${CHAT}/relay/start`) {
@@ -35,7 +36,12 @@ function backend(options: { sharedBefore?: boolean; startError?: string; staysDi
       code = null;
       return { status: 204 };
     }
-    if (path === `/sessions/${CHAT}/relay/members`) return { body: [{ name: "Gio", role: "owner", online: true }, { name: "Alice", role: "editor", online: false }] };
+    if (path === `/sessions/${CHAT}/relay/members`) return { body: members };
+    if (path === `/sessions/${CHAT}/relay/members/acct-alice` && method === "DELETE") {
+      if (options.removeFails) return { status: 502, body: { error: "relay_request_failed" } };
+      members = members.filter((m) => m.id !== "acct-alice");
+      return { status: 204 };
+    }
     if (path === `/sessions/${CHAT}/relay/stop`) {
       syncing = false;
       return { status: 204 };
@@ -131,5 +137,30 @@ describe("Share chat dialog (#213, #459)", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Stop sharing" }));
     expect(await screen.findByRole("button", { name: "Start sharing" })).toBeInTheDocument();
     expect(calls.some((c) => c.path.endsWith("/relay/stop"))).toBe(true);
+  });
+
+  it("removes someone after a second click, and never offers to remove the owner", async () => {
+    const calls = backend();
+    renderDialog();
+    await userEvent.click(await screen.findByRole("button", { name: "Start sharing" }));
+    await userEvent.click(await screen.findByRole("button", { name: /agree/i }));
+    await screen.findByText("Alice");
+    expect(screen.queryByRole("button", { name: "Remove Gio" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Remove Alice" }));
+    expect(calls.some((c) => c.method === "DELETE" && c.path.includes("/relay/members/"))).toBe(false);
+    await userEvent.click(screen.getByRole("button", { name: "Remove from chat" }));
+    await waitFor(() => expect(screen.queryByText("Alice")).not.toBeInTheDocument());
+    expect(calls.some((c) => c.method === "DELETE" && c.path.endsWith("/relay/members/acct-alice"))).toBe(true);
+  });
+
+  it("shows ALS-026 when removing someone fails, and keeps them listed", async () => {
+    backend({ removeFails: true });
+    renderDialog();
+    await userEvent.click(await screen.findByRole("button", { name: "Start sharing" }));
+    await userEvent.click(await screen.findByRole("button", { name: /agree/i }));
+    await userEvent.click(await screen.findByRole("button", { name: "Remove Alice" }));
+    await userEvent.click(screen.getByRole("button", { name: "Remove from chat" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't remove Alice. Try again. (ALS-026)");
+    expect(screen.getByText("Alice")).toBeInTheDocument();
   });
 });

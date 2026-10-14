@@ -5787,6 +5787,42 @@ export const translations = {
     zh: "使用对话 ID 和加入码加入他人的对话",
     ja: "チャット ID と参加コードで他の人のチャットに参加",
   },
+  "shareChat.access.remove": {
+    en: "Remove",
+    "pt-BR": "Remover",
+    es: "Quitar",
+    fr: "Retirer",
+    de: "Entfernen",
+    zh: "移除",
+    ja: "削除",
+  },
+  "shareChat.access.removeName": {
+    en: "Remove {{name}}",
+    "pt-BR": "Remover {{name}}",
+    es: "Quitar a {{name}}",
+    fr: "Retirer {{name}}",
+    de: "{{name}} entfernen",
+    zh: "移除 {{name}}",
+    ja: "{{name}} を削除",
+  },
+  "shareChat.access.confirmRemove": {
+    en: "Remove from chat",
+    "pt-BR": "Remover do chat",
+    es: "Quitar del chat",
+    fr: "Retirer du chat",
+    de: "Aus dem Chat entfernen",
+    zh: "从对话中移除",
+    ja: "チャットから削除",
+  },
+  "shareChat.errors.remove": {
+    en: "Couldn't remove {{name}}. Try again. (ALS-026)",
+    "pt-BR": "Não foi possível remover {{name}}. Tente de novo. (ALS-026)",
+    es: "No se pudo quitar a {{name}}. Inténtalo de nuevo. (ALS-026)",
+    fr: "Impossible de retirer {{name}}. Réessayez. (ALS-026)",
+    de: "{{name}} konnte nicht entfernt werden. Versuche es erneut. (ALS-026)",
+    zh: "无法移除 {{name}}。请重试。(ALS-026)",
+    ja: "{{name}} を削除できませんでした。もう一度お試しください。(ALS-026)",
+  },
 } satisfies Record<string, TranslationRow>;
 
 export type TranslationKey = keyof typeof translations;

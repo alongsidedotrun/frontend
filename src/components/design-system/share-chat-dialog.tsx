@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 
 type Status = { syncing: boolean; chat_id: string | null };
 type JoinCode = { code?: string; status: "active" | "expired" | "used"; expires_at: number } | null;
-type Member = { name: string; role: "owner" | "editor" | "reader"; online: boolean };
+type Member = { id: string; name: string; role: "owner" | "editor" | "reader"; online: boolean };
 type Phase = "loading" | "idle" | "disclosure" | "sharing" | "resumeFailed";
 
 // While open and sharing, the code's status and who has joined are re-read
@@ -180,6 +180,20 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
     }
   }
 
+  // Removes someone: the relay disconnects them at once and they can't come
+  // back without a new code. What they already have stays on their device.
+  async function removeMember(member: Member) {
+    if (!sessionId) return;
+    setError(null);
+    const response = await fetch(`/sessions/${sessionId}/relay/members/${encodeURIComponent(member.id)}`, { method: "DELETE" }).catch(() => null);
+    if (!response?.ok) {
+      setError(t("shareChat.errors.remove", { name: member.name }));
+      return;
+    }
+    setMembers((current) => current.filter((m) => m.id !== member.id));
+    await refreshAccess();
+  }
+
   async function revokeCode() {
     if (!sessionId) return;
     await fetch(`/sessions/${sessionId}/relay/code`, { method: "DELETE" }).catch(() => null);
@@ -286,7 +300,7 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
             </div>
           </div>
 
-          <WhoHasAccess members={members} code={code} now={now} sharing={phase === "sharing"} onRevoke={() => void revokeCode()} />
+          <WhoHasAccess members={members} code={code} now={now} sharing={phase === "sharing"} onRevoke={() => void revokeCode()} onRemove={(member) => void removeMember(member)} />
         </div>
       </DialogContent>
     </Dialog>
@@ -311,8 +325,10 @@ function CopyField({ label, value, copied, onCopy }: { label: string; value: str
 }
 
 /** The right pane: the people in the chat, and the live join code with Revoke. */
-function WhoHasAccess({ members, code, now, sharing, onRevoke }: { members: Member[]; code: JoinCode; now: number; sharing: boolean; onRevoke: () => void }) {
+function WhoHasAccess({ members, code, now, sharing, onRevoke, onRemove }: { members: Member[]; code: JoinCode; now: number; sharing: boolean; onRevoke: () => void; onRemove: (member: Member) => void }) {
   const { t } = useTranslation();
+  // The member whose removal is waiting for a second click.
+  const [confirming, setConfirming] = useState<string | null>(null);
   const codeState = !code ? "none" : code.status === "active" && code.expires_at <= now ? "expired" : code.status;
   return (
     <div className="flex flex-col gap-4 border-t border-[var(--redesign-sidebar-border)] bg-[var(--redesign-sidebar-surface)] p-8 sm:border-t-0 sm:border-l">
@@ -323,7 +339,7 @@ function WhoHasAccess({ members, code, now, sharing, onRevoke }: { members: Memb
         <>
           <ul className="flex flex-col gap-1">
             {members.map((member) => (
-              <li key={`${member.name}-${member.role}`} className="flex h-8 items-center gap-2.5">
+              <li key={member.id} className="group/member flex h-8 items-center gap-2.5">
                 <span className="relative flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-medium text-foreground">
                   {member.name.slice(0, 1).toUpperCase()}
                   <span
@@ -332,9 +348,34 @@ function WhoHasAccess({ members, code, now, sharing, onRevoke }: { members: Memb
                   />
                 </span>
                 <span className="min-w-0 flex-1 truncate text-[13px] text-foreground">{member.name}</span>
-                <span className="shrink-0 text-[12px] text-muted-foreground">
-                  {t(member.role === "owner" ? "share.role.host" : `share.role.${member.role}`)} · {member.online ? t("presence.online") : t("presence.offline")}
-                </span>
+                {confirming === member.id ? (
+                  <span className="flex shrink-0 items-center gap-1">
+                    <Button type="button" variant="ghost" size="compact" onClick={() => setConfirming(null)}>
+                      {t("common.cancel")}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="compact"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => {
+                        setConfirming(null);
+                        onRemove(member);
+                      }}
+                    >
+                      {t("shareChat.access.confirmRemove")}
+                    </Button>
+                  </span>
+                ) : (
+                  <span className="flex shrink-0 items-center gap-1 text-[12px] text-muted-foreground">
+                    {t(member.role === "owner" ? "share.role.host" : `share.role.${member.role}`)} · {member.online ? t("presence.online") : t("presence.offline")}
+                    {member.role !== "owner" && (
+                      <Button type="button" variant="ghost" size="compact" aria-label={t("shareChat.access.removeName", { name: member.name })} onClick={() => setConfirming(member.id)}>
+                        {t("shareChat.access.remove")}
+                      </Button>
+                    )}
+                  </span>
+                )}
               </li>
             ))}
             {members.length <= 1 && <li className="text-[12px] text-muted-foreground">{t("shareChat.access.onlyYou")}</li>}
