@@ -17,6 +17,70 @@
    package (that app's own Markdown.tsx). */
 @import "streamdown/styles.css";
 
+@font-face {
+  font-family: "Geist";
+  src: url("/fonts/Geist-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@layer base {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "Geist", var(--font-sans);
+    font-weight: 500;
+  }
+
+  p {
+    font-family: "Inter Variable", sans-serif;
+    letter-spacing: -0.03em;
+  }
+  :focus-visible {
+    outline: 1px solid var(--focus-ring, #6B97FF);
+    outline-offset: 2px;
+    border-radius: var(--shape-input-radius, 8px);
+  }
+  a:focus-visible {
+    border-radius: 2px;
+  }
+}
+
+/* Backdrop (design-system/backdrop.tsx): each theme's gradient waving along
+   its 400% layer (transform only, no repaints).
+   Top level, not in @theme. */
+/* Compose box: a sent message's text fading up out of the box. */
+@keyframes compose-sent-out {
+  from { opacity: 1; transform: translateY(0); filter: blur(0); }
+  to { opacity: 0; transform: translateY(-6px); filter: blur(var(--text-swap-blur, 2px)); }
+}
+
+@keyframes backdrop-wave {
+  0%, 100% { transform: translate(0, -50%); }
+  50% { transform: translate(-75%, -50%); }
+}
+
+/* The Button's loading glyph (ui/button.tsx). Top level, not inside
+   @theme: Tailwind drops @theme keyframes that no --animate-* token uses,
+   which left the spinner frozen. */
+@keyframes spinner-move {
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+@keyframes spinner-dash {
+  0%, 100% {
+    stroke-dasharray: 15 85;
+  }
+  50% {
+    stroke-dasharray: 40 60;
+  }
+}
+
 @keyframes onboarding-word-in {
   from {
     opacity: 0;
@@ -56,9 +120,32 @@
  */
 :root {
   --redesign-font-size-xs: 0.75rem;
-  --redesign-font-size-compact: clamp(0.625rem, 0.86vw, 0.6875rem);
-  --redesign-font-size-base: 0.8125rem;
-  --redesign-dropdown-font-size: 0.8125rem;
+  /* Fixed, not window-scaled: the sidebar reads tidier at one size (matches
+     the create workspace preview). Section headers and small labels. */
+  --redesign-font-size-compact: 0.6875rem;
+  /* Keep sidebar copy responsive, but cap small-screen reduction at 2px. */
+  --redesign-font-size-base: clamp(0.75rem, 1vw, 0.8125rem);
+  /* Sidebar and menu rows scale with the window exactly like the chat text
+     (12px up to an ~800px window, capped at 13px from ~1200px), so on small
+     screens the navigation never reads larger than the content. */
+  --redesign-sidebar-primary-font-size: var(--redesign-chat-text);
+  --redesign-dropdown-font-size: clamp(0.6875rem, 1vw, 0.8125rem);
+  /* Chat messages and the top bar title scale with the window, in step with
+     the compose box's controls: 12px up to an ~800px window, capped at 13px
+     from ~1200px. Labels and timestamps sit one pixel under. */
+  /* Completion green (Getting started, all done). */
+  --redesign-success: #3E9B6A;
+  --redesign-chat-text: clamp(0.75rem, calc(0.625rem + 0.25vw), 0.8125rem);
+  --redesign-chat-meta: clamp(0.6875rem, calc(0.5625rem + 0.25vw), 0.75rem);
+  /* Message bubbles pad a step roomier than the sidebar's active rows, as
+     chat text runs larger: 12px inline, 6px block (a one-line bubble is
+     ~32px). Multi-line bubbles grow from there. */
+  --redesign-chat-bubble-padding-x: calc(var(--redesign-quick-actions-padding) + 0.1875rem);
+  --redesign-chat-bubble-padding-y: 0.375rem;
+  /* Corners that look like the app's 8px controls at any size: 8px on a
+     27px control, kept in that proportion to a one-line bubble. Multi-line
+     bubbles keep the one-line corner. */
+  --redesign-chat-bubble-radius: calc((var(--redesign-chat-text) * 1.625 + 2 * var(--redesign-chat-bubble-padding-y)) * 8 / 27);
   --redesign-font-size-sm: 0.875rem;
   --redesign-font-size-md: 1rem;
   --redesign-font-size-lg: 1.125rem;
@@ -68,21 +155,22 @@
   --redesign-control-height: 1.6875rem;
   --redesign-control-padding-inline: 0.5625rem;
   --redesign-control-gap: 0.375rem;
-  --redesign-control-radius: 8px;
-  --redesign-dropdown-row-radius: 6px;
+  --redesign-hover-radius: var(--radius);
+  --redesign-control-radius: var(--redesign-hover-radius);
+  --redesign-dropdown-row-radius: var(--redesign-hover-radius);
   /* These values use the sidebar's container width (cqw), not viewport or
      fixed pixels. At a 1280px viewport (31vw sidebar) they resolve to the
-     supplied 146×28 selector, 97px space, and 9px search icon. */
-  --redesign-workspace-trigger-width: 49.12cqw;
-  --redesign-workspace-trigger-height: clamp(1.5rem, 9.32cqw, 1.875rem);
+     supplied 70% workspace name, 20% space, and 10% search layout. */
+  --redesign-workspace-trigger-width: 70cqw;
+  --redesign-workspace-trigger-height: clamp(1.6875rem, 9.66cqw, 1.75rem);
   --redesign-workspace-trigger-radius: 9999px;
   --redesign-workspace-trigger-padding: 3.02cqw;
-  --redesign-workspace-trigger-gap: 2.02cqw;
-  --redesign-workspace-chevron-size: 4.03cqw;
-  --redesign-workspace-avatar-size: min(6.05cqw, 0.875rem);
-  --redesign-workspace-brand-surface-size: 1rem;
+  --redesign-workspace-trigger-gap: 0.46875rem;
+  --redesign-workspace-chevron-size: clamp(0.9375rem, 4.06cqw, 1.0625rem);
+  --redesign-workspace-avatar-size: 1rem;
+  --redesign-workspace-brand-surface-size: 1.0625rem;
   --redesign-workspace-brand-mark-size: 0.75rem;
-  --redesign-workspace-brand-radius: 0.1875rem;
+  --redesign-workspace-brand-radius: 0.3125rem;
   --redesign-workspace-brand-padding: 0.125rem;
   --redesign-workspace-search-gap: 32.51cqw;
   --redesign-search-control-size: clamp(0.875rem, 4.7cqw, 1.125rem);
@@ -93,35 +181,43 @@
   --redesign-top-bar-control-half-size: 0.875rem;
   --redesign-top-bar-controls-right: calc(100% - var(--redesign-sidebar-width) + var(--redesign-sidebar-edge-padding) + var(--redesign-search-control-half-size-top-bar) - var(--redesign-top-bar-control-half-size));
   --redesign-quick-actions-gap: 0.75rem;
-  --redesign-quick-actions-trigger-height: 2rem;
+  --redesign-quick-actions-trigger-height: 1.75rem;
   --redesign-quick-actions-row-height: 1.75rem;
-  --redesign-quick-actions-padding: 0.5rem;
-  --redesign-quick-actions-icon-size: 0.875rem;
-  --redesign-quick-actions-command-icon-size: 12px;
-  --redesign-quick-actions-icon-gap: 0.5rem;
+  --redesign-quick-actions-padding: 0.5625rem;
+  --redesign-quick-actions-icon-size: 0.9375rem;
+  --redesign-quick-actions-command-icon-size: 0.8125rem;
+  --redesign-quick-actions-icon-gap: 0.5625rem;
   --redesign-quick-actions-row-gap: 0.1875rem;
   --redesign-quick-actions-shortcut-gap: 0.1875rem;
   --redesign-sidebar-section-gap: 0.75rem;
   --redesign-sidebar-section-row-offset: 0.25rem;
-  --redesign-sidebar-footer-row-height: 2.25rem;
+  --redesign-sidebar-footer-row-height: 1.875rem;
   --redesign-sidebar-footer-account-row-height: 2rem;
-  --redesign-sidebar-footer-avatar-size: 1rem;
+  --redesign-sidebar-footer-avatar-size: 1.1875rem;
   --redesign-sidebar-footer-upgrade-height: 1.375rem;
   --redesign-sidebar-footer-upgrade-padding: 0.5rem;
   --redesign-sidebar-footer-chevron-size: 0.75rem;
   --redesign-sidebar-footer-step-indicator-size: 0.4375rem;
-  --redesign-sidebar-footer-steps-side-padding: var(--redesign-menu-horizontal-padding);
-  --redesign-sidebar-footer-content-inset: calc(var(--redesign-sidebar-footer-steps-side-padding) + var(--redesign-quick-actions-padding));
-  --redesign-sidebar-footer-steps-top-padding: 0.5rem;
-  --redesign-sidebar-footer-steps-bottom-padding: var(--redesign-sidebar-footer-steps-side-padding);
-  --redesign-sidebar-footer-onboarding-radius: 1rem;
+  --redesign-sidebar-footer-onboarding-padding: calc(var(--redesign-menu-horizontal-padding) + 6px);
+  --redesign-sidebar-footer-onboarding-radius: var(--redesign-workspace-menu-radius);
   --redesign-sidebar-footer-onboarding-trigger-radius: 0.875rem;
-  --redesign-sidebar-footer-onboarding-collapsed-radius: 0.5rem;
-  --redesign-sidebar-footer-onboarding-collapsed-trigger-radius: 0.375rem;
-  --redesign-sidebar-footer-progress-size: 1rem;
-  --redesign-sidebar-footer-progress-inset: 0.125rem;
-  --redesign-sidebar-footer-task-row-height: 2rem;
-  --redesign-sidebar-footer-task-indicator-size: 0.875rem;
+  --redesign-sidebar-footer-onboarding-collapsed-radius: var(--redesign-control-radius);
+  --redesign-sidebar-footer-onboarding-collapsed-trigger-radius: var(--redesign-hover-radius);
+  --redesign-sidebar-elevated-border: color-mix(in srgb, var(--redesign-overlay-border) 70%, transparent);
+  --redesign-sidebar-elevated-shadow: 0 2px 6px rgb(0 0 0 / 0.06);
+  /* A softened outline lets the card edge recede into its soft
+     elevation instead of reading as a second, heavy border. */
+  --redesign-sidebar-footer-onboarding-border: var(--redesign-sidebar-elevated-border);
+  --redesign-sidebar-footer-onboarding-shadow: var(--redesign-sidebar-elevated-shadow);
+  --redesign-sidebar-footer-progress-size: 0.9375rem;
+  --redesign-sidebar-footer-progress-inset: 1px;
+  /* Menu/task rows: fixed 24px, ~0.875x the old height -- slimmer rows
+     across the sidebar, its menus and Getting Started, per request. */
+  --redesign-sidebar-footer-task-row-height: 1.5rem;
+  --redesign-sidebar-footer-task-indicator-size: 0.8125rem;
+  /* Task content aligns with the expanded panel header, while its hover
+     surface reaches into the panel's left padding. */
+  --redesign-sidebar-footer-task-hover-bleed: 0.375rem; /* hover sits ~3px inside the panel: 11.2px panel corner - 8px row corner */
   --redesign-sidebar-footer-task-popover-width: clamp(17rem, 24vw, 22rem);
   --redesign-sidebar-footer-task-popover-padding: var(--redesign-menu-horizontal-padding);
   --redesign-sidebar-footer-task-popover-gap: 0.625rem;
@@ -129,39 +225,144 @@
   --redesign-sidebar-footer-task-image-icon-size: 1.125rem;
   --redesign-sidebar-footer-task-description-gap: 0.25rem;
   --redesign-sidebar-footer-task-action-height: 1.625rem;
-  /* Dropdown content is portalled outside the sidebar, so these mirror the
-     sidebar's responsive clamp in viewport units. At 1280px they resolve to
-     the reduced 222×283 menu. */
-  --redesign-workspace-menu-width: clamp(10.5rem, 17.33vw, 19.82rem);
+  /* The dropdown is portalled outside the sidebar, so match the sidebar's
+     inner content width exactly. */
+  --redesign-workspace-menu-width: clamp(10.25rem, calc(var(--redesign-sidebar-width) - var(--redesign-sidebar-edge-padding) - var(--redesign-sidebar-edge-padding)), 19.82rem);
   /* The menu follows its content. Only the workspace collection is capped
      so the static actions remain visible while longer collections scroll. */
   --redesign-workspace-list-max-height: clamp(7.5rem, 12.5vw, 10rem);
-  --redesign-workspace-menu-radius: 0.875rem;
-  --redesign-menu-horizontal-padding: clamp(0.4375rem, 0.703125vw, 0.7875rem);
+  /* Panels (menus, open Getting Started) share the card tier, 11.2px. */
+  --redesign-workspace-menu-radius: calc(var(--radius) * 1.4);
+  /* Rows sit 3px inside the menu (11.2px corner - 8px row corner), like
+     Getting Started, so hover/selected corners run parallel to the menu's. */
+  --redesign-workspace-menu-padding: 3px;
+  --redesign-workspace-menu-vertical-padding: var(--redesign-workspace-menu-padding);
+  --redesign-menu-horizontal-padding: clamp(0.5625rem, 0.78125vw, 0.875rem);
   --redesign-menu-row-padding: clamp(0.25rem, 0.546875vw, 0.65625rem);
   --redesign-menu-row-gap: clamp(0.125rem, 0.15625vw, 0.1953125rem);
-  --redesign-menu-section-block-padding: clamp(0.1875rem, 0.234375vw, 0.28125rem);
-  --redesign-menu-first-section-top-padding: clamp(0.28125rem, 0.46875vw, 0.46875rem);
-  --redesign-menu-last-section-bottom-padding: clamp(0.28125rem, 0.46875vw, 0.46875rem);
+  --redesign-menu-section-block-padding: clamp(0.25rem, 0.3125vw, 0.375rem);
+  --redesign-menu-first-section-top-padding: clamp(0.5rem, 0.625vw, 0.75rem);
+  --redesign-menu-last-section-bottom-padding: clamp(0.5rem, 0.625vw, 0.75rem);
   --redesign-workspace-row-height: clamp(1.25rem, 1.640625vw, 1.6875rem);
-  --redesign-menu-avatar-size: clamp(0.5625rem, 1.09375vw, 0.875rem);
-  --redesign-workspace-check-size: clamp(0.625rem, 0.9375vw, 0.975rem);
+  --redesign-menu-avatar-size: 1rem;
+  /* 14px circle / 8px check: fixed even sizes so the check centres on
+     whole pixels (a responsive circle landed on fractional sizes). */
+  --redesign-workspace-check-size: 0.875rem;
   /* Keep the check on whole pixels. A percentage of the responsive circle
      produced a 7.8px glyph at the reference width, which antialiases unevenly. */
   --redesign-workspace-checkmark-size: 0.5rem;
-  --redesign-workspace-action-icon-size: clamp(0.5rem, 0.9375vw, 0.975rem);
-  --redesign-primary-surface: #ffffff;
+  --redesign-workspace-action-icon-size: 0.875rem;
+  --redesign-primary-surface: var(--background);
+  --redesign-sidebar-surface: #FAFAFA;
   --redesign-sidebar-overlay-surface: #f8f8f8;
-  --redesign-progress-track: rgba(13, 13, 13, 0.3);
-  --redesign-sidebar-border: rgba(13, 13, 13, 0.12);
-  --redesign-sidebar-width: clamp(12.25rem, 18vw, 22rem);
+  /* Quick actions field and Getting Started panel: pure white on the
+     #FAFAFA light sidebar, per request. Dark mode keeps their old look. */
+  --redesign-quick-actions-surface: #FFFFFF;
+  --redesign-getting-started-surface: #FFFFFF;
+  --redesign-overlay-border: #EBEBEB;
+  --redesign-progress-track: color-mix(in srgb, var(--focus-accent) 30%, transparent);
+  --redesign-sidebar-border: #EBEBEB;
+  /* 16rem from 1200px windows up, easing to 13.5rem (216px) at 800px and
+     below, so on small windows the sidebar doesn't outweigh the content
+     (which scales down) -- at a 708px window it's ~30% instead of 36%.
+     Rounded to whole pixels so sidebar content stays on the pixel grid. */
+  --redesign-sidebar-width: round(clamp(13.5rem, calc(136px + 10vw), 16rem), 1px);
+  --surface-1: #FAFAFA;
+  --surface-2: #FCFCFC;
+  --surface-3: #FFFFFF;
+  --surface-4: #FFFFFF;
+  --surface-5: #FFFFFF;
+  --surface-6: #FFFFFF;
+  --surface-7: #FFFFFF;
+  --surface-8: #FFFFFF;
+  --shadow-color: rgb(0 0 0 / 0.06);
+  --shadow-1: 0 0 0 1px var(--shadow-color);
+  --shadow-2: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color);
+  --shadow-3: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color), 0 3px 3px -1.5px var(--shadow-color);
+  --shadow-4: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color), 0 3px 3px -1.5px var(--shadow-color), 0 6px 6px -3px var(--shadow-color);
+  --shadow-5: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color), 0 3px 3px -1.5px var(--shadow-color), 0 6px 6px -3px var(--shadow-color), 0 12px 12px -6px var(--shadow-color);
+  --shadow-6: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color), 0 3px 3px -1.5px var(--shadow-color), 0 6px 6px -3px var(--shadow-color), 0 12px 12px -6px var(--shadow-color), 0 24px 24px -12px var(--shadow-color);
+  --shadow-7: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color), 0 3px 3px -1.5px var(--shadow-color), 0 6px 6px -3px var(--shadow-color), 0 12px 12px -6px var(--shadow-color), 0 24px 24px -12px var(--shadow-color), 0 48px 48px -24px var(--shadow-color);
+  --shadow-8: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color), 0 3px 3px -1.5px var(--shadow-color), 0 6px 6px -3px var(--shadow-color), 0 12px 12px -6px var(--shadow-color), 0 24px 24px -12px var(--shadow-color), 0 48px 48px -24px var(--shadow-color), 0 96px 96px -48px var(--shadow-color);
+  --hover: rgb(0 0 0 / 0.04);
+  --active: rgb(0 0 0 / 0.07);
+  --selected: #D4D4D4;
+  --destructive-light: #FEF2F2;
+  --overlay: 0 0 0;
+  --focus-ring: #6B97FF;
+  --tint: rgb(0 0 0 / 0.08);
+  --tint-hover: rgb(0 0 0 / 0.065);
+  --fs-display: 28px;
+  --lh-display: 34px;
+  --fs-display-compact: 24px;
+  --lh-display-compact: 30px;
+  --fs-title: 16px;
+  --lh-title: 22px;
+  --fs-title-compact: 15px;
+  --lh-title-compact: 20px;
+  --fs-subtitle: 14px;
+  --lh-subtitle: 20px;
+  --fs-subtitle-compact: 13px;
+  --lh-subtitle-compact: 18px;
+  --fs-body: 13px;
+  --lh-body: 20px;
+  --fs-body-compact: 12px;
+  --lh-body-compact: 18px;
+  --fs-caption: 12px;
+  --lh-caption: 16px;
+  --fs-caption-compact: 11px;
+  --lh-caption-compact: 14px;
+  --fs-micro: 11px;
+  --lh-micro: 14px;
+  --fs-micro-compact: 10px;
+  --lh-micro-compact: 12px;
 }
 
 .dark {
-  --redesign-primary-surface: #1a1a1a;
+  --redesign-primary-surface: var(--background);
+  --redesign-sidebar-surface: var(--background);
+  --redesign-sidebar-elevated-shadow: none;
+  --redesign-sidebar-footer-onboarding-shadow: none;
   --redesign-sidebar-overlay-surface: #212121;
-  --redesign-progress-track: rgba(252, 252, 252, 0.3);
+  --redesign-quick-actions-surface: transparent;
+  --redesign-getting-started-surface: var(--redesign-sidebar-overlay-surface);
+  /* Inactive accent (Getting Started ring, inactive send) in dark mode:
+     the accent lightened toward white first, so it reads as a pale blue on
+     the dark surface instead of a murky dark blue. */
+  --redesign-progress-track: color-mix(in srgb, color-mix(in srgb, var(--focus-accent), white 55%) 45%, transparent);
     --redesign-sidebar-border: #232323;
+    --redesign-overlay-border: #282828;
+    --surface-1: #171717;
+    --surface-2: #1E1E1E;
+    --surface-3: #252525;
+    --surface-4: #2C2C2C;
+    --surface-5: #333333;
+    --surface-6: #3A3A3A;
+    --surface-7: #414141;
+    --surface-8: #484848;
+    --dm-hi-base: rgba(255,255,255,0.01);
+    --dm-hi-mid: rgba(255,255,255,0.02);
+    --dm-hi-high: rgba(255,255,255,0.04);
+    --dm-hi-peak: rgba(255,255,255,0.06);
+    --dm-ring-base: rgba(255,255,255,0.02);
+    --dm-ring-mid: rgba(255,255,255,0.04);
+    --dm-ring-high: rgba(255,255,255,0.06);
+    --dm-drop: rgba(0,0,0,0.18);
+    --shadow-1: inset 0 0 0 1px var(--dm-ring-base);
+    --shadow-2: inset 0 1px 0 0 var(--dm-hi-base), inset 0 0 0 1px var(--dm-ring-base), 0 1px 1px -0.5px var(--dm-drop);
+    --shadow-3: inset 0 1px 0 0 var(--dm-hi-mid), inset 0 0 0 1px var(--dm-ring-base), 0 0 0 1px rgba(0,0,0,0.12), 0 1px 1px -0.5px var(--dm-drop), 0 3px 3px -1.5px var(--dm-drop);
+    --shadow-4: inset 0 1px 0 0 var(--dm-hi-mid), inset 0 0 0 1px var(--dm-ring-mid), 0 0 0 1px rgba(0,0,0,0.14), 0 1px 1px -0.5px var(--dm-drop), 0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop);
+    --shadow-5: inset 0 1px 0 0 var(--dm-hi-high), inset 0 0 0 1px var(--dm-ring-mid), 0 0 0 1px rgba(0,0,0,0.16), 0 1px 1px -0.5px var(--dm-drop), 0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop), 0 12px 12px -6px var(--dm-drop);
+    --shadow-6: inset 0 1px 0 0 var(--dm-hi-high), inset 0 0 0 1px var(--dm-ring-high), 0 0 0 1px rgba(0,0,0,0.18), 0 1px 1px -0.5px var(--dm-drop), 0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop), 0 12px 12px -6px var(--dm-drop), 0 24px 24px -12px var(--dm-drop);
+    --shadow-7: inset 0 1px 0 0 var(--dm-hi-peak), inset 0 0 0 1px var(--dm-ring-high), 0 0 0 1px rgba(0,0,0,0.20), 0 1px 1px -0.5px var(--dm-drop), 0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop), 0 12px 12px -6px var(--dm-drop), 0 24px 24px -12px var(--dm-drop), 0 48px 48px -24px var(--dm-drop);
+    --shadow-8: inset 0 1px 0 0 var(--dm-hi-peak), inset 0 0 0 1px var(--dm-ring-high), 0 0 0 1px rgba(0,0,0,0.22), 0 1px 1px -0.5px var(--dm-drop), 0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop), 0 12px 12px -6px var(--dm-drop), 0 24px 24px -12px var(--dm-drop), 0 48px 48px -24px var(--dm-drop), 0 96px 96px -48px var(--dm-drop);
+    --hover: rgb(255 255 255 / 0.06);
+    --active: rgb(255 255 255 / 0.1);
+    --selected: #525252;
+    --destructive-light: #450A0A;
+    --overlay: 255 255 255;
+    --tint: rgb(255 255 255 / 0.25);
+    --tint-hover: rgb(255 255 255 / 0.2);
 }
 
 @theme inline {
@@ -182,7 +383,7 @@
        Sidebar's own "describer" text (Projects/Recents section labels,
        sidebar-nav.tsx) is the first real caller. */
     --text-2xs: 0.625rem;
-    --font-heading: var(--font-sans);
+    --font-heading: "Geist", var(--font-sans);
     /* Native system font stack, not a bundled web font -- per explicit
        request ("the reason synara's looks so crisp is because of these
        settings"), matching a setting Synara's own Settings ->
@@ -329,48 +530,73 @@
   @keyframes sf-reveal-start {
   from {
     --sf-start: 1;
-        }
+    }
   to {
     --sf-start: 0;
-        }
     }
+  }
   @keyframes sf-reveal-end {
   from {
     --sf-end: 0;
-        }
+    }
   to {
     --sf-end: 1;
-        }
     }
+  }
   @keyframes sf-divider-start {
   from {
     opacity: 0;
-        }
+    }
   to {
     opacity: 1;
-        }
     }
+  }
   @keyframes sf-divider-end {
   from {
     opacity: 1;
-        }
+    }
   to {
     opacity: 0;
-        }
     }
-  @keyframes spinner-move {
-  to {
-    stroke-dashoffset: -100;
-        }
-    }
-  @keyframes spinner-dash {
-  0%, 100% {
-    stroke-dasharray: 15 85;
-        }
-  50% {
-    stroke-dasharray: 40 60;
-        }
-    }
+  }
+  --text-display: var(--fs-display);
+  --text-display--line-height: var(--lh-display);
+  --text-title: var(--fs-title);
+  --text-title--line-height: var(--lh-title);
+  --text-subtitle: var(--fs-subtitle);
+  --text-subtitle--line-height: var(--lh-subtitle);
+  --text-body: var(--fs-body);
+  --text-body--line-height: var(--lh-body);
+  --text-caption: var(--fs-caption);
+  --text-caption--line-height: var(--lh-caption);
+  --text-micro: var(--fs-micro);
+  --text-micro--line-height: var(--lh-micro);
+  --lh-micro-compact: var(--lh-micro-compact);
+  --fs-micro-compact: var(--fs-micro-compact);
+  --lh-micro: var(--lh-micro);
+  --fs-micro: var(--fs-micro);
+  --lh-caption-compact: var(--lh-caption-compact);
+  --fs-caption-compact: var(--fs-caption-compact);
+  --lh-caption: var(--lh-caption);
+  --fs-caption: var(--fs-caption);
+  --lh-body-compact: var(--lh-body-compact);
+  --fs-body-compact: var(--fs-body-compact);
+  --lh-body: var(--lh-body);
+  --fs-body: var(--fs-body);
+  --lh-subtitle-compact: var(--lh-subtitle-compact);
+  --fs-subtitle-compact: var(--fs-subtitle-compact);
+  --lh-subtitle: var(--lh-subtitle);
+  --fs-subtitle: var(--fs-subtitle);
+  --lh-title-compact: var(--lh-title-compact);
+  --fs-title-compact: var(--fs-title-compact);
+  --lh-title: var(--lh-title);
+  --fs-title: var(--fs-title);
+  --lh-display-compact: var(--lh-display-compact);
+  --fs-display-compact: var(--fs-display-compact);
+  --lh-display: var(--lh-display);
+  --fs-display: var(--fs-display);
+  --color-tint-hover: var(--tint-hover);
+  --color-tint: var(--tint)
 }
 
 :root {
@@ -394,15 +620,11 @@
     --background: #ffffff;
     /* "Active" text -- hovered/selected menu items, headings, primary
        body text. --muted-foreground below is the resting/inactive one.
-       #0d0d0d is codex's light "ink" value exactly, same request as
-       --background above. The sidebar rail's own rows (RailButton and
-       friends, sidebar-nav.tsx) now read this same token directly
-       (text-foreground) too, rather than a separate hardcoded hex -- one
-       shared active/inactive text pair for the whole app now, not two
-       independently drifting ones. */
-    --foreground: #0d0d0d;
+       #3d3d3d matches the reference's softer charcoal for active text
+       and icons, rather than reading as pure black. */
+    --foreground: #3D3D3D;
     --card: #ffffff;
-    --card-foreground: #0d0d0d;
+    --card-foreground: #3D3D3D;
     /* var() references, not their own values: dropdown/popover menus
        (Quick chat, the profile menu) should always match the page
        background, including automatically if --background itself changes
@@ -417,12 +639,8 @@
        tone, just used by different components (Button ghost/secondary
        hover vs. sidebar/dropdown hover). */
     --muted: var(--accent);
-    /* Resting/inactive text -- Synara's own light --muted-foreground
-       formula exactly (color-mix(in srgb, neutral-500 90%, black),
-       Tailwind neutral-500 = #737373), not a precomputed approximation,
-       per explicit request ("update the dark mode and light mode to be
-       one color exactly like the color scheme at Synara's"). */
-    --muted-foreground: color-mix(in srgb, #737373 90%, black);
+    /* Resting sidebar copy and icons use the reference's neutral gray. */
+    --muted-foreground: #8A8A8A;
     /* Hover AND active background -- one token for both, matching
        Synara's own sidebar (its --sidebar-accent/--sidebar-accent-active
        are the same --secondary value; SidebarRowStyles.ts's own hover/
@@ -452,25 +670,10 @@
        to look similar. */
     --accent-foreground: var(--foreground);
     --destructive: oklch(0.577 0.245 27.325);
-    /* Main content/pages border -- codex's own light "border" formula
-       exactly (theme.logic.ts's buildLightDerivedTokens: formatRgba(ink,
-       0.09 + contrast*0.04)): a real alpha wash of --foreground's own ink
-       (#0d0d0d) rather than an independently hardcoded flat gray (was
-       #dfdfdf), per explicit request ("our border color needs to be
-       updated as well... to match synatra's codex borders"). The
-       "contrast" plugged into that formula isn't the raw 0 from the
-       codex-theme-v1 pack the user shared -- theme.logic.ts's own
-       normalizeContrastStrength() runs it through a curve first
-       (CONTRAST_CURVE_BASELINE.light = 45, CONTRAST_CURVE_BELOW_BASELINE
-       = 0.7: ((0-45)/60)*0.7 = -0.525), so the real multiplier is
-       negative here, not zero -- 0.09 + (-0.525 * 0.04) = 0.069, not
-       0.09 (this file's own earlier value, before the curve was
-       accounted for). Codex's own light borders are genuinely this
-       subtle by design at this pack's contrast setting -- a hairline,
-       not a visible rule. */
-    --border: rgba(13, 13, 13, 0.069);
+    /* One shared border tone for application controls and surfaces. */
+    --border: #EBEBEB;
     --input: oklch(0.922 0 0);
-    --section-foreground: #7d7d7d;
+    --section-foreground: #8A8A8A;
     /* Codex's own accent -- exact value from the theme pack the user
        shared directly (codex-theme-v1 share string): #0169cc, same in
        both light and dark (its own "contrast": 0 leaves accent
@@ -495,22 +698,17 @@
     --chart-3: oklch(0.439 0 0);
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
-    /* Reduced from Nova's default 0.625rem -- every derived radius
-       (--radius-sm/md/lg/xl/etc. in @theme inline above) is a multiple of
-       this one value, so lowering it alone squares off corners everywhere
-       (buttons, inputs, sidebar, dropdowns, avatars) consistently rather
-       than hand-tuning each component. */
-    --radius: 0.375rem;
-    /* Sidebar bg -- var(--background) again, not its own distinct
-       literal, per explicit request ("our sidebar still not the same
-       color as the main color like the synara's"): Synara's own sidebar
-       reads --card (effectively the same value as its --background --
-       see that token's own definition), not a separate flat gray, so the
-       rail and main content read as one continuous surface rather than
-       two visibly different panels. Reverses an earlier explicit request
-       that had these as separate literals (#f7f7f7 here) -- a later,
-       more specific ask wins. */
-    --sidebar: var(--background);
+    /* Every derived radius (--radius-sm/md/lg/xl/etc. in @theme inline
+       above) is a multiple of this one value. 8px is the reference: a
+       ~32px control (Quick actions) at 8px. The scale then keeps corners
+       looking equally round across sizes -- lg 8px for controls, menu rows
+       and hover rows; xl 11.2px for cards and panels (menus included --
+       8 x sqrt(58/32) for a ~58px card; concentric 8 + 9px inset read too
+       round on menus, per review). */
+    --radius: 0.5rem;
+    /* The navigation rail is deliberately one surface step below the
+       white application canvas. */
+    --sidebar: #FAFAFA;
     --sidebar-foreground: var(--foreground);
     --sidebar-primary: oklch(0.205 0 0);
     --sidebar-primary-foreground: oklch(0.985 0 0);
@@ -644,12 +842,9 @@
        same toggle, so native scrollbars/form controls switch to their
        dark rendering along with everything else this app styles itself. */
     color-scheme: dark;
-    /* Main content/pages background -- codex's own dark "surface" value
-       exactly, same "actual Synara theme, not their 'synara' theme"
-       correction as :root's own --background comment above explains. Was
-       #0e0e0e (this app's own earlier, wrong-theme value), before that
-       #151515. */
-    --background: #111111;
+    /* The redesign is now the production shell. Keep legacy bg-background,
+       bg-sidebar, and bg-card surfaces on the same dark surface as it. */
+    --background: #1a1a1a;
     /* This is the "active" text color -- hovered/selected menu items,
        headings, primary body text. --muted-foreground below is the
        resting/inactive one. codex's own dark "ink" value exactly, same
@@ -658,7 +853,7 @@
        :root's own comment above explains -- was #f5f5f5, before that
        #cecece. */
     --foreground: #fcfcfc;
-    --card: #111111;
+    --card: #1a1a1a;
     --card-foreground: #fcfcfc;
     --popover: var(--background);
     --popover-foreground: var(--foreground);
@@ -868,6 +1063,27 @@
   /* Dictation "listening" indicator (compose-box.tsx) -- three bars
      bouncing out of phase (150ms stagger per bar) reads as a live
      equalizer instead of a static toggled icon. */
+  /* Blinking caret in the active box of the code input (ui/code-input.tsx). */
+  @keyframes caret-blink {
+    0%, 70%, 100% {
+      opacity: 1;
+      }
+    20%, 50% {
+      opacity: 0;
+      }
+    }
+  /* One-shot press dip for menu triggers (compose-box.tsx's PRESS_EFFECT):
+     Base UI keeps data-pressed on a trigger for as long as its menu is open,
+     so a held scale would stay shrunk; this plays once per press instead.
+     --press-scale lets icon-only triggers dip deeper (see ICON_PRESS). */
+  @keyframes press-tap {
+    0%, 100% {
+      scale: 1;
+      }
+    40% {
+      scale: var(--press-scale, 0.96);
+      }
+    }
   @keyframes eq-bounce {
     0%, 100% {
       transform: scaleY(0.3);
@@ -926,7 +1142,7 @@
 /*
   Usage:
     <div class="t-panel-slide" data-open="false">
-      <!-- your panel contents -->
+      \3c !-- your panel contents -->
     </div>
 
   The panel slides on the Y axis, fades opacity 0 ↔ 1,
@@ -984,14 +1200,14 @@
 
 /*
   Usage:
-    <!-- Apply .t-avatar to each item in your group (avatar,
+    \3c !-- Apply .t-avatar to each item in your group (avatar,
          chip, badge, button — anything). Bring your own size,
          shape, and stacking; this stylesheet only owns the
          hover transform + transition. -->
     <div class="t-avatar-group">
-      <div class="t-avatar"><!-- your item --></div>
-      <div class="t-avatar"><!-- your item --></div>
-      <!-- … -->
+      <div class="t-avatar">\3c !-- your item --></div>
+      <div class="t-avatar">\3c !-- your item --></div>
+      \3c !-- … -->
     </div>
 
   Wire-up (vanilla JS):
@@ -1250,7 +1466,7 @@
 /* Transitions.dev — Error state shake */
 /*
   Usage:
-    <!-- Apply .t-input-wrap to your wrapper, .t-input to the
+    \3c !-- Apply .t-input-wrap to your wrapper, .t-input to the
          element that should shake (your input field, its
          bordered wrapper — whatever owns the visible border),
          and .t-error-msg to the message you want to reveal.
@@ -1286,6 +1502,41 @@
   --shake-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --revert-hold: 3000ms;
   --revert-dur: 280ms;
+}
+
+/* transitions.dev "Text states swap": the old text exits up with blur, the
+   new text enters from below. Driven in three phases by SwapLabel
+   (compose-box.tsx): .is-exit, then swap + .is-enter-start, then rest. */
+:root {
+  --text-swap-dur: 150ms;
+  --text-swap-translate-y: 4px;
+  --text-swap-blur: 2px;
+  --text-swap-ease: ease-in-out;
+}
+.t-text-swap {
+  display: inline-block;
+  transform: translateY(0);
+  filter: blur(0);
+  opacity: 1;
+  transition:
+    transform var(--text-swap-dur) var(--text-swap-ease),
+    filter    var(--text-swap-dur) var(--text-swap-ease),
+    opacity   var(--text-swap-dur) var(--text-swap-ease);
+  will-change: transform, filter, opacity;
+}
+.t-text-swap.is-exit {
+  transform: translateY(calc(var(--text-swap-translate-y) * -1));
+  filter: blur(var(--text-swap-blur));
+  opacity: 0;
+}
+.t-text-swap.is-enter-start {
+  transform: translateY(var(--text-swap-translate-y));
+  filter: blur(var(--text-swap-blur));
+  opacity: 0;
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-text-swap { transition: none !important; }
 }
 
 /* Border-color tween. Define your input's default / focused
@@ -1605,3 +1856,358 @@ html.transitioning *, html.transitioning *::before, html.transitioning *::after 
     inherits: false;
     initial-value: 1;
 }
+  @property --sf-start {
+    syntax: "<number>";
+    inherits: false;
+    initial-value: 1;
+}
+  @property --sf-end {
+    syntax: "<number>";
+    inherits: false;
+    initial-value: 1;
+}
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+
+@layer components {
+  :where(.typeset) {
+    --typeset-display: var(--fs-display, 28px);
+    --typeset-display-leading: var(--lh-display, 34px);
+    --typeset-title: var(--fs-title, 16px);
+    --typeset-title-leading: var(--lh-title, 22px);
+    --typeset-subtitle: var(--fs-subtitle, 14px);
+    --typeset-subtitle-leading: var(--lh-subtitle, 20px);
+    --typeset-body: var(--fs-body, 13px);
+    --typeset-body-leading: var(--lh-body, 20px);
+    --typeset-caption: var(--fs-caption, 12px);
+    --typeset-caption-leading: var(--lh-caption, 16px);
+    --typeset-space-block: 12px;
+    --typeset-space-heading: 8px;
+    --typeset-space-section: 24px;
+    --typeset-space-subsection: 20px;
+    --typeset-space-rule: 24px;
+    --typeset-space-item: 4px;
+    --typeset-check: 16px;
+    --typeset-check-radius: 5px;
+    --typeset-check-gap: 8px;
+    --typeset-indent: 24px;
+    --typeset-sub-indent: 20px;
+    font-size: var(--typeset-body);
+    line-height: var(--typeset-body-leading);
+    color: var(--muted-foreground, color-mix(in oklab, currentColor 65%, transparent));
+    overflow-wrap: break-word;
+    white-space: normal;
+  }
+  :where(.typeset.typeset-compact) {
+    --typeset-display: var(--fs-display-compact, 24px);
+    --typeset-display-leading: var(--lh-display-compact, 30px);
+    --typeset-title: var(--fs-title-compact, 15px);
+    --typeset-title-leading: var(--lh-title-compact, 20px);
+    --typeset-subtitle: var(--fs-subtitle-compact, 13px);
+    --typeset-subtitle-leading: var(--lh-subtitle-compact, 18px);
+    --typeset-body: var(--fs-body-compact, 12px);
+    --typeset-body-leading: var(--lh-body-compact, 18px);
+    --typeset-caption: var(--fs-caption-compact, 11px);
+    --typeset-caption-leading: var(--lh-caption-compact, 14px);
+    --typeset-space-block: 8px;
+    --typeset-space-heading: 4px;
+    --typeset-space-section: 16px;
+    --typeset-space-subsection: 12px;
+    --typeset-space-rule: 16px;
+    --typeset-space-item: 4px;
+    --typeset-check: 14px;
+    --typeset-check-radius: 4px;
+    --typeset-check-gap: 4px;
+    --typeset-indent: 18px;
+    --typeset-sub-indent: 16px;
+  }
+  :where(.typeset p, .typeset ul, .typeset ol, .typeset pre, .typeset blockquote, .typeset figure, .typeset table, .typeset .typeset-scroll, .typeset .tableWrapper, .typeset img, .typeset video, .typeset h1, .typeset h2, .typeset h3, .typeset h4, .typeset h5, .typeset h6, .typeset li):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    margin: 0;
+  }
+  :where(.typeset p, .typeset li, .typeset h1, .typeset h2, .typeset h3, .typeset h4, .typeset h5, .typeset h6):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    text-wrap-style: auto;
+  }
+  :where(.typeset * + :is(p, ul, ol, pre, blockquote, figure, table, .typeset-scroll, .tableWrapper, img, video, .not-typeset)):not(:where(.typeset .not-typeset *)) {
+    margin-top: var(--typeset-space-block);
+  }
+  :where(.typeset * + :is(h1, h2)):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    margin-top: var(--typeset-space-section);
+  }
+  :where(.typeset * + :is(h3, h4, h5, h6)):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    margin-top: var(--typeset-space-subsection);
+  }
+  :where(.typeset :is(h1, h2, h3, h4, h5, h6) + *):not(:where(.typeset .not-typeset *)) {
+    margin-top: var(--typeset-space-heading);
+  }
+  :where(.typeset hr):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    border: 0;
+    border-top: 1px solid var(--border, color-mix(in oklab, currentColor 14%, transparent));
+    margin-top: var(--typeset-space-rule);
+  }
+  :where(.typeset hr + *):not(:where(.typeset .not-typeset *)) {
+    margin-top: var(--typeset-space-rule);
+  }
+  :where(.typeset h1, .typeset h2, .typeset h3, .typeset h4, .typeset h5, .typeset h6):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    color: var(--foreground, currentColor);
+    font-variation-settings: 'wght' 550, 'opsz' 18;
+  }
+  :where(.typeset h1):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    font-size: var(--typeset-display);
+    line-height: var(--typeset-display-leading);
+    font-variation-settings: 'wght' 700, 'opsz' 25;
+  }
+  :where(.typeset h2):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    font-size: var(--typeset-title);
+    line-height: var(--typeset-title-leading);
+  }
+  :where(.typeset h3, .typeset h4, .typeset h5, .typeset h6):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    font-size: var(--typeset-subtitle);
+    line-height: var(--typeset-subtitle-leading);
+  }
+  :where(.typeset strong, .typeset b):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    font-variation-settings: 'wght' 550, 'opsz' 18;
+  }
+  :where(.typeset a):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    color: var(--foreground, currentColor);
+    text-decoration-line: underline;
+    text-decoration-color: color-mix(in oklab, currentColor 35%, transparent);
+    text-underline-offset: 0.2em;
+    transition: text-decoration-color 80ms ease-out;
+  }
+  :where(.typeset a:hover):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    text-decoration-color: currentColor;
+  }
+  :where(.typeset ul, .typeset ol):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    padding-left: calc(var(--typeset-indent) - 4px);
+  }
+  :where(.typeset li ul, .typeset li ol):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    padding-left: calc(var(--typeset-sub-indent) - 4px);
+  }
+  :where(.typeset li):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    padding-left: 4px;
+  }
+  :where(.typeset ul):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    list-style-type: disc;
+  }
+  :where(.typeset ol):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    list-style-type: decimal;
+  }
+  :where(.typeset ol ol):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    list-style-type: lower-alpha;
+  }
+  :where(.typeset ol ol ol):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    list-style-type: lower-roman;
+  }
+  :where(.typeset ol ol ol ol):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    list-style-type: decimal;
+  }
+  :where(.typeset ol ol ol ol ol):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    list-style-type: lower-alpha;
+  }
+  :where(.typeset ol ol ol ol ol ol):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    list-style-type: lower-roman;
+  }
+  :where(.typeset ul ul):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    list-style-type: circle;
+  }
+  :where(.typeset li):not(:where(.typeset .not-typeset, .typeset .not-typeset *))::marker {
+    color: var(--muted-foreground, color-mix(in oklab, currentColor 65%, transparent));
+  }
+  :where(.typeset li + li, .typeset li > ul, .typeset li > ol, .typeset li > p + p, .typeset li > div > ul, .typeset li > div > ol, .typeset li > div > p + p):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    margin-top: var(--typeset-space-item);
+  }
+  :where(.typeset .contains-task-list, .typeset ul[data-type="taskList"]):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    list-style-type: none;
+    padding-left: 0;
+  }
+  :where(.typeset .contains-task-list > li, .typeset ul[data-type="taskList"] > li):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    padding-left: 0;
+  }
+  :where(.typeset .contains-task-list .contains-task-list):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    padding-left: var(--typeset-sub-indent);
+  }
+  :where(.typeset ul[data-type="taskList"] > li > div > ul[data-type="taskList"]):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    margin-left: calc(var(--typeset-sub-indent) - var(--typeset-indent));
+  }
+  :where(.typeset .task-list-item > :is(ul, ol):not(.contains-task-list)):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    padding-left: calc(var(--typeset-indent) + var(--typeset-sub-indent) - 4px);
+  }
+  :where(.typeset input[type=checkbox]):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    appearance: none;
+    position: relative;
+    margin: 0;
+    width: var(--typeset-check);
+    height: var(--typeset-check);
+    border: 1.5px solid var(--border, color-mix(in oklab, currentColor 14%, transparent));
+    border-radius: var(--typeset-check-radius);
+    background: none;
+    cursor: pointer;
+    transition: border-color 80ms ease-out;
+  }
+  :where(.typeset input[type=checkbox]:not(:disabled):hover):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    border-color: color-mix(in oklab, var(--foreground, currentColor) 40%, transparent);
+  }
+  :where(.typeset input[type=checkbox]:checked):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    border-color: transparent;
+  }
+  :where(.typeset input[type=checkbox]:checked:not(:disabled):hover):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    border-color: color-mix(in oklab, var(--foreground, currentColor) 40%, transparent);
+  }
+  :where(.typeset input[type=checkbox]:disabled):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    cursor: default;
+  }
+  :where(.typeset input[type=checkbox]:checked):not(:where(.typeset .not-typeset, .typeset .not-typeset *))::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-color: var(--foreground, currentColor);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12L10 16L18 8'/%3E%3C/svg%3E") center / calc(var(--typeset-check) + 2px) no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12L10 16L18 8'/%3E%3C/svg%3E") center / calc(var(--typeset-check) + 2px) no-repeat;
+  }
+  :where(.typeset .task-list-item input[type=checkbox]):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    vertical-align: -0.25em;
+    margin-right: calc(var(--typeset-check-gap) - 4px);
+  }
+  :where(.typeset ul[data-type="taskList"] > li):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    display: flex;
+    gap: var(--typeset-check-gap);
+    align-items: flex-start;
+  }
+  :where(.typeset ul[data-type="taskList"] > li > label):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    flex: none;
+    display: flex;
+    align-items: center;
+    height: var(--typeset-body-leading);
+    user-select: none;
+  }
+  :where(.typeset ul[data-type="taskList"] > li > div):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  :where(.typeset ul[data-type="taskList"] > li[data-checked="true"] > div > :not(ul, ol)):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    color: var(--muted-foreground, color-mix(in oklab, currentColor 65%, transparent));
+    text-decoration-line: line-through;
+  }
+  :where(.typeset blockquote):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    padding-left: 1em;
+    border-left: 2px solid var(--border, color-mix(in oklab, currentColor 14%, transparent));
+    color: var(--muted-foreground, color-mix(in oklab, currentColor 65%, transparent));
+  }
+  :where(.typeset code):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    color: var(--foreground, currentColor);
+    font-size: var(--typeset-caption);
+    font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  }
+  :where(.typeset :not(pre) > code):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    background-color: color-mix(in oklab, currentColor 7%, transparent);
+    border-radius: 4px;
+    padding: 0.1em 0.3em;
+  }
+  :where(.typeset pre):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    font-size: var(--typeset-caption);
+    line-height: var(--typeset-caption-leading);
+    background-color: color-mix(in oklab, currentColor 7%, transparent);
+    border-radius: 8px;
+    padding: 0.75em 1em;
+    overflow-x: auto;
+  }
+  :where(.typeset pre code):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    font-size: 1em;
+    background: none;
+    padding: 0;
+  }
+  :where(.typeset kbd):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    font-family: inherit;
+    font-size: var(--typeset-caption);
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+    border: 1px solid var(--border, color-mix(in oklab, currentColor 14%, transparent));
+    box-shadow: 0 1px 0 var(--border, color-mix(in oklab, currentColor 14%, transparent));
+  }
+  :where(.typeset :is(h1, h2, h3, h4, h5, h6) :is(code, kbd)):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    font-size: round(nearest, 0.875em, 1px);
+  }
+  :where(.typeset table):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    width: 100%;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+  }
+  :where(.typeset th, .typeset td):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    text-align: left;
+    vertical-align: top;
+    padding: 0.5em 0.75em;
+    border-bottom: 1px solid var(--border, color-mix(in oklab, currentColor 14%, transparent));
+  }
+  :where(.typeset th:first-child, .typeset td:first-child):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    padding-left: 0;
+  }
+  :where(.typeset th):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    color: var(--foreground, currentColor);
+    font-variation-settings: 'wght' 550, 'opsz' 18;
+  }
+  :where(.typeset .typeset-scroll, .typeset .tableWrapper):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    overflow-x: auto;
+  }
+  :where(.typeset .typeset-scroll > table, .typeset .tableWrapper > table):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    min-width: max-content;
+  }
+  :where(.typeset img, .typeset video):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+  }
+  :where(.typeset figcaption):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    margin-top: var(--typeset-space-heading);
+    font-size: var(--typeset-caption);
+    line-height: var(--typeset-caption-leading);
+    color: var(--muted-foreground, color-mix(in oklab, currentColor 65%, transparent));
+  }
+
+@media (forced-colors: active) {
+  :where(.typeset input[type=checkbox]):not(:where(.typeset .not-typeset, .typeset .not-typeset *)) {
+    appearance: auto;
+    }
+  :where(.typeset input[type=checkbox]:checked):not(:where(.typeset .not-typeset, .typeset .not-typeset *))::before {
+    display: none;
+    }
+  }
+}
+  @property --sf-start {
+    syntax: "<number>";
+    inherits: false;
+    initial-value: 1;
+}
+  @property --sf-end {
+    syntax: "<number>";
+    inherits: false;
+    initial-value: 1;
+}
+  @property --sf-start {
+    syntax: "<number>";
+    inherits: false;
+    initial-value: 1;
+}
+  @property --sf-end {
+    syntax: "<number>";
+    inherits: false;
+    initial-value: 1;
+}
+
+/* One line weight for every outline icon in the shell -- sidebar and top bar
+   (data-icon-stroke), the compose box, and all menus. Icons come from two
+   libraries with different strokeWidths and render from 8px to 15px, so the
+   same setting drew anything from 0.5px to 1.25px. non-scaling-stroke makes
+   the width a fixed on-screen 1px regardless of icon size or library (and
+   overrides Button's hover thickening). Filled icons have no stroke and are
+   unaffected. */
+:is([data-icon-stroke], [data-compose-box], [role="menu"]) svg :is(path, line, polyline, polygon, circle, ellipse, rect) {
+  vector-effect: non-scaling-stroke;
+  stroke-width: 1px;
+}
+

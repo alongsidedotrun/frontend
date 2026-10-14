@@ -1,6 +1,8 @@
 "use client"
 
 import * as React from "react"
+import { useTranslation } from "react-i18next"
+import { dayPickerLocale } from "@/lib/day-picker-locale"
 import { cn } from "cn"
 import {
   DayPicker,
@@ -18,7 +20,7 @@ function Calendar({
   showOutsideDays = true,
   captionLayout = "label",
   buttonVariant = "ghost",
-  locale,
+  locale: localeProp,
   formatters,
   components,
   ...props
@@ -26,6 +28,9 @@ function Calendar({
   buttonVariant?: React.ComponentProps<typeof Button>["variant"]
 }) {
   const defaultClassNames = getDefaultClassNames()
+  // Month and weekday names in the app's language unless a locale is given.
+  const { i18n } = useTranslation()
+  const locale = localeProp ?? dayPickerLocale(i18n.language)
 
   return (
     <DayPicker

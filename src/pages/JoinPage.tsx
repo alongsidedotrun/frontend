@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { openSignInDialog } from "@/lib/use-sign-in";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useIsSignedIn } from "@/lib/auth";
@@ -53,7 +54,6 @@ function parseRelayLink(target: string): RelayInvite | null {
 export function JoinPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const location = useLocation();
   const [params] = useSearchParams();
   const isSignedIn = useIsSignedIn();
   const [link, setLink] = useState(params.get("link") ?? "");
@@ -258,7 +258,7 @@ export function JoinPage() {
         <div className="flex flex-col gap-2">
           <p className="text-sm text-destructive">{t("join.signInRequired")}</p>
           <div>
-            <Button type="button" onClick={() => navigate("/auth", { state: { from: `${location.pathname}${location.search}` } })}>
+            <Button type="button" onClick={() => openSignInDialog()}>
               {isSignedIn ? t("join.tryAgain") : t("common.signIn")}
             </Button>
           </div>

@@ -42,12 +42,6 @@ export const SURFACE_HOVER_SHADOW: Record<number, string> = {
   8: "hover:shadow-surface-8",
 };
 
-// Base UI's own keyboard/pointer highlight state (data-highlighted), not a
-// plain :hover pseudo-class -- DropdownSubItem (ui/dropdown.tsx) needs its
-// own literal set of these for the same reason SURFACE_HOVER_BG above
-// exists: Tailwind's scanner needs the full "data-highlighted:bg-surface-N"
-// string to appear somewhere in real source text, not composed at runtime
-// via string interpolation, or it never generates the rule at all.
 export const SURFACE_DATA_HIGHLIGHTED_BG: Record<number, string> = {
   1: "data-highlighted:bg-surface-1",
   2: "data-highlighted:bg-surface-2",

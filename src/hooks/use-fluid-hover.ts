@@ -5,6 +5,7 @@ import {
   useState,
   useCallback,
   useEffect,
+  useLayoutEffect,
   type Dispatch,
   type RefObject,
   type SetStateAction,
@@ -33,6 +34,16 @@ export interface UseFluidHoverOptions {
    * the set stable. Consulted per mouse move, so keep it cheap.
    */
   isItemDisabled?: (element: HTMLElement) => boolean;
+  /**
+   * Whether a click that lands between items (a gap, the padding, past the
+   * last row) is routed to the highlighted item, so what is lit is what a
+   * click hits. On by default: in a menu or a list the highlight is a
+   * promise about the click. Pass `false` where empty space should stay
+   * inert (rows with destructive actions, generous whitespace), or
+   * `{ maxDistance }` to route only clicks within that many pixels of the
+   * highlighted item's edge.
+   */
+  gapClick?: boolean | { maxDistance?: number };
 }
 
 export interface UseFluidHoverReturn {
@@ -47,8 +58,18 @@ export interface UseFluidHoverReturn {
    * reads as the highlight sliding in from another row.
    */
   isMeasured: boolean;
+  /**
+   * Counts pointer entries. It steps when the pointer, having entered the
+   * container, first moves the highlight, so the highlight keyed on it fades
+   * in at the new row instead of sliding over from where it was last (a row
+   * lit from the keyboard, or one still fading out).
+   */
+  session: number;
+  /** The same count as `session`, for code that reads it outside a render. */
   sessionRef: RefObject<number>;
   handlers: {
+    /** Picks the item nearest the pointer. Moves that happened in a
+     *  portalled child (a row's own dropdown) are ignored. */
     onMouseMove: (e: React.MouseEvent) => void;
     onMouseEnter: () => void;
     onMouseLeave: () => void;
@@ -56,7 +77,9 @@ export interface UseFluidHoverReturn {
      * Routes a click that lands between items (a gap, the padding, past the
      * last row) to the highlighted item, so the highlight and the click agree:
      * what is lit is what a click hits. A click inside an item is left to the
-     * item. Disabled items (`isItemDisabled`) are never activated.
+     * item, and so is one on a control between items (a search field) or
+     * from a portalled child (a row's own dropdown): it never landed between
+     * these items. Disabled items (`isItemDisabled`) are never activated.
      */
     onClick: (e: React.MouseEvent) => void;
   };
@@ -172,6 +195,22 @@ export function pickNearest({
   return containingIndex ?? closestIndex;
 }
 
+/**
+ * Whether an event happened inside the element whose handler hears it.
+ * React bubbles events from portalled children (a dropdown opened from a
+ * row, a submenu, a tooltip) through their React ancestors, so a list's
+ * handlers also hear moves, clicks and focus changes that happened in
+ * another layer. The hook's own move and click handlers skip those; a
+ * consumer with handlers of its own (focus, keys) can call this too. A bare
+ * point with no target (a caller re-picking at a remembered position)
+ * counts as the list's own.
+ */
+export function isOwnEvent(e: { currentTarget?: EventTarget | null; target?: EventTarget | null }) {
+  const { currentTarget, target } = e;
+  if (!(currentTarget instanceof Node) || !(target instanceof Node)) return true;
+  return currentTarget.contains(target);
+}
+
 /** Set on the highlighted item (boolean attribute). */
 export const ACTIVE_ATTR = "data-fluid-hover-active";
 /** Set on the container: the highlighted index, or absent. */
@@ -193,6 +232,9 @@ function resolveActivator(element: HTMLElement): HTMLElement {
   return element.querySelector<HTMLElement>(ACTIVATOR_SELECTOR) ?? element;
 }
 
+const useIsoLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
 /**
  * How many frames the coalesced remeasure retries while the registered items
  * still have no layout box. A popup can be in the DOM one frame before it is
@@ -205,12 +247,18 @@ export function useFluidHover<T extends HTMLElement>(
   containerRef: RefObject<T | null>,
   options: UseFluidHoverOptions = {}
 ): UseFluidHoverReturn {
-  const { axis = "y", isItemDisabled } = options;
+  const { axis = "y", isItemDisabled, gapClick = true } = options;
+  const gapClickMaxDistance =
+    typeof gapClick === "object" ? (gapClick.maxDistance ?? Infinity) : Infinity;
   const itemsRef = useRef(new Map<number, HTMLElement>());
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  // Mirrored for handlers that read it outside a render (the gap click).
+  // Mirrored for handlers that read it outside a render (the gap click, a
+  // row registering). Written in a layout effect, which runs before any
+  // row's registration effect in the same commit.
   const activeIndexRef = useRef<number | null>(null);
-  activeIndexRef.current = activeIndex;
+  useIsoLayoutEffect(() => {
+    activeIndexRef.current = activeIndex;
+  }, [activeIndex]);
 
   // The state, in the DOM: `data-fluid-hover-active` on the highlighted item
   // and `data-fluid-hover-active-index` on the container. Devtools shows it
@@ -218,16 +266,29 @@ export function useFluidHover<T extends HTMLElement>(
   // manage these attributes, so it never clobbers them.
   useEffect(() => {
     const container = containerRef.current;
+    // The registry map itself, which is never replaced: the cleanup reads
+    // who holds the index by then, not who held it now.
+    const items = itemsRef.current;
     if (activeIndex === null) container?.removeAttribute(ACTIVE_INDEX_ATTR);
     else container?.setAttribute(ACTIVE_INDEX_ATTR, String(activeIndex));
-    const active = activeIndex === null ? undefined : itemsRef.current.get(activeIndex);
+    const active = activeIndex === null ? undefined : items.get(activeIndex);
     active?.setAttribute(ACTIVE_ATTR, "");
-    return () => active?.removeAttribute(ACTIVE_ATTR);
+    return () => {
+      active?.removeAttribute(ACTIVE_ATTR);
+      // A row that re-registered under this index while it was highlighted
+      // (a remount under a new key) was marked by registerItem, not by this
+      // effect: drop the mark from whatever element holds the index now.
+      if (activeIndex !== null) items.get(activeIndex)?.removeAttribute(ACTIVE_ATTR);
+    };
   }, [activeIndex, containerRef]);
   const [itemRects, setItemRects] = useState<ItemRect[]>([]);
   const [isMeasured, setIsMeasured] = useState(false);
   const itemRectsRef = useRef<ItemRect[]>([]);
+  const [session, setSession] = useState(0);
   const sessionRef = useRef(0);
+  // Set when the pointer enters; the pointer's first change of highlight
+  // starts the new session, in the same update as the change itself.
+  const sessionPendingRef = useRef(false);
   const rafIdRef = useRef<number | null>(null);
   const remeasureRafIdRef = useRef<number | null>(null);
 
@@ -315,18 +376,21 @@ export function useFluidHover<T extends HTMLElement>(
    * true while another pass is still queued.
    */
   const scheduleMeasurement = useCallback(
-    (attemptsLeft: number) => {
-      if (remeasureRafIdRef.current !== null) {
-        cancelAnimationFrame(remeasureRafIdRef.current);
-      }
-      remeasureRafIdRef.current = requestAnimationFrame(() => {
-        remeasureRafIdRef.current = null;
-        if (runMeasurement()) {
-          setIsMeasured(true);
-        } else if (attemptsLeft > 1) {
-          scheduleMeasurement(attemptsLeft - 1);
+    (attempts: number) => {
+      const attempt = (attemptsLeft: number) => {
+        if (remeasureRafIdRef.current !== null) {
+          cancelAnimationFrame(remeasureRafIdRef.current);
         }
-      });
+        remeasureRafIdRef.current = requestAnimationFrame(() => {
+          remeasureRafIdRef.current = null;
+          if (runMeasurement()) {
+            setIsMeasured(true);
+          } else if (attemptsLeft > 1) {
+            attempt(attemptsLeft - 1);
+          }
+        });
+      };
+      attempt(attempts);
     },
     [runMeasurement]
   );
@@ -363,7 +427,19 @@ export function useFluidHover<T extends HTMLElement>(
       } else {
         const previous = itemsRef.current.get(index);
         if (previous) itemRoRef.current?.unobserve(previous);
+        // The mark leaves with the element: a row that only moved to another
+        // index (a filtering list re-ordering) must not carry it there.
+        previous?.removeAttribute(ACTIVE_ATTR);
         itemsRef.current.delete(index);
+        // The highlighted row is gone: nothing should stay lit or receive a
+        // routed click until the pointer picks again. Decided when the
+        // update applies, after this commit's registrations, so a row that
+        // only moved index hands the highlight to the row now under it.
+        if (index === activeIndexRef.current) {
+          setActiveIndex((current) =>
+            current === index && !itemsRef.current.has(index) ? null : current
+          );
+        }
       }
       // Coalesce rapid register/unregister calls (e.g. when an AnimatePresence
       // remounts a list of rows) into a single remeasure on the next frame,
@@ -376,6 +452,7 @@ export function useFluidHover<T extends HTMLElement>(
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
+      if (!isOwnEvent(e)) return;
       const mouseX = e.clientX;
       const mouseY = e.clientY;
 
@@ -387,30 +464,34 @@ export function useFluidHover<T extends HTMLElement>(
         rafIdRef.current = null;
         const container = containerRef.current;
         if (!container) return;
-        setActiveIndex(
-          pickNearest({
-            axis,
-            point: { x: mouseX, y: mouseY },
-            rects: itemRectsRef.current,
-            containerRect: container.getBoundingClientRect(),
-            scroll: { x: container.scrollLeft, y: container.scrollTop },
-            border: { x: container.clientLeft, y: container.clientTop },
-            layoutSize: { width: container.offsetWidth, height: container.offsetHeight },
-            isDisabled: isItemDisabled
-              ? (index) => {
-                  const el = itemsRef.current.get(index);
-                  return !!el && isItemDisabled(el);
-                }
-              : undefined,
-          })
-        );
+        const next = pickNearest({
+          axis,
+          point: { x: mouseX, y: mouseY },
+          rects: itemRectsRef.current,
+          containerRect: container.getBoundingClientRect(),
+          scroll: { x: container.scrollLeft, y: container.scrollTop },
+          border: { x: container.clientLeft, y: container.clientTop },
+          layoutSize: { width: container.offsetWidth, height: container.offsetHeight },
+          isDisabled: isItemDisabled
+            ? (index) => {
+                const el = itemsRef.current.get(index);
+                return !!el && isItemDisabled(el);
+              }
+            : undefined,
+        });
+        if (sessionPendingRef.current && next !== activeIndexRef.current) {
+          sessionPendingRef.current = false;
+          sessionRef.current += 1;
+          setSession(sessionRef.current);
+        }
+        setActiveIndex(next);
       });
     },
     [axis, containerRef, isItemDisabled]
   );
 
   const handleMouseEnter = useCallback(() => {
-    sessionRef.current += 1;
+    sessionPendingRef.current = true;
   }, []);
 
   const handleMouseLeave = useCallback(() => {
@@ -429,21 +510,36 @@ export function useFluidHover<T extends HTMLElement>(
       for (const element of itemsRef.current.values()) {
         if (element.contains(target)) return;
       }
+      // A row that unmounted while its own click was still bubbling (a pick
+      // whose primitive re-renders the list synchronously, like a "create"
+      // row that becomes a real item) already landed; it is not a gap.
+      if (!target.isConnected) return;
+      // Nor is a click from something rendered through a portal (a dropdown
+      // opened from a row, a submenu): it bubbles here through React, but it
+      // never happened between these rows.
+      if (!isOwnEvent(e)) return;
       // A control that sits between the rows (a search field at the top of
       // a menu, a footer button) keeps its own click too.
       const control = (target as Element).closest?.(
         "input, textarea, select, button, a, summary, [contenteditable], [role='textbox'], [role='searchbox'], [role='button']"
       );
       if (control) return;
+      if (gapClick === false) return;
       const index = activeIndexRef.current;
       if (index === null) return;
       const element = itemsRef.current.get(index);
       if (!element || isItemDisabled?.(element)) return;
+      if (gapClickMaxDistance !== Infinity) {
+        const r = element.getBoundingClientRect();
+        const dx = Math.max(r.left - e.clientX, 0, e.clientX - r.right);
+        const dy = Math.max(r.top - e.clientY, 0, e.clientY - r.bottom);
+        if (Math.hypot(dx, dy) > gapClickMaxDistance) return;
+      }
       // A real DOM click on the item, so its own handlers (and the primitive
       // wrapping it, if any) run exactly as if the pointer had been inside.
       resolveActivator(element).click();
     },
-    [isItemDisabled]
+    [isItemDisabled, gapClick, gapClickMaxDistance]
   );
 
   // Remeasure when the container resizes — a reflow moves items even though
@@ -478,6 +574,7 @@ export function useFluidHover<T extends HTMLElement>(
     setActiveIndex,
     itemRects,
     isMeasured,
+    session,
     sessionRef,
     handlers: {
       onMouseMove: handleMouseMove,

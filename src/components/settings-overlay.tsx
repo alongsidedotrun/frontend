@@ -13,9 +13,6 @@ import {
   loadChatWidth,
   loadFontSmoothing,
   loadSystemUiFont,
-  loadSidebarCollapseMode,
-  saveSidebarCollapseMode,
-  type SidebarCollapseMode,
   type ChatWidth,
 } from "@/hooks/use-appearance-settings";
 import { spring } from "@/lib/springs";
@@ -55,11 +52,11 @@ import {
   ProviderUsageIcon,
   RotateCcwIcon,
   SearchIcon,
-  SidebarLeftIcon,
   SettingsIcon,
   SunIcon,
   SystemIcon,
   UserIcon,
+  ArrowCircleBrokenLeftIcon,
 } from "@/components/icons/untitled-ui";
 import { GlideGroup, RailButton, SIDEBAR_WIDTH, SIDEBAR_ROW_WIDTH } from "@/components/sidebar-nav";
 import { AccountMenuItems, HelpMenuItems } from "@/components/nav-user";
@@ -71,9 +68,11 @@ import {
   useUserDisplayName,
 } from "@/lib/user";
 import { signOut, useIsSignedIn } from "@/lib/auth";
+import { openSignInDialog } from "@/lib/use-sign-in";
 import { useIdentity } from "@/lib/identity";
-import { ShieldCheck } from "lucide-react";
+import { Command, ShieldCheck } from "lucide-react";
 import { loadDataAcknowledgement, loadDataAcknowledgementTime } from "@/lib/data-acknowledgement";
+import { cn } from "@/lib/utils";
 
 // Tips/Notifications/Usage are sub-sections *inside* General, not their
 // own routes -- per explicit request ("Not as items but as menu items
@@ -1487,8 +1486,6 @@ function resizeImageFile(file: File, maxSize = 256, quality = 0.85): Promise<str
 // comment has the pointer).
 function ProfileSection() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const location = useLocation();
   const isSignedIn = useIsSignedIn();
   const avatarImage = useUserAvatarImage();
   const currentName = useUserDisplayName();
@@ -1550,7 +1547,8 @@ function ProfileSection() {
           title={t("settings.profile.name.title")}
           description={isSignedIn ? t("settings.profile.name.description") : t("settings.profile.name.signedOut")}
         >
-          <span className="text-[12px] font-medium text-foreground">{currentName}</span>
+          {/* Signed out there's no name, only the Sign in prompt in the description. */}
+          {isSignedIn && <span className="text-[12px] font-medium text-foreground">{currentName}</span>}
         </SettingsRow>
         <SettingsRow
           id="setting-avatar"
@@ -1690,16 +1688,12 @@ function ProfileSection() {
           is now optional (App.tsx's own comment on removing RequireAuth's
           blanket gate has the full reasoning) rather than a forced
           redirect off every route, this row shows "Sign in" instead once
-          signed out -- /auth is a real, voluntarily reachable page now,
-          not just something to escape. Logging out itself stays right
+          signed out, which opens the sign-in dialog. Logging out itself stays right
           here in Settings instead of navigating anywhere -- per direct
           follow-up ("logout is bringing me to the /auth page and that
           should stay in settings") -- signOut() alone is enough to
           reactively flip this row (and the disabled Manage photo button
-          above) to their signed-out state; only Sign in still navigates,
-          since that one genuinely needs the real sign-in form. state:
-          { from } lets AuthPage return here (not always Getting started)
-          once signed back in. */}
+          above) to their signed-out state. */}
       <SettingsSection title={t("settings.profile.caution")}>
         <SettingsRow
           id="setting-log-out"
@@ -1710,11 +1704,8 @@ function ProfileSection() {
             type="button"
             className={SETTINGS_ACTION_BUTTON_CLASS}
             onClick={() => {
-              if (isSignedIn) {
-                signOut();
-              } else {
-                navigate("/auth", { state: { from: location.pathname } });
-              }
+              if (isSignedIn) signOut();
+              else openSignInDialog();
             }}
           >
             <LogOutIcon className="size-3.5" />
@@ -1832,6 +1823,7 @@ function GeneralSection() {
 }
 
 function SecuritySection() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [acknowledged, setAcknowledged] = useState(loadDataAcknowledgement);
   const [acknowledgedAt, setAcknowledgedAt] = useState(loadDataAcknowledgementTime);
@@ -1852,9 +1844,9 @@ function SecuritySection() {
 
   const acknowledgementStatus = acknowledged
     ? acknowledgedAt
-      ? `Acknowledged ${new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(acknowledgedAt))}`
-      : "Acknowledged on this device"
-    : "Required";
+      ? t("settings.security.acknowledgedOn", { date: new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium" }).format(new Date(acknowledgedAt)) })
+      : t("settings.security.acknowledgedHere")
+    : t("settings.security.required");
 
   return (
     <div className="flex flex-col">
@@ -1910,7 +1902,6 @@ function AppearanceSection() {
   const [systemUiFont, setSystemUiFontState] = useState(loadSystemUiFont);
   const [fontSmoothing, setFontSmoothingState] = useState(loadFontSmoothing);
   const [chatWidth, setChatWidthState] = useState<ChatWidth>(loadChatWidth);
-  const [sidebarCollapseMode, setSidebarCollapseMode] = useState<SidebarCollapseMode>(loadSidebarCollapseMode);
 
   // Applies the real Rust-side effect on mount (so reopening Settings, or a
   // fresh launch with transparency already turned on from a previous session,
@@ -1943,11 +1934,6 @@ function AppearanceSection() {
     applyChatWidth(next);
   }
 
-  function setSidebarCollapse(next: SidebarCollapseMode) {
-    setSidebarCollapseMode(next);
-    saveSidebarCollapseMode(next);
-  }
-
   // The raw icon component, not pre-rendered JSX -- BaseMenuItem's own
   // `icon` prop (menu-item.tsx) calls this itself with its own size/
   // strokeWidth/className (the invisible-sizer-plus-visible-icon grid
@@ -1970,25 +1956,18 @@ function AppearanceSection() {
     { value: "expanded", label: t("settings.appearance.chatWidth.expanded"), icon: ExpandedWidthIcon },
   ];
   const currentChatWidth = chatWidthOptions.find((o) => o.value === chatWidth) ?? chatWidthOptions[0];
-  const sidebarCollapseOptions: { value: SidebarCollapseMode; label: string; compactLabel: string; icon: IconComponent }[] = [
-    { value: "parent", label: "Close only parent sidebar", compactLabel: "Close only…", icon: SidebarLeftIcon },
-    { value: "all", label: "Close all sidebars", compactLabel: "Close all", icon: SidebarLeftIcon },
-  ];
-  const currentSidebarCollapse = sidebarCollapseOptions.find((o) => o.value === sidebarCollapseMode) ?? sidebarCollapseOptions[0];
 
   const transparencyChanged = transparencyEnabled !== false;
   const systemUiFontChanged = systemUiFont !== true;
   const fontSmoothingChanged = fontSmoothing !== true;
   const chatWidthChanged = chatWidth !== "standard";
-  const sidebarCollapseChanged = sidebarCollapseMode !== "parent";
-  const anyChanged = transparencyChanged || systemUiFontChanged || fontSmoothingChanged || chatWidthChanged || sidebarCollapseChanged;
+  const anyChanged = transparencyChanged || systemUiFontChanged || fontSmoothingChanged || chatWidthChanged;
 
   function restoreDefaults() {
     updateTransparency(false);
     setSystemUiFont(true);
     setFontSmoothing(true);
     setChatWidth("standard");
-    setSidebarCollapse("parent");
   }
 
   return (
@@ -2111,36 +2090,6 @@ function AppearanceSection() {
             <Switch checked={transparencyEnabled} onToggle={() => updateTransparency(!transparencyEnabled)} aria-label="Enable transparency" />
           </SettingsRow>
         )}
-      </SettingsSection>
-
-      <SettingsSection title="Collapse">
-        <SettingsRow id="setting-sidebar-collapse" title="Collapse parent bar" description="Choose which sidebars close when the parent bar is collapsed.">
-          <BaseDropdownMenu size="compact">
-            <BaseDropdownTrigger
-              render={
-                <button type="button" className={SETTINGS_DROPDOWN_TRIGGER_CLASS}>
-                  <span className="flex items-center gap-1.5">
-                    <currentSidebarCollapse.icon size={14} />
-                    {currentSidebarCollapse.compactLabel}
-                  </span>
-                  <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
-                </button>
-              }
-            />
-            <BaseDropdownContent align="end" checkedIndex={sidebarCollapseOptions.findIndex((option) => option.value === sidebarCollapseMode)}>
-              {sidebarCollapseOptions.map((option, i) => (
-                <BaseMenuItem
-                  key={option.value}
-                  index={i}
-                  icon={option.icon}
-                  label={option.label}
-                  checked={sidebarCollapseMode === option.value}
-                  onSelect={() => setSidebarCollapse(option.value)}
-                />
-              ))}
-            </BaseDropdownContent>
-          </BaseDropdownMenu>
-        </SettingsRow>
       </SettingsSection>
 
       <SettingsSection title={t("settings.appearance.caution")}>
@@ -2874,7 +2823,13 @@ function useSettingsHistory() {
   );
 }
 
-export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
+type SettingsSidebarNavProps = {
+  section: SettingsSection;
+  /** Uses the compact navigation language of the redesign application shell. */
+  variant?: "default" | "redesign";
+};
+
+export function SettingsSidebarNav({ section, variant = "default" }: SettingsSidebarNavProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
@@ -2956,6 +2911,122 @@ export function SettingsSidebarNav({ section }: { section: SettingsSection }) {
     // replace: true -- see the section-row onClick's own comment below for
     // the full reasoning (same fix, same cause).
     navigate(`/settings/${entry.section}${target}`, { replace: true });
+  }
+
+  if (variant === "redesign") {
+    return (
+      <aside
+        aria-label={t("settings.nav.ariaLabel")}
+        className="relative -mx-[var(--redesign-sidebar-edge-padding)] flex h-full w-[calc(100%+2*var(--redesign-sidebar-edge-padding))] min-w-0 flex-col overflow-hidden bg-[var(--redesign-sidebar-surface)] px-[var(--redesign-sidebar-edge-padding)]"
+      >
+        <div className="flex min-h-0 flex-col">
+          {/* Keeps Settings search in the same control rhythm as Quick Actions. */}
+          <div className="relative mb-[var(--redesign-quick-actions-gap)] h-[var(--redesign-quick-actions-trigger-height)] w-full">
+            <span
+              aria-hidden
+              className="pointer-events-none absolute top-1/2 left-[var(--redesign-quick-actions-padding)] z-10 flex -translate-y-1/2 items-center gap-[var(--redesign-quick-actions-shortcut-gap)] text-[length:var(--redesign-sidebar-primary-font-size)] text-muted-foreground"
+            >
+              <Command strokeWidth={2} className="size-[var(--redesign-quick-actions-command-icon-size)]" />
+              <span>F</span>
+            </span>
+            <Input
+              ref={searchRef}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  setQuery("");
+                } else if (event.key === "Enter" && results.length > 0) {
+                  goToResult(results[0]);
+                }
+              }}
+              placeholder={t("settings.search.placeholder")}
+              className="h-full rounded-[var(--redesign-control-radius)] border-[var(--redesign-sidebar-border)] bg-transparent pr-[var(--redesign-quick-actions-padding)] pl-[calc(var(--redesign-quick-actions-padding)+var(--redesign-quick-actions-command-icon-size)+var(--redesign-quick-actions-shortcut-gap)+0.5rem+var(--redesign-quick-actions-icon-gap))] text-[length:var(--redesign-sidebar-primary-font-size)] font-normal text-foreground placeholder:text-muted-foreground placeholder:opacity-100 placeholder:transition-opacity placeholder:duration-200 hover:bg-muted/50 focus:placeholder:opacity-0 focus-visible:border-ring md:text-[length:var(--redesign-sidebar-primary-font-size)]"
+            />
+          </div>
+
+          {searching ? (
+            <div className="flex flex-col gap-[var(--redesign-quick-actions-row-gap)]">
+              {results.length === 0 && (
+                <p className="px-[var(--redesign-quick-actions-padding)] py-2 text-[length:var(--redesign-font-size-base)] font-normal text-muted-foreground">
+                  {t("settings.search.noResults", { query })}
+                </p>
+              )}
+              {results.map((entry) => {
+                const s = SECTIONS.find((sec) => sec.key === entry.section)!;
+                return (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    onClick={() => goToResult(entry)}
+                    className="flex min-h-[var(--redesign-quick-actions-row-height)] flex-col items-start justify-center rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] py-1 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <span className="flex items-center gap-[var(--redesign-quick-actions-icon-gap)] text-[length:var(--redesign-font-size-base)] font-medium text-muted-foreground">
+                      {s.icon}
+                      {t(s.labelKey)}
+                    </span>
+                    <span className="pl-[calc(var(--redesign-quick-actions-icon-size)+var(--redesign-quick-actions-icon-gap))] text-[length:var(--redesign-font-size-base)] text-foreground">
+                      {entry.title}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-[var(--redesign-sidebar-section-gap)]">
+              {SETTINGS_NAV_GROUPS.map((group) => (
+                <section key={group.labelKey} aria-labelledby={`settings-sidebar-group-${group.labelKey}`}>
+                  <div className="flex h-[var(--redesign-quick-actions-row-height)] items-center px-[var(--redesign-quick-actions-padding)]">
+                    <h2
+                      id={`settings-sidebar-group-${group.labelKey}`}
+                      className="text-[length:var(--redesign-font-size-compact)] font-medium text-muted-foreground"
+                    >
+                      {t(group.labelKey)}
+                    </h2>
+                  </div>
+                  <div className="mt-[var(--redesign-sidebar-section-row-offset)] flex flex-col gap-[var(--redesign-quick-actions-row-gap)]">
+                    {group.keys.map((key) => {
+                      const s = SECTIONS.find((sec) => sec.key === key)!;
+                      const isActive = section === key;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => navigate(`/settings/${key}`, { replace: true })}
+                          aria-current={isActive ? "page" : undefined}
+                          className={cn(
+                            "flex h-[var(--redesign-quick-actions-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-left text-[length:var(--redesign-sidebar-primary-font-size)] font-normal text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                            isActive && "bg-muted font-medium text-foreground",
+                          )}
+                        >
+                          <span className="flex size-[var(--redesign-quick-actions-icon-size)] shrink-0 items-center justify-center">
+                            {s.icon}
+                          </span>
+                          <span className="truncate">{t(s.labelKey)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <footer className="mt-auto pt-[var(--redesign-sidebar-section-gap)]">
+          <div className="-mx-[var(--redesign-sidebar-edge-padding)] border-t border-[var(--redesign-sidebar-border)] px-[var(--redesign-sidebar-edge-padding)] pt-2">
+            <button
+              type="button"
+              onClick={() => navigate("/new/chat")}
+              className="flex h-[var(--redesign-sidebar-footer-account-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-[length:var(--redesign-sidebar-primary-font-size)] font-normal text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <ArrowCircleBrokenLeftIcon aria-hidden="true" className="size-[var(--redesign-quick-actions-icon-size)] shrink-0" />
+              <span className="truncate">{t("shell.returnToChats")}</span>
+            </button>
+          </div>
+        </footer>
+      </aside>
+    );
   }
 
   return (

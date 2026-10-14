@@ -32,7 +32,28 @@ import { cn } from "@/lib/utils";
 // invert would also flip the blue -- see ProviderIcon below, which swaps
 // in a dedicated kimi-dark.svg (same file, black path recolored to white,
 // blue path untouched) instead of using a CSS filter for it.
-export const QUICK_CHAT_MODELS = [
+export type QuickChatModel = {
+  value: string;
+  label: string;
+  provider: string;
+  icon: string;
+  configured: boolean;
+  invertInDark?: boolean;
+  iconScale?: number;
+  // From the provider CLI's own model list (lib/model-catalog.ts); absent on
+  // the built-in entries below.
+  description?: string;
+  efforts?: string[];
+  defaultEffort?: string;
+  isDefault?: boolean;
+};
+
+// Built-in entries: the providers without a live model list yet, and the
+// starting point for Claude/Codex/Antigravity until lib/model-catalog.ts
+// replaces theirs with what each CLI says it supports (kept, marked not
+// configured, so older chats still find their model's name and icon). Mutable
+// for that reason; components re-render on changes via useModelCatalogVersion.
+export const QUICK_CHAT_MODELS: QuickChatModel[] = [
   { value: "claude-opus-5", label: "Claude Opus 5", provider: "Claude", icon: "/icons/providers/claude.svg", configured: true },
   { value: "claude-sonnet-5", label: "Claude Sonnet 5", provider: "Claude", icon: "/icons/providers/claude.svg", configured: true },
   {

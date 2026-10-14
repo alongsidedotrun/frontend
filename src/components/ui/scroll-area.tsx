@@ -31,13 +31,7 @@ interface ScrollAreaProps extends ComponentPropsWithoutRef<"div"> {
   viewportClassName?: string;
   /** Which axes get scrollbars. Defaults to `"vertical"`. */
   orientation?: Orientation;
-  /**
-   * The outer `ref` points at the non-scrolling Root -- callers that read/
-   * write real scroll state (scrollTop, scrollHeight, scrollTo...), like
-   * ChatPage.tsx's own auto-scroll-to-bottom, need the actual scrolling
-   * node instead. Forwarded to the plain div on touch-primary devices too,
-   * so this stays correct in both branches below.
-   */
+  /** Ref to the actual scrolling viewport rather than the outer root. */
   viewportRef?: Ref<HTMLDivElement>;
 }
 
@@ -131,14 +125,14 @@ const ScrollBar = forwardRef<
       // Base UI keeps the scrollbar mounted while scrollable; visibility is
       // a plain opacity transition off its hover/scroll state attributes,
       // matching the cue fade — 160ms in, 120ms out (exits faster, per the
-      // animation guidelines); spring tokens are framer-motion configs and
+      // animation guidelines); spring tokens are Motion configs and
       // don't apply here.
       className={cn(
         // The 10px track stays as a comfortable hit target; the thumb inside
         // it rests narrow and low-contrast, then widens + darkens on hover so
         // it gets out of the way until you reach for it.
         "group/scrollbar absolute z-20 flex touch-none select-none",
-        // Show immediately; on hide, wait out the 150ms thumb shrink before
+        // Show immediately; on hide, wait out the 160ms thumb shrink before
         // fading so the thumb visibly narrows back first instead of the fade
         // masking it.
         "opacity-0 transition-opacity duration-120 ease-out delay-160",

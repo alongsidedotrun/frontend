@@ -1,19 +1,39 @@
-import { useEffect, useState } from "react";
-import { Bot, CircleArrowUp, CircleHelp, Plus, Search } from "lucide-react";
-import { AlongsideLogo } from "@/components/icons/alongside-logo";
-import { InboxIcon, IntegrationsIcon, LogInIcon, MessageChatCircleIcon, Settings01Icon, Settings04Icon } from "@/components/icons/untitled-ui";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { IconComponent } from "@/lib/icon-context";
+import { cn } from "@/lib/utils";
+import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
+import { useLocation, useNavigate, useOutlet } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
+import { ChevronRight, CircleArrowUp, CircleHelp, LogIn, Plus, Search, Share2, ShieldCheck } from "lucide-react";
+import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
+import { CreateWorkspaceDialog } from "@/components/design-system/create-workspace-dialog";
+import { SignInDialog } from "@/components/design-system/sign-in-dialog";
+import { ShareChatDialog } from "@/components/design-system/share-chat-dialog";
+import { JoinChatDialog } from "@/components/design-system/join-chat-dialog";
+import { JoinRequestsCard } from "@/components/design-system/join-requests-card";
+import { useShareDialogHost } from "@/lib/use-share";
+import { useSignInDialogHost } from "@/lib/use-sign-in";
+import { useIdentity } from "@/lib/identity";
+import { signOut } from "@/lib/auth";
+import { moveLocalWorkspaceDetailsToBackend } from "@/lib/workspace-logos";
+import { ManageWorkspaceDialog, type WorkspaceChange } from "@/components/design-system/manage-workspace-dialog";
+import { ArchiveIcon, BubbleChatIcon, DeleteIcon, EditIcon, FolderIcon, IntegrationsIcon, LogOutIcon, MessageChatCircleIcon, PaletteIcon, ProvidersIcon, Settings01Icon, SettingsIcon, UserIcon } from "@/components/icons/untitled-ui";
 import { SplitView } from "@/components/design-system/split-view";
 import { AppTopBar } from "@/components/app-top-bar";
 import { QuickActions, type QuickActionItem } from "@/components/design-system/quick-actions";
-import { SidebarSections, type SidebarSection } from "@/components/design-system/sidebar-sections";
+import { SidebarSections, type SidebarItemMenuEntry, type SidebarSection, type SidebarSectionItem } from "@/components/design-system/sidebar-sections";
 import { SidebarSurfaceTransition } from "@/components/design-system/sidebar-surface-transition";
 import { GettingStartedSummary, SidebarAccountFooter, type GettingStartedStep } from "@/components/design-system/sidebar-footer";
+import { SettingsSidebarNav, type SettingsSection } from "@/components/settings-overlay";
 import { DefaultAvatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ChatPage, type ChatPageShellContext } from "@/pages/ChatPage";
 import { HomePage, type HomePageShellContext } from "@/pages/HomePage";
+import { CommandMenuDemo } from "@/components/command-menu-demo";
+import type { CommandMenuItemData } from "@/components/ui/command-menu";
 import {
   WorkspaceSelector,
   type WorkspaceMenuAction,
@@ -24,6 +44,9 @@ type WorkspaceRecord = {
   id: string;
   name: string;
   is_personal: boolean;
+  logo?: string | null;
+  description?: string | null;
+  color?: number | null;
 };
 
 type InboxItem = {
@@ -45,53 +68,94 @@ type Project = {
 type Chat = {
   id: string;
   name: string;
+  project_id?: string | null;
 };
 
 const DEFAULT_WORKSPACE: WorkspaceRecord = {
   id: "personal",
-  name: "Alongside",
+  name: "Personal",
   is_personal: true,
 };
 
 function toWorkspaceOption(workspace: WorkspaceRecord): WorkspaceOption {
-  return workspace.is_personal
-    ? {
-        id: workspace.id,
-        name: workspace.name,
-    icon: (
-      <span className="relative block size-full" aria-hidden="true">
-        <AlongsideLogo className="absolute left-1/2 top-1/2 block size-[var(--redesign-workspace-brand-mark-size)] -translate-x-1/2 -translate-y-1/2 !text-black [&_g]:!fill-black" />
-      </span>
-    ),
-    iconSurfaceClassName: "relative !size-[var(--redesign-workspace-brand-surface-size)] rounded-[var(--redesign-workspace-brand-radius)] bg-white",
-      }
-    : { id: workspace.id, name: workspace.name };
+  // Without a logo the tile is the name's first letter on its picked colour
+  // (or the name's own colour when none was picked).
+  const logo = workspace.logo ?? null;
+  const monogram = workspaceMonogram(workspace.name, workspace.color ?? null);
+  const icon = logo
+    ? <WorkspaceBrandIcon size={20} imageSrc={logo} />
+    : monogram
+      ? <WorkspaceBrandIcon size={20} monogram={monogram} />
+      : undefined;
+  return { id: workspace.id, name: workspace.name, icon };
 }
 
-const PROFILE_ACTION_SECTIONS: readonly (readonly WorkspaceMenuAction[])[] = [
-  [
-    { id: "sign-in", label: "Sign in", icon: LogInIcon, onSelect: () => { window.location.assign("/auth"); } },
-    { id: "settings", label: "Settings", icon: Settings04Icon },
-    { id: "help", label: "Help", icon: CircleHelp },
-  ],
-  [
-    { id: "upgrade", label: "Upgrade plan", icon: CircleArrowUp, tone: "accent" },
-  ],
+type Translate = TFunction;
+
+// Profile menu, shown once signed in by clicking the profile in the sidebar.
+function profileMenuSections(t: Translate, onOpenProfile: () => void, onSignOut: () => void): readonly (readonly WorkspaceMenuAction[])[] {
+  return [
+    [
+      { id: "profile", label: t("settings.nav.profile"), icon: UserIcon, onSelect: onOpenProfile },
+      { id: "help", label: t("nav.helpItem"), icon: CircleHelp },
+      { id: "upgrade", label: t("shell.profileMenu.upgradePlan"), icon: CircleArrowUp, tone: "accent" },
+    ],
+    [
+      { id: "sign-out", label: t("shell.profileMenu.signOut"), icon: LogOutIcon, onSelect: onSignOut },
+    ],
+  ];
+}
+
+// New chat, and under it Join chat (someone else's, with their chat ID and
+// join code -- JoinChatDialog).
+const quickActions = (t: Translate): readonly QuickActionItem[] => [
+  { id: "chats", label: t("common.newChat"), icon: Plus },
+  { id: "join", label: t("joinChat.title"), icon: LogIn },
 ];
 
-const QUICK_ACTIONS: readonly QuickActionItem[] = [
-  { id: "inbox", label: "Inbox", icon: InboxIcon },
-  { id: "chats", label: "Chats", icon: MessageChatCircleIcon },
-  { id: "agents", label: "Agents", icon: Bot },
-  { id: "apps", label: "Apps", icon: IntegrationsIcon },
+// Getting started: the essentials, each done when the real thing is (a
+// provider connected, a chat sent, signed in, a chat shared), each opening
+// where to do it.
+const GETTING_STARTED_STEP_IDS = ["provider", "message", "account", "multiplayer"] as const;
+const GETTING_STARTED_DONE_KEY = "alongside_getting_started_done";
+const GETTING_STARTED_DISMISSED_KEY = "alongside_getting_started_dismissed";
+const EXPANDED_PROJECTS_KEY = "alongside_expanded_projects";
+type GettingStartedStepId = (typeof GETTING_STARTED_STEP_IDS)[number];
+const gettingStartedSteps = (
+  t: Translate,
+  done: Record<GettingStartedStepId, boolean>,
+  open: Record<GettingStartedStepId, () => void>,
+): readonly GettingStartedStep[] =>
+  GETTING_STARTED_STEP_IDS.map((id) => ({
+    id,
+    label: t(`shell.gettingStarted.${id}.label`),
+    description: t(`shell.gettingStarted.${id}.description`),
+    complete: done[id],
+    onSelect: open[id],
+  }));
+
+// Quick actions entries for each settings page, in the order they're listed
+// there. Labels are the settings pages' own names; keywords stay English
+// (extra search terms on top of the translated label and description).
+const SETTINGS_COMMANDS: readonly { section: SettingsSection; labelKey: string; icon: IconComponent; keywords: string[] }[] = [
+  { section: "general", labelKey: "settings.nav.general", icon: SettingsIcon, keywords: ["language", "timezone", "notifications", "tips"] },
+  { section: "appearance", labelKey: "settings.nav.appearance", icon: PaletteIcon, keywords: ["theme", "dark", "light", "font", "transparency"] },
+  { section: "chat", labelKey: "settings.nav.chat", icon: BubbleChatIcon, keywords: ["provider", "effort", "usage"] },
+  { section: "profile", labelKey: "settings.nav.profile", icon: UserIcon, keywords: ["account", "picture", "sign in", "log out"] },
+  { section: "security", labelKey: "settings.nav.security", icon: ShieldCheck, keywords: ["privacy", "encryption", "data"] },
+  { section: "provider", labelKey: "settings.nav.provider", icon: ProvidersIcon, keywords: ["models", "api key", "ai"] },
+  { section: "apps", labelKey: "settings.nav.apps", icon: IntegrationsIcon, keywords: ["integrations", "connect"] },
 ];
 
-const GETTING_STARTED_STEPS: readonly GettingStartedStep[] = [
-  { id: "profile", label: "Complete your profile", description: "Add your profile details to personalise Alongside." },
-  { id: "data", label: "Acknowledge your data", description: "Review how your local data is stored and protected." },
-  { id: "provider", label: "Set up an AI provider", description: "Connect a provider to begin using its models." },
-  { id: "chat", label: "Create a chat", description: "Start a new conversation in your workspace." },
-];
+const SETTINGS_SECTIONS: readonly SettingsSection[] = ["profile", "general", "appearance", "chat", "security", "provider", "apps"];
+
+function quickActionForPath(pathname: string) {
+  if (pathname === "/overview") return "overview";
+  if (pathname.startsWith("/chat/") || pathname === "/new/chat") return "chats";
+  if (pathname === "/apps") return "apps";
+  if (pathname === "/agents") return "agents";
+  return "inbox";
+}
 
 /**
  * An intentionally isolated workspace for the next Alongside design system.
@@ -99,37 +163,187 @@ const GETTING_STARTED_STEPS: readonly GettingStartedStep[] = [
  * built and evaluated without changing the current application.
  */
 export function RedesignPage() {
+  const { t } = useTranslation();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const appHistoryRef = useRef<string[]>([location.pathname + location.search]);
+  const appHistoryIndexRef = useRef(0);
+  const appHistoryNavigationRef = useRef(false);
+  const [, setAppHistoryVersion] = useState(0);
   const [workspaces, setWorkspaces] = useState<WorkspaceRecord[]>([DEFAULT_WORKSPACE]);
   const [workspaceId, setWorkspaceId] = useState(DEFAULT_WORKSPACE.id);
   const [newWorkspaceOpen, setNewWorkspaceOpen] = useState(false);
+  // Sign-in is a dialog over the shell (also opened from Settings via
+  // openSignInDialog in lib/use-sign-in.ts).
+  const [signInOpen, setSignInOpen] = useState(false);
+  const openSignIn = useCallback(() => setSignInOpen(true), []);
+  const identity = useIdentity();
+  useSignInDialogHost(openSignIn);
+  // Share (for the chat it was opened on) and Join chat, also opened from the
+  // chat page's /share and Quick actions (lib/use-share.ts).
+  const [shareChatId, setShareChatId] = useState<string | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [joinOpen, setJoinOpen] = useState(false);
+  const openShare = useCallback((chatId: string) => {
+    setShareChatId(chatId);
+    setShareOpen(true);
+  }, []);
+  const openJoin = useCallback(() => setJoinOpen(true), []);
+  useShareDialogHost(openShare, openJoin);
   const [manageWorkspacesOpen, setManageWorkspacesOpen] = useState(false);
-  const [newWorkspaceName, setNewWorkspaceName] = useState("");
-  const [workspaceNames, setWorkspaceNames] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
+  // Whether workspaceError is about the name (shown under the Name field)
+  // rather than the save as a whole (shown by the Save button).
+  const [workspaceNameTaken, setWorkspaceNameTaken] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [activeQuickAction, setActiveQuickAction] = useState("inbox");
   const [inboxItems, setInboxItems] = useState<InboxItem[]>([]);
   const [inboxMentions, setInboxMentions] = useState<InboxMention[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [chats, setChats] = useState<Chat[]>([]);
+  // Getting started's own checks: any provider CLI connected, and a chat
+  // shared or joined through the relay. Re-read on each navigation; both are cheap local calls.
+  const [providerReady, setProviderReady] = useState(false);
+  // Sidebar row menus: the project awaiting delete confirmation, and the chat
+  // to add to the project being created from its "New project…" entry.
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const [chatForNewProject, setChatForNewProject] = useState<string | null>(null);
+  // Projects open in the sidebar, remembered on this device.
+  const [expandedProjects, setExpandedProjects] = useState<ReadonlySet<string>>(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(EXPANDED_PROJECTS_KEY) ?? "[]") as string[]);
+    } catch {
+      return new Set();
+    }
+  });
+  const toggleProjectExpanded = useCallback((projectId: string) => {
+    setExpandedProjects((current) => {
+      const next = new Set(current);
+      if (next.has(projectId)) next.delete(projectId);
+      else next.add(projectId);
+      try {
+        localStorage.setItem(EXPANDED_PROJECTS_KEY, JSON.stringify([...next]));
+      } catch {
+        // storage blocked: stays open for this session
+      }
+      return next;
+    });
+  }, []);
+  const [sharedOnce, setSharedOnce] = useState(false);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [projectError, setProjectError] = useState<string | null>(null);
+  const [quickActionsOpen, setQuickActionsOpen] = useState(false);
+  // A session exists before its first message, while GET /sessions
+  // deliberately lists only chats with real content. Keep that short-lived
+  // local row so the newly-created chat can mount, send its queued message,
+  // and be visible in the sidebar straight away.
+  const pendingChatIdsRef = useRef(new Set<string>());
+
+  function applyLoadedChats(loadedChats: Chat[]) {
+    setChats((current) => {
+      const loadedIds = new Set(loadedChats.map((chat) => chat.id));
+      for (const id of loadedIds) pendingChatIdsRef.current.delete(id);
+      const pending = current.filter(
+        (chat) => pendingChatIdsRef.current.has(chat.id) && !loadedIds.has(chat.id),
+      );
+      return [...pending, ...loadedChats];
+    });
+  }
+
+  const activeWorkspace = workspaces.find((workspace) => workspace.id === workspaceId) ?? DEFAULT_WORKSPACE;
+  const routeChatId = location.pathname.startsWith("/chat/")
+    ? decodeURIComponent(location.pathname.slice("/chat/".length))
+    : null;
+  // The open chat's project unfolds, so its row is never hidden. Not saved:
+  // closing the project again is the user's choice.
+  const openChatProjectId = chats.find((chat) => chat.id === (routeChatId ?? activeChatId))?.project_id ?? null;
+  useEffect(() => {
+    if (!openChatProjectId) return;
+    setExpandedProjects((current) => (current.has(openChatProjectId) ? current : new Set(current).add(openChatProjectId)));
+  }, [openChatProjectId]);
+  const isSettingsRoute = location.pathname.startsWith("/settings");
+  const settingsPathSection = location.pathname.split("/")[2] as SettingsSection | undefined;
+  const settingsSection = settingsPathSection && SETTINGS_SECTIONS.includes(settingsPathSection)
+    ? settingsPathSection
+    : "general";
+  const activeChat = chats.find((chat) => chat.id === (routeChatId ?? activeChatId)) ?? null;
+  const routedContent = useOutlet({
+    chatName: activeChat?.name ?? t("shell.untitledChat"),
+    // No contextLabel: the chat's name (and project) shows in the top bar.
+    receiveChatNameFromServer: (name: string) => {
+      const chatId = routeChatId ?? activeChatId;
+      if (!chatId) return;
+      setChats((current) => current.map((chat) => chat.id === chatId ? { ...chat, name } : chat));
+    },
+    refreshSidebarLists: () => {
+      void fetch("/sessions")
+        .then((response) => response.ok ? response.json() as Promise<Chat[]> : [])
+        .then(applyLoadedChats);
+    },
+    openSettings: (section: string) => navigate(`/settings/${section}`),
+    openFile: () => {},
+    renameOpenFile: () => {},
+    notifyFilesTouched: () => {},
+    primarySidebarCollapsed: false,
+    rightPanelOpen: false,
+    workspaceName: activeWorkspace.name,
+    workspaceLogo: activeWorkspace.logo ?? null,
+    workspaceColor: activeWorkspace.color ?? null,
+  });
+
+  const currentAppPath = location.pathname + location.search;
+  const routeQuickAction = quickActionForPath(location.pathname);
+
+  const activeQuickAction = routeQuickAction;
 
   const workspaceOptions = workspaces.map(toWorkspaceOption);
 
-  function syncWorkspaces(next: WorkspaceRecord[]) {
-    setWorkspaces(next);
-    setWorkspaceNames(Object.fromEntries(next.map((workspace) => [workspace.id, workspace.name])));
-    setWorkspaceId((current) => next.some((workspace) => workspace.id === current) ? current : DEFAULT_WORKSPACE.id);
+  useEffect(() => {
+    const history = appHistoryRef.current;
+    const index = appHistoryIndexRef.current;
+    if (appHistoryNavigationRef.current) {
+      appHistoryNavigationRef.current = false;
+      return;
+    }
+    if (history[index] === currentAppPath) return;
+    appHistoryRef.current = [...history.slice(0, index + 1), currentAppPath];
+    appHistoryIndexRef.current = appHistoryRef.current.length - 1;
+    setAppHistoryVersion((version) => version + 1);
+  }, [currentAppPath]);
+
+  function goBackInApp() {
+    const nextIndex = appHistoryIndexRef.current - 1;
+    if (nextIndex < 0) return;
+    appHistoryNavigationRef.current = true;
+    appHistoryIndexRef.current = nextIndex;
+    setAppHistoryVersion((version) => version + 1);
+    navigate(appHistoryRef.current[nextIndex], { replace: true });
   }
 
+  function goForwardInApp() {
+    const nextIndex = appHistoryIndexRef.current + 1;
+    if (nextIndex >= appHistoryRef.current.length) return;
+    appHistoryNavigationRef.current = true;
+    appHistoryIndexRef.current = nextIndex;
+    setAppHistoryVersion((version) => version + 1);
+    navigate(appHistoryRef.current[nextIndex], { replace: true });
+  }
+
+  function syncWorkspaces(next: WorkspaceRecord[]) {
+    setWorkspaces(next);
+    // Stay on the current workspace while it still exists; otherwise go to the first.
+    setWorkspaceId((current) => next.some((workspace) => workspace.id === current) ? current : (next[0] ?? DEFAULT_WORKSPACE).id);
+  }
+
+
   useEffect(() => {
-    document.title = "Alongside redesign";
     void fetch("/workspaces")
       .then((response) => response.ok ? response.json() as Promise<WorkspaceRecord[]> : Promise.reject(new Error("Could not load workspaces")))
+      // Logos, descriptions and colours saved in this browser before the
+      // backend kept them move there once (lib/workspace-logos.ts).
+      .then((loaded) => moveLocalWorkspaceDetailsToBackend(loaded))
       .then((loaded) => syncWorkspaces(loaded.length ? loaded : [DEFAULT_WORKSPACE]))
       // The workbench remains usable when the local backend is not running.
       .catch(() => syncWorkspaces([DEFAULT_WORKSPACE]));
@@ -159,8 +373,12 @@ export function RedesignPage() {
     ])
       .then(([loadedProjects, loadedChats]) => {
         setProjects(loadedProjects);
-        setChats(loadedChats);
-        setActiveChatId((current) => loadedChats.some((chat) => chat.id === current) ? current : null);
+        applyLoadedChats(loadedChats);
+        setActiveChatId((current) =>
+          current && (loadedChats.some((chat) => chat.id === current) || pendingChatIdsRef.current.has(current))
+            ? current
+            : null,
+        );
       })
       .catch(() => {
         setProjects([]);
@@ -169,7 +387,6 @@ export function RedesignPage() {
       });
   }, [activeQuickAction]);
 
-  const activeChat = chats.find((chat) => chat.id === activeChatId) ?? null;
   const redesignChatContext: ChatPageShellContext | undefined = activeChat ? {
     chatName: activeChat.name,
     receiveChatNameFromServer: (name) => {
@@ -178,7 +395,7 @@ export function RedesignPage() {
     refreshSidebarLists: () => {
       void fetch("/sessions")
         .then((response) => response.ok ? response.json() as Promise<Chat[]> : [])
-        .then(setChats);
+        .then(applyLoadedChats);
     },
     openSettings: () => {},
     openFile: () => {},
@@ -187,51 +404,166 @@ export function RedesignPage() {
   } : undefined;
   const redesignHomeContext: HomePageShellContext = {
     openSettings: () => {},
+    workspaceName: activeWorkspace.name,
+    workspaceLogo: activeWorkspace.logo ?? null,
+    workspaceColor: activeWorkspace.color ?? null,
   };
 
   function openCreatedChat(sessionId: string) {
+    pendingChatIdsRef.current.add(sessionId);
+    setChats((current) => current.some((chat) => chat.id === sessionId)
+      ? current
+      : [{ id: sessionId, name: t("shell.untitledChat") }, ...current]);
+    setActiveChatId(sessionId);
     void fetch("/sessions")
       .then((response) => response.ok ? response.json() as Promise<Chat[]> : [])
-      .then((loadedChats) => {
-        setChats(loadedChats);
-        setActiveChatId(sessionId);
-      });
+      .then(applyLoadedChats);
   }
 
   const inboxSidebarSections: readonly SidebarSection[] = [
     {
       id: "mentions",
-      label: "Mentions",
+      label: t("shell.sections.mentions"),
       items: inboxMentions.map((mention) => ({ id: `mention-${mention.id}`, label: mention.chat_name })),
-      emptyLabel: "No new mentions",
+      emptyLabel: t("shell.sections.noMentions"),
     },
     {
       id: "all",
-      label: "All",
+      label: t("shell.sections.all"),
       items: inboxItems.map((item) => ({ id: item.id, label: item.name })),
-      emptyLabel: "No items available for Inbox",
+      emptyLabel: t("shell.sections.noInboxItems"),
     },
   ];
+
+  // ---- Sidebar row actions (each row's "..." menu) ----
+  async function renameChat(chatId: string, name: string) {
+    setChats((current) => current.map((chat) => chat.id === chatId ? { ...chat, name } : chat));
+    await fetch(`/sessions/${encodeURIComponent(chatId)}/name`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    }).catch(() => undefined);
+  }
+
+  async function setChatProject(chatId: string, projectId: string | null) {
+    setChats((current) => current.map((chat) => chat.id === chatId ? { ...chat, project_id: projectId } : chat));
+    await fetch(`/sessions/${encodeURIComponent(chatId)}/project`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project_id: projectId }),
+    }).catch(() => undefined);
+  }
+
+  async function archiveChat(chatId: string) {
+    const response = await fetch(`/sessions/${encodeURIComponent(chatId)}/archive`, { method: "POST" }).catch(() => null);
+    if (!response?.ok) return;
+    setChats((current) => current.filter((chat) => chat.id !== chatId));
+    // Archiving the open chat leaves it for a new one.
+    if (chatId === (routeChatId ?? activeChatId)) {
+      setActiveChatId(null);
+      navigate("/new/chat");
+    }
+  }
+
+  async function renameProject(projectId: string, name: string) {
+    setProjects((current) => current.map((project) => project.id === projectId ? { ...project, name } : project));
+    await fetch(`/projects/${encodeURIComponent(projectId)}/name`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    }).catch(() => undefined);
+  }
+
+  // Deleting a project keeps its chats: they move back to Chats (backend).
+  async function deleteProject(project: Project) {
+    await fetch(`/projects/${encodeURIComponent(project.id)}`, { method: "DELETE" }).catch(() => undefined);
+    setProjects((current) => current.filter((item) => item.id !== project.id));
+    setChats((current) => current.map((chat) => chat.project_id === project.id ? { ...chat, project_id: null } : chat));
+    setProjectToDelete(null);
+  }
+
+  const chatMenu = (chat: Chat): readonly SidebarItemMenuEntry[] => [
+    { kind: "rename", id: "rename", label: t("common.rename"), icon: EditIcon },
+    {
+      kind: "submenu",
+      id: "project",
+      label: t("nav.chat.addToProject"),
+      icon: FolderIcon,
+      entries: [
+        // Picking the chat's current project again takes it out of the project.
+        ...projects.map((project) => ({
+          id: project.id,
+          label: project.name,
+          checked: chat.project_id === project.id,
+          onSelect: () => void setChatProject(chat.id, chat.project_id === project.id ? null : project.id),
+        })),
+        {
+          id: "new-project",
+          label: t("shell.rowMenu.newProject"),
+          onSelect: () => {
+            setChatForNewProject(chat.id);
+            setProjectError(null);
+            setNewProjectOpen(true);
+          },
+        },
+      ],
+    },
+    { kind: "separator", id: "separator" },
+    { kind: "action", id: "archive", label: t("common.archive"), icon: ArchiveIcon, destructive: true, onSelect: () => void archiveChat(chat.id) },
+  ];
+
+  const projectMenu = (project: Project): readonly SidebarItemMenuEntry[] => [
+    { kind: "rename", id: "rename", label: t("common.rename"), icon: EditIcon },
+    { kind: "separator", id: "separator" },
+    { kind: "action", id: "delete", label: t("common.delete"), icon: DeleteIcon, destructive: true, onSelect: () => setProjectToDelete(project) },
+  ];
+
+  const chatRow = (chat: Chat): SidebarSectionItem => ({
+    id: chat.id,
+    label: chat.name,
+    menu: chatMenu(chat),
+    onRename: (name: string) => void renameChat(chat.id, name),
+  });
 
   const chatsSidebarSections: readonly SidebarSection[] = [
     {
       id: "projects",
-      label: "Projects",
-      action: { label: "New project", icon: Plus, onSelect: () => { setProjectError(null); setNewProjectOpen(true); } },
-      items: projects.map((project) => ({ id: project.id, label: project.name })),
-      emptyLabel: "No projects available",
+      label: t("nav.projects"),
+      action: { label: t("nav.newProject.ariaLabel"), icon: Plus, onSelect: () => { setProjectError(null); setNewProjectOpen(true); } },
+      items: projects.map((project) => ({
+        id: project.id,
+        label: project.name,
+        menu: projectMenu(project),
+        onRename: (name: string) => void renameProject(project.id, name),
+        // A project expands to its chats.
+        children: chats.filter((chat) => chat.project_id === project.id).map(chatRow),
+        childrenEmptyLabel: t("shell.sections.noChats"),
+      })),
+      emptyLabel: t("shell.sections.noProjects"),
     },
     {
       id: "chats",
-      label: "Chats",
-      action: { label: "New chat", icon: Plus, onSelect: () => { setActiveChatId(null); } },
-      items: chats.map((chat) => ({ id: chat.id, label: chat.name })),
-      emptyLabel: "No chats available",
+      label: t("nav.chats"),
+      action: { label: t("common.newChat"), icon: Plus, onSelect: () => { setActiveChatId(null); } },
+      // Only chats outside a project; the rest are listed under their project.
+      items: chats.filter((chat) => !chat.project_id || !projects.some((project) => project.id === chat.project_id)).map(chatRow),
+      emptyLabel: t("shell.sections.noChats"),
     },
   ];
   const activeSidebarSurface = activeQuickAction === "inbox" || activeQuickAction === "chats"
     ? activeQuickAction
     : null;
+  // Changing this key fades the page out and the next one in. Not for the
+  // new-chat handoff (HomePage navigates with composeHandoff): its compose box
+  // has already moved into place, so the chat page takes over without a fade.
+  const surfaceKeyRef = useRef(`${location.pathname}:${location.key}`);
+  if (!(location.state as { composeHandoff?: boolean } | null)?.composeHandoff) {
+    surfaceKeyRef.current = `${location.pathname}:${location.key}`;
+  }
+  const redesignSurfaceKey = surfaceKeyRef.current;
+  // The chat shown in the top bar: the open one, on a chat route.
+  const topBarChat = routeChatId ? chats.find((chat) => chat.id === routeChatId) ?? null : null;
+  const topBarProject = topBarChat?.project_id ? projects.find((project) => project.id === topBarChat.project_id) ?? null : null;
 
   async function createProject() {
     const name = newProjectName.trim();
@@ -244,20 +576,21 @@ export function RedesignPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
       });
-      if (!response.ok) throw new Error("Could not create project.");
+      if (!response.ok) throw new Error(t("shell.newProject.error"));
       const project = await response.json() as Project;
       setProjects((current) => [...current, project]);
       setNewProjectName("");
       setNewProjectOpen(false);
+      if (chatForNewProject) void setChatProject(chatForNewProject, project.id);
+      setChatForNewProject(null);
     } catch (error) {
-      setProjectError(error instanceof Error ? error.message : "Could not create project.");
+      setProjectError(error instanceof Error ? error.message : t("shell.newProject.error"));
     } finally {
       setSaving(false);
     }
   }
 
-  async function createWorkspace() {
-    const name = newWorkspaceName.trim();
+  async function createWorkspace(name: string, logo: string | null, description: string | null, colorIndex: number | null) {
     if (!name || saving) return;
     setSaving(true);
     setWorkspaceError(null);
@@ -265,78 +598,284 @@ export function RedesignPage() {
       const response = await fetch("/workspaces", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, logo, description, color: colorIndex }),
       });
-      if (!response.ok) throw new Error("A workspace with that name may already exist.");
+      if (!response.ok) throw new Error(t("workspace.errors.nameExists"));
       const workspace = await response.json() as WorkspaceRecord;
       syncWorkspaces([...workspaces, workspace]);
       setWorkspaceId(workspace.id);
-      setNewWorkspaceName("");
       setNewWorkspaceOpen(false);
     } catch (error) {
-      setWorkspaceError(error instanceof Error ? error.message : "Could not create workspace.");
+      setWorkspaceError(error instanceof Error ? error.message : t("workspace.errors.create"));
     } finally {
       setSaving(false);
     }
   }
 
-  async function renameWorkspace(workspace: WorkspaceRecord) {
-    const name = workspaceNames[workspace.id]?.trim() ?? "";
-    if (!name || name === workspace.name || saving) return;
+  // Manage workspace's save: sends only the fields that changed.
+  async function updateWorkspace(workspace: WorkspaceRecord, change: WorkspaceChange) {
+    if (saving) return;
     setSaving(true);
     setWorkspaceError(null);
+    setWorkspaceNameTaken(false);
     try {
       const response = await fetch(`/workspaces/${encodeURIComponent(workspace.id)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify(change),
       });
-      if (!response.ok) throw new Error("Could not rename workspace.");
-      syncWorkspaces(workspaces.map((item) => item.id === workspace.id ? { ...item, name } : item));
+      setWorkspaceNameTaken(response.status === 409);
+      if (response.status === 409) throw new Error(t("workspace.errors.nameTaken"));
+      if (!response.ok) throw new Error(t("workspace.errors.save"));
+      syncWorkspaces(workspaces.map((item) => item.id === workspace.id ? { ...item, ...change, name: change.name ?? item.name } : item));
+      setManageWorkspacesOpen(false);
     } catch (error) {
-      setWorkspaceError(error instanceof Error ? error.message : "Could not rename workspace.");
+      setWorkspaceError(error instanceof Error ? error.message : t("workspace.errors.save"));
     } finally {
       setSaving(false);
     }
   }
 
   async function deleteWorkspace(workspace: WorkspaceRecord) {
-    if (workspace.is_personal || saving || !window.confirm(`Delete ${workspace.name}?`)) return;
+    if (saving) return;
     setSaving(true);
     setWorkspaceError(null);
+    setWorkspaceNameTaken(false);
     try {
       const response = await fetch(`/workspaces/${encodeURIComponent(workspace.id)}`, { method: "DELETE" });
-      if (!response.ok) throw new Error("Could not delete workspace.");
+      if (response.status === 409) throw new Error(t("workspace.errors.onlyWorkspace"));
+      if (!response.ok) throw new Error(t("workspace.errors.delete"));
+      // Moves to the first remaining workspace (syncWorkspaces).
       syncWorkspaces(workspaces.filter((item) => item.id !== workspace.id));
+      setManageWorkspacesOpen(false);
     } catch (error) {
-      setWorkspaceError(error instanceof Error ? error.message : "Could not delete workspace.");
+      setWorkspaceError(error instanceof Error ? error.message : t("workspace.errors.delete"));
     } finally {
       setSaving(false);
     }
   }
 
   const workspaceSectionActions: readonly WorkspaceMenuAction[] = [
-    { id: "new-workspace", label: "New Workspace", icon: Plus, onSelect: () => { setWorkspaceError(null); setNewWorkspaceOpen(true); } },
-    { id: "manage-workspace", label: "Manage workspace", icon: Settings01Icon, onSelect: () => { setWorkspaceError(null); setManageWorkspacesOpen(true); } },
+    { id: "new-workspace", label: t("workspace.new"), icon: Plus, onSelect: () => { setWorkspaceError(null); setNewWorkspaceOpen(true); } },
+    { id: "manage-workspace", label: t("workspace.manage"), icon: Settings01Icon, onSelect: () => { setWorkspaceError(null); setWorkspaceNameTaken(false); setManageWorkspacesOpen(true); } },
   ];
+  const commandMenuItems = useMemo<CommandMenuItemData[]>(() => [
+    {
+      value: "new-chat",
+      label: t("common.newChat"),
+      description: t("shell.commands.newChat.description"),
+      icon: Plus,
+      shortcut: "mod+n",
+      keywords: ["compose", "start", "conversation"],
+      group: t("shell.commands.group.actions"),
+      onSelect: () => {
+        setActiveChatId(null);
+        navigate("/new/chat");
+      },
+    },
+    {
+      value: "join-chat",
+      label: t("joinChat.title"),
+      description: t("shell.commands.joinChat.description"),
+      icon: LogIn,
+      keywords: ["share", "multiplayer", "code", "invite"],
+      group: t("shell.commands.group.actions"),
+      onSelect: () => setJoinOpen(true),
+    },
+    {
+      value: "new-project",
+      label: t("nav.newProject.ariaLabel"),
+      description: t("shell.commands.newProject.description"),
+      icon: Plus,
+      keywords: ["create", "organise", "workspace"],
+      group: t("shell.commands.group.actions"),
+      onSelect: () => {
+        setProjectError(null);
+        setNewProjectOpen(true);
+      },
+    },
+    {
+      value: "settings",
+      label: t("nav.settings"),
+      description: t("shell.commands.settings.description"),
+      icon: SettingsIcon,
+      shortcut: "mod+,",
+      keywords: ["preferences", "account"],
+      group: t("nav.settings"),
+      onSelect: () => navigate("/settings/general"),
+    },
+    // Each settings page on its own, straight to that page.
+    ...SETTINGS_COMMANDS.map(({ section, labelKey, icon, keywords }) => ({
+      value: `settings-${section}`,
+      label: t(labelKey),
+      description: t(`shell.commands.${section}.description`),
+      icon,
+      keywords: ["settings", ...keywords],
+      group: t("nav.settings"),
+      onSelect: () => navigate(`/settings/${section}`),
+    })),
+    ...chats.map((chat) => ({
+      value: `chat-${chat.id}`,
+      label: chat.name,
+      description: t("shell.commands.openChat"),
+      icon: MessageChatCircleIcon,
+      keywords: ["conversation", "recent"],
+      group: t("nav.chats"),
+      onSelect: () => {
+        if (chat.id === (routeChatId ?? activeChatId)) return;
+        setActiveChatId(chat.id);
+        navigate(`/chat/${chat.id}`);
+      },
+    })),
+  ], [activeChatId, chats, navigate, routeChatId, t]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all(
+      ["claude", "codex", "antigravity"].map((cli) =>
+        fetch(`/cli/${cli}/available`)
+          .then((response) => (response.ok ? (response.json() as Promise<{ available?: boolean }>) : null))
+          .then((data) => Boolean(data?.available))
+          .catch(() => false),
+      ),
+    ).then((ready) => {
+      if (!cancelled) setProviderReady(ready.some(Boolean));
+    });
+    // Any chat shared or joined through the relay (the host-embedded gateway is development-only now).
+    void fetch("/relay/shared")
+      .then((response) => (response.ok ? (response.json() as Promise<{ shared?: boolean }>) : null))
+      .then((data) => {
+        if (!cancelled) setSharedOnce(Boolean(data?.shared));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [location.pathname]);
+
+  // A step stays done once it has been done (deleting every chat or signing
+  // out later doesn't untick it), remembered on this device.
+  const liveDone: Record<GettingStartedStepId, boolean> = {
+    provider: providerReady,
+    message: chats.length > 0,
+    account: identity.signedIn,
+    multiplayer: sharedOnce,
+  };
+  // Closed with its X once every step was done; stays closed on this device.
+  const [gettingStartedDismissed, setGettingStartedDismissed] = useState(() => {
+    try {
+      return localStorage.getItem(GETTING_STARTED_DISMISSED_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const dismissGettingStarted = () => {
+    setGettingStartedDismissed(true);
+    try {
+      localStorage.setItem(GETTING_STARTED_DISMISSED_KEY, "1");
+    } catch {
+      // storage blocked: closed for this session
+    }
+  };
+  const [rememberedDone, setRememberedDone] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(GETTING_STARTED_DONE_KEY) ?? "[]") as string[];
+    } catch {
+      return [];
+    }
+  });
+  const newlyDone = GETTING_STARTED_STEP_IDS.filter((id) => liveDone[id] && !rememberedDone.includes(id));
+  useEffect(() => {
+    if (newlyDone.length === 0) return;
+    const next = [...rememberedDone, ...newlyDone];
+    setRememberedDone(next);
+    try {
+      localStorage.setItem(GETTING_STARTED_DONE_KEY, JSON.stringify(next));
+    } catch {
+      // storage blocked: still shown done while the live check holds
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newlyDone.join(",")]);
+  const steps = gettingStartedSteps(
+    t,
+    Object.fromEntries(GETTING_STARTED_STEP_IDS.map((id) => [id, liveDone[id] || rememberedDone.includes(id)])) as Record<GettingStartedStepId, boolean>,
+    {
+      provider: () => navigate("/settings/provider"),
+      message: () => navigate("/new/chat"),
+      account: () => (identity.signedIn ? navigate("/settings/profile") : openSignIn()),
+      // Sharing happens from a chat (/share there): the latest one, or a new one.
+      multiplayer: () => navigate(chats[0] ? `/chat/${chats[0].id}` : "/new/chat"),
+    },
+  );
 
   return (
+    <>
     <SplitView
       topBar={
         <AppTopBar
-          className="border-b border-[var(--redesign-sidebar-border)] bg-[var(--redesign-primary-surface)]"
+          // The sidebar's strip and its right-edge line in the top bar fade
+          // with the sidebar: out in 160ms as it closes, in over 240ms as it
+          // opens (spring.slow's exit and enter), instantly with reduced motion.
+          className={cn(
+            "border-b border-[var(--redesign-sidebar-border)] bg-background before:pointer-events-none before:absolute before:inset-y-0 before:left-0 before:w-[var(--redesign-sidebar-width)] before:bg-[var(--redesign-sidebar-surface)] after:pointer-events-none after:absolute after:inset-y-0 after:left-[calc(var(--redesign-sidebar-width)-1px)] after:w-px after:bg-[var(--redesign-sidebar-border)]",
+            "before:transition-opacity after:transition-opacity before:ease-out after:ease-out motion-reduce:before:transition-none motion-reduce:after:transition-none",
+            sidebarCollapsed && !isSettingsRoute
+              ? "before:opacity-0 after:opacity-0 before:duration-[160ms] after:duration-[160ms]"
+              : "before:opacity-100 after:opacity-100 before:duration-[240ms] after:duration-[240ms]",
+          )}
           controlsClassName="absolute right-[var(--redesign-top-bar-controls-right)] gap-1"
+          // The open chat's name (after its project, when it has one), at the
+          // content's left edge: the controls stay inside the sidebar's width
+          // even when it's collapsed, so this clears them either way.
+          // Fades out and in with the page content (same surface key and timing).
+          title={
+            <SidebarSurfaceTransition
+              surfaceKey={redesignSurfaceKey}
+              className="flex min-w-0 bg-transparent"
+              contentClassName="flex min-w-0 items-center"
+            >
+              {topBarChat ? (
+                <span className="flex min-w-0 items-center gap-1">
+                  {topBarProject && (
+                    <>
+                      <span className="truncate text-muted-foreground">{topBarProject.name}</span>
+                      <ChevronRight aria-hidden="true" className="size-3 shrink-0 text-muted-foreground" />
+                    </>
+                  )}
+                  <span className="truncate">{topBarChat.name}</span>
+                </span>
+              ) : null}
+            </SidebarSurfaceTransition>
+          }
+          // Share, at the right end, on a chat only.
+          actions={topBarChat ? (
+            <Button type="button" variant="tertiary" size="compact" leadingIcon={Share2} onClick={() => openShare(topBarChat.id)}>
+              {t("shareChat.button")}
+            </Button>
+          ) : null}
+          titleClassName="absolute left-[calc(var(--redesign-sidebar-width)+16px)] max-w-[min(32rem,calc(100%-var(--redesign-sidebar-width)-6rem))] font-normal"
           showNotifications={false}
           collapseButtonHover={false}
           collapsed={sidebarCollapsed}
+          canGoBack={appHistoryIndexRef.current > 0}
+          canGoForward={appHistoryIndexRef.current < appHistoryRef.current.length - 1}
+          onBack={goBackInApp}
+          onForward={goForwardInApp}
           onCollapseAll={() => setSidebarCollapsed(true)}
           onExpand={() => setSidebarCollapsed(false)}
         />
       }
-      sidebarCollapsed={sidebarCollapsed}
+      sidebarCollapsed={isSettingsRoute ? false : sidebarCollapsed}
+      onSidebarCollapsedChange={setSidebarCollapsed}
       sidebarContentClassName="!pb-2"
       sidebar={
-        <div className="flex h-full min-h-0 flex-col">
+        <SidebarSurfaceTransition
+          surfaceKey={isSettingsRoute ? "settings" : "chats"}
+          className="flex h-full min-h-0 w-full bg-[var(--redesign-sidebar-surface)]"
+          contentClassName="flex h-full min-h-0 w-full"
+        >
+          {isSettingsRoute ? <SettingsSidebarNav section={settingsSection} variant="redesign" /> :
+          <div className="flex h-full min-h-0 w-full min-w-0 flex-col">
           <div className="flex flex-col gap-[var(--redesign-quick-actions-gap)]">
             <div className="flex h-[var(--redesign-workspace-trigger-height)] items-center">
               <WorkspaceSelector
@@ -345,123 +884,174 @@ export function RedesignPage() {
                 onValueChange={setWorkspaceId}
                 workspaceSectionActions={workspaceSectionActions}
               actionSections={[]}
-                ariaLabel="Select workspace"
+                ariaLabel={t("shell.selectWorkspace")}
               />
               <button
                 type="button"
-                aria-label="Search"
-                className="ml-auto flex size-[var(--redesign-search-control-size)] shrink-0 items-center justify-center text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label={t("nav.search.ariaLabel")}
+                className={cn("ml-auto flex size-[var(--redesign-search-control-size)] shrink-0 items-center justify-center text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", PRESS_EFFECT, ICON_PRESS)}
               >
                 <Search aria-hidden="true" strokeWidth={2} className="size-[var(--redesign-search-icon-size)]" />
               </button>
             </div>
             <QuickActions
-              label="Quick actions"
+              label={t("shell.quickActions")}
               shortcut="K"
-              actions={QUICK_ACTIONS}
-              activeId={activeQuickAction}
+              actions={quickActions(t)}
+              activeId={location.pathname === "/new/chat" ? "chats" : undefined}
+              onOpen={() => setQuickActionsOpen(true)}
               onActionSelect={(actionId) => {
-                if (actionId === "chats") {
-                  setActiveChatId(null);
-                  setActiveQuickAction("chats");
+                if (actionId === "join") {
+                  setJoinOpen(true);
                   return;
                 }
-                setActiveQuickAction(actionId);
+                if (actionId === "chats") {
+                  // Already on an empty new chat: nothing to do. Navigating to
+                  // the same route would push a duplicate entry and re-render
+                  // the page for no change.
+                  if (location.pathname === "/new/chat" && !activeChatId) return;
+                  setActiveChatId(null);
+                  navigate("/new/chat");
+                }
               }}
             />
+          {/* A chat route and the new-chat composer share this exact sidebar.
+              Keying it by the route made clicking Chats fade and rebuild an
+              unchanged list; only switch its surface when the section itself
+              changes. */}
           {activeSidebarSurface && (
-            <SidebarSurfaceTransition surfaceKey={activeSidebarSurface}>
+            <SidebarSurfaceTransition surfaceKey={activeSidebarSurface} className="bg-[var(--redesign-sidebar-surface)]">
               <SidebarSections
                 sections={activeSidebarSurface === "inbox" ? inboxSidebarSections : chatsSidebarSections}
-                activeItemId={activeSidebarSurface === "chats" ? activeChatId ?? undefined : undefined}
+                activeItemId={activeSidebarSurface === "chats" ? routeChatId ?? activeChatId ?? undefined : undefined}
+                expandedIds={expandedProjects}
+                onToggleExpanded={toggleProjectExpanded}
                 onItemSelect={activeSidebarSurface === "chats" ? (itemId) => {
-                  if (chats.some((chat) => chat.id === itemId)) setActiveChatId(itemId);
+                  // Navigating to the exact same chat creates a new location key,
+                  // which in turn replays the routed chat surface. An active row
+                  // is already open, so it is deliberately a no-op.
+                  if (itemId === (routeChatId ?? activeChatId)) return;
+                  if (chats.some((chat) => chat.id === itemId)) {
+                    setActiveChatId(itemId);
+                    navigate(`/chat/${itemId}`);
+                  }
                 } : undefined}
               />
             </SidebarSurfaceTransition>
           )}
           </div>
           <footer className="mt-auto pt-[var(--redesign-sidebar-section-gap)]">
-            <GettingStartedSummary label="Getting Started" steps={GETTING_STARTED_STEPS} completedSteps={0} viewAllLabel="View all tasks" />
-            <div className="mt-[var(--redesign-sidebar-section-gap)] border-t border-[var(--redesign-sidebar-border)] pt-2">
-              <SidebarAccountFooter name="Guest" avatar={<DefaultAvatar name="Guest" />} actionSections={PROFILE_ACTION_SECTIONS} />
+            {/* #460: people waiting to be let into a chat this person shares. */}
+            <JoinRequestsCard enabled={identity.signedIn} />
+            {/* Collapses and fades out when closed. */}
+            <div
+              className={cn(
+                "grid transition-[grid-template-rows,opacity,margin] duration-200 ease-out motion-reduce:transition-none",
+                gettingStartedDismissed ? "-mb-[var(--redesign-sidebar-section-gap)] grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100",
+              )}
+              inert={gettingStartedDismissed}
+            >
+              <div className={cn("min-h-0", gettingStartedDismissed && "overflow-hidden")}>
+                <GettingStartedSummary
+                  label={t("shell.gettingStarted.label")}
+                  steps={steps}
+                  completedSteps={steps.filter((step) => step.complete).length}
+                  onDismiss={dismissGettingStarted}
+                />
+              </div>
+            </div>
+            <div className="-mx-[var(--redesign-sidebar-edge-padding)] mt-[var(--redesign-sidebar-section-gap)] border-t border-[var(--redesign-sidebar-border)] px-[var(--redesign-sidebar-edge-padding)] pt-2">
+              <SidebarAccountFooter
+                signedIn={identity.signedIn}
+                onSignIn={openSignIn}
+                name={identity.displayName ?? ""}
+                avatar={<DefaultAvatar name={identity.displayName ?? ""} />}
+                onOpenSettings={() => navigate("/settings/general")}
+                profileSections={profileMenuSections(t, () => navigate("/settings/profile"), () => signOut())}
+              />
             </div>
           </footer>
-        </div>
+          </div>}
+        </SidebarSurfaceTransition>
       }
-      contentClassName="flex min-h-0 overflow-hidden"
+      contentClassName="flex min-h-0 overflow-hidden bg-background"
     >
-      {activeQuickAction === "chats" && activeChat && redesignChatContext ? (
-        <ChatPage key={activeChat.id} sessionIdOverride={activeChat.id} shellContextOverride={redesignChatContext} />
-      ) : activeQuickAction === "chats" ? (
-        <HomePage shellContextOverride={redesignHomeContext} onSessionCreated={openCreatedChat} />
-      ) : (
-        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-          {null}
-        </div>
-      )}
-      <Dialog open={newWorkspaceOpen} onOpenChange={setNewWorkspaceOpen}>
-        <DialogContent>
+      <SidebarSurfaceTransition
+        className="flex min-h-0 flex-1 bg-background"
+        contentClassName="flex min-h-0 w-full flex-1 bg-background"
+        surfaceKey={redesignSurfaceKey}
+      >
+        {routedContent ?? (activeQuickAction === "chats" && activeChat && redesignChatContext ? (
+          <ChatPage key={activeChat.id} sessionIdOverride={activeChat.id} shellContextOverride={redesignChatContext} />
+        ) : activeQuickAction === "chats" ? (
+          <HomePage shellContextOverride={redesignHomeContext} onSessionCreated={openCreatedChat} />
+        ) : (
+          <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+            {null}
+          </div>
+        ))}
+      </SidebarSurfaceTransition>
+      <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} />
+      <ShareChatDialog sessionId={shareChatId} open={shareOpen} onOpenChange={setShareOpen} />
+      <JoinChatDialog open={joinOpen} onOpenChange={setJoinOpen} />
+      <CreateWorkspaceDialog
+        open={newWorkspaceOpen}
+        onOpenChange={setNewWorkspaceOpen}
+        onCreate={createWorkspace}
+        saving={saving}
+        error={workspaceError}
+      />
+      <ManageWorkspaceDialog
+        open={manageWorkspacesOpen}
+        onOpenChange={setManageWorkspacesOpen}
+        workspace={activeWorkspace}
+        onSave={(change) => updateWorkspace(activeWorkspace, change)}
+        onDelete={() => deleteWorkspace(activeWorkspace)}
+        canDelete={workspaces.length > 1}
+        saving={saving}
+        error={workspaceNameTaken ? null : workspaceError}
+        nameError={workspaceNameTaken ? workspaceError : null}
+      />
+      <Dialog open={projectToDelete !== null} onOpenChange={(open) => { if (!open) setProjectToDelete(null); }} backdropClassName="!z-[120]">
+        <DialogContent className="!z-[120]">
           <DialogHeader>
-            <DialogTitle>New Workspace</DialogTitle>
-            <DialogDescription>Create a separate place for your work.</DialogDescription>
+            <DialogTitle>{t("shell.deleteProject.title")}</DialogTitle>
+            <DialogDescription>{t("shell.deleteProject.description", { name: projectToDelete?.name ?? "" })}</DialogDescription>
           </DialogHeader>
-          <Input
-            autoFocus
-            value={newWorkspaceName}
-            onChange={(event) => setNewWorkspaceName(event.target.value)}
-            onKeyDown={(event) => { if (event.key === "Enter") void createWorkspace(); }}
-            placeholder="Workspace name"
-            maxLength={80}
-          />
-          {workspaceError && <p className="text-sm text-destructive">{workspaceError}</p>}
           <DialogFooter>
-            <Button type="button" onClick={() => void createWorkspace()} disabled={!newWorkspaceName.trim() || saving}>Create workspace</Button>
+            <Button type="button" variant="tertiary" onClick={() => setProjectToDelete(null)}>{t("common.cancel")}</Button>
+            <Button type="button" variant="primary" className="bg-destructive text-white" onClick={() => projectToDelete && void deleteProject(projectToDelete)}>
+              {t("shell.deleteProject.confirm")}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={manageWorkspacesOpen} onOpenChange={setManageWorkspacesOpen}>
-        <DialogContent className="max-h-[min(32rem,calc(100vh-2rem))] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Manage workspaces</DialogTitle>
-            <DialogDescription>Rename or remove the workspaces on this device.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            {workspaces.map((workspace) => (
-              <div key={workspace.id} className="flex items-center gap-2">
-                <Input
-                  value={workspaceNames[workspace.id] ?? workspace.name}
-                  disabled={workspace.is_personal || saving}
-                  onChange={(event) => setWorkspaceNames((current) => ({ ...current, [workspace.id]: event.target.value }))}
-                />
-                {!workspace.is_personal && <Button type="button" size="sm" variant="outline" disabled={saving} onClick={() => void renameWorkspace(workspace)}>Save</Button>}
-                {!workspace.is_personal && <Button type="button" size="sm" variant="destructive" disabled={saving} onClick={() => void deleteWorkspace(workspace)}>Delete</Button>}
-              </div>
-            ))}
-          </div>
-          {workspaceError && <p className="text-sm text-destructive">{workspaceError}</p>}
-        </DialogContent>
-      </Dialog>
-      <Dialog open={newProjectOpen} onOpenChange={setNewProjectOpen}>
+      <Dialog open={newProjectOpen} onOpenChange={(open) => { setNewProjectOpen(open); if (!open) setChatForNewProject(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>New project</DialogTitle>
-            <DialogDescription>Create a project to organise related chats.</DialogDescription>
+            <DialogTitle>{t("nav.newProject.ariaLabel")}</DialogTitle>
+            <DialogDescription>{t("shell.newProject.description")}</DialogDescription>
           </DialogHeader>
           <Input
             autoFocus
             value={newProjectName}
             onChange={(event) => setNewProjectName(event.target.value)}
             onKeyDown={(event) => { if (event.key === "Enter") void createProject(); }}
-            placeholder="Project name"
+            placeholder={t("shell.newProject.placeholder")}
             maxLength={80}
           />
           {projectError && <p className="text-sm text-destructive">{projectError}</p>}
           <DialogFooter>
-            <Button type="button" onClick={() => void createProject()} disabled={!newProjectName.trim() || saving}>Create project</Button>
+            <Button type="button" onClick={() => void createProject()} disabled={!newProjectName.trim() || saving}>{t("shell.newProject.create")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </SplitView>
+    <CommandMenuDemo
+      open={quickActionsOpen}
+      onOpenChange={setQuickActionsOpen}
+      items={commandMenuItems}
+    />
+    </>
   );
 }

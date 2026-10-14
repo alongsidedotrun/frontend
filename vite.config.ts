@@ -30,6 +30,10 @@ export default defineConfig({
       "/identity": "http://127.0.0.1:3000",
       // Joining chats hosted on other machines (backend/src/remote.rs).
       "/remote": "http://127.0.0.1:3000",
+      // Whether any chat here was shared or joined through the relay, for
+      // Getting started (backend/src/relay_endpoints.rs). Per-chat relay
+      // routes are under /sessions.
+      "/relay": "http://127.0.0.1:3000",
       // Secure local-storage onboarding and route gating. Without this
       // prefix, Vite serves index.html for /storage/* and the JSON parse
       // failure makes SecureAppRoute redirect back into onboarding.
@@ -46,6 +50,8 @@ export default defineConfig({
       // built, not a new regression today.
       "/projects": "http://127.0.0.1:3000",
       "/workspaces": "http://127.0.0.1:3000",
+      // Each provider CLI's own model list (backend/src/models.rs).
+      "/models": "http://127.0.0.1:3000",
       "/inbox-items": "http://127.0.0.1:3000",
       "/inbox-mentions": "http://127.0.0.1:3000",
       "/search": "http://127.0.0.1:3000",
@@ -90,16 +96,6 @@ export default defineConfig({
       "/settings/autocompact-scope": "http://127.0.0.1:3000",
       "/settings/autocompact-global": "http://127.0.0.1:3000",
       "/secrets": "http://127.0.0.1:3000",
-      // AuthPage.tsx's own "Continue with email" flow (Story #239) --
-      // confirmed directly as the exact same class of gap this file's own
-      // comment above already names: without an entry here, /auth/
-      // check-email, /auth/signup, /auth/login all silently fell through to
-      // Vite's own SPA catch-all (200 OK, text/html) instead of reaching
-      // the backend, which surfaced in the UI as "Could not reach the
-      // server" even though the backend itself was healthy.
-      "/auth/check-email": "http://127.0.0.1:3000",
-      "/auth/signup": "http://127.0.0.1:3000",
-      "/auth/login": "http://127.0.0.1:3000",
       // Real bug, confirmed directly via a real console error ("The string
       // did not match the expected pattern" -- WebKit's own JSON.parse
       // failure wording for non-JSON input): the exact same recurring gap

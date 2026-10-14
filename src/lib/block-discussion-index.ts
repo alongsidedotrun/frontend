@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import i18n from '@/i18n';
 
 import type { TResolvedSuggestion } from '@platejs/suggestion';
 import type { PlateEditor } from 'platejs/react';
@@ -172,11 +173,11 @@ const formatSuggestionDateText = (date: string) => {
     left.getMonth() === right.getMonth() &&
     left.getFullYear() === right.getFullYear();
 
-  if (sameDay(elementDate, today)) return 'Today';
-  if (sameDay(elementDate, yesterday)) return 'Yesterday';
-  if (sameDay(elementDate, tomorrow)) return 'Tomorrow';
+  if (sameDay(elementDate, today)) return i18n.t('editor.date.today');
+  if (sameDay(elementDate, yesterday)) return i18n.t('editor.date.yesterday');
+  if (sameDay(elementDate, tomorrow)) return i18n.t('editor.date.tomorrow');
 
-  return elementDate.toLocaleDateString(undefined, {
+  return elementDate.toLocaleDateString(i18n.language, {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
