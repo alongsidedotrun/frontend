@@ -46,7 +46,6 @@ import {
   XIcon,
 } from "@/components/icons/untitled-ui";
 import { ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
-import { Play } from "lucide-react";
 import { RELAY_JOIN_REQUESTED_EVENT } from "@/lib/use-share";
 
 // Provider brand names, as another participant's run reports which one it ran on (#462). Not translated.
@@ -99,7 +98,7 @@ type ChatRow =
       // resend the exact same attempt, attachments included.
       failed?: { errorText: string; images: ImageAttachment[]; effort: EffortLevel };
       // #462: a message that came through the relay -- its sequence there, and whether it's this
-      // person's own. Someone else's can be run with this person's own agent ("Run with my agent").
+      // person's own. Someone else's has no Resend or Edit here.
       relaySequence?: number;
       mine?: boolean;
     }
@@ -2013,19 +2012,6 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     return () => window.clearInterval(interval);
   }, [waitingPhase]);
 
-  // #462: runs someone else's shared message with this person's own agent (the compose box's current
-  // provider), on this machine and account. Their output reaches everyone through the relay.
-  async function runWithMyAgent(row: Extract<ChatRow, { kind: "human" }>) {
-    if (!sessionId || row.relaySequence === undefined) return;
-    const provider = modelRef.current.provider.toLowerCase();
-    const res = await fetch(`/sessions/${sessionId}/relay/run`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message_sequence: row.relaySequence, provider }),
-    }).catch(() => null);
-    if (!res?.ok) pushRow({ kind: "command", id: nextRowId(), text: i18n.t("chat.errors.runWithMyAgent"), time: messageTime() });
-  }
-
   async function sendMessage(
     text: string,
     images: ImageAttachment[] = [],
@@ -2549,7 +2535,6 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                   onRetryFailedMessage={retryFailedMessage}
                   onResendMessage={resendMessage}
                   onEditMessage={editMessage}
-                  onRunWithMyAgent={(row) => void runWithMyAgent(row)}
                   onSwitchBranch={switchBranch}
                   onOpenFile={openFile}
                   toolGroup={groupStarts.get(row.id)}
@@ -2783,7 +2768,6 @@ function ChatRowView({
   onRetryFailedMessage,
   onResendMessage,
   onEditMessage,
-  onRunWithMyAgent,
   onSwitchBranch,
   onOpenFile,
   toolGroup,
@@ -2796,7 +2780,6 @@ function ChatRowView({
   onRetryFailedMessage: (row: Extract<ChatRow, { kind: "human" }>) => void;
   onResendMessage: (row: Extract<ChatRow, { kind: "human" }>) => void;
   onEditMessage: (row: Extract<ChatRow, { kind: "human" }>) => void;
-  onRunWithMyAgent: (row: Extract<ChatRow, { kind: "human" }>) => void;
   onSwitchBranch: (group: string, index: number) => void;
   onOpenFile: (path: string) => void;
   // Set only on the first row of a run of consecutive same-kind Write/Edit
@@ -3060,22 +3043,10 @@ function ChatRowView({
                   </TooltipTrigger>
                   <TooltipContent>{t("chat.cancelEdit")}</TooltipContent>
                 </Tooltip>
-              ) : row.mine === false && row.relaySequence !== undefined ? (
-                // #462: someone else's message in a shared chat -- not this person's to resend or edit,
-                // but theirs to run with their own agent.
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      aria-label={t("chat.runWithMyAgent")}
-                      onClick={() => onRunWithMyAgent(row)}
-                      className="flex size-5 items-center justify-center rounded-md text-muted-foreground outline-hidden transition-transform duration-100 ease-out hover:bg-hover-2/50 hover:text-foreground active:scale-[0.97]"
-                    >
-                      <Play className="size-3" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>{t("chat.runWithMyAgent")}</TooltipContent>
-                </Tooltip>
+              ) : row.mine === false ? (
+                // #462: someone else's message in a shared chat: not this person's to resend, edit or run
+                // (a personal provider account answers only its owner's own messages).
+                null
               ) : (
                 <>
                   <Tooltip>
