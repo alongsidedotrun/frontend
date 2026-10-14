@@ -6,6 +6,7 @@ import {
 } from "@/components/ui/dropdown";
 import { NotificationsMenuItems } from "@/components/nav-user";
 import { useTranslation } from "react-i18next";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
 
@@ -35,8 +36,8 @@ export function AppTopBar({
   controlsClassName?: string;
   showNotifications?: boolean;
   collapseButtonHover?: boolean;
-  /** Contextual name for the active content, such as its project. */
-  title?: string;
+  /** Contextual name for the active content, such as its project and chat. */
+  title?: ReactNode;
   titleClassName?: string;
 }) {
   const { t } = useTranslation();

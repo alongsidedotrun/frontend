@@ -5,7 +5,7 @@ import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
 import { useLocation, useNavigate, useOutlet } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { CircleArrowUp, CircleHelp, Plus, Search, ShieldCheck } from "lucide-react";
+import { ChevronRight, CircleArrowUp, CircleHelp, Plus, Search, ShieldCheck } from "lucide-react";
 import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
 import { CreateWorkspaceDialog } from "@/components/design-system/create-workspace-dialog";
 import { SignInDialog } from "@/components/design-system/sign-in-dialog";
@@ -14,11 +14,11 @@ import { useIdentity } from "@/lib/identity";
 import { signOut } from "@/lib/auth";
 import { moveLocalWorkspaceDetailsToBackend } from "@/lib/workspace-logos";
 import { ManageWorkspaceDialog, type WorkspaceChange } from "@/components/design-system/manage-workspace-dialog";
-import { BubbleChatIcon, IntegrationsIcon, LogOutIcon, MessageChatCircleIcon, PaletteIcon, ProvidersIcon, Settings01Icon, SettingsIcon, UserIcon } from "@/components/icons/untitled-ui";
+import { ArchiveIcon, BubbleChatIcon, DeleteIcon, EditIcon, FolderIcon, IntegrationsIcon, LogOutIcon, MessageChatCircleIcon, PaletteIcon, ProvidersIcon, Settings01Icon, SettingsIcon, UserIcon } from "@/components/icons/untitled-ui";
 import { SplitView } from "@/components/design-system/split-view";
 import { AppTopBar } from "@/components/app-top-bar";
 import { QuickActions, type QuickActionItem } from "@/components/design-system/quick-actions";
-import { SidebarSections, type SidebarSection } from "@/components/design-system/sidebar-sections";
+import { SidebarSections, type SidebarItemMenuEntry, type SidebarSection } from "@/components/design-system/sidebar-sections";
 import { SidebarSurfaceTransition } from "@/components/design-system/sidebar-surface-transition";
 import { GettingStartedSummary, SidebarAccountFooter, type GettingStartedStep } from "@/components/design-system/sidebar-footer";
 import { SettingsSidebarNav, type SettingsSection } from "@/components/settings-overlay";
@@ -184,6 +184,10 @@ export function RedesignPage() {
   // Getting started's own checks: any provider CLI connected, and hosting on
   // (a chat shared). Re-read on each navigation; both are cheap local calls.
   const [providerReady, setProviderReady] = useState(false);
+  // Sidebar row menus: the project awaiting delete confirmation, and the chat
+  // to add to the project being created from its "New project…" entry.
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const [chatForNewProject, setChatForNewProject] = useState<string | null>(null);
   const [hostingOn, setHostingOn] = useState(false);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
@@ -219,7 +223,7 @@ export function RedesignPage() {
   const activeChat = chats.find((chat) => chat.id === (routeChatId ?? activeChatId)) ?? null;
   const routedContent = useOutlet({
     chatName: activeChat?.name ?? t("shell.untitledChat"),
-    contextLabel: activeChat?.name ?? t("shell.untitledChat"),
+    // No contextLabel: the chat's name (and project) shows in the top bar.
     receiveChatNameFromServer: (name: string) => {
       const chatId = routeChatId ?? activeChatId;
       if (!chatId) return;
@@ -337,7 +341,6 @@ export function RedesignPage() {
 
   const redesignChatContext: ChatPageShellContext | undefined = activeChat ? {
     chatName: activeChat.name,
-    contextLabel: activeChat.name,
     receiveChatNameFromServer: (name) => {
       setChats((current) => current.map((chat) => chat.id === activeChat.id ? { ...chat, name } : chat));
     },
@@ -384,19 +387,112 @@ export function RedesignPage() {
     },
   ];
 
+  // ---- Sidebar row actions (each row's "..." menu) ----
+  async function renameChat(chatId: string, name: string) {
+    setChats((current) => current.map((chat) => chat.id === chatId ? { ...chat, name } : chat));
+    await fetch(`/sessions/${encodeURIComponent(chatId)}/name`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    }).catch(() => undefined);
+  }
+
+  async function setChatProject(chatId: string, projectId: string | null) {
+    setChats((current) => current.map((chat) => chat.id === chatId ? { ...chat, project_id: projectId } : chat));
+    await fetch(`/sessions/${encodeURIComponent(chatId)}/project`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project_id: projectId }),
+    }).catch(() => undefined);
+  }
+
+  async function archiveChat(chatId: string) {
+    const response = await fetch(`/sessions/${encodeURIComponent(chatId)}/archive`, { method: "POST" }).catch(() => null);
+    if (!response?.ok) return;
+    setChats((current) => current.filter((chat) => chat.id !== chatId));
+    // Archiving the open chat leaves it for a new one.
+    if (chatId === (routeChatId ?? activeChatId)) {
+      setActiveChatId(null);
+      navigate("/new/chat");
+    }
+  }
+
+  async function renameProject(projectId: string, name: string) {
+    setProjects((current) => current.map((project) => project.id === projectId ? { ...project, name } : project));
+    await fetch(`/projects/${encodeURIComponent(projectId)}/name`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    }).catch(() => undefined);
+  }
+
+  // Deleting a project keeps its chats: they move back to Chats (backend).
+  async function deleteProject(project: Project) {
+    await fetch(`/projects/${encodeURIComponent(project.id)}`, { method: "DELETE" }).catch(() => undefined);
+    setProjects((current) => current.filter((item) => item.id !== project.id));
+    setChats((current) => current.map((chat) => chat.project_id === project.id ? { ...chat, project_id: null } : chat));
+    setProjectToDelete(null);
+  }
+
+  const chatMenu = (chat: Chat): readonly SidebarItemMenuEntry[] => [
+    { kind: "rename", id: "rename", label: t("common.rename"), icon: EditIcon },
+    {
+      kind: "submenu",
+      id: "project",
+      label: t("nav.chat.addToProject"),
+      icon: FolderIcon,
+      entries: [
+        // Picking the chat's current project again takes it out of the project.
+        ...projects.map((project) => ({
+          id: project.id,
+          label: project.name,
+          checked: chat.project_id === project.id,
+          onSelect: () => void setChatProject(chat.id, chat.project_id === project.id ? null : project.id),
+        })),
+        {
+          id: "new-project",
+          label: t("shell.rowMenu.newProject"),
+          onSelect: () => {
+            setChatForNewProject(chat.id);
+            setProjectError(null);
+            setNewProjectOpen(true);
+          },
+        },
+      ],
+    },
+    { kind: "separator", id: "separator" },
+    { kind: "action", id: "archive", label: t("common.archive"), icon: ArchiveIcon, destructive: true, onSelect: () => void archiveChat(chat.id) },
+  ];
+
+  const projectMenu = (project: Project): readonly SidebarItemMenuEntry[] => [
+    { kind: "rename", id: "rename", label: t("common.rename"), icon: EditIcon },
+    { kind: "separator", id: "separator" },
+    { kind: "action", id: "delete", label: t("common.delete"), icon: DeleteIcon, destructive: true, onSelect: () => setProjectToDelete(project) },
+  ];
+
   const chatsSidebarSections: readonly SidebarSection[] = [
     {
       id: "projects",
       label: t("nav.projects"),
       action: { label: t("nav.newProject.ariaLabel"), icon: Plus, onSelect: () => { setProjectError(null); setNewProjectOpen(true); } },
-      items: projects.map((project) => ({ id: project.id, label: project.name })),
+      items: projects.map((project) => ({
+        id: project.id,
+        label: project.name,
+        menu: projectMenu(project),
+        onRename: (name: string) => void renameProject(project.id, name),
+      })),
       emptyLabel: t("shell.sections.noProjects"),
     },
     {
       id: "chats",
       label: t("nav.chats"),
       action: { label: t("common.newChat"), icon: Plus, onSelect: () => { setActiveChatId(null); } },
-      items: chats.map((chat) => ({ id: chat.id, label: chat.name })),
+      items: chats.map((chat) => ({
+        id: chat.id,
+        label: chat.name,
+        menu: chatMenu(chat),
+        onRename: (name: string) => void renameChat(chat.id, name),
+      })),
       emptyLabel: t("shell.sections.noChats"),
     },
   ];
@@ -411,6 +507,9 @@ export function RedesignPage() {
     surfaceKeyRef.current = `${location.pathname}:${location.key}`;
   }
   const redesignSurfaceKey = surfaceKeyRef.current;
+  // The chat shown in the top bar: the open one, on a chat route.
+  const topBarChat = routeChatId ? chats.find((chat) => chat.id === routeChatId) ?? null : null;
+  const topBarProject = topBarChat?.project_id ? projects.find((project) => project.id === topBarChat.project_id) ?? null : null;
 
   async function createProject() {
     const name = newProjectName.trim();
@@ -428,6 +527,8 @@ export function RedesignPage() {
       setProjects((current) => [...current, project]);
       setNewProjectName("");
       setNewProjectOpen(false);
+      if (chatForNewProject) void setChatProject(chatForNewProject, project.id);
+      setChatForNewProject(null);
     } catch (error) {
       setProjectError(error instanceof Error ? error.message : t("shell.newProject.error"));
     } finally {
@@ -643,6 +744,21 @@ export function RedesignPage() {
               : "before:opacity-100 after:opacity-100 before:duration-[240ms] after:duration-[240ms]",
           )}
           controlsClassName="absolute right-[var(--redesign-top-bar-controls-right)] gap-1"
+          // The open chat's name (after its project, when it has one), at the
+          // content's left edge: the controls stay inside the sidebar's width
+          // even when it's collapsed, so this clears them either way.
+          title={topBarChat ? (
+            <span className="flex min-w-0 items-center gap-1">
+              {topBarProject && (
+                <>
+                  <span className="truncate text-muted-foreground">{topBarProject.name}</span>
+                  <ChevronRight aria-hidden="true" className="size-3 shrink-0 text-muted-foreground" />
+                </>
+              )}
+              <span className="truncate">{topBarChat.name}</span>
+            </span>
+          ) : undefined}
+          titleClassName="absolute left-[calc(var(--redesign-sidebar-width)+16px)] max-w-[min(32rem,calc(100%-var(--redesign-sidebar-width)-6rem))] font-normal"
           showNotifications={false}
           collapseButtonHover={false}
           collapsed={sidebarCollapsed}
@@ -775,7 +891,21 @@ export function RedesignPage() {
         error={workspaceNameTaken ? null : workspaceError}
         nameError={workspaceNameTaken ? workspaceError : null}
       />
-      <Dialog open={newProjectOpen} onOpenChange={setNewProjectOpen}>
+      <Dialog open={projectToDelete !== null} onOpenChange={(open) => { if (!open) setProjectToDelete(null); }} backdropClassName="!z-[120]">
+        <DialogContent className="!z-[120]">
+          <DialogHeader>
+            <DialogTitle>{t("shell.deleteProject.title")}</DialogTitle>
+            <DialogDescription>{t("shell.deleteProject.description", { name: projectToDelete?.name ?? "" })}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="tertiary" onClick={() => setProjectToDelete(null)}>{t("common.cancel")}</Button>
+            <Button type="button" variant="primary" className="bg-destructive text-white" onClick={() => projectToDelete && void deleteProject(projectToDelete)}>
+              {t("shell.deleteProject.confirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={newProjectOpen} onOpenChange={(open) => { setNewProjectOpen(open); if (!open) setChatForNewProject(null); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("nav.newProject.ariaLabel")}</DialogTitle>
