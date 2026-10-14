@@ -4180,6 +4180,15 @@ export const translations = {
     zh: "连接 Claude、Codex 或 Antigravity，开始使用它们的模型。",
     ja: "Claude、Codex、Antigravity を接続してモデルを使い始めましょう。",
   },
+  "shell.gettingStarted.dismiss": {
+    en: "Close Getting started",
+    "pt-BR": "Fechar Primeiros passos",
+    es: "Cerrar Primeros pasos",
+    fr: "Fermer Premiers pas",
+    de: "Erste Schritte schließen",
+    zh: "关闭入门",
+    ja: "はじめにを閉じる",
+  },
   "shell.gettingStarted.startTask": {
     en: "Start task",
     "pt-BR": "Iniciar tarefa",
