@@ -130,11 +130,15 @@
      from ~1200px. Labels and timestamps sit one pixel under. */
   --redesign-chat-text: clamp(0.75rem, calc(0.625rem + 0.25vw), 0.8125rem);
   --redesign-chat-meta: clamp(0.6875rem, calc(0.5625rem + 0.25vw), 0.75rem);
-  /* Corners that look like the app's 8px controls at a larger size: 8px on
-     a 27px control, kept in that proportion to a one-line message bubble
-     (text line + 20px padding), ~12px. Multi-line bubbles keep the one-line
-     corner, so the look doesn't change as a message grows. */
-  --redesign-chat-bubble-radius: calc((var(--redesign-chat-text) * 1.625 + 1.25rem) * 8 / 27);
+  /* Message bubbles pad like the sidebar's active rows: the same inline
+     padding, and block padding that makes a one-line bubble exactly a row
+     tall. Multi-line bubbles grow from there. */
+  --redesign-chat-bubble-padding-x: var(--redesign-quick-actions-padding);
+  --redesign-chat-bubble-padding-y: max(0.25rem, calc((var(--redesign-quick-actions-row-height) - var(--redesign-chat-text) * 1.625) / 2));
+  /* Corners that look like the app's 8px controls at any size: 8px on a
+     27px control, kept in that proportion to a one-line bubble. Multi-line
+     bubbles keep the one-line corner. */
+  --redesign-chat-bubble-radius: calc((var(--redesign-chat-text) * 1.625 + 2 * var(--redesign-chat-bubble-padding-y)) * 8 / 27);
   --redesign-font-size-sm: 0.875rem;
   --redesign-font-size-md: 1rem;
   --redesign-font-size-lg: 1.125rem;

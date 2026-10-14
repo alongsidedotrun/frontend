@@ -2889,7 +2889,7 @@ function ChatRowView({
               --foreground comment has the full history), so this is now a literal
               shared token rather than two colors that happened to match. */}
           <div
-            className={`rounded-[var(--redesign-chat-bubble-radius)] px-3.5 py-2.5 text-[length:var(--redesign-chat-text)] leading-relaxed whitespace-pre-wrap text-foreground ${
+            className={`rounded-[var(--redesign-chat-bubble-radius)] px-[var(--redesign-chat-bubble-padding-x)] py-[var(--redesign-chat-bubble-padding-y)] text-[length:var(--redesign-chat-text)] leading-relaxed whitespace-pre-wrap text-foreground ${
               row.failed ? "border border-destructive/40" : ""
             } bg-accent`}
           >
