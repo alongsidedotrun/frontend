@@ -198,7 +198,8 @@ function SidebarRow({
   const Icon = item.icon;
   const rowClass = cn(
     "flex h-[var(--redesign-quick-actions-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-left text-[length:var(--redesign-sidebar-primary-font-size)] font-normal text-muted-foreground transition-colors",
-    (active || menuOpen) && "bg-muted font-medium text-foreground",
+    // Only the open chat looks selected; opening a row's "..." menu doesn't.
+    active && "bg-muted font-medium text-foreground",
     // Children sit indented under their parent.
     nested && "pl-[calc(var(--redesign-quick-actions-padding)+12px)]",
   );
