@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { useIsSignedIn } from "@/lib/auth";
 import { ErrorText } from "@/lib/error-code";
 import { SHARE_ERRORS } from "@/lib/use-share";
+import { useJoinRequests, type WaitingJoin } from "@/lib/use-join-requests";
 import { openSignInDialog } from "@/lib/use-sign-in";
 import { cn } from "@/lib/utils";
 
@@ -45,6 +46,8 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
   const [copied, setCopied] = useState<"id" | "code" | null>(null);
   const [now, setNow] = useState(nowSeconds);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // #460: people who asked to join this chat and are waiting for someone to let them in.
+  const waiting = useJoinRequests(sessionId, open && phase === "sharing");
 
   const refreshAccess = useCallback(async () => {
     if (!sessionId) return;
@@ -194,6 +197,12 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
     await refreshAccess();
   }
 
+  async function decideJoin(request: WaitingJoin, action: "approve" | "deny") {
+    setError(null);
+    if (!(await waiting.decide(request, action))) setError(t("joinRequests.errors.decide", { name: request.name }));
+    await refreshAccess();
+  }
+
   async function revokeCode() {
     if (!sessionId) return;
     await fetch(`/sessions/${sessionId}/relay/code`, { method: "DELETE" }).catch(() => null);
@@ -300,7 +309,7 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
             </div>
           </div>
 
-          <WhoHasAccess members={members} code={code} now={now} sharing={phase === "sharing"} onRevoke={() => void revokeCode()} onRemove={(member) => void removeMember(member)} />
+          <WhoHasAccess members={members} waiting={waiting.requests} code={code} now={now} sharing={phase === "sharing"} onRevoke={() => void revokeCode()} onRemove={(member) => void removeMember(member)} onDecide={(request, action) => void decideJoin(request, action)} />
         </div>
       </DialogContent>
     </Dialog>
@@ -325,7 +334,25 @@ function CopyField({ label, value, copied, onCopy }: { label: string; value: str
 }
 
 /** The right pane: the people in the chat, and the live join code with Revoke. */
-function WhoHasAccess({ members, code, now, sharing, onRevoke, onRemove }: { members: Member[]; code: JoinCode; now: number; sharing: boolean; onRevoke: () => void; onRemove: (member: Member) => void }) {
+function WhoHasAccess({
+  members,
+  waiting,
+  code,
+  now,
+  sharing,
+  onRevoke,
+  onRemove,
+  onDecide,
+}: {
+  members: Member[];
+  waiting: WaitingJoin[];
+  code: JoinCode;
+  now: number;
+  sharing: boolean;
+  onRevoke: () => void;
+  onRemove: (member: Member) => void;
+  onDecide: (request: WaitingJoin, action: "approve" | "deny") => void;
+}) {
   const { t } = useTranslation();
   // The member whose removal is waiting for a second click.
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -378,8 +405,27 @@ function WhoHasAccess({ members, code, now, sharing, onRevoke, onRemove }: { mem
                 )}
               </li>
             ))}
-            {members.length <= 1 && <li className="text-[12px] text-muted-foreground">{t("shareChat.access.onlyYou")}</li>}
+            {members.length <= 1 && waiting.length === 0 && <li className="text-[12px] text-muted-foreground">{t("shareChat.access.onlyYou")}</li>}
           </ul>
+          {waiting.length > 0 && (
+            <div className="flex flex-col gap-1 border-t border-[var(--redesign-sidebar-border)] pt-3">
+              <h4 className="text-[12px] text-muted-foreground">{t("shareChat.access.waiting")}</h4>
+              <ul className="flex flex-col gap-1">
+                {waiting.map((request) => (
+                  <li key={request.request_id} className="flex h-8 items-center gap-2.5">
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-medium text-foreground">{request.name.slice(0, 1).toUpperCase()}</span>
+                    <span className="min-w-0 flex-1 truncate text-[13px] text-foreground">{request.name}</span>
+                    <Button type="button" variant="ghost" size="compact" onClick={() => onDecide(request, "deny")}>
+                      {t("joinRequests.deny")}
+                    </Button>
+                    <Button type="button" variant="primary" size="compact" onClick={() => onDecide(request, "approve")}>
+                      {t("joinRequests.letIn")}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div className="flex h-8 items-center justify-between gap-2 border-t border-[var(--redesign-sidebar-border)] pt-3">
             <span className="text-[13px] text-foreground">{t("shareChat.joinCode")}</span>
             <span className="flex items-center gap-2 text-[12px] text-muted-foreground">

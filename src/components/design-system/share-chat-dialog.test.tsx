@@ -15,9 +15,10 @@ const inFifteen = () => Math.floor(Date.now() / 1000) + 15 * 60;
 
 // A backend for one chat: not shared until started (asking for the disclosure
 // first), then a chat ID, a code and two members.
-function backend(options: { sharedBefore?: boolean; startError?: string; staysDisconnected?: boolean; removeFails?: boolean } = {}) {
+function backend(options: { sharedBefore?: boolean; startError?: string; staysDisconnected?: boolean; removeFails?: boolean; waiting?: boolean } = {}) {
   let syncing = false;
   let code: { code: string; status: string; expires_at: number } | null = null;
+  let waiting = options.waiting ? [{ request_id: "req-1", actor: "acct-bob", name: "Bob", created_at: 0, expires_at: 0 }] : [];
   let members = [{ id: "acct-gio", name: "Gio", role: "owner", online: true }, { id: "acct-alice", name: "Alice", role: "editor", online: false }];
   return mockFetch(({ method, path, body }) => {
     if (path === `/sessions/${CHAT}/relay/status`) return { body: { syncing, chat_id: syncing || options.sharedBefore ? "7KQ2M-9XF4T" : null } };
@@ -40,6 +41,12 @@ function backend(options: { sharedBefore?: boolean; startError?: string; staysDi
     if (path === `/sessions/${CHAT}/relay/members/acct-alice` && method === "DELETE") {
       if (options.removeFails) return { status: 502, body: { error: "relay_request_failed" } };
       members = members.filter((m) => m.id !== "acct-alice");
+      return { status: 204 };
+    }
+    if (path === `/sessions/${CHAT}/relay/join-requests`) return { body: waiting };
+    if (path === `/sessions/${CHAT}/relay/join-requests/req-1/approve` && method === "POST") {
+      waiting = [];
+      members = [...members, { id: "acct-bob", name: "Bob", role: "editor", online: false }];
       return { status: 204 };
     }
     if (path === `/sessions/${CHAT}/relay/stop`) {
@@ -162,5 +169,17 @@ describe("Share chat dialog (#213, #459)", () => {
     await userEvent.click(screen.getByRole("button", { name: "Remove from chat" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't remove Alice. Try again. (ALS-026)");
     expect(screen.getByText("Alice")).toBeInTheDocument();
+  });
+
+  it("lists who is waiting to join, and lets them in", async () => {
+    const calls = backend({ waiting: true });
+    renderDialog();
+    await userEvent.click(await screen.findByRole("button", { name: "Start sharing" }));
+    await userEvent.click(await screen.findByRole("button", { name: /agree/i }));
+    expect(await screen.findByText("Waiting to join")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Let in" }));
+    await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.path.endsWith("/join-requests/req-1/approve"))).toBe(true));
+    expect(await screen.findByText("Bob")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText("Waiting to join")).not.toBeInTheDocument());
   });
 });

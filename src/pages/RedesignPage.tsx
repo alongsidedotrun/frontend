@@ -11,6 +11,7 @@ import { CreateWorkspaceDialog } from "@/components/design-system/create-workspa
 import { SignInDialog } from "@/components/design-system/sign-in-dialog";
 import { ShareChatDialog } from "@/components/design-system/share-chat-dialog";
 import { JoinChatDialog } from "@/components/design-system/join-chat-dialog";
+import { JoinRequestsCard } from "@/components/design-system/join-requests-card";
 import { useShareDialogHost } from "@/lib/use-share";
 import { useSignInDialogHost } from "@/lib/use-sign-in";
 import { useIdentity } from "@/lib/identity";
@@ -940,6 +941,8 @@ export function RedesignPage() {
           )}
           </div>
           <footer className="mt-auto pt-[var(--redesign-sidebar-section-gap)]">
+            {/* #460: people waiting to be let into a chat this person shares. */}
+            <JoinRequestsCard enabled={identity.signedIn} />
             {/* Collapses and fades out when closed. */}
             <div
               className={cn(

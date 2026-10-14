@@ -46,6 +46,11 @@ import {
   XIcon,
 } from "@/components/icons/untitled-ui";
 import { ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
+import { Play } from "lucide-react";
+import { RELAY_JOIN_REQUESTED_EVENT } from "@/lib/use-share";
+
+// Provider brand names, as another participant's run reports which one it ran on (#462). Not translated.
+const PROVIDER_NAMES: Record<string, string> = { claude: "Claude", codex: "Codex", antigravity: "Antigravity" };
 import { lastUsedReady, loadLastContext, loadLastModel, saveLastContext, saveLastModel } from "@/lib/last-used";
 import { StreamingText } from "@/components/streaming-text";
 import { ThinkingState } from "@/components/thinking-state";
@@ -93,6 +98,10 @@ type ChatRow =
       // triggers. images/effort are kept here (not just text) so Retry can
       // resend the exact same attempt, attachments included.
       failed?: { errorText: string; images: ImageAttachment[]; effort: EffortLevel };
+      // #462: a message that came through the relay -- its sequence there, and whether it's this
+      // person's own. Someone else's can be run with this person's own agent ("Run with my agent").
+      relaySequence?: number;
+      mine?: boolean;
     }
   | {
       kind: "agent";
@@ -136,6 +145,8 @@ type ChatRow =
       // the same way a real editor's own tool-call trace does -- bold label,
       // muted monospace detail -- rather than one plain sentence.
       toolCallLines?: { label: string; detail?: string }[];
+      // #462: another participant ran this reply on their own provider ("Alice · Claude").
+      runBy?: string;
     }
   | { kind: "command"; id: string; text: string; time: string }
   // name/summary/input real, not fabricated -- name and input are the tool_use
@@ -426,6 +437,27 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   }
   // People waiting for this chat's host to let them in (components/join-requests.tsx).
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
+  // #462: whether this chat is shared through the relay right now, and -- when it is -- whether the next
+  // message is just for the people in it ("Just chat") instead of also asking this person's own agent.
+  const [sharedChat, setSharedChat] = useState(false);
+  const [justChat, setJustChat] = useState(false);
+  useEffect(() => {
+    if (!sessionId) return;
+    let cancelled = false;
+    const check = () =>
+      void fetch(`/sessions/${sessionId}/relay/status`)
+        .then((response) => (response.ok ? (response.json() as Promise<{ syncing?: boolean }>) : null))
+        .then((status) => {
+          if (!cancelled) setSharedChat(Boolean(status?.syncing));
+        })
+        .catch(() => {});
+    check();
+    const timer = setInterval(check, 10_000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [sessionId]);
   // Real bug, confirmed via a real CI build failure (TS6133, "awaitingReply declared
   // but never read"): the old `awaitingReply` React state was fully superseded by
   // turnInProgress below and awaitingReplyRef (the imperative guard used throughout
@@ -1087,6 +1119,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           time: turnStartedAtRef.current !== null ? formatMessageTimestamp(turnStartedAtRef.current) : messageTime(),
           eventId: event.event_id as number | undefined,
           branch: event.branch as { group: string; index: number; total: number } | undefined,
+          relaySequence: typeof event.relay_sequence === "number" ? event.relay_sequence : undefined,
+          mine: typeof event.mine === "boolean" ? event.mine : undefined,
         };
         if (suppressInitialHandoffHumanEntranceRef.current) {
           noEntranceRowIdsRef.current.add(humanRow.id);
@@ -1666,11 +1700,15 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               // reasoning) -- a turn with a later closing summary just renders
               // that as its own plain reply, no second label.
               if (!firstAgentRowIdRef.current) firstAgentRowIdRef.current = agentRowId;
+              // #462: another participant's run names them and the provider it ran on.
+              const runBy = typeof event.run_by === "string" ? event.run_by : undefined;
+              const runProvider = typeof event.provider === "string" ? PROVIDER_NAMES[event.provider] ?? event.provider : undefined;
               pushRow({
                 kind: "agent",
                 id: agentRowId,
                 text: block.text,
-                modelLabel: rowModel.label,
+                runBy,
+                modelLabel: runBy && runProvider ? `${runBy} · ${runProvider}` : rowModel.label,
                 model: rowModel,
                 animate: historyReplayedRef.current,
                 // Real server timestamp (relative-date display) off this same
@@ -1768,6 +1806,23 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       // chat_path -> a full link: the backend doesn't know this page's own origin
       // (Tauri release vs. a self-hosted domain vs. 127.0.0.1:3000 in dev), only this
       // browser/webview does.
+      // #462: another participant's agent run that failed or was stopped.
+      if (type === "relay_run_ended") {
+        const name = typeof event.run_by === "string" ? event.run_by : "";
+        const text = event.status === "stopped" ? i18n.t("chat.relayRun.stopped", { name }) : i18n.t("chat.relayRun.failed", { name, message: (event.message as string | null) ?? "" });
+        pushRow({ kind: "command", id: nextRowId(), text, time: messageTime() });
+        return;
+      }
+      // #460: how this device's own request to join is going.
+      if (type === "join_status") {
+        pushRow({ kind: "command", id: nextRowId(), text: i18n.t(`chat.joinStatus.${event.status as string}`), time: messageTime() });
+        return;
+      }
+      // #460: someone asked to join a chat this person can let people into.
+      if (type === "relay_join_requested") {
+        window.dispatchEvent(new Event(RELAY_JOIN_REQUESTED_EVENT));
+        return;
+      }
       if (type === "share_result") {
         awaitingReplyRef.current = false;
         setTurnInProgress(false);
@@ -1958,6 +2013,19 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     return () => window.clearInterval(interval);
   }, [waitingPhase]);
 
+  // #462: runs someone else's shared message with this person's own agent (the compose box's current
+  // provider), on this machine and account. Their output reaches everyone through the relay.
+  async function runWithMyAgent(row: Extract<ChatRow, { kind: "human" }>) {
+    if (!sessionId || row.relaySequence === undefined) return;
+    const provider = modelRef.current.provider.toLowerCase();
+    const res = await fetch(`/sessions/${sessionId}/relay/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message_sequence: row.relaySequence, provider }),
+    }).catch(() => null);
+    if (!res?.ok) pushRow({ kind: "command", id: nextRowId(), text: i18n.t("chat.errors.runWithMyAgent"), time: messageTime() });
+  }
+
   async function sendMessage(
     text: string,
     images: ImageAttachment[] = [],
@@ -2016,6 +2084,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         // spelling_instruction). Sent on every turn, not just once, since the
         // preference can change mid-session.
         spelling_language: loadLanguage(),
+        chat_only: sharedChat && justChat ? true : undefined,
       }),
     });
 
@@ -2035,7 +2104,9 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         text: trimmed,
         displayName: getUserDisplayName(),
         time: messageTime(),
-        failed: { errorText: i18n.t("chat.errors.sendFailed", { status: res.status }), images, effort },
+        // #462: a shared chat refuses what can't go through the relay (images, for now, or something that
+        // looks like a password or key) with 422.
+        failed: { errorText: sharedChat && res.status === 422 ? i18n.t("chat.errors.sharedNotSent") : i18n.t("chat.errors.sendFailed", { status: res.status }), images, effort },
       });
     }
   }
@@ -2478,6 +2549,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                   onRetryFailedMessage={retryFailedMessage}
                   onResendMessage={resendMessage}
                   onEditMessage={editMessage}
+                  onRunWithMyAgent={(row) => void runWithMyAgent(row)}
                   onSwitchBranch={switchBranch}
                   onOpenFile={openFile}
                   toolGroup={groupStarts.get(row.id)}
@@ -2581,6 +2653,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           })()}
         </AnimatePresence>
         {sessionId && <JoinRequests sessionId={sessionId} requests={joinRequests} onDecided={(id) => setJoinRequests((current) => current.filter((r) => r.id !== id))} />}
+        {sharedChat && <AgentModeSwitch justChat={justChat} onChange={setJustChat} />}
         <ComposeBox
           // Forces a remount whenever a *new* edit starts (editMessage's
           // own comment above has the full reasoning) -- ComposeBox's own
@@ -2710,6 +2783,7 @@ function ChatRowView({
   onRetryFailedMessage,
   onResendMessage,
   onEditMessage,
+  onRunWithMyAgent,
   onSwitchBranch,
   onOpenFile,
   toolGroup,
@@ -2722,6 +2796,7 @@ function ChatRowView({
   onRetryFailedMessage: (row: Extract<ChatRow, { kind: "human" }>) => void;
   onResendMessage: (row: Extract<ChatRow, { kind: "human" }>) => void;
   onEditMessage: (row: Extract<ChatRow, { kind: "human" }>) => void;
+  onRunWithMyAgent: (row: Extract<ChatRow, { kind: "human" }>) => void;
   onSwitchBranch: (group: string, index: number) => void;
   onOpenFile: (path: string) => void;
   // Set only on the first row of a run of consecutive same-kind Write/Edit
@@ -2985,6 +3060,22 @@ function ChatRowView({
                   </TooltipTrigger>
                   <TooltipContent>{t("chat.cancelEdit")}</TooltipContent>
                 </Tooltip>
+              ) : row.mine === false && row.relaySequence !== undefined ? (
+                // #462: someone else's message in a shared chat -- not this person's to resend or edit,
+                // but theirs to run with their own agent.
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label={t("chat.runWithMyAgent")}
+                      onClick={() => onRunWithMyAgent(row)}
+                      className="flex size-5 items-center justify-center rounded-md text-muted-foreground outline-hidden transition-transform duration-100 ease-out hover:bg-hover-2/50 hover:text-foreground active:scale-[0.97]"
+                    >
+                      <Play className="size-3" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>{t("chat.runWithMyAgent")}</TooltipContent>
+                </Tooltip>
               ) : (
                 <>
                   <Tooltip>
@@ -3128,7 +3219,9 @@ function ChatRowView({
           motion, not a separate animation to maintain. */}
       {actionsVisible && (
         <div className="t-row-in flex w-full flex-col items-start gap-1">
-          <AgentMessageActions text={row.text} onRetry={onRetry} effort={row.effort} />
+          {/* #462: someone else's run -- their effort isn't known here, and retrying would rerun it as
+              this person's own turn. */}
+          <AgentMessageActions text={row.text} onRetry={row.runBy ? undefined : onRetry} effort={row.runBy ? undefined : row.effort} />
           <MessageTime time={row.time} />
         </div>
       )}
@@ -3618,8 +3711,8 @@ function AgentMessageActions({
   effort,
 }: {
   text: string;
-  onRetry: () => void;
-  effort: EffortLevel;
+  onRetry?: () => void;
+  effort?: EffortLevel;
 }) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
@@ -3748,6 +3841,7 @@ function AgentMessageActions({
         </TooltipTrigger>
         <TooltipContent>{t("chat.badResponse")}</TooltipContent>
       </Tooltip>
+      {onRetry && (
       <Tooltip>
         <TooltipTrigger asChild>
           <button onClick={onRetry} className={iconButtonClass(false)}>
@@ -3756,6 +3850,7 @@ function AgentMessageActions({
         </TooltipTrigger>
         <TooltipContent>{t("common.retry")}</TooltipContent>
       </Tooltip>
+      )}
       <Tooltip>
         <TooltipTrigger asChild>
           <button onClick={toggleReadAloud} className={iconButtonClass(speaking)}>
@@ -3769,7 +3864,7 @@ function AgentMessageActions({
           having a graph that we can only see when we hover bc is not
           clear"): the graph on its own read as decorative until you
           hovered it, unlike every other real value on this row. */}
-      <span className="px-1 text-[length:var(--redesign-chat-meta)] text-muted-foreground">{effortLabel(effort)} effort</span>
+      {effort && <span className="px-1 text-[length:var(--redesign-chat-meta)] text-muted-foreground">{effortLabel(effort)} effort</span>}
       {/* Sources -- same row as every other action, after effort, per explicit
           request (was its own separate block below the row before). A real
           dropdown trigger now, not a hover tooltip -- per explicit request:
@@ -3832,6 +3927,24 @@ function AgentMessageActions({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// #462: in a shared chat, whether a message also asks this person's own agent (the default, as in a solo
+// chat) or is just for the people in it.
+function AgentModeSwitch({ justChat, onChange }: { justChat: boolean; onChange: (justChat: boolean) => void }) {
+  const { t } = useTranslation();
+  const option = (active: boolean) =>
+    `h-6 rounded-md px-2.5 text-[12px] transition-colors ${active ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"}`;
+  return (
+    <div role="radiogroup" aria-label={t("chat.agentMode.label")} className="mb-2 inline-flex items-center gap-0.5 self-start rounded-lg bg-muted/60 p-0.5">
+      <button type="button" role="radio" aria-checked={!justChat} className={option(!justChat)} onClick={() => onChange(false)}>
+        {t("chat.agentMode.ask")}
+      </button>
+      <button type="button" role="radio" aria-checked={justChat} className={option(justChat)} onClick={() => onChange(true)}>
+        {t("chat.agentMode.justChat")}
+      </button>
     </div>
   );
 }
