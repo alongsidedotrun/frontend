@@ -53,6 +53,17 @@
 /* Backdrop (design-system/backdrop.tsx): each theme's gradient waving along
    its 400% layer (transform only, no repaints).
    Top level, not in @theme. */
+/* Compose box: a sent message's text fading up out of the box, and the
+   model trigger's new label fading in. */
+@keyframes compose-sent-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-6px); }
+}
+@keyframes compose-label-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 @keyframes backdrop-wave {
   0%, 100% { transform: translate(0, -50%); }
   50% { transform: translate(-75%, -50%); }
