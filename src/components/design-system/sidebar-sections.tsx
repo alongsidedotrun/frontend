@@ -211,7 +211,12 @@ function SidebarRow({
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={cn("ml-auto size-3.5 shrink-0 text-muted-foreground transition-transform duration-150 ease-out motion-reduce:transition-none", expanded && "rotate-90")}
+      // The cog's press feedback: fades on hover, dips when pressed (on it or
+      // anywhere on the row, since the whole row toggles).
+      className={cn(
+        "ml-auto size-3.5 shrink-0 text-muted-foreground transform-gpu transition-[opacity,scale,rotate] duration-150 ease-out hover:opacity-70 active:scale-[0.9] group-active/row-button:scale-[0.9] motion-reduce:transition-none motion-reduce:active:scale-100",
+        expanded && "rotate-90",
+      )}
     >
       <path d="M9 6L15 12L9 18" />
     </svg>
@@ -252,6 +257,7 @@ function SidebarRow({
         aria-current={active ? "page" : undefined}
         aria-expanded={expanded}
         className={cn(
+          "group/row-button",
           rowClass,
           "hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           item.menu && "pr-8",
@@ -263,19 +269,27 @@ function SidebarRow({
       </button>
       {item.menu && (
         <DropdownMenu size="compact" open={menuOpen} onOpenChange={setMenuOpen}>
-          <DropdownTrigger
-            render={
-              <MoreTrigger
-                aria-label={t("shell.rowOptions", { name: item.label })}
-                active={menuOpen}
-                autoHide={false}
-                className={cn(
-                  "absolute top-1/2 right-1.5 -translate-y-1/2 transition-opacity",
-                  menuOpen ? "opacity-100" : "opacity-0 group-hover/sidebar-row:opacity-100 group-focus-within/sidebar-row:opacity-100",
-                )}
-              />
-            }
-          />
+          {/* Shown on row hover, while its menu is open, or for keyboard focus;
+              not plain focus, which a clicked row keeps and left it stuck on.
+              Visibility lives on this wrapper so the trigger's own hover fade
+              (PRESS_EFFECT, like the cog) doesn't fight it. */}
+          <div
+            className={cn(
+              "absolute top-1/2 right-1.5 flex -translate-y-1/2 transition-opacity duration-150",
+              menuOpen ? "opacity-100" : "opacity-0 group-hover/sidebar-row:opacity-100 group-has-[:focus-visible]/sidebar-row:opacity-100",
+            )}
+          >
+            <DropdownTrigger
+              render={
+                <MoreTrigger
+                  aria-label={t("shell.rowOptions", { name: item.label })}
+                  active={menuOpen}
+                  autoHide={false}
+                  className={cn(PRESS_EFFECT, ICON_PRESS)}
+                />
+              }
+            />
+          </div>
           <DropdownContent side="bottom" align="start" sideOffset={4} className="w-48 min-w-0">
             {item.menu.map((entry) => {
               if (entry.kind === "separator") return <DropdownSeparator key={entry.id} />;
