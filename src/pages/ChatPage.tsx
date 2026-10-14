@@ -144,8 +144,10 @@ type ChatRow =
       // the same way a real editor's own tool-call trace does -- bold label,
       // muted monospace detail -- rather than one plain sentence.
       toolCallLines?: { label: string; detail?: string }[];
-      // #462: another participant ran this reply on their own provider ("Alice · Claude").
+      // #462: another participant ran this reply on their own provider ("Alice · Claude"), and which run
+      // it is -- live updates and the final reply land on this same row.
       runBy?: string;
+      relayRunId?: string;
     }
   | { kind: "command"; id: string; text: string; time: string }
   // name/summary/input real, not fabricated -- name and input are the tool_use
@@ -440,6 +442,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // message is just for the people in it ("Just chat") instead of also asking this person's own agent.
   const [sharedChat, setSharedChat] = useState(false);
   const [justChat, setJustChat] = useState(false);
+  const justChatRef = useRef(false);
+  justChatRef.current = sharedChat && justChat;
   useEffect(() => {
     if (!sessionId) return;
     let cancelled = false;
@@ -1134,10 +1138,15 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         // message is exactly the moment it should first appear in Recents;
         // replaying an existing chat's own already-recorded history isn't a
         // new "creation" and would just refetch the same list redundantly.
+        // #462: in a shared chat, only this person's own message sent to their agent gets a reply to wait
+        // for -- not someone else's, and not one sent as "Just chat".
+        const expectsMyReply = event.mine !== false && !(event.mine === true && justChatRef.current);
         if (historyReplayedRef.current) {
-          awaitingReplyRef.current = true;
-          setTurnInProgress(true);
-          setWaitingPhase("waiting");
+          if (expectsMyReply) {
+            awaitingReplyRef.current = true;
+            setTurnInProgress(true);
+            setWaitingPhase("waiting");
+          }
           refreshSidebarLists();
         }
         return;
@@ -1643,6 +1652,44 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         return;
       }
 
+      // #462: another participant's agent run -- live while it runs (`relay_run_progress`, never stored),
+      // then its recorded reply (`assistant` with `relay_run_id`). Both land on one row per run.
+      if ((type === "relay_run_progress" || type === "assistant") && typeof event.relay_run_id === "string") {
+        const blocks = ((event.message as { content?: { type: string; text?: string; name?: string }[] } | undefined)?.content ?? []);
+        const text = blocks.filter((b) => b.type === "text" && b.text).map((b) => b.text).join("\n\n");
+        const toolCallLines = blocks.filter((b) => b.type === "tool_use" && b.name).map((b) => ({ label: b.name as string }));
+        const runBy = typeof event.run_by === "string" ? event.run_by : "";
+        const providerName = typeof event.provider === "string" ? PROVIDER_NAMES[event.provider] ?? event.provider : "";
+        const runId = event.relay_run_id;
+        const time = typeof event.created_at === "string" ? formatMessageTimestamp(parseServerTimestampMs(event.created_at)) : messageTime();
+        if (type === "assistant") awaitingReplyRef.current = false;
+        setRows((prev) => {
+          const at = prev.findIndex((r) => r.kind === "agent" && r.relayRunId === runId);
+          if (at >= 0) {
+            const next = [...prev];
+            next[at] = { ...(prev[at] as Extract<ChatRow, { kind: "agent" }>), text, toolCallLines: toolCallLines.length ? toolCallLines : undefined };
+            return next;
+          }
+          if (!text && toolCallLines.length === 0) return prev;
+          const row: ChatRow = {
+            kind: "agent",
+            id: nextRowId(),
+            text,
+            runBy,
+            relayRunId: runId,
+            modelLabel: providerName ? `${runBy} · ${providerName}` : runBy,
+            // Their provider's mark, not this person's selected model's.
+            model: QUICK_CHAT_MODELS.find((m) => m.provider.toLowerCase() === event.provider) ?? modelRef.current,
+            animate: false,
+            time,
+            effort: sentEffortRef.current,
+            toolCallLines: toolCallLines.length ? toolCallLines : undefined,
+          };
+          return [...prev, row];
+        });
+        return;
+      }
+
       if (type === "assistant" && event.message) {
         const content = (
           event.message as {
@@ -1699,15 +1746,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               // reasoning) -- a turn with a later closing summary just renders
               // that as its own plain reply, no second label.
               if (!firstAgentRowIdRef.current) firstAgentRowIdRef.current = agentRowId;
-              // #462: another participant's run names them and the provider it ran on.
-              const runBy = typeof event.run_by === "string" ? event.run_by : undefined;
-              const runProvider = typeof event.provider === "string" ? PROVIDER_NAMES[event.provider] ?? event.provider : undefined;
               pushRow({
                 kind: "agent",
                 id: agentRowId,
                 text: block.text,
-                runBy,
-                modelLabel: runBy && runProvider ? `${runBy} · ${runProvider}` : rowModel.label,
+                modelLabel: rowModel.label,
                 model: rowModel,
                 animate: historyReplayedRef.current,
                 // Real server timestamp (relative-date display) off this same
@@ -3169,7 +3212,9 @@ function ChatRowView({
           AI reply spans nearly the full column while a human message stays
           visually distinct as a bubble. */}
       <div className="max-w-[95%] px-1 text-[length:var(--redesign-chat-text)] leading-relaxed transition-[max-width] duration-200">
-        <StreamingText text={row.text} animate={row.animate} onDone={() => setActionsVisible(true)} />
+        {/* A live run from someone else (#462) grows in place; StreamingText keeps its first text, so it's
+            remounted on each update (without animation). */}
+        <StreamingText key={row.relayRunId ? row.text : undefined} text={row.text} animate={row.animate} onDone={() => setActionsVisible(true)} />
       </div>
       {/* Sources now lives inside AgentMessageActions' own row, after effort --
           per explicit request (was its own separate block below the row before).
