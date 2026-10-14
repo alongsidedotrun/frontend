@@ -211,7 +211,7 @@ function SidebarRow({
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform duration-150 ease-out motion-reduce:transition-none", expanded && "rotate-90")}
+      className={cn("ml-auto size-3.5 shrink-0 text-muted-foreground transition-transform duration-150 ease-out motion-reduce:transition-none", expanded && "rotate-90")}
     >
       <path d="M9 6L15 12L9 18" />
     </svg>
