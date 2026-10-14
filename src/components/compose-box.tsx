@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { loadModelCatalog, useModelCatalogVersion } from "@/lib/model-catalog";
 import type { IconComponent, IconComponentProps } from "@/lib/icon-context";
 import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
@@ -1026,6 +1027,11 @@ export function ComposeBox({
   const modelRowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const modeTriggerRef = useRef<HTMLButtonElement>(null);
   const effortTriggerRef = useRef<HTMLButtonElement>(null);
+  // Model/effort/permission menus stay where they opened even as their
+  // trigger's label (and so its width and position) changes underneath.
+  const modelAnchor = useFrozenAnchor(modelTriggerRef);
+  const effortAnchor = useFrozenAnchor(effortTriggerRef);
+  const modeAnchor = useFrozenAnchor(modeTriggerRef);
   // Kept current every render (no dependency array to go stale) -- read
   // by the "press space to focus" listener below, which registers itself
   // exactly once for this component's whole lifetime instead of tearing
@@ -1742,6 +1748,7 @@ export function ComposeBox({
         <BaseDropdownMenu
           size="compact"
           onOpenChange={(nowOpen) => {
+            modelAnchor.freeze(nowOpen);
             if (nowOpen) {
               void loadModelCatalog();
               return;
@@ -1777,15 +1784,12 @@ export function ComposeBox({
                   stepped down to match yet. */}
               {/* Picking a model glides the trigger to its new width while
                   the new icon and name fade in. */}
-              <SmoothWidth>
-                <span
-                  key={selectedModels.join(",")}
-                  className="inline-flex w-max items-center gap-1 animate-[compose-label-in_200ms_ease-out] motion-reduce:animate-none"
-                >
+              <SwapLabel swapKey={selectedModels.map((m) => m.value).join(",")}>
+                <span className="inline-flex w-max items-center gap-1">
                   {selectedModels.length === 1 && <ProviderIcon model={selectedModels[0]} className="size-[var(--compose-tool-icon)] shrink-0" />}
                   <span className="max-w-[110px] truncate whitespace-nowrap">{modelSelectionLabel(selectedModels)}</span>
                 </span>
-              </SmoothWidth>
+              </SwapLabel>
               <ChevronDownIcon className="size-[var(--compose-tool-icon)] shrink-0" />
             </button>
             }
@@ -1819,6 +1823,7 @@ export function ComposeBox({
             side="bottom"
             align="start"
             sideOffset={6}
+            anchor={modelAnchor.anchor}
             // pb-[5px]: the Providers heading adds room at the top, so the
             // bottom gets 2px more to match (last row's text to the edge =
             // the edge to the heading's text).
@@ -2007,6 +2012,7 @@ export function ComposeBox({
         <BaseDropdownMenu
           size="compact"
           onOpenChange={(nowOpen) => {
+            effortAnchor.freeze(nowOpen);
             if (!nowOpen) {
               const button = effortTriggerRef.current;
               if (!button) return;
@@ -2026,12 +2032,12 @@ export function ComposeBox({
                 {/* Shows the current choice (e.g. "Low"), not a static
                     "Effort" label -- per explicit request ("it should
                     update from effort to the choice we did"). */}
-                {effortLabel(effort)}
+                <SwapLabel swapKey={effort}>{effortLabel(effort)}</SwapLabel>
                 <ChevronDownIcon className="size-[var(--compose-tool-icon)] shrink-0" />
               </button>
             }
           />
-          <BaseDropdownContent side="bottom" align="center" sideOffset={6} className="w-56 min-w-0 p-3">
+          <BaseDropdownContent side="bottom" align="center" sideOffset={6} anchor={effortAnchor.anchor} className="w-56 min-w-0 p-3">
             <EffortSliderPanel
               levels={modelEfforts}
               effort={effort}
@@ -2072,6 +2078,7 @@ export function ComposeBox({
         <BaseDropdownMenu
           size="compact"
           onOpenChange={(nowOpen) => {
+            modeAnchor.freeze(nowOpen);
             if (!nowOpen) {
               const button = modeTriggerRef.current;
               if (!button) return;
@@ -2088,10 +2095,12 @@ export function ComposeBox({
                 ref={modeTriggerRef}
                 className={cn("inline-flex h-[var(--compose-tool-h)] shrink-0 flex-row flex-nowrap items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1.5 text-[length:var(--compose-tool-text)] leading-4 font-normal text-foreground outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]", PRESS_EFFECT)}
               >
-                {(() => {
-                  const found = modes.find((m) => m.value === mode);
-                  return found ? t(found.labelKey) : null;
-                })()}
+                <SwapLabel swapKey={mode}>
+                  {(() => {
+                    const found = modes.find((m) => m.value === mode);
+                    return found ? t(found.labelKey) : null;
+                  })()}
+                </SwapLabel>
                 <ChevronDownIcon className="size-[var(--compose-tool-icon)] shrink-0" />
               </button>
             }
@@ -2112,6 +2121,7 @@ export function ComposeBox({
             side="bottom"
             align="start"
             sideOffset={6}
+            anchor={modeAnchor.anchor}
             className="w-40 min-w-0"
           >
             {/* "Permission" describer -- matching the Provider/Model/Effort
@@ -2204,6 +2214,49 @@ export function ComposeBox({
   );
 }
 
+/** A menu anchor pinned to where its trigger was when the menu opened.
+ *  freeze(true) on open captures the trigger's rect; freeze(false) on close
+ *  goes back to following the trigger live. */
+function useFrozenAnchor(triggerRef: React.RefObject<HTMLElement | null>) {
+  const rectRef = useRef<DOMRect | null>(null);
+  const anchor = useMemo(
+    () => ({
+      getBoundingClientRect: () => rectRef.current ?? triggerRef.current?.getBoundingClientRect() ?? new DOMRect(),
+    }),
+    [triggerRef],
+  );
+  const freeze = useCallback(
+    (open: boolean) => {
+      rectRef.current = open ? triggerRef.current?.getBoundingClientRect() ?? null : null;
+    },
+    [triggerRef],
+  );
+  return { anchor, freeze };
+}
+
+/** A trigger label that changes without cutting through: the old label
+ *  fades out, the box then glides to the new label's width (nothing is
+ *  clipped mid-way, so the chevron after it never slides over text), and
+ *  the new label fades in as the width settles. */
+function SwapLabel({ swapKey, children }: { swapKey: string; children: ReactNode }) {
+  const reduceMotion = useReducedMotion();
+  return (
+    <SmoothWidth>
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span
+          key={swapKey}
+          className="inline-flex w-max items-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1, transition: reduceMotion ? { duration: 0 } : { duration: 0.14, delay: 0.12, ease: "easeOut" } }}
+          exit={{ opacity: 0, transition: reduceMotion ? { duration: 0 } : { duration: 0.09, ease: "easeIn" } }}
+        >
+          {children}
+        </motion.span>
+      </AnimatePresence>
+    </SmoothWidth>
+  );
+}
+
 /** Animates its own width to its content's: on a change the box glides from
  *  the old width to the new one (CSS transition) instead of snapping. The
  *  first render takes the content's width as is. */
@@ -2221,7 +2274,7 @@ function SmoothWidth({ children }: { children: ReactNode }) {
   }, []);
   return (
     <span
-      className="inline-flex min-w-0 overflow-hidden transition-[width] duration-200 ease-out motion-reduce:transition-none"
+      className="inline-flex min-w-0 overflow-hidden transition-[width] duration-[180ms] ease-out motion-reduce:transition-none"
       style={width === null ? undefined : { width }}
     >
       <span ref={innerRef} className="inline-flex w-max shrink-0">

@@ -397,6 +397,10 @@ interface DropdownContentProps {
    *  `{ side: "none", align: "none" }` for a trigger like that to rule
    *  the flip/shift middleware out entirely. */
   collisionAvoidance?: MenuPositionerProps["collisionAvoidance"];
+  /** Forwarded to Menu.Positioner: position against this instead of the
+   *  trigger (e.g. a rect frozen at open, so a trigger that resizes while
+   *  its menu is open doesn't drag the menu along). */
+  anchor?: MenuPositionerProps["anchor"];
   /** Optional motion overrides for a menu that needs a more deliberate reveal. */
   transition?: Transition;
   exitTransition?: Transition;
@@ -412,6 +416,7 @@ const DropdownContent = forwardRef<HTMLDivElement, DropdownContentProps>(
       align = "start",
       sideOffset = 6,
       collisionAvoidance,
+      anchor,
       transition,
       exitTransition,
     },
@@ -575,6 +580,7 @@ const DropdownContent = forwardRef<HTMLDivElement, DropdownContentProps>(
           align={align}
           sideOffset={sideOffset}
           collisionAvoidance={collisionAvoidance}
+          anchor={anchor}
           className="outline-none"
           style={{ zIndex }}
         >
