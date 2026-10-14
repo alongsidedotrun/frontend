@@ -3910,15 +3910,6 @@ export const translations = {
     zh: "发送消息",
     ja: "メッセージを送信",
   },
-  "chat.disclaimer": {
-    en: "Please review the answers. AI can make mistakes.",
-    "pt-BR": "Revise as respostas. A IA pode cometer erros.",
-    es: "Revisa las respuestas. La IA puede cometer errores.",
-    fr: "Vérifiez les réponses. L'IA peut faire des erreurs.",
-    de: "Bitte prüfe die Antworten. KI kann Fehler machen.",
-    zh: "请核对回答内容，AI 可能会出错。",
-    ja: "回答をご確認ください。AIは間違えることがあります。",
-  },
   "chat.cancelEdit": {
     en: "Cancel edit",
     "pt-BR": "Cancelar edição",
