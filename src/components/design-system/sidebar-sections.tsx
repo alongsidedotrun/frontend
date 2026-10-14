@@ -1,4 +1,5 @@
-import { useState, type ComponentType } from "react";
+import { useState, type ComponentType, type ReactNode } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
 import type { IconComponent } from "@/lib/icon-context";
@@ -95,33 +96,58 @@ export function SidebarSections({ sections, activeItemId, onItemSelect, expanded
               );
             })() : null}
           </div>
-          {section.items?.length ? (
-            <div className="mt-[var(--redesign-sidebar-section-row-offset)] flex flex-col gap-[var(--redesign-quick-actions-row-gap)]">
-              {section.items.map((item) => {
-                if (!item.children) {
-                  return <SidebarRow key={item.id} item={item} active={item.id === activeItemId} onSelect={() => onItemSelect?.(item.id)} />;
-                }
-                const expanded = expandedIds?.has(item.id) ?? false;
-                return (
-                  <div key={item.id} className="flex flex-col gap-[var(--redesign-quick-actions-row-gap)]">
-                    <SidebarRow item={item} active={false} expanded={expanded} onSelect={() => onToggleExpanded?.(item.id)} />
-                    {expanded && (item.children.length ? (
-                      item.children.map((child) => (
-                        <SidebarRow key={child.id} item={child} active={child.id === activeItemId} nested onSelect={() => onItemSelect?.(child.id)} />
-                      ))
-                    ) : item.childrenEmptyLabel ? (
-                      <p className="flex h-[var(--redesign-quick-actions-row-height)] items-center pr-[var(--redesign-quick-actions-padding)] pl-[calc(var(--redesign-quick-actions-padding)+21px)] text-[length:var(--redesign-font-size-base)] font-medium text-muted-foreground opacity-70">
-                        {item.childrenEmptyLabel}
-                      </p>
-                    ) : null)}
-                  </div>
-                );
-              })}
+          {section.items ? (
+            // No flex gap: each row carries its own gap inside RowReveal, so a
+            // row collapsing to zero takes its gap with it instead of jumping.
+            <div className="mt-[calc(var(--redesign-sidebar-section-row-offset)-var(--redesign-quick-actions-row-gap))] flex flex-col">
+              <AnimatePresence initial={false}>
+                {section.items.map((item) => {
+                  if (!item.children) {
+                    return (
+                      <RowReveal key={item.id}>
+                        <SidebarRow item={item} active={item.id === activeItemId} onSelect={() => onItemSelect?.(item.id)} />
+                      </RowReveal>
+                    );
+                  }
+                  const expanded = expandedIds?.has(item.id) ?? false;
+                  return (
+                    <RowReveal key={item.id}>
+                      <SidebarRow item={item} active={false} expanded={expanded} onSelect={() => onToggleExpanded?.(item.id)} />
+                      {/* The drawer: a project's chats slide open under it. */}
+                      <AnimatePresence initial={false}>
+                        {expanded && (
+                          <RowReveal key="children" gap={false}>
+                            <AnimatePresence initial={false}>
+                              {item.children.length ? (
+                                item.children.map((child) => (
+                                  <RowReveal key={child.id}>
+                                    <SidebarRow item={child} active={child.id === activeItemId} nested onSelect={() => onItemSelect?.(child.id)} />
+                                  </RowReveal>
+                                ))
+                              ) : item.childrenEmptyLabel ? (
+                                <RowReveal key="empty">
+                                  <p className="flex h-[var(--redesign-quick-actions-row-height)] items-center pr-[var(--redesign-quick-actions-padding)] pl-[calc(var(--redesign-quick-actions-padding)+12px)] text-[length:var(--redesign-font-size-base)] font-medium text-muted-foreground opacity-70">
+                                    {item.childrenEmptyLabel}
+                                  </p>
+                                </RowReveal>
+                              ) : null}
+                            </AnimatePresence>
+                          </RowReveal>
+                        )}
+                      </AnimatePresence>
+                    </RowReveal>
+                  );
+                })}
+                {/* In the same list, so the last row leaving cross-fades into it. */}
+                {!section.items.length && section.emptyLabel ? (
+                  <RowReveal key="__empty">
+                    <p className="flex h-[var(--redesign-quick-actions-row-height)] items-center px-[var(--redesign-quick-actions-padding)] text-[length:var(--redesign-font-size-base)] font-medium text-muted-foreground opacity-70">
+                      {section.emptyLabel}
+                    </p>
+                  </RowReveal>
+                ) : null}
+              </AnimatePresence>
             </div>
-          ) : section.emptyLabel ? (
-            <p className="mt-[var(--redesign-sidebar-section-row-offset)] px-[var(--redesign-quick-actions-padding)] text-[length:var(--redesign-font-size-base)] font-medium text-muted-foreground opacity-70">
-              {section.emptyLabel}
-            </p>
           ) : null}
         </section>
       ))}
@@ -130,6 +156,26 @@ export function SidebarSections({ sections, activeItemId, onItemSelect, expanded
 }
 
 /** One row: the item itself, its "..." menu on hover, and in-place rename. */
+const REVEAL = { type: "spring" as const, duration: 0.26, bounce: 0 };
+const REVEAL_EXIT = { duration: 0.18, ease: [0.4, 0, 0.2, 1] as const };
+
+/** Grows a row (or a project's drawer) open from zero height while fading
+ *  it in, and the reverse on the way out. Clipping is only on while moving,
+ *  so focus rings aren't cut off at rest. */
+function RowReveal({ children, gap = true }: { children: ReactNode; gap?: boolean }) {
+  const reduceMotion = useReducedMotion();
+  return (
+    <motion.div
+      initial={{ height: 0, opacity: 0, overflow: "hidden" }}
+      animate={{ height: "auto", opacity: 1, transition: reduceMotion ? { duration: 0 } : REVEAL, transitionEnd: { overflow: "visible" } }}
+      exit={{ height: 0, opacity: 0, overflow: "hidden", transition: reduceMotion ? { duration: 0 } : REVEAL_EXIT }}
+      className={cn("flex flex-col", gap && "pt-[var(--redesign-quick-actions-row-gap)]")}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
 function SidebarRow({
   item,
   active,
@@ -153,8 +199,8 @@ function SidebarRow({
   const rowClass = cn(
     "flex h-[var(--redesign-quick-actions-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-left text-[length:var(--redesign-sidebar-primary-font-size)] font-normal text-muted-foreground transition-colors",
     (active || menuOpen) && "bg-muted font-medium text-foreground",
-    // Children line up with their parent's label, past its chevron.
-    nested && "pl-[calc(var(--redesign-quick-actions-padding)+21px)]",
+    // Children sit indented under their parent.
+    nested && "pl-[calc(var(--redesign-quick-actions-padding)+12px)]",
   );
   const chevron = expanded !== undefined && (
     <svg
@@ -165,7 +211,7 @@ function SidebarRow({
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={cn("-ml-0.5 size-3.5 shrink-0 transition-transform duration-150 ease-out motion-reduce:transition-none", expanded && "rotate-90")}
+      className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform duration-150 ease-out motion-reduce:transition-none", expanded && "rotate-90")}
     >
       <path d="M9 6L15 12L9 18" />
     </svg>
@@ -211,9 +257,9 @@ function SidebarRow({
           item.menu && "pr-8",
         )}
       >
-        {chevron}
         {Icon && <Icon aria-hidden="true" strokeWidth={2} className="size-[var(--redesign-quick-actions-icon-size)] shrink-0" />}
         <span className="truncate">{item.label}</span>
+        {chevron}
       </button>
       {item.menu && (
         <DropdownMenu size="compact" open={menuOpen} onOpenChange={setMenuOpen}>
