@@ -1583,7 +1583,7 @@ export function ComposeBox({
             // center line the real Textarea (below) and the mic/send
             // buttons share.
             <div
-              className={`pointer-events-none absolute inset-0 flex items-center px-1 transition-opacity duration-300 ${value || textareaFocused ? "opacity-0" : "opacity-100"}`}
+              className={`pointer-events-none absolute inset-0 flex items-center px-1 text-[length:var(--redesign-chat-text)] transition-opacity duration-300 ${value || textareaFocused ? "opacity-0" : "opacity-100"}`}
             >
               <AnimatedPlaceholder messages={[placeholder, ...placeholderCycle]} />
             </div>
@@ -1672,7 +1672,7 @@ export function ComposeBox({
           // practice. Fixed instead, so the JS effect above (which works
           // identically everywhere) is the one real mechanism, not competing
           // with a native behavior that may or may not be applying.
-          className="max-h-[40vh] min-h-0 resize-none overflow-y-auto border-none bg-transparent px-1 py-1 font-normal shadow-none transition-[height] duration-150 ease-out [field-sizing:fixed] placeholder:text-ink-3 placeholder:opacity-100 placeholder:transition-opacity placeholder:duration-200 focus:placeholder:opacity-0 dark:bg-transparent"
+          className="max-h-[40vh] min-h-0 resize-none overflow-y-auto border-none bg-transparent px-1 py-1 text-[length:var(--redesign-chat-text)] font-normal shadow-none transition-[height] duration-150 ease-out [field-sizing:fixed] placeholder:text-ink-3 placeholder:opacity-100 placeholder:transition-opacity placeholder:duration-200 focus:placeholder:opacity-0 dark:bg-transparent"
         />
         {sentGhost && (
           // Same Textarea and classes as the real one, so the text sits
@@ -1684,7 +1684,7 @@ export function ComposeBox({
             readOnly
             value={sentGhost.text}
             onAnimationEnd={() => setSentGhost(null)}
-            className="pointer-events-none absolute inset-0 h-full min-h-0 resize-none overflow-hidden border-none bg-transparent px-1 py-1 font-normal shadow-none dark:bg-transparent animate-[compose-sent-out_260ms_ease-out_forwards] motion-reduce:animate-[compose-sent-out_1ms_forwards]"
+            className="pointer-events-none absolute inset-0 h-full min-h-0 resize-none overflow-hidden border-none bg-transparent px-1 py-1 text-[length:var(--redesign-chat-text)] font-normal shadow-none dark:bg-transparent animate-[compose-sent-out_260ms_ease-out_forwards] motion-reduce:animate-[compose-sent-out_1ms_forwards]"
           />
         )}
         </div>
