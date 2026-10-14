@@ -55,8 +55,8 @@
    Top level, not in @theme. */
 /* Compose box: a sent message's text fading up out of the box. */
 @keyframes compose-sent-out {
-  from { opacity: 1; transform: translateY(0); }
-  to { opacity: 0; transform: translateY(-6px); }
+  from { opacity: 1; transform: translateY(0); filter: blur(0); }
+  to { opacity: 0; transform: translateY(-6px); filter: blur(var(--text-swap-blur, 2px)); }
 }
 
 @keyframes backdrop-wave {
@@ -1501,6 +1501,41 @@
   --shake-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --revert-hold: 3000ms;
   --revert-dur: 280ms;
+}
+
+/* transitions.dev "Text states swap": the old text exits up with blur, the
+   new text enters from below. Driven in three phases by SwapLabel
+   (compose-box.tsx): .is-exit, then swap + .is-enter-start, then rest. */
+:root {
+  --text-swap-dur: 150ms;
+  --text-swap-translate-y: 4px;
+  --text-swap-blur: 2px;
+  --text-swap-ease: ease-in-out;
+}
+.t-text-swap {
+  display: inline-block;
+  transform: translateY(0);
+  filter: blur(0);
+  opacity: 1;
+  transition:
+    transform var(--text-swap-dur) var(--text-swap-ease),
+    filter    var(--text-swap-dur) var(--text-swap-ease),
+    opacity   var(--text-swap-dur) var(--text-swap-ease);
+  will-change: transform, filter, opacity;
+}
+.t-text-swap.is-exit {
+  transform: translateY(calc(var(--text-swap-translate-y) * -1));
+  filter: blur(var(--text-swap-blur));
+  opacity: 0;
+}
+.t-text-swap.is-enter-start {
+  transform: translateY(var(--text-swap-translate-y));
+  filter: blur(var(--text-swap-blur));
+  opacity: 0;
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-text-swap { transition: none !important; }
 }
 
 /* Border-color tween. Define your input's default / focused

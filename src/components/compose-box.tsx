@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { loadModelCatalog, useModelCatalogVersion } from "@/lib/model-catalog";
 import type { IconComponent, IconComponentProps } from "@/lib/icon-context";
 import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
@@ -2234,25 +2233,50 @@ function useFrozenAnchor(triggerRef: React.RefObject<HTMLElement | null>) {
   return { anchor, freeze };
 }
 
-/** A trigger label that changes without cutting through: the old label
- *  fades out, the box then glides to the new label's width (nothing is
- *  clipped mid-way, so the chevron after it never slides over text), and
- *  the new label fades in as the width settles. */
+/** A trigger label swapped with transitions.dev's "Text states swap"
+ *  (.t-text-swap, index.css): the old label exits up with blur, the box then
+ *  glides to the new label's width (SmoothWidth; nothing clipped mid-way, so
+ *  the chevron never slides over text), and the new label enters from below. */
 function SwapLabel({ swapKey, children }: { swapKey: string; children: ReactNode }) {
-  const reduceMotion = useReducedMotion();
+  const [shown, setShown] = useState({ key: swapKey, children });
+  const [phase, setPhase] = useState<"rest" | "exit" | "enter-start">("rest");
+  const latest = useRef({ key: swapKey, children });
+  latest.current = { key: swapKey, children };
+
+  useEffect(() => {
+    if (swapKey === shown.key) {
+      // Switched back before the swap finished: settle on what's shown.
+      setPhase("rest");
+      return;
+    }
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) {
+      setShown(latest.current);
+      return;
+    }
+    const dur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--text-swap-dur")) || 150;
+    setPhase("exit");
+    let frame = 0;
+    const timer = window.setTimeout(() => {
+      setShown(latest.current);
+      setPhase("enter-start");
+      // Two frames: the enter-start pose paints first, then the label
+      // transitions back to rest.
+      frame = requestAnimationFrame(() => {
+        frame = requestAnimationFrame(() => setPhase("rest"));
+      });
+    }, dur);
+    return () => {
+      window.clearTimeout(timer);
+      cancelAnimationFrame(frame);
+    };
+  }, [swapKey, shown.key]);
+
+  // Same key: show its latest content (e.g. a language change) directly.
+  const content = swapKey === shown.key ? children : shown.children;
   return (
     <SmoothWidth>
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.span
-          key={swapKey}
-          className="inline-flex w-max items-center"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1, transition: reduceMotion ? { duration: 0 } : { duration: 0.14, delay: 0.12, ease: "easeOut" } }}
-          exit={{ opacity: 0, transition: reduceMotion ? { duration: 0 } : { duration: 0.09, ease: "easeIn" } }}
-        >
-          {children}
-        </motion.span>
-      </AnimatePresence>
+      <span className={cn("t-text-swap inline-flex w-max items-center", phase !== "rest" && `is-${phase}`)}>{content}</span>
     </SmoothWidth>
   );
 }
