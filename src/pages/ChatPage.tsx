@@ -2835,10 +2835,10 @@ function ChatRowView({
             sitting 4px inset from that same edge instead of flush with it,
             reading as a gap on whichever side the row is aligned to. */}
         <div className="flex items-center gap-1.5">
-          {/* size-5 (20px), matching ProviderIcon's own size on the agent
+          {/* size-4 (16px), matching ProviderIcon's own size on the agent
               row below exactly -- both sides of the conversation keep the
               same size mark now. */}
-          <span className="size-5 shrink-0 overflow-hidden rounded-full">
+          <span className="size-4 shrink-0 overflow-hidden rounded-full">
             <DefaultAvatar name={row.displayName} />
           </span>
           <span className="text-[length:var(--redesign-chat-meta)] text-muted-foreground">{isSelf ? i18n.t("chat.me") : row.displayName}</span>
@@ -3078,11 +3078,11 @@ function ChatRowView({
         </div>
       )}
       <div className="flex items-center gap-1.5 px-1">
-        {/* size-5 (20px), not size-6 -- per explicit request ("make sure
+        {/* size-4 (16px; was size-5) -- per explicit request ("make sure
             that both icons are size 5 to match the size of the font at
             the messages"), matching the row's own text-[length:var(--redesign-chat-meta)] label next to
             it instead of running larger than it. */}
-        <ProviderIcon model={row.model} className="size-5" onLoad={() => setIconLoaded(true)} />
+        <ProviderIcon model={row.model} className="size-4" onLoad={() => setIconLoaded(true)} />
         {/* text-xs, no font-medium -- same fix as the "command" row's own
             "Alongside" label just above: matches the "human" row's sender-name
             label exactly, its real symmetric counterpart. */}
