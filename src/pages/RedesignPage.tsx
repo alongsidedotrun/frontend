@@ -111,6 +111,7 @@ const quickActions = (t: Translate): readonly QuickActionItem[] => [
 // where to do it.
 const GETTING_STARTED_STEP_IDS = ["provider", "message", "account", "multiplayer"] as const;
 const GETTING_STARTED_DONE_KEY = "alongside_getting_started_done";
+const GETTING_STARTED_DISMISSED_KEY = "alongside_getting_started_dismissed";
 const EXPANDED_PROJECTS_KEY = "alongside_expanded_projects";
 type GettingStartedStepId = (typeof GETTING_STARTED_STEP_IDS)[number];
 const gettingStartedSteps = (
@@ -732,6 +733,22 @@ export function RedesignPage() {
     account: identity.signedIn,
     multiplayer: hostingOn,
   };
+  // Closed with its X once every step was done; stays closed on this device.
+  const [gettingStartedDismissed, setGettingStartedDismissed] = useState(() => {
+    try {
+      return localStorage.getItem(GETTING_STARTED_DISMISSED_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const dismissGettingStarted = () => {
+    setGettingStartedDismissed(true);
+    try {
+      localStorage.setItem(GETTING_STARTED_DISMISSED_KEY, "1");
+    } catch {
+      // storage blocked: closed for this session
+    }
+  };
   const [rememberedDone, setRememberedDone] = useState<string[]>(() => {
     try {
       return JSON.parse(localStorage.getItem(GETTING_STARTED_DONE_KEY) ?? "[]") as string[];
@@ -886,7 +903,23 @@ export function RedesignPage() {
           )}
           </div>
           <footer className="mt-auto pt-[var(--redesign-sidebar-section-gap)]">
-            <GettingStartedSummary label={t("shell.gettingStarted.label")} steps={steps} completedSteps={steps.filter((step) => step.complete).length} />
+            {/* Collapses and fades out when closed. */}
+            <div
+              className={cn(
+                "grid transition-[grid-template-rows,opacity,margin] duration-200 ease-out motion-reduce:transition-none",
+                gettingStartedDismissed ? "-mb-[var(--redesign-sidebar-section-gap)] grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100",
+              )}
+              inert={gettingStartedDismissed}
+            >
+              <div className={cn("min-h-0", gettingStartedDismissed && "overflow-hidden")}>
+                <GettingStartedSummary
+                  label={t("shell.gettingStarted.label")}
+                  steps={steps}
+                  completedSteps={steps.filter((step) => step.complete).length}
+                  onDismiss={dismissGettingStarted}
+                />
+              </div>
+            </div>
             <div className="-mx-[var(--redesign-sidebar-edge-padding)] mt-[var(--redesign-sidebar-section-gap)] border-t border-[var(--redesign-sidebar-border)] px-[var(--redesign-sidebar-edge-padding)] pt-2">
               <SidebarAccountFooter
                 signedIn={identity.signedIn}

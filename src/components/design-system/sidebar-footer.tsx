@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, CircleDashed } from "lucide-react";
+import { Check, CircleCheck, CircleDashed, X } from "lucide-react";
 import { LogInIcon, SettingsIcon } from "@/components/icons/untitled-ui";
 import { Backdrop } from "@/components/design-system/backdrop";
 import { cn } from "@/lib/utils";
@@ -27,6 +27,8 @@ type GettingStartedSummaryProps = {
   defaultExpanded?: boolean;
   viewAllLabel?: string;
   onViewAll?: () => void;
+  /** Once every step is done, the count becomes an X that calls this. */
+  onDismiss?: () => void;
 };
 
 function SetupProgressRing({ completedSteps, totalSteps }: { completedSteps: number; totalSteps: number }) {
@@ -70,10 +72,12 @@ export function GettingStartedSummary({
   defaultExpanded = false,
   viewAllLabel,
   onViewAll,
+  onDismiss,
 }: GettingStartedSummaryProps) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(defaultExpanded);
   const count = t("shell.gettingStarted.count", { done: completedSteps, total: steps.length });
+  const allDone = steps.length > 0 && completedSteps >= steps.length;
   const panelRadius = expanded
     ? "rounded-[var(--redesign-sidebar-footer-onboarding-radius)]"
     : "rounded-[var(--redesign-sidebar-footer-onboarding-collapsed-radius)]";
@@ -95,6 +99,7 @@ export function GettingStartedSummary({
       )}
       style={{ backgroundColor: "var(--redesign-getting-started-surface)" }}
     >
+      <div className="relative">
       <button
         type="button"
         aria-expanded={expanded}
@@ -111,10 +116,34 @@ export function GettingStartedSummary({
           !expanded && "hover:bg-muted/50 hover:text-foreground",
         )}
       >
-        <SetupProgressRing completedSteps={completedSteps} totalSteps={steps.length} />
+        {allDone ? (
+          // Everything done: a solid green tick in place of the ring.
+          <span className="flex size-[var(--redesign-sidebar-footer-progress-size)] shrink-0 items-center justify-center rounded-full bg-[var(--redesign-success)] text-white animate-[redesign-progress-ring_400ms_ease-out]">
+            <Check aria-hidden="true" strokeWidth={3} style={{ vectorEffect: "none" }} className="size-[65%]" />
+          </span>
+        ) : (
+          <SetupProgressRing completedSteps={completedSteps} totalSteps={steps.length} />
+        )}
         <span className="min-w-0 flex-1 truncate text-left font-medium">{label}</span>
-        <span className="shrink-0 text-[length:var(--redesign-font-size-compact)]">{count}</span>
+        {/* Room for the X (a sibling, as buttons can't nest) once all done. */}
+        {allDone && onDismiss ? <span aria-hidden="true" className="size-5 shrink-0" /> : <span className="shrink-0 text-[length:var(--redesign-font-size-compact)]">{count}</span>}
       </button>
+      {allDone && onDismiss && (
+        <button
+          type="button"
+          aria-label={t("shell.gettingStarted.dismiss")}
+          onClick={onDismiss}
+          className={cn(
+            "absolute top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded-[var(--redesign-dropdown-row-radius)] text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            expanded ? "right-0" : "right-[var(--redesign-quick-actions-padding)]",
+            PRESS_EFFECT,
+            ICON_PRESS,
+          )}
+        >
+          <X aria-hidden="true" strokeWidth={2} className="size-3.5" />
+        </button>
+      )}
+      </div>
       <div className={cn("grid transition-[grid-template-rows,opacity] duration-200 ease-out", expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")}>
         <div className="-mx-[var(--redesign-sidebar-footer-task-hover-bleed)] min-h-0 w-[calc(100%+2*var(--redesign-sidebar-footer-task-hover-bleed))] overflow-hidden px-[var(--redesign-sidebar-footer-task-hover-bleed)]">
           <div className="flex flex-col gap-1.5 pt-1.5">
@@ -126,13 +155,12 @@ export function GettingStartedSummary({
                     className="group -mx-[var(--redesign-sidebar-footer-task-hover-bleed)] flex h-[var(--redesign-sidebar-footer-task-row-height)] w-[calc(100%+2*var(--redesign-sidebar-footer-task-hover-bleed))] items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-sidebar-footer-task-hover-bleed)] text-left text-[length:var(--redesign-font-size-base)] font-medium text-foreground/50 transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {step.complete ? (
-                      <span className="flex size-[var(--redesign-sidebar-footer-task-indicator-size)] shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                        <Check aria-hidden="true" strokeWidth={2} className="size-[65%]" />
-                      </span>
+                      // Done: an outlined tick and the label struck through.
+                      <CircleCheck aria-hidden="true" strokeWidth={2} className="size-[var(--redesign-sidebar-footer-task-indicator-size)] shrink-0 text-muted-foreground" />
                     ) : (
                       <CircleDashed aria-hidden="true" strokeWidth={2} className="size-[var(--redesign-sidebar-footer-task-indicator-size)] shrink-0 text-current" />
                     )}
-                    <span className="truncate">{step.label}</span>
+                    <span className={cn("truncate", step.complete && "text-muted-foreground line-through decoration-muted-foreground/70")}>{step.label}</span>
                   </button>
                 </PopoverTrigger>
                 <PopoverContent side="right" align="end" className="w-[var(--redesign-sidebar-footer-task-popover-width)] gap-[var(--redesign-sidebar-footer-task-popover-gap)] rounded-[var(--redesign-workspace-menu-radius)] border border-[var(--redesign-sidebar-border)] bg-[var(--redesign-primary-surface)] p-[var(--redesign-sidebar-footer-task-popover-padding)] ring-0">
