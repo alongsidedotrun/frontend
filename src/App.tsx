@@ -13,6 +13,7 @@ import { InboxPage } from "@/pages/InboxPage";
 import { JoinPage } from "@/pages/JoinPage";
 import { LibraryPage } from "@/pages/LibraryPage";
 import { ModelsPage } from "@/pages/ModelsPage";
+import { OnboardingPage } from "@/pages/OnboardingPage";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
 import { ProjectsPage } from "@/pages/ProjectsPage";
 import { RedesignPage } from "@/pages/RedesignPage";
@@ -37,6 +38,7 @@ function SecureAppRoute() {
 
 const ROUTES: RouteObject[] = [
   { path: "/", element: <AppRoot /> },
+  { path: "/onboard", element: <OnboardingPage /> },
   { path: "/onboard/*", element: <Navigate to="/new/chat" replace /> },
   // Kept as a compatibility alias while the redesign is now the production
   // shell for every authenticated route.
