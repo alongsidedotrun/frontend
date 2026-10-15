@@ -40,9 +40,7 @@ import {
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  ChevronsInwardHorizontalIcon,
   DownloadIcon,
-  ExpandedWidthIcon,
   HelpCircleIcon,
   IntegrationsIcon,
   LogOutIcon,
@@ -278,7 +276,7 @@ const SETTINGS_SEARCH_ENTRIES: SettingsSearchEntry[] = [
   { id: "theme", section: "appearance", title: "Theme", keywords: "light dark system color mode appearance", target: "setting-theme" },
   { id: "transparency", section: "appearance", title: "Enable transparency", keywords: "blur vibrancy mac window appearance", target: "setting-transparency" },
   { id: "system-ui-font", section: "appearance", title: "Use system UI font", keywords: "font typography native system appearance", target: "setting-system-ui-font" },
-  { id: "chat-width", section: "appearance", title: "Chat width", keywords: "standard expanded wide column appearance", target: "setting-chat-width" },
+  { id: "content-size", section: "appearance", title: "Content size", keywords: "standard expanded wide column appearance", target: "setting-content-size" },
   { id: "font-smoothing", section: "appearance", title: "Font smoothing", keywords: "antialiased crisp text rendering mac appearance", target: "setting-font-smoothing" },
   { id: "notify-turn-complete", section: "general", title: "Receive a notification from every chat when a turn completes", keywords: "notification toast turn complete finished notify", target: "setting-notify-turn-complete" },
   { id: "chat-usage", section: "chat", title: "Chat usage", keywords: "usage sessions count local", target: "setting-chat-usage" },
@@ -1858,9 +1856,9 @@ function AppearanceSection() {
   ];
   const currentTheme = themeOptions.find((o) => o.value === theme) ?? themeOptions[0];
 
-  const chatWidthOptions: { value: ChatWidth; label: string; icon: IconComponent }[] = [
-    { value: "standard", label: t("settings.appearance.chatWidth.standard"), icon: ChevronsInwardHorizontalIcon },
-    { value: "expanded", label: t("settings.appearance.chatWidth.expanded"), icon: ExpandedWidthIcon },
+  const chatWidthOptions: { value: ChatWidth; label: string }[] = [
+    { value: "standard", label: t("settings.appearance.contentSize.standard") },
+    { value: "expanded", label: t("settings.appearance.contentSize.expanded") },
   ];
   const currentChatWidth = chatWidthOptions.find((o) => o.value === chatWidth) ?? chatWidthOptions[0];
 
@@ -1879,14 +1877,8 @@ function AppearanceSection() {
 
   return (
     <div className="flex flex-col">
-      {/* Four sections now, not one flat "Appearance" card -- per explicit
-          request ("inside appearance we have only one section called
-          appearance but we should have four sections, Theme, fonts
-          (macOS only), layout, caution"). Fonts groups both font-related
-          rows even though only Font smoothing is actually macOS-gated
-          (Use system UI font applies everywhere); Layout groups the
-          window/column-shape rows, including transparency (macOS-only,
-          same gate as before). */}
+      {/* Theme owns the appearance choices that change the canvas itself,
+          including the content size. */}
       <SettingsSection title={t("settings.appearance.theme")}>
         <SettingsRow id="setting-theme" title={t("settings.appearance.theme")} description={t("settings.appearance.theme.description")}>
           <BaseDropdownMenu size="compact">
@@ -1926,6 +1918,42 @@ function AppearanceSection() {
             </BaseDropdownContent>
           </BaseDropdownMenu>
         </SettingsRow>
+        <SettingsRow
+          id="setting-content-size"
+          title={t("settings.appearance.contentSize.title")}
+          description={t("settings.appearance.contentSize.description")}
+        >
+          <BaseDropdownMenu size="compact">
+            <BaseDropdownTrigger
+              render={
+                <button type="button" className={SETTINGS_DROPDOWN_TRIGGER_CLASS}>
+                  <span>{currentChatWidth.label}</span>
+                  <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                </button>
+              }
+            />
+            <BaseDropdownContent align="end" checkedIndex={chatWidthOptions.findIndex((o) => o.value === chatWidth)}>
+              {chatWidthOptions.map((option, i) => (
+                <BaseMenuItem
+                  key={option.value}
+                  index={i}
+                  label={option.label}
+                  checked={chatWidth === option.value}
+                  onSelect={() => setChatWidth(option.value)}
+                />
+              ))}
+            </BaseDropdownContent>
+          </BaseDropdownMenu>
+        </SettingsRow>
+        {transparencySupported && (
+          <SettingsRow
+            id="setting-transparency"
+            title={t("settings.appearance.transparency.title")}
+            description={t("settings.appearance.transparency.description")}
+          >
+            <Switch checked={transparencyEnabled} onToggle={() => updateTransparency(!transparencyEnabled)} aria-label="Enable transparency" />
+          </SettingsRow>
+        )}
       </SettingsSection>
 
       <SettingsSection title={t("settings.appearance.fonts")}>
@@ -1945,56 +1973,6 @@ function AppearanceSection() {
             description={t("settings.appearance.fontSmoothing.description")}
           >
             <Switch checked={fontSmoothing} onToggle={() => setFontSmoothing(!fontSmoothing)} aria-label="Font smoothing" />
-          </SettingsRow>
-        )}
-      </SettingsSection>
-
-      <SettingsSection title={t("settings.appearance.layout")}>
-        <SettingsRow
-          id="setting-chat-width"
-          title={t("settings.appearance.chatWidth.title")}
-          description={t("settings.appearance.chatWidth.description")}
-        >
-          {/* A dropdown now, not a segmented control -- per explicit
-              request ("Chat width... should use a dropdown like [Theme's
-              own dropdown]"), matching that row's own BaseDropdownMenu/
-              BaseDropdownTrigger/BaseDropdownContent shape exactly rather
-              than the pill-style SettingsSegmentedControl this used to be. */}
-          <BaseDropdownMenu size="compact">
-            <BaseDropdownTrigger
-              render={
-                <button type="button" className={SETTINGS_DROPDOWN_TRIGGER_CLASS}>
-                  <span className="flex items-center gap-1.5">
-                    <currentChatWidth.icon size={14} />
-                    {currentChatWidth.label}
-                  </span>
-                  <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
-                </button>
-              }
-            />
-            <BaseDropdownContent align="end" checkedIndex={chatWidthOptions.findIndex((o) => o.value === chatWidth)}>
-              {chatWidthOptions.map((option, i) => (
-                <BaseMenuItem
-                  key={option.value}
-                  index={i}
-                  icon={option.icon}
-                  label={option.label}
-                  checked={chatWidth === option.value}
-                  onSelect={() => setChatWidth(option.value)}
-                />
-              ))}
-            </BaseDropdownContent>
-          </BaseDropdownMenu>
-        </SettingsRow>
-        {/* macOS only, hidden (not shown-and-disabled) everywhere else,
-            per the confirmed story text ("Only visible when using macOS"). */}
-        {transparencySupported && (
-          <SettingsRow
-            id="setting-transparency"
-            title={t("settings.appearance.transparency.title")}
-            description={t("settings.appearance.transparency.description")}
-          >
-            <Switch checked={transparencyEnabled} onToggle={() => updateTransparency(!transparencyEnabled)} aria-label="Enable transparency" />
           </SettingsRow>
         )}
       </SettingsSection>
