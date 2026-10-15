@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import type { IconComponent } from "@/lib/icon-context";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { useIsMac, useIsWindows } from "@/hooks/use-platform";
@@ -44,15 +43,12 @@ import {
   HelpCircleIcon,
   IntegrationsIcon,
   LogOutIcon,
-  MoonIcon,
   PaletteIcon,
   ProvidersIcon,
   ProviderUsageIcon,
   RotateCcwIcon,
   SearchIcon,
   SettingsIcon,
-  SunIcon,
-  SystemIcon,
   UserIcon,
   ArrowCircleBrokenLeftIcon,
 } from "@/components/icons/untitled-ui";
@@ -1839,20 +1835,10 @@ function AppearanceSection() {
     applyChatWidth(next);
   }
 
-  // The raw icon component, not pre-rendered JSX -- BaseMenuItem's own
-  // `icon` prop (menu-item.tsx) calls this itself with its own size/
-  // strokeWidth/className (the invisible-sizer-plus-visible-icon grid
-  // overlay that keeps a row's icon centered against its label), so a
-  // pre-rendered `<SystemIcon className="size-3.5" />` handed to it
-  // ignores every one of those and renders slightly off -- confirmed
-  // directly as the cause of "the icons are not straight to the text
-  // vertically". Every other real `icon={...}` call site in this app
-  // (nav-user.tsx's own Settings/Docs/Help rows, compose-box.tsx's own
-  // Plus row) already passes the bare component this same way.
-  const themeOptions: { value: typeof theme; label: string; icon: IconComponent }[] = [
-    { value: "system", label: t("settings.appearance.theme.system"), icon: SystemIcon },
-    { value: "light", label: t("settings.appearance.theme.light"), icon: SunIcon },
-    { value: "dark", label: t("settings.appearance.theme.dark"), icon: MoonIcon },
+  const themeOptions: { value: typeof theme; label: string }[] = [
+    { value: "system", label: t("settings.appearance.theme.system") },
+    { value: "light", label: t("settings.appearance.theme.light") },
+    { value: "dark", label: t("settings.appearance.theme.dark") },
   ];
   const currentTheme = themeOptions.find((o) => o.value === theme) ?? themeOptions[0];
 
@@ -1861,19 +1847,6 @@ function AppearanceSection() {
     { value: "expanded", label: t("settings.appearance.contentSize.expanded") },
   ];
   const currentChatWidth = chatWidthOptions.find((o) => o.value === chatWidth) ?? chatWidthOptions[0];
-
-  const transparencyChanged = transparencyEnabled !== false;
-  const systemUiFontChanged = systemUiFont !== true;
-  const fontSmoothingChanged = fontSmoothing !== true;
-  const chatWidthChanged = chatWidth !== "standard";
-  const anyChanged = transparencyChanged || systemUiFontChanged || fontSmoothingChanged || chatWidthChanged;
-
-  function restoreDefaults() {
-    updateTransparency(false);
-    setSystemUiFont(true);
-    setFontSmoothing(true);
-    setChatWidth("standard");
-  }
 
   return (
     <div className="flex flex-col">
@@ -1885,10 +1858,7 @@ function AppearanceSection() {
             <BaseDropdownTrigger
               render={
                 <button type="button" className={SETTINGS_DROPDOWN_TRIGGER_CLASS}>
-                  <span className="flex items-center gap-1.5">
-                    <currentTheme.icon size={14} />
-                    {currentTheme.label}
-                  </span>
+                  <span>{currentTheme.label}</span>
                   <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
                 </button>
               }
@@ -1909,7 +1879,6 @@ function AppearanceSection() {
                 <BaseMenuItem
                   key={option.value}
                   index={i}
-                  icon={option.icon}
                   label={option.label}
                   checked={theme === option.value}
                   onSelect={() => setTheme(option.value)}
@@ -1977,14 +1946,6 @@ function AppearanceSection() {
         )}
       </SettingsSection>
 
-      <SettingsSection title={t("settings.appearance.caution")}>
-        <SettingsRow title={t("settings.appearance.resetDefaults.title")} description={t("settings.appearance.resetDefaults.description")}>
-          <button type="button" className={SETTINGS_ACTION_BUTTON_CLASS} disabled={!anyChanged} onClick={restoreDefaults}>
-            <RotateCcwIcon className="size-3.5" />
-            {t("settings.general.resetDefaults.button")}
-          </button>
-        </SettingsRow>
-      </SettingsSection>
     </div>
   );
 }
