@@ -1825,6 +1825,15 @@ export const translations = {
     zh: "从文件夹工作",
     ja: "フォルダから作業",
   },
+  "compose.connectApps": {
+    en: "Connect to your apps",
+    "pt-BR": "Conectar seus aplicativos",
+    es: "Conecta tus aplicaciones",
+    fr: "Connectez vos applications",
+    de: "Apps verbinden",
+    zh: "连接你的应用",
+    ja: "アプリに接続",
+  },
   "compose.planMode": {
     en: "Plan mode",
     "pt-BR": "Modo plano",
