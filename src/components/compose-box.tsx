@@ -25,6 +25,7 @@ import GlideMenu from "@/components/primitives/glide-menu";
 import {
   ArrowUpIcon,
   AttachmentIcon,
+  CheckIcon,
   ChevronDownIcon,
   ClearIcon,
   CompareIcon,
@@ -1135,6 +1136,9 @@ export function ComposeBox({
   // Caps the menu to the space on its chosen side (short windows), so it
   // scrolls instead of running off screen.
   const [tokenMenuMaxHeight, setTokenMenuMaxHeight] = useState<number | undefined>(undefined);
+  const addMenuRef = useRef<HTMLDivElement>(null);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [addMenuSide, setAddMenuSide] = useState<"top" | "bottom">("bottom");
 
   const rows =
     menu === "slash" ? SLASH_ROWS.filter((r) => r.label.slice(1).startsWith(query)) : [];
@@ -1347,6 +1351,24 @@ export function ComposeBox({
     setTokenMenuSide(side);
     setTokenMenuMaxHeight(Math.max(0, Math.floor(side === "bottom" ? spaceBelow : spaceAbove)));
   }, [menu, rows.length]);
+
+  // Synara's Add panel follows the composer: it opens below a mid-page
+  // composer in a new chat, and above a composer pinned near the bottom of an
+  // existing chat. Measure the rendered panel so the choice also accounts for
+  // the optional Plan mode row.
+  useLayoutEffect(() => {
+    if (!addMenuOpen) return;
+    const root = composeRootRef.current;
+    const panel = addMenuRef.current;
+    if (!root || !panel) return;
+
+    const rect = root.getBoundingClientRect();
+    const margin = 12;
+    const spaceBelow = window.innerHeight - rect.bottom - margin;
+    const spaceAbove = rect.top - margin;
+    const panelHeight = panel.scrollHeight;
+    setAddMenuSide(spaceBelow >= panelHeight || spaceBelow >= spaceAbove ? "bottom" : "top");
+  }, [addMenuOpen, planSupported]);
 
   return (
     // @container: its own width, not the host page's -- ChatPage doesn't
@@ -1725,7 +1747,13 @@ export function ComposeBox({
           centred, but the filled send circle and the bottom-heavy mic on the
           right make + and Model read as sitting higher. */}
       <div className="flex translate-y-px items-center gap-1">
-        <BaseDropdownMenu size="compact">
+        <BaseDropdownMenu
+          size="compact"
+          onOpenChange={(open) => {
+            setAddMenuOpen(open);
+            if (open) setAddMenuSide("bottom");
+          }}
+        >
           <BaseDropdownTrigger
             render={
               <Button
@@ -1748,9 +1776,16 @@ export function ComposeBox({
               </Button>
             }
           />
-          {/* Synara's `+` panel: one "Add" list opening above the composer -- files, then plan
-              mode as an on/off row with its state beside it (ComposerExtrasPanel.tsx). */}
-          <BaseDropdownContent side="top" align="start" sideOffset={8} className="w-72 min-w-0">
+          {/* Synara's `+` panel: one "Add" list that opens toward the side with
+              room -- files, then plan mode as an on/off row with its state
+              beside it (ComposerExtrasPanel.tsx). */}
+          <BaseDropdownContent
+            ref={addMenuRef}
+            side={addMenuSide}
+            align="start"
+            sideOffset={8}
+            className="w-72 min-w-0"
+          >
             <BaseDropdownLabel>{t("common.add")}</BaseDropdownLabel>
             <DropdownSubItem className="flex items-center gap-2.5 text-[12px] whitespace-nowrap" onClick={openFilePicker}>
               <AttachmentIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
