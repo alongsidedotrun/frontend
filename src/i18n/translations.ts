@@ -1816,6 +1816,15 @@ export const translations = {
     zh: "技能",
     ja: "スキル",
   },
+  "compose.workFromFolder": {
+    en: "Work from folder",
+    "pt-BR": "Trabalhar a partir de uma pasta",
+    es: "Trabajar desde una carpeta",
+    fr: "Travailler depuis un dossier",
+    de: "Aus einem Ordner arbeiten",
+    zh: "从文件夹工作",
+    ja: "フォルダから作業",
+  },
   "compose.planMode": {
     en: "Plan mode",
     "pt-BR": "Modo plano",
