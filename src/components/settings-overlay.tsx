@@ -22,7 +22,6 @@ import { loadTimezone, saveTimezone } from "@/lib/timezones";
 import { LanguageDropdown, TimezoneDropdown } from "@/components/locale-dropdowns";
 import { Trans, useTranslation } from "react-i18next";
 import i18n from "@/i18n";
-import { loadNotifyTurnComplete, requestNotificationPermission, saveNotifyTurnComplete } from "@/lib/notify-turn-complete";
 import { formatStorageBytes, useUsageStats } from "@/lib/use-usage";
 import { ErrorText } from "@/lib/error-code";
 import { AlongsideLogo } from "@/components/icons/alongside-logo";
@@ -75,11 +74,8 @@ import { Command, ShieldCheck } from "lucide-react";
 import { loadDataAcknowledgement, loadDataAcknowledgementTime } from "@/lib/data-acknowledgement";
 import { cn } from "@/lib/utils";
 
-// Tips/Notifications/Usage are sub-sections *inside* General, not their
-// own routes -- per explicit request ("Not as items but as menu items
-// like synara's style"), matching Synara's own General page (several
-// labeled sub-sections stacked on one page, not a separate nav entry per
-// sub-section). Story: Settings "Application" section
+// General owns the language and timezone controls. Story: Settings
+// "Application" section
 // (alongsidedotrun/private#207). Appearance moved out to its own
 // top-level section (AppearanceSection, below) -- per explicit request
 // ("we should get an appearance menu at the sidebar as well as palette
@@ -1717,88 +1713,17 @@ function ProfileSection() {
   );
 }
 
-// General's settings page: language/timezone, notifications and caution.
+// General's settings page: language and timezone.
 // Story: Settings "Application" section
 // (alongsidedotrun/private#207). Appearance used to be a fourth
 // sub-section here too; it now lives in its own AppearanceSection, below.
 function GeneralSection() {
   const { t } = useTranslation();
-  const [notifyEnabled, setNotifyEnabledState] = useState(loadNotifyTurnComplete);
-
-  // Requests the OS notification permission the first time this is turned
-  // on -- a denial reflects back into the toggle instead of showing "on"
-  // with no way to ever actually notify.
-  async function setNotifyEnabled(next: boolean) {
-    if (next) {
-      const granted = await requestNotificationPermission();
-      if (!granted) {
-        setNotifyEnabledState(false);
-        saveNotifyTurnComplete(false);
-        return;
-      }
-    }
-    setNotifyEnabledState(next);
-    saveNotifyTurnComplete(next);
-  }
-
-  // Baseline flipped to true along with loadNotifyTurnComplete's own new
-  // default (notify-turn-complete.ts's own comment has the full
-  // reasoning) -- otherwise Reset would show as available on a completely
-  // untouched, fresh install, and "restoring the default" would actually
-  // turn notifications *off*.
-  const notifyChanged = notifyEnabled !== true;
-  const anyChanged = notifyChanged;
-
-  function restoreDefaults() {
-    void setNotifyEnabled(true);
-  }
-
   return (
     <div className="flex flex-col">
       <SettingsSection title={t("settings.general.languageAndTimezone")}>
         <LanguageRow />
         <TimezoneRow />
-      </SettingsSection>
-
-      <SettingsSection title={t("settings.general.notifications")}>
-        {/* Copy per explicit request/follow-up, with the two disputed
-            claims in the original wording resolved for real rather than
-            just dropped: "human or provider turn" narrowed to "provider
-            turn" (notifyTurnComplete only ever fires on the agent's own
-            reply, never on another participant's message -- that file's
-            own comment has the full reasoning), and "notifications can be
-            specifically enabled at chats" is now actually true --
-            AppLayout.tsx's own new chat-header "..." menu (Share chat/
-            Enable notification) writes a real per-chat override
-            (chat-notifications.ts) that notifyTurnComplete also checks. */}
-        <SettingsRow
-          id="setting-notify-turn-complete"
-          title={t("settings.general.notifyTurnComplete.title")}
-          description={t("settings.general.notifyTurnComplete.description")}
-        >
-          <Switch
-            checked={notifyEnabled}
-            onToggle={() => void setNotifyEnabled(!notifyEnabled)}
-            aria-label="Receive a notification from every chat when a turn completes"
-          />
-        </SettingsRow>
-      </SettingsSection>
-
-      {/* Caution -- per explicit request, its own sub-section and last on
-          the page, matching every other page's own convention going
-          forward ("Caution should be the last item in all pages"). Not
-          styled destructive -- resetting this page isn't irreversible the
-          way the old Danger zone's own "Reset all settings" was, this
-          heading is just calling it out as worth a second thought. Log
-          out moved to its own new Profile section -- per explicit request
-          ("logout to go inside there instead of general"). */}
-      <SettingsSection title={t("settings.general.caution")}>
-        <SettingsRow title={t("settings.general.resetDefaults.title")} description={t("settings.general.resetDefaults.description")}>
-          <button type="button" className={SETTINGS_ACTION_BUTTON_CLASS} disabled={!anyChanged} onClick={restoreDefaults}>
-            <RotateCcwIcon className="size-3.5" />
-            {t("settings.general.resetDefaults.button")}
-          </button>
-        </SettingsRow>
       </SettingsSection>
     </div>
   );
