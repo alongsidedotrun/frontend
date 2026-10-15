@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { useLocation, useNavigate, useOutlet } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { ChevronRight, CircleArrowUp, CircleHelp, Plus, ShieldCheck } from "lucide-react";
+import { Blend, ChevronRight, CircleArrowUp, CircleHelp, Plus, ShieldCheck } from "lucide-react";
 import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
 import { CreateWorkspaceDialog } from "@/components/design-system/create-workspace-dialog";
 import { SignInDialog } from "@/components/design-system/sign-in-dialog";
@@ -17,7 +17,7 @@ import { useIdentity } from "@/lib/identity";
 import { signOut } from "@/lib/auth";
 import { moveLocalWorkspaceDetailsToBackend } from "@/lib/workspace-logos";
 import { ManageWorkspaceDialog, type WorkspaceChange } from "@/components/design-system/manage-workspace-dialog";
-import { ArchiveIcon, ArrowSquareUpIcon, BubbleChatIcon, DeleteIcon, EditIcon, FolderIcon, IntegrationsIcon, LogOutIcon, MessageChatCircleIcon, PaletteIcon, ProvidersIcon, Settings01Icon, SettingsIcon, UserIcon } from "@/components/icons/untitled-ui";
+import { ArchiveIcon, BubbleChatIcon, DeleteIcon, EditIcon, FolderIcon, IntegrationsIcon, LogOutIcon, MessageChatCircleIcon, PaletteIcon, ProvidersIcon, Settings01Icon, SettingsIcon, UserIcon } from "@/components/icons/untitled-ui";
 import { SplitView } from "@/components/design-system/split-view";
 import { AppTopBar } from "@/components/app-top-bar";
 import { QuickActions, type QuickActionItem } from "@/components/design-system/quick-actions";
@@ -109,7 +109,7 @@ function profileMenuSections(t: Translate, onOpenProfile: () => void, onSignOut:
 // join code -- JoinChatDialog).
 const quickActions = (t: Translate): readonly QuickActionItem[] => [
   { id: "chats", label: t("common.newChat"), icon: Plus },
-  { id: "join", label: t("joinChat.title"), icon: ArrowSquareUpIcon },
+  { id: "join", label: t("joinChat.title"), icon: Blend },
 ];
 
 // Getting started: the essentials, each done when the real thing is (a
@@ -703,7 +703,7 @@ export function RedesignPage() {
       value: "join-chat",
       label: t("joinChat.title"),
       description: t("shell.commands.joinChat.description"),
-      icon: ArrowSquareUpIcon,
+      icon: Blend,
       keywords: ["share", "multiplayer", "code", "invite"],
       group: t("shell.commands.group.actions"),
       onSelect: () => setJoinOpen(true),
