@@ -60,7 +60,7 @@ import {
   UserIcon,
   ArrowCircleBrokenLeftIcon,
 } from "@/components/icons/untitled-ui";
-import { GlideGroup, RailButton, SIDEBAR_WIDTH, SIDEBAR_ROW_WIDTH } from "@/components/sidebar-nav";
+import { GlideGroup, RailButton } from "@/components/sidebar-nav";
 import { AccountMenuItems, HelpMenuItems } from "@/components/nav-user";
 import {
   clearUserAvatarImage,
@@ -2774,9 +2774,9 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
     <aside
       aria-label={t("settings.nav.ariaLabel")}
       className="relative flex h-full shrink-0 flex-col overflow-hidden border-r border-border bg-sidebar"
-      style={{ width: SIDEBAR_WIDTH }}
+      style={{ width: "var(--redesign-sidebar-width)" }}
     >
-      <div className="flex min-h-0 shrink-0 flex-col pt-2" style={{ width: SIDEBAR_WIDTH }}>
+      <div className="flex min-h-0 shrink-0 flex-col pt-2" style={{ width: "var(--redesign-sidebar-width)" }}>
         {/* Same top-row shape as the real sidebar's own collapse-toggle +
             back/forward row (sidebar-nav.tsx) -- pt-2 wrapper + a 32px row
             containing the same 62px macOS traffic-light reserve -- per
@@ -2789,7 +2789,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
             same pt-2 + 32px-row path), not just clearing the traffic
             lights in isolation. */}
         <div className="h-[32px]">
-        <div className="mx-2 flex h-6 shrink-0 items-center overflow-hidden" style={{ width: SIDEBAR_ROW_WIDTH }}>
+        <div className="mx-2 flex h-6 shrink-0 items-center overflow-hidden" style={{ width: "calc(var(--redesign-sidebar-width) - 16px)" }}>
           {/* Reserved space for macOS's own native traffic-light buttons --
               see sidebar-nav.tsx's own identical span for the full
               reasoning. */}
@@ -2854,7 +2854,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
             one was missing (the Cmd/Ctrl+F shortcut itself already worked
             here, from the earlier request above -- just never rendered a
             visible hint for it). */}
-        <div className="relative mx-2 mb-2 h-7 w-[204px]">
+        <div className="relative mx-2 mb-2 h-7" style={{ width: "calc(var(--redesign-sidebar-width) - 16px)" }}>
           <SearchIcon className="pointer-events-none absolute top-1/2 left-[9px] size-[14px] -translate-y-1/2 text-foreground select-none" />
           <Input
             ref={searchRef}
@@ -2996,7 +2996,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
           />
         </GlideGroup>
         {false && (
-        <div className="mx-2 mt-1 flex h-7 shrink-0 items-center gap-1 overflow-hidden rounded-[var(--row-radius)]" style={{ width: SIDEBAR_ROW_WIDTH }}>
+        <div className="mx-2 mt-1 flex h-7 shrink-0 items-center gap-1 overflow-hidden rounded-[var(--row-radius)]" style={{ width: "calc(var(--redesign-sidebar-width) - 16px)" }}>
           <BaseDropdownMenu
             size="compact"
             onOpenChange={(nowOpen) => {
