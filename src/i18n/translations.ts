@@ -1789,6 +1789,15 @@ export const translations = {
     zh: "文件和文件夹",
     ja: "ファイルとフォルダー",
   },
+  "compose.skills": {
+    en: "Skills",
+    "pt-BR": "Habilidades",
+    es: "Habilidades",
+    fr: "Compétences",
+    de: "Skills",
+    zh: "技能",
+    ja: "スキル",
+  },
   "compose.planMode": {
     en: "Plan mode",
     "pt-BR": "Modo plano",
