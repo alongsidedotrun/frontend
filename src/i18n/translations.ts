@@ -5561,12 +5561,12 @@ export const translations = {
     ja: "チャットに参加するにはサインインしてください。共有した人には参加者が表示されます。",
   },
   "joinChat.signedInDescription": {
-    en: "Once you've entered the identifier and join code, someone will let you into the chat.",
-    "pt-BR": "Depois que você inserir o identificador e o código de entrada, alguém permitirá que você entre no chat.",
-    es: "Cuando hayas introducido el identificador y el código de acceso, alguien te dejará entrar en el chat.",
+    en: "Once entered the identifier and join code, someone will let you in to the chat.",
+    "pt-BR": "Depois de inserir o identificador e o código de entrada, alguém deixará você entrar no chat.",
+    es: "Una vez introducidos el identificador y el código de acceso, alguien te dejará entrar en el chat.",
     fr: "Une fois l'identifiant et le code d'accès saisis, quelqu'un vous laissera entrer dans le chat.",
-    de: "Sobald du die Kennung und den Beitrittscode eingegeben hast, lässt dich jemand in den Chat.",
-    zh: "输入标识符和加入码后，会有人允许你加入对话。",
+    de: "Nach Eingabe der Kennung und des Beitrittscodes lässt dich jemand in den Chat.",
+    zh: "输入标识符和加入码后，会有人让你加入对话。",
     ja: "識別子と参加コードを入力すると、誰かがチャットへの参加を許可します。",
   },
   "joinChat.join": {
