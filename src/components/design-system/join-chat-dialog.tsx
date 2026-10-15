@@ -133,7 +133,7 @@ export function JoinChatDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           void join(Boolean(disclosure));
         }}
       >
-        {!signedIn ? null : disclosure ? (
+        {disclosure ? (
           <div className={cn("flex flex-col gap-3 p-4", SHELL_RADIUS, SHELL_SURFACE)}>
             <h3 className="text-[13px] font-medium text-foreground">{t("share.disclosure.title")}</h3>
             <p className="text-[12px] text-muted-foreground">{disclosure}</p>
