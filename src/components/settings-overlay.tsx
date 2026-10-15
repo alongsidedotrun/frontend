@@ -34,7 +34,7 @@ import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ShellDialog, ShellDialogActions, ShellField } from "@/components/design-system/shell-dialog";
+import { ShellField } from "@/components/design-system/shell-dialog";
 import {
   BubbleChatIcon,
   ChevronDownIcon,
@@ -1474,7 +1474,6 @@ function resizeImageFile(file: File, maxSize = 256, quality = 0.85): Promise<str
 // comment has the pointer).
 function ProfileSection() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const isSignedIn = useIsSignedIn();
   const avatarImage = useUserAvatarImage();
   const currentName = useUserDisplayName();
@@ -1527,38 +1526,19 @@ function ProfileSection() {
     link.click();
   }
 
-  const returnToPreviousPage = () => navigate(-1);
-
   return (
-    <ShellDialog
-      centered
-      open
-      onOpenChange={(open) => {
-        if (!open) returnToPreviousPage();
-      }}
-      icon={
-        <Avatar size="lg" className="size-16 shrink-0">
-          <AvatarFallback className="text-xl">
-            {avatarImage ? <img src={avatarImage} alt="" className="size-full rounded-full object-cover" /> : <DefaultAvatar name={currentName} />}
-          </AvatarFallback>
-        </Avatar>
-      }
-      title={t("settings.nav.profile")}
-      description={t("settings.nav.subtitle.profile")}
-      actions={
-        <ShellDialogActions
-          cancelLabel={t("common.cancel")}
-          onCancel={returnToPreviousPage}
-          primary={{
-            label: isSignedIn ? t("common.logOut") : t("common.signIn"),
-            onClick: () => {
-              if (isSignedIn) signOut();
-              else openSignInDialog();
-            },
-          }}
-        />
-      }
-    >
+    <div className="mx-auto flex w-full max-w-[540px] flex-col gap-3 bg-[#FAFAFA] px-[max(2.5rem,15%)] py-20 dark:bg-[var(--redesign-primary-surface)]">
+      <div className="flex flex-col items-center gap-0.5 text-center">
+        <div className="mb-2">
+          <Avatar size="lg" className="size-16 shrink-0">
+            <AvatarFallback className="text-xl">
+              {avatarImage ? <img src={avatarImage} alt="" className="size-full rounded-full object-cover" /> : <DefaultAvatar name={currentName} />}
+            </AvatarFallback>
+          </Avatar>
+        </div>
+        <h2 className="text-[15px] font-medium text-foreground">{t("settings.nav.profile")}</h2>
+        <p className="text-[12px] text-muted-foreground">{t("settings.nav.subtitle.profile")}</p>
+      </div>
       <div className="flex flex-col gap-3">
         <ShellField label={t("settings.profile.name.title")}>
           <span className="truncate text-[13px] text-foreground">{isSignedIn ? currentName : t("settings.profile.name.signedOut")}</span>
@@ -1622,7 +1602,17 @@ function ProfileSection() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </ShellDialog>
+      <Button
+        variant="accent"
+        className="h-8 w-full rounded-[calc(32px*8/27)]"
+        onClick={() => {
+          if (isSignedIn) signOut();
+          else openSignInDialog();
+        }}
+      >
+        {isSignedIn ? t("common.logOut") : t("common.signIn")}
+      </Button>
+    </div>
   );
 }
 
@@ -2838,8 +2828,6 @@ export function SettingsSectionContent({ section }: { section: SettingsSection }
     return () => cancelAnimationFrame(id);
   }, [section]);
 
-  if (section === "profile") return <ProfileSection />;
-
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-background">
       {/* Heading now scrolls with the rest of the page instead of staying
@@ -2866,15 +2854,20 @@ export function SettingsSectionContent({ section }: { section: SettingsSection }
             divider under the heading and subheading of each page on
             settings, remove that"). */}
         <PageContent maxWidth="var(--chat-max-width)">
-          <h2 className="text-[16px] font-semibold text-foreground">
-            {(() => {
-              const labelKey = SECTIONS.find((s) => s.key === section)?.labelKey;
-              return labelKey ? t(labelKey) : null;
-            })()}
-          </h2>
-          <p className="mt-0.5 text-[13px] font-normal text-muted-foreground">{t(SECTION_SUBTITLE_KEY[section])}</p>
+          {section !== "profile" && (
+            <>
+              <h2 className="text-[16px] font-semibold text-foreground">
+                {(() => {
+                  const labelKey = SECTIONS.find((s) => s.key === section)?.labelKey;
+                  return labelKey ? t(labelKey) : null;
+                })()}
+              </h2>
+              <p className="mt-0.5 text-[13px] font-normal text-muted-foreground">{t(SECTION_SUBTITLE_KEY[section])}</p>
+            </>
+          )}
         </PageContent>
         <PageContent maxWidth="var(--chat-max-width)">
+          {section === "profile" && <ProfileSection />}
           {section === "general" && <GeneralSection />}
           {section === "appearance" && <AppearanceSection />}
           {section === "chat" && <ChatSection />}
