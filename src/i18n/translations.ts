@@ -5806,6 +5806,15 @@ export const translations = {
     zh: "仅聊天",
     ja: "チャットのみ",
   },
+  "chat.agentMode.commenterOnly": {
+    en: "As a Commenter, your messages go to the shared chat only. You can't run an agent here.",
+    "pt-BR": "Como comentarista, suas mensagens vão apenas para o chat compartilhado. Você não pode executar um agente aqui.",
+    es: "Como comentarista, tus mensajes solo van al chat compartido. No puedes ejecutar un agente aquí.",
+    fr: "En tant que commentateur, vos messages vont uniquement dans le chat partagé. Vous ne pouvez pas exécuter d'agent ici.",
+    de: "Als Kommentator werden deine Nachrichten nur an den geteilten Chat gesendet. Du kannst hier keinen Agenten ausführen.",
+    zh: "作为评论者，你的消息只会发送到共享对话。你无法在此运行代理。",
+    ja: "コメント投稿者のメッセージは共有チャットにのみ送信されます。ここではエージェントを実行できません。",
+  },
   "chat.relayRun.failed": {
     en: "{{name}}'s agent couldn't finish: {{message}}",
     "pt-BR": "O agente de {{name}} não conseguiu terminar: {{message}}",
