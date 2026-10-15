@@ -66,7 +66,7 @@ export function ShellDialog({
     observer.current = next;
   }, []);
   const header = (
-    <div className="flex flex-col items-center gap-0.5 pt-1 text-center">
+    <div className="relative -top-6 flex flex-col items-center gap-0.5 pt-1 text-center">
       {/* The Alongside mark on a workspace-style tile, unless the dialog brings its own. */}
       <div className="mb-2">{icon ?? <WorkspaceBrandIcon size={32} />}</div>
       <div className="flex items-center gap-2">
