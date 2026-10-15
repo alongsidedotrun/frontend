@@ -33,6 +33,7 @@ import {
   MicIcon,
   PlusIcon,
   ShareIcon,
+  SkillIcon,
   SquareIcon,
   SummarizeIcon,
   TaskIcon,
@@ -1790,6 +1791,10 @@ export function ComposeBox({
             <DropdownSubItem className="flex items-center gap-2.5 text-[12px] whitespace-nowrap" onClick={openFilePicker}>
               <AttachmentIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
               <span className="flex-1">{t("compose.filesAndFolders")}</span>
+            </DropdownSubItem>
+            <DropdownSubItem className="flex items-center gap-2.5 text-[12px] whitespace-nowrap">
+              <SkillIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="flex-1">{t("compose.skills")}</span>
             </DropdownSubItem>
             {planSupported && (
               <DropdownSubItem className="flex items-center gap-2.5 text-[12px] whitespace-nowrap" onClick={() => setPlanMode((on) => !on)}>
