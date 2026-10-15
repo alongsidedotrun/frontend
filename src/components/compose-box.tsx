@@ -1933,7 +1933,8 @@ export function ComposeBox({
                   className={cn(
                     "grid h-auto grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-x-3 py-2 pr-2.5 pl-2.5 text-[12px]",
                     m.value === mode && "bg-hover-2",
-                    m.value === "auto" && "text-orange-500"
+                    m.value === "auto" && "text-orange-500",
+                    m.value === "ask" && "text-[var(--send-button-bg)]"
                   )}
                   onClick={() => setMode(m.value)}
                 >
@@ -1942,7 +1943,7 @@ export function ComposeBox({
                   </span>
                   <span className="flex min-w-0 flex-col gap-0.5">
                     <span className="font-medium">{t(m.labelKey)}</span>
-                    <span className={cn("text-[11px] leading-snug font-normal whitespace-normal", m.value === "auto" ? "text-current" : "text-muted-foreground")}>{t(m.descriptionKey)}</span>
+                    <span className={cn("text-[11px] leading-snug font-normal whitespace-normal", m.value === "auto" || m.value === "ask" ? "text-current" : "text-muted-foreground")}>{t(m.descriptionKey)}</span>
                   </span>
                 </DropdownSubItem>
               );
