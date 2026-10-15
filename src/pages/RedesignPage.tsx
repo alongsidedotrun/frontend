@@ -17,7 +17,7 @@ import { useIdentity } from "@/lib/identity";
 import { signOut } from "@/lib/auth";
 import { moveLocalWorkspaceDetailsToBackend } from "@/lib/workspace-logos";
 import { ManageWorkspaceDialog, type WorkspaceChange } from "@/components/design-system/manage-workspace-dialog";
-import { ArchiveIcon, ArrowCircleBrokenUpIcon, BubbleChatIcon, DeleteIcon, EditIcon, FolderIcon, IntegrationsIcon, LogOutIcon, MessageChatCircleIcon, PaletteIcon, ProvidersIcon, Settings01Icon, SettingsIcon, UserIcon } from "@/components/icons/untitled-ui";
+import { ArchiveIcon, ArrowSquareUpIcon, BubbleChatIcon, DeleteIcon, EditIcon, FolderIcon, IntegrationsIcon, LogOutIcon, MessageChatCircleIcon, PaletteIcon, ProvidersIcon, Settings01Icon, SettingsIcon, UserIcon } from "@/components/icons/untitled-ui";
 import { SplitView } from "@/components/design-system/split-view";
 import { AppTopBar } from "@/components/app-top-bar";
 import { QuickActions, type QuickActionItem } from "@/components/design-system/quick-actions";
@@ -109,7 +109,7 @@ function profileMenuSections(t: Translate, onOpenProfile: () => void, onSignOut:
 // join code -- JoinChatDialog).
 const quickActions = (t: Translate): readonly QuickActionItem[] => [
   { id: "chats", label: t("common.newChat"), icon: Plus },
-  { id: "join", label: t("joinChat.title"), icon: ArrowCircleBrokenUpIcon },
+  { id: "join", label: t("joinChat.title"), icon: ArrowSquareUpIcon },
 ];
 
 // Getting started: the essentials, each done when the real thing is (a
@@ -703,7 +703,7 @@ export function RedesignPage() {
       value: "join-chat",
       label: t("joinChat.title"),
       description: t("shell.commands.joinChat.description"),
-      icon: ArrowCircleBrokenUpIcon,
+      icon: ArrowSquareUpIcon,
       keywords: ["share", "multiplayer", "code", "invite"],
       group: t("shell.commands.group.actions"),
       onSelect: () => setJoinOpen(true),
