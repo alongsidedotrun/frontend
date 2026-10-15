@@ -1145,7 +1145,6 @@ export function ComposeBox({
   const addMenuRef = useRef<HTMLDivElement>(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [addMenuSide, setAddMenuSide] = useState<"top" | "bottom">("bottom");
-  const [folderExtensionTop, setFolderExtensionTop] = useState<number | undefined>(undefined);
   const modeMenuRef = useRef<HTMLDivElement>(null);
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [modeMenuSide, setModeMenuSide] = useState<"top" | "bottom">("bottom");
@@ -1379,7 +1378,6 @@ export function ComposeBox({
       const panelHeight = panel.scrollHeight;
       const side = spaceBelow >= panelHeight || spaceBelow >= spaceAbove ? "bottom" : "top";
       setAddMenuSide(side);
-      setFolderExtensionTop(side === "bottom" ? rect.height + panel.scrollHeight + 8 : rect.height + 8);
     });
     return () => cancelAnimationFrame(frame);
   }, [addMenuOpen, planSupported]);
@@ -1961,14 +1959,6 @@ export function ComposeBox({
         </div>
         )}
       </div>
-      {addMenuOpen && (
-        <div className="absolute left-0 z-20 w-72 overflow-hidden rounded-xl border border-[var(--redesign-sidebar-elevated-border)] bg-[var(--redesign-sidebar-overlay-surface)] shadow-[var(--redesign-sidebar-elevated-shadow)]" style={{ top: folderExtensionTop ?? "calc(100% + 8px)" }}>
-          <button type="button" className="flex h-10 w-full items-center gap-2.5 px-3 text-left text-[12px] text-foreground transition-colors hover:bg-muted/60">
-            <img src={styledFolderIcon} alt="" aria-hidden="true" className="size-4 shrink-0 object-contain" />
-            <span className="flex-1">{t("compose.workFromFolder")}</span>
-          </button>
-        </div>
-      )}
       <div className="mr-1 flex items-center gap-1">
         {/* Effort -- now its own standalone trigger+dropdown next to the
             model selector, matching Synara's own split layout (a real
@@ -2325,6 +2315,12 @@ export function ComposeBox({
         )}
       </div>
     </div>
+    </div>
+    <div className="rounded-b-[calc(var(--radius)*2)] border border-t-0 border-border bg-background px-2 py-1.5 @[420px]:px-3">
+      <button type="button" className="flex h-8 w-full items-center gap-2 px-1 text-left text-[12px] text-muted-foreground transition-colors hover:text-foreground">
+        <img src={styledFolderIcon} alt="" aria-hidden="true" className="size-4 shrink-0 object-contain" />
+        <span>{t("compose.workFromFolder")}</span>
+      </button>
     </div>
     </div>
   );
