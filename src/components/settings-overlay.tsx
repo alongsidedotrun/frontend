@@ -101,6 +101,7 @@ export type SettingsSection = "profile" | "general" | "appearance" | "chat" | "s
 // nested/controls inside them, matching Synara's own strict two-step scale
 // (that app's settingsPanelStyles.ts).
 const SETTINGS_CARD_RADIUS = "rounded-xl";
+const PROVIDER_ICON_FRAME = "flex size-8 shrink-0 items-center justify-center rounded-[calc(32px*8/27)] border border-border";
 const SETTINGS_CONTROL_RADIUS = "rounded-lg";
 
 // Shared by every plain action button in a Caution section (Reset, Log
@@ -946,7 +947,7 @@ function ProviderCard({ provider, onClick }: { provider: Provider; onClick: () =
         onClick={onClick}
         className={`flex min-w-0 flex-1 select-none items-center gap-2 text-left ${isFullCardButton ? "w-full" : ""}`}
       >
-        <span className="flex size-8 shrink-0 items-center justify-center">
+        <span className={PROVIDER_ICON_FRAME}>
           <ProviderIcon model={provider} className="size-5" />
         </span>
         <span className="min-w-0 flex-1">
@@ -1088,7 +1089,7 @@ function AppsSection() {
               onClick={() => {}}
               className={`flex w-full select-none items-center gap-2 ${SETTINGS_CARD_RADIUS} border border-border p-3 text-left transition-colors hover:bg-hover-2/50`}
             >
-              <span className="flex size-8 shrink-0 items-center justify-center">
+              <span className={PROVIDER_ICON_FRAME}>
                 <AlongsideLogo className="size-5 text-black dark:text-white" />
               </span>
               <span className="min-w-0 flex-1">
@@ -1379,7 +1380,7 @@ function ProvidersSection() {
               onClick={() => {}}
               className={`flex w-full select-none items-center gap-2 ${SETTINGS_CARD_RADIUS} border border-border p-3 text-left transition-colors hover:bg-hover-2/50`}
             >
-              <span className="flex size-8 shrink-0 items-center justify-center">
+              <span className={PROVIDER_ICON_FRAME}>
                 <AlongsideLogo className="size-5 text-black dark:text-white" />
               </span>
               <span className="min-w-0 flex-1">
