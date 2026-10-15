@@ -20,11 +20,6 @@ import { RedesignPage } from "@/pages/RedesignPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { WelcomePage } from "@/pages/WelcomePage";
 
-// Opening the app lands on a new chat in the redesigned workspace.
-function AppRoot() {
-  return <Navigate to="/new/chat" replace />;
-}
-
 function GettingStartedRoute() {
   const { show } = useGettingStarted();
   return show ? <WelcomePage /> : <Navigate to="/" replace />;
@@ -37,7 +32,6 @@ function SecureAppRoute() {
 }
 
 const ROUTES: RouteObject[] = [
-  { path: "/", element: <AppRoot /> },
   { path: "/onboard", element: <OnboardingPage /> },
   { path: "/onboard/*", element: <Navigate to="/new/chat" replace /> },
   // Kept as a compatibility alias while the redesign is now the production
@@ -56,6 +50,7 @@ const ROUTES: RouteObject[] = [
     // check instead.
     element: <SecureAppRoute />,
     children: [
+      { index: true, element: <HomePage /> },
       // Overview is switched off for now (pages/OverviewPage.tsx is kept);
       // an old link to it opens a new chat instead.
       { path: "/overview", element: <Navigate to="/new/chat" replace /> },
