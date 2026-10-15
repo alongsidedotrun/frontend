@@ -148,7 +148,8 @@ export function JoinChatDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                 value={chatId}
                 autoComplete="off"
                 spellCheck={false}
-                className={cn(SHELL_FIELD_INPUT, "font-mono tracking-[0.1em]")}
+                disabled={!signedIn}
+                className={cn(SHELL_FIELD_INPUT, "font-mono tracking-[0.1em] disabled:cursor-not-allowed disabled:opacity-50")}
                 aria-invalid={Boolean(error) || undefined}
                 onChange={(event) => {
                   setChatId(formatTypedId(event.target.value, CHAT_ID_GROUPS));
@@ -162,7 +163,8 @@ export function JoinChatDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                 value={code}
                 autoComplete="off"
                 spellCheck={false}
-                className={cn(SHELL_FIELD_INPUT, "font-mono tracking-[0.1em]")}
+                disabled={!signedIn}
+                className={cn(SHELL_FIELD_INPUT, "font-mono tracking-[0.1em] disabled:cursor-not-allowed disabled:opacity-50")}
                 aria-invalid={Boolean(error) || undefined}
                 onChange={(event) => {
                   setCode(formatTypedId(event.target.value, CODE_GROUPS));
