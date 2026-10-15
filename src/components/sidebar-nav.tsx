@@ -116,7 +116,7 @@ export const SIDEBAR_EASING = "cubic-bezier(0.16, 1, 0.3, 1)";
 // key: "home" retired -- Welcome now has its own destination
 // (/getting-started, which is also the app's overall default landing page
 // now -- see App.tsx's own "/" redirect), separate from New Chat's own
-// page (moved to /new/chat for the same reason), so it needs its own key
+// page (moved to / for the same reason), so it needs its own key
 // rather than sharing New's own for active-row highlighting.
 // size-[13px], not the row's usual 14px (FolderIcon etc. just below use
 // 14) -- the Hugeicons glyphs those use are drawn with real breathing
@@ -2149,7 +2149,7 @@ export default function SidebarNav({
               desktop-app-not-fullscreen case that *does* have them
               skips this narrow rail entirely. */}
           {/* Restored as the collapse toggle -- briefly replaced with a
-              Home button (navigate to /new/chat), reverted per explicit
+              Home button (navigate to /), reverted per explicit
               request ("the sidebar at homepage got broken... please
               restore our previous collapse feature to the homepage
               sidebar and keep the settings sidebar as it is"): the
@@ -2601,7 +2601,7 @@ export default function SidebarNav({
                       // reasoning (no real session exists to assign a
                       // project_id to until one is actually created there).
                       onNewChat={() =>
-                        navigateAndClose(() => navigate("/new/chat", { state: { projectId: item.id } }))
+                        navigateAndClose(() => navigate("/", { state: { projectId: item.id } }))
                       }
                       menuOpen={projectMenuOpenId === item.id}
                       onMenuOpenChange={(open) => setProjectMenuOpenId(open ? item.id : null)}

@@ -128,7 +128,7 @@ export function WelcomePage() {
         <div className="mt-6">
           <GettingStartedRows
             onSetupProvider={() => openSettings("provider")}
-            onCreateChat={() => navigate("/new/chat")}
+            onCreateChat={() => navigate("/")}
           />
         </div>
         {/* Matches AuthPage.tsx's own FieldDescription footer line (same
@@ -137,7 +137,7 @@ export function WelcomePage() {
             page (use-getting-started.tsx's own toggle), no longer gated on
             Initial setup being done first (that gating only ever existed
             because there was nothing real to wire up yet). Navigates to
-            /new/chat after hiding -- staying on a page that was just told to
+            / after hiding -- staying on a page that was just told to
             hide itself would be a dead end (this page can't render itself
             hidden, and the sidebar's own Getting started row -- also now
             gone -- was the only other way back to it). "Settings" opens
@@ -155,7 +155,7 @@ export function WelcomePage() {
                 type="button"
                 onClick={() => {
                   setShowGettingStarted(false);
-                  navigate("/new/chat");
+                  navigate("/");
                 }}
                 className="underline underline-offset-2"
               />,

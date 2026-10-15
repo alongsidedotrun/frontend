@@ -29,7 +29,7 @@ export function OnboardingPage() {
   function continueToApp() {
     if (isTransitioning) return;
     setIsTransitioning(true);
-    transitionTimer.current = window.setTimeout(() => navigate("/new/chat", { replace: true }), 700);
+    transitionTimer.current = window.setTimeout(() => navigate("/", { replace: true }), 700);
   }
 
   return (

@@ -103,7 +103,7 @@ export function PrimarySidebar({ collapsed, onOpenSettings, onNavigate }: Primar
         <RailItem label="Inbox" active={location.pathname === "/inbox"} onClick={() => navigateTo("/inbox")}>
           <InboxIcon className="size-[14px]" />
         </RailItem>
-        <RailItem label="Chats" active={location.pathname === "/new/chat" || location.pathname.startsWith("/chat/")} onClick={() => navigateTo("/new/chat")}>
+        <RailItem label="Chats" active={location.pathname === "/" || location.pathname.startsWith("/chat/")} onClick={() => navigateTo("/")}>
           <MessageChatCircleIcon className="size-[14px]" />
         </RailItem>
         <RailItem label="Code Browser" active={location.pathname === "/code"} onClick={() => navigateTo("/code")}>

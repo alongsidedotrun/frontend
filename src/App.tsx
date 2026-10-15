@@ -33,7 +33,7 @@ function SecureAppRoute() {
 
 const ROUTES: RouteObject[] = [
   { path: "/onboard", element: <OnboardingPage /> },
-  { path: "/onboard/*", element: <Navigate to="/new/chat" replace /> },
+  { path: "/onboard/*", element: <Navigate to="/" replace /> },
   // Kept as a compatibility alias while the redesign is now the production
   // shell for every authenticated route.
   { path: "/redesign", element: <Navigate to="/inbox" replace /> },
@@ -53,9 +53,8 @@ const ROUTES: RouteObject[] = [
       { index: true, element: <HomePage /> },
       // Overview is switched off for now (pages/OverviewPage.tsx is kept);
       // an old link to it opens a new chat instead.
-      { path: "/overview", element: <Navigate to="/new/chat" replace /> },
+      { path: "/overview", element: <Navigate to="/" replace /> },
       { path: "/getting-started", element: <GettingStartedRoute /> },
-      { path: "/new/chat", element: <HomePage /> },
       { path: "/new-chat", element: <Navigate to="/" replace /> },
       { path: "/chat/:sessionId", element: <ChatPage /> },
       // Joining a chat someone else hosts, from an invite link (JoinPage.tsx).
