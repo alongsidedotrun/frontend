@@ -53,9 +53,7 @@ export function WelcomePage() {
     // header's height) below the *window's* true vertical center, not on
     // it. Forty pixels compensate for the parent top bar and reserved child
     // header above this outlet. The additional 23px
-    // aligns this shorter three-row block with /onboard/getting-started,
-    // whose otherwise-identical content has one extra 42px acknowledgement
-    // row plus a 4px group gap; half of that height difference is 23px.
+    // keeps this shorter three-row block visually balanced in the viewport.
     <div className="absolute inset-0 overflow-y-auto px-4">
       <div
         className="absolute w-full -translate-x-1/2 -translate-y-1/2"
@@ -87,9 +85,8 @@ export function WelcomePage() {
             heading/subheading treatment HomePage.tsx's own "Ask anything"
             uses, so this page reads consistently with the rest of the app
             instead of jumping straight from the logo to the row list.
-            max-w-[390px] -- intentionally matches
-            DataAcknowledgementPage's onboarding heading block so both
-            subheadings wrap at the same width during navigation. */}
+            max-w-[390px] -- keeps the heading readable without making the
+            page feel overly narrow. */}
         <div className="mx-auto mt-6 max-w-[390px] text-center">
           <h1 className="text-[18px] font-normal text-foreground">{t("welcome.heading")}</h1>
           <p className="mt-2 text-[13px] font-normal text-muted-foreground">

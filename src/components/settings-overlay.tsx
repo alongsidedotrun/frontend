@@ -63,7 +63,6 @@ import { signOut, useIsSignedIn } from "@/lib/auth";
 import { openSignInDialog } from "@/lib/use-sign-in";
 import { useIdentity } from "@/lib/identity";
 import { Command, ShieldCheck } from "lucide-react";
-import { loadDataAcknowledgement, loadDataAcknowledgementTime } from "@/lib/data-acknowledgement";
 import { cn } from "@/lib/utils";
 
 // General owns the language and timezone controls. Story: Settings
@@ -1633,50 +1632,9 @@ function GeneralSection() {
 }
 
 function SecuritySection() {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
-  const [acknowledged, setAcknowledged] = useState(loadDataAcknowledgement);
-  const [acknowledgedAt, setAcknowledgedAt] = useState(loadDataAcknowledgementTime);
-
-  const refreshAcknowledgement = useCallback(() => {
-    setAcknowledged(loadDataAcknowledgement());
-    setAcknowledgedAt(loadDataAcknowledgementTime());
-  }, []);
-
-  useEffect(() => {
-    window.addEventListener("focus", refreshAcknowledgement);
-    window.addEventListener("storage", refreshAcknowledgement);
-    return () => {
-      window.removeEventListener("focus", refreshAcknowledgement);
-      window.removeEventListener("storage", refreshAcknowledgement);
-    };
-  }, [refreshAcknowledgement]);
-
-  const acknowledgementStatus = acknowledged
-    ? acknowledgedAt
-      ? t("settings.security.acknowledgedOn", { date: new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium" }).format(new Date(acknowledgedAt)) })
-      : t("settings.security.acknowledgedHere")
-    : t("settings.security.required");
-
   return (
     <div className="flex flex-col">
       <SettingsSection title="Data protection">
-        <SettingsRow
-          id="setting-data-acknowledgement"
-          title="Data acknowledgement"
-          description="Review your responsibility for local data, encryption keys, and recovery phrases."
-        >
-          <span className={`text-[11px] ${acknowledged ? "text-emerald-600 dark:text-emerald-300" : "text-muted-foreground"}`}>
-            {acknowledgementStatus}
-          </span>
-          <button
-            type="button"
-            className={SETTINGS_ACTION_BUTTON_CLASS}
-            onClick={() => navigate("/onboard/getting-started?manage=data-acknowledgement")}
-          >
-            Manage
-          </button>
-        </SettingsRow>
         <SettingsRow
           title="Local conversation data"
           description="Your conversations are stored locally on this device."
