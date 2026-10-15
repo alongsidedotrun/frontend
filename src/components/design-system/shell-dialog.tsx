@@ -88,7 +88,7 @@ export function ShellDialog({
           transition={{ duration: reduceMotion ? 0 : 0.22, ease: [0.22, 1, 0.36, 1] }}
           className={cn(PANE_DIALOG_MAX_HEIGHT, "overflow-y-auto bg-[#FAFAFA] dark:bg-[var(--redesign-primary-surface)]")}
         >
-        <div ref={contentRef} className="flex flex-col gap-3 px-[max(2.5rem,15%)] py-20">
+        <div ref={contentRef} className="flex flex-col gap-3 px-[max(2.5rem,15%)] py-[104px]">
           {top}
           {centered ? (
             // One step out, then the next in: a fade, while the dialog eases to the new height.
@@ -101,7 +101,7 @@ export function ShellDialog({
                 exit={{ opacity: 0, transition: { duration: reduceMotion ? 0 : 0.12, ease: [0.4, 0, 1, 1] } }}
               >
                 {header}
-                <div className="py-6">{children}</div>
+                {children}
                 {actions}
                 {footnote}
               </motion.div>
@@ -109,7 +109,7 @@ export function ShellDialog({
           ) : (
             <>
               {header}
-              <div className="py-6">{children}</div>
+              {children}
               {actions}
               {footnote}
             </>
