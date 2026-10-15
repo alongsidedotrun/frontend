@@ -2317,7 +2317,7 @@ export function ComposeBox({
       </div>
     </div>
     </div>
-    <div className="relative -mt-[calc(var(--radius)*2)] rounded-b-[calc(var(--radius)*2)] border border-t-0 border-border bg-[#FAFAFA] px-5 pt-[calc(var(--radius)*2+0.25rem)] pb-1 dark:bg-background">
+    <div className="relative -mt-[calc(var(--radius)*2)] rounded-b-[calc(var(--radius)*2)] border border-t-0 border-border bg-[#FAFAFA] px-2 pt-[calc(var(--radius)*2+0.25rem)] pb-1 dark:bg-background">
       <button type="button" className="flex h-8 w-full items-center gap-1.5 px-1 text-left text-xs text-foreground/75 transition-colors hover:text-foreground">
         <img src={styledFolderIcon} alt="" aria-hidden="true" className="size-4 shrink-0 object-contain" />
         <span>{t("compose.workFromFolder")}</span>
