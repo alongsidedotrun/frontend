@@ -1567,7 +1567,7 @@ export function ComposeBox({
           void addImageFiles(event.dataTransfer.files);
         }}
         className={cn(
-          "flex flex-col rounded-[calc(var(--radius)*2)] border border-border bg-background px-2 pt-2 pb-[7px] transition-[min-height,padding,border-color] duration-200 [contain:layout_style] @[420px]:px-3 @[420px]:pt-3 @[420px]:pb-1.5",
+          "flex flex-col rounded-t-[calc(var(--radius)*2)] rounded-b-none border border-border bg-background px-2 pt-2 pb-[7px] transition-[min-height,padding,border-color] duration-200 [contain:layout_style] @[420px]:px-3 @[420px]:pt-3 @[420px]:pb-1.5",
           initialHeight && "min-h-32 justify-between",
           dragActive && "border-ring",
           // border-focus-accent -- matches the sidebar/inbox search inputs'
