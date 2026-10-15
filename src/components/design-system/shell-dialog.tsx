@@ -101,7 +101,7 @@ export function ShellDialog({
                 exit={{ opacity: 0, transition: { duration: reduceMotion ? 0 : 0.12, ease: [0.4, 0, 1, 1] } }}
               >
                 {header}
-                {children}
+                <div className="py-2">{children}</div>
                 {actions}
                 {footnote}
               </motion.div>
@@ -109,7 +109,7 @@ export function ShellDialog({
           ) : (
             <>
               {header}
-              {children}
+              <div className="py-2">{children}</div>
               {actions}
               {footnote}
             </>
