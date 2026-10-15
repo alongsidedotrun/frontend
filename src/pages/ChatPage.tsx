@@ -2737,6 +2737,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           onStop={stopTurn}
           defaultModelValue={defaultModelValue}
           defaultEffortValue={defaultEffortValue}
+          isMultiplayer={sharedChat}
           chatId={sessionId}
           contextUsage={contextUsage}
           autocompactValue={autocompactValue}
