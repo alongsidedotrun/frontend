@@ -1826,7 +1826,7 @@ export const translations = {
     ja: "フォルダから作業",
   },
   "compose.connectApps": {
-    en: "Connect to your apps",
+    en: "Connect to your Apps",
     "pt-BR": "Conectar seus aplicativos",
     es: "Conecta tus aplicaciones",
     fr: "Connectez vos applications",

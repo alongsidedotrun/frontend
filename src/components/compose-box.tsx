@@ -2313,9 +2313,11 @@ export function ComposeBox({
               <img src={styledFolderIcon} alt="" aria-hidden="true" className="size-3.5 shrink-0 object-contain" />
               <span>{t("compose.workFromFolder")}</span>
             </button>
-            <button type="button" onClick={onOpenApps} className="flex min-h-7 shrink-0 items-center gap-1 text-right transition-colors hover:text-foreground">
+            <button type="button" onClick={onOpenApps} className="flex min-h-7 shrink-0 items-center gap-2 text-right transition-colors hover:text-foreground">
               <span>{t("compose.connectApps")}</span>
-              <img src="/icons/providers/github.svg" alt="" aria-hidden="true" className="size-3.5 shrink-0 object-contain dark:invert" />
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-[calc(24px*8/27)] border border-border bg-white shadow-[0_1px_2px_rgb(0_0_0_/_0.06)] dark:bg-[#242424]">
+                <img src="/icons/providers/github.svg" alt="" aria-hidden="true" className="size-3.5 object-contain dark:invert" />
+              </span>
             </button>
           </div>
         </motion.div>
