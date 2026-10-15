@@ -1892,7 +1892,7 @@ export function ComposeBox({
                     </>
                   );
                 })()}
-                <ChevronDownIcon className="size-[var(--compose-tool-icon)] shrink-0" />
+                <ChevronDownIcon className={cn("size-[var(--compose-tool-icon)] shrink-0", shown === "auto" && "text-orange-500")} />
               </button>
             }
           />
