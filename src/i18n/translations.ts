@@ -1761,13 +1761,13 @@ export const translations = {
     ja: "Claude、ChatGPT、Gemini、Grok にサインインして、それぞれの使用状況を確認できます。",
   },
   "settings.nav.subtitle.apps": {
-    en: "Connect GitHub, Gmail, and other apps to use in your chats.",
-    "pt-BR": "Conecte o GitHub, Gmail e outros aplicativos para usar em suas conversas.",
-    es: "Conecta GitHub, Gmail y otras aplicaciones para usar en tus chats.",
-    fr: "Connectez GitHub, Gmail et d'autres applications à utiliser dans vos discussions.",
-    de: "Verbinde GitHub, Gmail und andere Apps zur Nutzung in deinen Chats.",
-    zh: "连接 GitHub、Gmail 及其他应用，供对话中使用。",
-    ja: "GitHub、Gmail、その他のアプリを接続してチャットで使用できます。",
+    en: "Connect your apps to use them in chats.",
+    "pt-BR": "Conecte seus aplicativos para usá-los nas conversas.",
+    es: "Conecta tus aplicaciones para usarlas en los chats.",
+    fr: "Connectez vos applications pour les utiliser dans les discussions.",
+    de: "Verbinde deine Apps, um sie in Chats zu nutzen.",
+    zh: "连接应用，以便在聊天中使用。",
+    ja: "アプリを接続してチャットで使用できます。",
   },
 
   // -- compose-box.tsx: permission modes --

@@ -2318,6 +2318,9 @@ export function ComposeBox({
               <span className="flex size-6 shrink-0 items-center justify-center rounded-[calc(24px*8/27)] border border-border bg-white shadow-[0_1px_2px_rgb(0_0_0_/_0.06)] dark:bg-[#242424]">
                 <img src="/icons/providers/github.svg" alt="" aria-hidden="true" className="size-3.5 object-contain dark:invert" />
               </span>
+              <span title={t("settings.apps.comingSoon")} className="flex size-6 shrink-0 items-center justify-center rounded-[calc(24px*8/27)] border border-border bg-white shadow-[0_1px_2px_rgb(0_0_0_/_0.06)] dark:bg-[#242424]">
+                <img src="/icons/google-drive.svg" alt="" aria-hidden="true" className="size-[18px] object-contain" />
+              </span>
             </button>
           </div>
         </motion.div>
