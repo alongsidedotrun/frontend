@@ -11,7 +11,6 @@ import { ClipboardCheck, Hand, ShieldTick, ShieldZap } from "@untitledui/icons";
 import { cn } from "@/lib/utils";
 import { getUserDisplayName } from "@/lib/user";
 import { Button } from "@/components/ui/button";
-import styledFolderIcon from "@/assets/styled-folder.svg";
 // The fluidfunctionalism.com reference dropdown (Base UI Menu +
 // proximity-hover animated backgrounds) -- this file's one dropdown
 // system now, per explicit request ("Lets keep all base ui").
@@ -40,6 +39,8 @@ import {
   TaskIcon,
   XIcon,
 } from "@/components/icons/untitled-ui";
+
+const styledFolderIcon = "/icons/styled-folder.svg";
 
 type SpeechRecognitionLike = {
   start: () => void;
