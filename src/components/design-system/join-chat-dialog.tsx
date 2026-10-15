@@ -2,7 +2,6 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { ShellDialog, ShellDialogActions, ShellField, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
-import { Button } from "@/components/ui/button";
 import { useIsSignedIn } from "@/lib/auth";
 import { ErrorText } from "@/lib/error-code";
 import { SHARE_ERRORS, formatTypedId } from "@/lib/use-share";
@@ -115,12 +114,14 @@ export function JoinChatDialog({ open, onOpenChange }: { open: boolean; onOpenCh
       onOpenChange={onOpenChange}
       initialFocus={chatIdRef}
       title={t("joinChat.title")}
-      description={t("joinChat.description")}
+      description={t(signedIn ? "joinChat.signedInDescription" : "joinChat.signIn")}
       actions={
         <ShellDialogActions
           cancelLabel={t("common.cancel")}
           onCancel={() => onOpenChange(false)}
-          primary={signedIn ? { label: disclosure ? t("share.disclosure.agree") : t("joinChat.join"), type: "submit", form: formId, disabled: !complete || busy } : undefined}
+          primary={signedIn
+            ? { label: disclosure ? t("share.disclosure.agree") : t("joinChat.join"), type: "submit", form: formId, disabled: !complete || busy }
+            : { label: t("shareChat.signInButton"), onClick: openSignInDialog }}
         />
       }
     >
@@ -132,14 +133,7 @@ export function JoinChatDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           void join(Boolean(disclosure));
         }}
       >
-        {!signedIn ? (
-          <div className="flex flex-col items-center gap-3 text-center">
-            <p className="text-[12px] text-muted-foreground">{t("joinChat.signIn")}</p>
-            <Button type="button" variant="primary" size="compact" onClick={openSignInDialog}>
-              {t("shareChat.signInButton")}
-            </Button>
-          </div>
-        ) : disclosure ? (
+        {!signedIn ? null : disclosure ? (
           <div className={cn("flex flex-col gap-3 p-4", SHELL_RADIUS, SHELL_SURFACE)}>
             <h3 className="text-[13px] font-medium text-foreground">{t("share.disclosure.title")}</h3>
             <p className="text-[12px] text-muted-foreground">{disclosure}</p>
