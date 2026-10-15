@@ -1888,11 +1888,11 @@ export function ComposeBox({
                   return (
                     <>
                       <Icon aria-hidden="true" className={cn("size-3.5 shrink-0", shown === "auto" && "text-orange-500", shown === "ask" && "text-[var(--send-button-bg)]")} />
-                      <SwapLabel swapKey={shown}>{shown === "plan" ? t("compose.planMode") : found ? t(found.labelKey) : null}</SwapLabel>
+                      <SwapLabel className={shown === "auto" ? "text-orange-500" : undefined} swapKey={shown}>{shown === "plan" ? t("compose.planMode") : found ? t(found.labelKey) : null}</SwapLabel>
                     </>
                   );
                 })()}
-                <ChevronDownIcon className={cn("size-[var(--compose-tool-icon)] shrink-0", !planMode && mode === "auto" && "text-orange-500")} />
+                <ChevronDownIcon className="size-[var(--compose-tool-icon)] shrink-0" />
               </button>
             }
           />
@@ -2339,7 +2339,7 @@ function useFrozenAnchor(triggerRef: React.RefObject<HTMLElement | null>) {
  *  never slides over text), and the new label enters from below. The width
  *  only animates during a swap: any other size change (an icon loading, the
  *  first render) just fits, so the toolbar never drifts on its own. */
-function SwapLabel({ swapKey, children }: { swapKey: string; children: ReactNode }) {
+function SwapLabel({ swapKey, children, className }: { swapKey: string; children: ReactNode; className?: string }) {
   const [shown, setShown] = useState({ key: swapKey, children });
   const [phase, setPhase] = useState<"rest" | "exit" | "enter-start">("rest");
   // null: fits its content (no animation). A number: pinned for a swap.
@@ -2403,7 +2403,7 @@ function SwapLabel({ swapKey, children }: { swapKey: string; children: ReactNode
   return (
     <span
       ref={outerRef}
-      className={cn("inline-flex min-w-0 overflow-hidden", width !== null && "transition-[width] ease-out motion-reduce:transition-none")}
+      className={cn("inline-flex min-w-0 overflow-hidden", className, width !== null && "transition-[width] ease-out motion-reduce:transition-none")}
       style={width === null ? undefined : { width, transitionDuration: `${SWAP_WIDTH_MS}ms` }}
     >
       <span ref={innerRef} className={cn("t-text-swap inline-flex w-max shrink-0 items-center", phase !== "rest" && `is-${phase}`)}>
