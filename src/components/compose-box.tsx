@@ -1567,7 +1567,7 @@ export function ComposeBox({
           void addImageFiles(event.dataTransfer.files);
         }}
         className={cn(
-          "flex flex-col rounded-t-[calc(var(--radius)*2)] rounded-b-none border border-border bg-background px-2 pt-2 pb-[7px] transition-[min-height,padding,border-color] duration-200 [contain:layout_style] @[420px]:px-3 @[420px]:pt-3 @[420px]:pb-1.5",
+          "relative z-10 flex flex-col rounded-[calc(var(--radius)*2)] border border-border bg-background px-2 pt-2 pb-[7px] transition-[min-height,padding,border-color] duration-200 [contain:layout_style] @[420px]:px-3 @[420px]:pt-3 @[420px]:pb-1.5",
           initialHeight && "min-h-32 justify-between",
           dragActive && "border-ring",
           // border-focus-accent -- matches the sidebar/inbox search inputs'
@@ -2317,9 +2317,9 @@ export function ComposeBox({
       </div>
     </div>
     </div>
-    <div className="rounded-b-[calc(var(--radius)*2)] border border-t-0 border-border bg-background px-2 py-1.5 @[420px]:px-3">
-      <button type="button" className="flex h-8 w-full items-center gap-2 px-1 text-left text-[12px] text-muted-foreground transition-colors hover:text-foreground">
-        <img src={styledFolderIcon} alt="" aria-hidden="true" className="size-4 shrink-0 object-contain" />
+    <div className="relative -mt-[calc(var(--radius)*2)] rounded-b-[calc(var(--radius)*2)] border border-t-0 border-border bg-background px-5 pt-[calc(var(--radius)*2+0.75rem)] pb-3 shadow-sm">
+      <button type="button" className="flex h-10 w-full items-center gap-2 px-1 text-left text-base text-foreground/75 transition-colors hover:text-foreground">
+        <img src={styledFolderIcon} alt="" aria-hidden="true" className="size-6 shrink-0 object-contain" />
         <span>{t("compose.workFromFolder")}</span>
       </button>
     </div>
