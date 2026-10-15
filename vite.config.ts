@@ -3,6 +3,9 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
+// Where the dev proxy sends API calls; ALONGSIDE_BACKEND overrides it when 3000 is taken.
+const backend = process.env.ALONGSIDE_BACKEND ?? "http://127.0.0.1:3000";
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
@@ -24,20 +27,20 @@ export default defineConfig({
   // (used for /cli, all regular HTTP) doesn't enable it.
   server: {
     proxy: {
-      "/sessions": { target: "http://127.0.0.1:3000", ws: true },
-      "/cli": "http://127.0.0.1:3000",
+      "/sessions": { target: backend, ws: true },
+      "/cli": backend,
       // Sign-in state and the sign-in callback (backend/src/auth.rs).
-      "/identity": "http://127.0.0.1:3000",
+      "/identity": backend,
       // Joining chats hosted on other machines (backend/src/remote.rs).
-      "/remote": "http://127.0.0.1:3000",
+      "/remote": backend,
       // Whether any chat here was shared or joined through the relay, for
       // Getting started (backend/src/relay_endpoints.rs). Per-chat relay
       // routes are under /sessions.
-      "/relay": "http://127.0.0.1:3000",
+      "/relay": backend,
       // Secure local-storage onboarding and route gating. Without this
       // prefix, Vite serves index.html for /storage/* and the JSON parse
       // failure makes SecureAppRoute redirect back into onboarding.
-      "/storage": "http://127.0.0.1:3000",
+      "/storage": backend,
       // /projects, /settings, /secrets -- confirmed directly as a real gap
       // (GET /projects returning Vite's own SPA index.html, 200 OK but
       // Content-Type: text/html, not JSON -- exactly the failure mode this
@@ -48,13 +51,13 @@ export default defineConfig({
       // dev server silently fell through to Vite's own catch-all instead of
       // ever reaching the backend -- broken since the moment each was
       // built, not a new regression today.
-      "/projects": "http://127.0.0.1:3000",
-      "/workspaces": "http://127.0.0.1:3000",
+      "/projects": backend,
+      "/workspaces": backend,
       // Each provider CLI's own model list (backend/src/models.rs).
-      "/models": "http://127.0.0.1:3000",
-      "/inbox-items": "http://127.0.0.1:3000",
-      "/inbox-mentions": "http://127.0.0.1:3000",
-      "/search": "http://127.0.0.1:3000",
+      "/models": backend,
+      "/inbox-items": backend,
+      "/inbox-mentions": backend,
+      "/search": backend,
       // /usage, /provider-usage/* -- ModelsPage.tsx/nav-user.tsx's own
       // real usage data (backend/src/provider_usage.rs): same exact gap
       // this file's own comments already document for /projects etc. --
@@ -63,8 +66,8 @@ export default defineConfig({
       // backend endpoint itself returned real data via curl) -- without
       // an entry here these fell through to Vite's own SPA catch-all
       // (200 OK, text/html) instead of ever reaching the backend.
-      "/usage": "http://127.0.0.1:3000",
-      "/provider-usage": "http://127.0.0.1:3000",
+      "/usage": backend,
+      "/provider-usage": backend,
       // Not a bare "/settings" prefix -- that collided with this app's own
       // *frontend* route, /settings/:section (App.tsx, a real page:
       // /settings/general, /settings/providers, etc.). A client-side
@@ -80,8 +83,8 @@ export default defineConfig({
       // crash, which the app's own ErrorBoundary would have shown a
       // message for instead). Scoped to the two real backend endpoints
       // that actually live under /settings (server.rs) instead.
-      "/settings/secret-backend": "http://127.0.0.1:3000",
-      "/settings/default-model": "http://127.0.0.1:3000",
+      "/settings/secret-backend": backend,
+      "/settings/default-model": backend,
       // Real bug, confirmed directly via the browser console (repeated "Failed to load
       // resource... 404 (last-used)"): both of these real backend endpoints
       // (server.rs's own set_last_used/get_last_used and set_autocompact/get_autocompact)
@@ -90,12 +93,12 @@ export default defineConfig({
       // silently 404'd against Vite's own dev server instead of ever reaching the
       // backend. Every raw curl test this session hit port 3000 directly, which is why
       // this went unnoticed until real browser usage surfaced it.
-      "/settings/last-used": "http://127.0.0.1:3000",
+      "/settings/last-used": backend,
       // "/settings/autocompact" removed -- that endpoint no longer exists on the
       // backend (replaced by the per-chat/per-project compact threshold below).
-      "/settings/autocompact-scope": "http://127.0.0.1:3000",
-      "/settings/autocompact-global": "http://127.0.0.1:3000",
-      "/secrets": "http://127.0.0.1:3000",
+      "/settings/autocompact-scope": backend,
+      "/settings/autocompact-global": backend,
+      "/secrets": backend,
       // Real bug, confirmed directly via a real console error ("The string
       // did not match the expected pattern" -- WebKit's own JSON.parse
       // failure wording for non-JSON input): the exact same recurring gap
@@ -117,10 +120,10 @@ export default defineConfig({
       // "/settings" prefix collided with the frontend's own
       // /settings/:section route) -- scoped to the one real API sub-path,
       // matching server.rs's own route rename to /library/files.
-      "/library/files": "http://127.0.0.1:3000",
-      "/files": "http://127.0.0.1:3000",
-      "/integrations": "http://127.0.0.1:3000",
-      "/permission-rules": "http://127.0.0.1:3000",
+      "/library/files": backend,
+      "/files": backend,
+      "/integrations": backend,
+      "/permission-rules": backend,
     },
   },
 });

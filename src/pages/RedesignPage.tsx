@@ -5,7 +5,7 @@ import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
 import { useLocation, useNavigate, useOutlet } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { ChevronRight, CircleArrowUp, CircleHelp, LogIn, Plus, Search, Share2, ShieldCheck } from "lucide-react";
+import { ChevronRight, CircleArrowUp, CircleHelp, LogIn, Plus, Search, ShieldCheck } from "lucide-react";
 import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
 import { CreateWorkspaceDialog } from "@/components/design-system/create-workspace-dialog";
 import { SignInDialog } from "@/components/design-system/sign-in-dialog";
@@ -119,6 +119,31 @@ const quickActions = (t: Translate): readonly QuickActionItem[] => [
 const GETTING_STARTED_STEP_IDS = ["provider", "message", "account", "multiplayer"] as const;
 const GETTING_STARTED_DONE_KEY = "alongside_getting_started_done";
 const GETTING_STARTED_DISMISSED_KEY = "alongside_getting_started_dismissed";
+
+// A Getting started value for one account ("<key>:<account>"). What was saved before progress was
+// per account goes to the first account that reads it, like the chats on this device did.
+function readGettingStarted(scopedKey: string): string | null {
+  try {
+    const found = localStorage.getItem(scopedKey);
+    if (found !== null) return found;
+    const [key, scope] = [scopedKey.slice(0, scopedKey.lastIndexOf(":")), scopedKey.slice(scopedKey.lastIndexOf(":") + 1)];
+    const legacy = localStorage.getItem(key);
+    if (legacy === null || scope === "local") return null;
+    localStorage.setItem(scopedKey, legacy);
+    localStorage.removeItem(key);
+    return legacy;
+  } catch {
+    return null;
+  }
+}
+
+function parseDone(raw: string | null): string[] {
+  try {
+    return raw ? (JSON.parse(raw) as string[]) : [];
+  } catch {
+    return [];
+  }
+}
 const EXPANDED_PROJECTS_KEY = "alongside_expanded_projects";
 type GettingStartedStepId = (typeof GETTING_STARTED_STEP_IDS)[number];
 const gettingStartedSteps = (
@@ -347,7 +372,8 @@ export function RedesignPage() {
       .then((loaded) => syncWorkspaces(loaded.length ? loaded : [DEFAULT_WORKSPACE]))
       // The workbench remains usable when the local backend is not running.
       .catch(() => syncWorkspaces([DEFAULT_WORKSPACE]));
-  }, []);
+    // Each account has its own workspaces: reload on signing in, out or switching.
+  }, [identity.scope]);
 
   useEffect(() => {
     if (activeQuickAction !== "inbox") return;
@@ -385,7 +411,8 @@ export function RedesignPage() {
         setChats([]);
         setActiveChatId(null);
       });
-  }, [activeQuickAction]);
+    // And its own chats and projects: an open chat that isn't this account's closes.
+  }, [activeQuickAction, identity.scope]);
 
   const redesignChatContext: ChatPageShellContext | undefined = activeChat ? {
     chatName: activeChat.name,
@@ -751,7 +778,17 @@ export function RedesignPage() {
     return () => {
       cancelled = true;
     };
-  }, [location.pathname]);
+  }, [location.pathname, identity.scope]);
+
+  // Signing in, out or switching account leaves a chat that belonged to the
+  // account before (the backend now answers it as not found).
+  const scopeRef = useRef(identity.scope);
+  useEffect(() => {
+    if (scopeRef.current === identity.scope) return;
+    scopeRef.current = identity.scope;
+    if (location.pathname.startsWith("/chat/")) navigate("/new/chat");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [identity.scope]);
 
   // A step stays done once it has been done (deleting every chat or signing
   // out later doesn't untick it), remembered on this device.
@@ -762,35 +799,31 @@ export function RedesignPage() {
     multiplayer: sharedOnce,
   };
   // Closed with its X once every step was done; stays closed on this device.
-  const [gettingStartedDismissed, setGettingStartedDismissed] = useState(() => {
-    try {
-      return localStorage.getItem(GETTING_STARTED_DISMISSED_KEY) === "1";
-    } catch {
-      return false;
-    }
-  });
+  // Both remembered per account (and for the signed-out space), like the chats they count.
+  const gettingStartedKey = (key: string) => `${key}:${identity.scope || "local"}`;
+  const [gettingStartedDismissed, setGettingStartedDismissed] = useState(() => readGettingStarted(gettingStartedKey(GETTING_STARTED_DISMISSED_KEY)) === "1");
   const dismissGettingStarted = () => {
     setGettingStartedDismissed(true);
     try {
-      localStorage.setItem(GETTING_STARTED_DISMISSED_KEY, "1");
+      localStorage.setItem(gettingStartedKey(GETTING_STARTED_DISMISSED_KEY), "1");
     } catch {
       // storage blocked: closed for this session
     }
   };
-  const [rememberedDone, setRememberedDone] = useState<string[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem(GETTING_STARTED_DONE_KEY) ?? "[]") as string[];
-    } catch {
-      return [];
-    }
-  });
+  const [rememberedDone, setRememberedDone] = useState<string[]>(() => parseDone(readGettingStarted(gettingStartedKey(GETTING_STARTED_DONE_KEY))));
+  // Another account (or signed out): its own progress.
+  useEffect(() => {
+    setRememberedDone(parseDone(readGettingStarted(gettingStartedKey(GETTING_STARTED_DONE_KEY))));
+    setGettingStartedDismissed(readGettingStarted(gettingStartedKey(GETTING_STARTED_DISMISSED_KEY)) === "1");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [identity.scope]);
   const newlyDone = GETTING_STARTED_STEP_IDS.filter((id) => liveDone[id] && !rememberedDone.includes(id));
   useEffect(() => {
     if (newlyDone.length === 0) return;
     const next = [...rememberedDone, ...newlyDone];
     setRememberedDone(next);
     try {
-      localStorage.setItem(GETTING_STARTED_DONE_KEY, JSON.stringify(next));
+      localStorage.setItem(gettingStartedKey(GETTING_STARTED_DONE_KEY), JSON.stringify(next));
     } catch {
       // storage blocked: still shown done while the live check holds
     }
@@ -847,9 +880,10 @@ export function RedesignPage() {
               ) : null}
             </SidebarSurfaceTransition>
           }
-          // Share, at the right end, on a chat only.
+          // Invite (sharing the chat), at the right end, on a chat only.
           actions={topBarChat ? (
-            <Button type="button" variant="tertiary" size="compact" leadingIcon={Share2} onClick={() => openShare(topBarChat.id)}>
+            // 24px, a notch under compact, so it sits in the 40px bar with room around it.
+            <Button type="button" variant="tertiary" size="compact" className="h-6 rounded-[4px] px-2.5" onClick={() => openShare(topBarChat.id)}>
               {t("shareChat.button")}
             </Button>
           ) : null}

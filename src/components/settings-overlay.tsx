@@ -18,7 +18,9 @@ import {
 import { spring } from "@/lib/springs";
 import { modelDisplayName, PROVIDER_DISPLAY, ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
 import { effortLabel, EFFORT_LEVELS, loadDefaultEffort, saveDefaultEffort, type EffortLevel } from "@/lib/effort";
-import { LANGUAGE_OPTIONS, loadLanguage, saveLanguage, uiLocaleFor, type LanguageValue } from "@/lib/language";
+import { loadLanguage, saveLanguage, uiLocaleFor, type LanguageValue } from "@/lib/language";
+import { loadTimezone, saveTimezone } from "@/lib/timezones";
+import { LanguageDropdown, TimezoneDropdown } from "@/components/locale-dropdowns";
 import { Trans, useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { loadNotifyTurnComplete, requestNotificationPermission, saveNotifyTurnComplete } from "@/lib/notify-turn-complete";
@@ -2104,162 +2106,6 @@ function AppearanceSection() {
   );
 }
 
-// localStorage, not a backend setting -- same reasoning as theme/transparency
-// above (TRANSPARENCY_STORAGE_KEY's own comment): a per-device display
-// preference, not something a Hosted/Enterprise account needs synced across
-// machines yet.
-const TIMEZONE_STORAGE_KEY = "alongside_timezone";
-
-// Real detection -- Intl.DateTimeFormat's own resolvedOptions, the same
-// mechanism every other app on the machine uses to know its own timezone.
-function detectTimezone(): string {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone;
-  } catch {
-    return "UTC";
-  }
-}
-
-function loadTimezone(): string {
-  return localStorage.getItem(TIMEZONE_STORAGE_KEY) ?? detectTimezone();
-}
-
-type TimezoneEntry = { value: string; label: string };
-// subregions is only ever set for "America" today (below) -- every other
-// region renders as one flat, collapsible list, per explicit request (only
-// America was called out as "enormous").
-type TimezoneGroup = { region: string; zones: TimezoneEntry[]; subregions?: { name: string; zones: TimezoneEntry[] }[] };
-
-// The tz database itself has no North/Central/South American distinction --
-// confirmed directly, "America/*" is one flat 143-zone list with no metadata
-// beyond the zone name -- so this is a real, hand-built classification by
-// each zone's own actual country, not something Intl provides. Grouped by
-// country/territory below (comments mark each block), not by zone name
-// pattern-matching, since neither the country nor the continent is reliably
-// derivable from the zone string alone (e.g. "America/Belize" -> Belize is
-// obvious, but "America/Nassau" -> Bahamas isn't spelled out anywhere in the
-// string). Caribbean nations classed under North America (the common 3-way
-// convention when Caribbean isn't its own bucket, which is what was asked
-// for here), not their own fourth group.
-const CENTRAL_AMERICA_ZONES = new Set([
-  "America/Belize",
-  "America/Costa_Rica",
-  "America/El_Salvador",
-  "America/Guatemala",
-  "America/Managua",
-  "America/Panama",
-  "America/Tegucigalpa",
-]);
-const SOUTH_AMERICA_ZONES = new Set([
-  // Argentina
-  "America/Argentina/La_Rioja",
-  "America/Argentina/Rio_Gallegos",
-  "America/Argentina/Salta",
-  "America/Argentina/San_Juan",
-  "America/Argentina/San_Luis",
-  "America/Argentina/Tucuman",
-  "America/Argentina/Ushuaia",
-  "America/Buenos_Aires",
-  "America/Catamarca",
-  "America/Cordoba",
-  "America/Jujuy",
-  "America/Mendoza",
-  // Bolivia
-  "America/La_Paz",
-  // Brazil
-  "America/Araguaina",
-  "America/Bahia",
-  "America/Belem",
-  "America/Boa_Vista",
-  "America/Campo_Grande",
-  "America/Cuiaba",
-  "America/Eirunepe",
-  "America/Fortaleza",
-  "America/Maceio",
-  "America/Manaus",
-  "America/Noronha",
-  "America/Porto_Velho",
-  "America/Recife",
-  "America/Rio_Branco",
-  "America/Santarem",
-  "America/Sao_Paulo",
-  // Chile
-  "America/Santiago",
-  "America/Punta_Arenas",
-  // Colombia, Ecuador, French Guiana, Guyana, Paraguay, Peru, Suriname, Uruguay, Venezuela
-  "America/Bogota",
-  "America/Guayaquil",
-  "America/Cayenne",
-  "America/Guyana",
-  "America/Asuncion",
-  "America/Lima",
-  "America/Paramaribo",
-  "America/Montevideo",
-  "America/Caracas",
-]);
-function americaSubregion(zone: string): "North America" | "Central America" | "South America" {
-  if (CENTRAL_AMERICA_ZONES.has(zone)) return "Central America";
-  if (SOUTH_AMERICA_ZONES.has(zone)) return "South America";
-  return "North America";
-}
-
-// Real IANA zone list, not a hand-picked subset -- Intl.supportedValuesOf
-// (Baseline across every browser this app targets) returns every zone the
-// runtime itself actually supports, the same list any of its own
-// Intl.DateTimeFormat calls could be given -- confirmed directly, this is
-// genuinely 400+ real zones (the tz database tracks every region with its own
-// distinct DST history, not one entry per country), not a bug to trim down.
-// Grouped by the zone's own region prefix ("Europe/London" -> "Europe"),
-// per explicit request, rather than one flat 400-row list -- Etc/* and other
-// no-slash zones group under "Other". Region groups and the zones within each
-// are both alphabetical; each zone's own label drops the repeated region
-// prefix and swaps underscores for spaces ("Los_Angeles" -> "Los Angeles"),
-// since the group header already says "America". America itself further
-// splits into North/Central/South (americaSubregion, above) -- per explicit
-// follow-up ("america has all americas which makes enormous").
-function listTimezoneGroups(): TimezoneGroup[] {
-  let zones: string[];
-  try {
-    zones = Intl.supportedValuesOf("timeZone");
-  } catch {
-    zones = [detectTimezone()];
-  }
-  const byRegion = new Map<string, TimezoneEntry[]>();
-  for (const zone of zones) {
-    const slash = zone.indexOf("/");
-    const region = slash === -1 ? "Other" : zone.slice(0, slash);
-    // Real bug, confirmed directly ("Argentina / La Rioja" leaking through):
-    // slicing after the *first* slash only strips the region prefix
-    // ("America/"), but a handful of real zones have a second path segment
-    // (America/Argentina/La_Rioja, America/Indiana/Knox, America/Kentucky/
-    // Monticello, America/North_Dakota/Beulah) -- the group header (region,
-    // and for America, its own North/Central/South subregion) already gives
-    // that country/state context, so the label itself only needs the final
-    // city component, after the *last* slash.
-    const lastSlash = zone.lastIndexOf("/");
-    const label = (lastSlash === -1 ? zone : zone.slice(lastSlash + 1)).replaceAll("_", " ");
-    if (!byRegion.has(region)) byRegion.set(region, []);
-    byRegion.get(region)!.push({ value: zone, label });
-  }
-  return [...byRegion.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([region, zonesInRegion]) => {
-      const sortedZones = zonesInRegion.sort((a, b) => a.label.localeCompare(b.label));
-      if (region !== "America") return { region, zones: sortedZones };
-      const bySubregion = new Map<string, TimezoneEntry[]>([
-        ["North America", []],
-        ["Central America", []],
-        ["South America", []],
-      ]);
-      for (const zone of sortedZones) bySubregion.get(americaSubregion(zone.value))!.push(zone);
-      return {
-        region,
-        zones: sortedZones,
-        subregions: [...bySubregion.entries()].map(([name, zonesInSub]) => ({ name, zones: zonesInSub })),
-      };
-    });
-}
-
 // One shared LanguageValue now drives both this dropdown's own choice and,
 // via i18n.changeLanguage (issue #307) + spelling_language (issue #306),
 // the UI language and the AI's own reply language -- per explicit
@@ -2277,25 +2123,18 @@ function LanguageRow() {
     void i18n.changeLanguage(uiLocaleFor(value));
   }
 
-  const entry = LANGUAGE_OPTIONS.find((l) => l.value === language) ?? LANGUAGE_OPTIONS[0];
-
   return (
     <SettingsRow id="setting-language" title={t("settings.general.language.title")} description={t("settings.general.language.description")}>
-      <BaseDropdownMenu size="compact">
-        <BaseDropdownTrigger
-          render={
-            <button type="button" className={SETTINGS_DROPDOWN_TRIGGER_FIT_CLASS}>
-              {entry.label}
-              <ChevronDownIcon className="size-3.5 text-muted-foreground" />
-            </button>
-          }
-        />
-        <BaseDropdownContent align="end" className="min-w-52 whitespace-nowrap" checkedIndex={LANGUAGE_OPTIONS.findIndex((l) => l.value === language)}>
-          {LANGUAGE_OPTIONS.map((l, i) => (
-            <BaseMenuItem key={l.value} index={i} label={l.label} checked={language === l.value} onSelect={() => setLanguage(l.value)} />
-          ))}
-        </BaseDropdownContent>
-      </BaseDropdownMenu>
+      <LanguageDropdown
+        value={language}
+        onChange={setLanguage}
+        trigger={(label) => (
+          <button type="button" className={SETTINGS_DROPDOWN_TRIGGER_FIT_CLASS}>
+            {label}
+            <ChevronDownIcon className="size-3.5 text-muted-foreground" />
+          </button>
+        )}
+      />
     </SettingsRow>
   );
 }
@@ -2303,129 +2142,24 @@ function LanguageRow() {
 function TimezoneRow() {
   const { t } = useTranslation();
   const [timezone, setTimezoneState] = useState(loadTimezone);
-  const groups = useMemo(listTimezoneGroups, []);
-  const flatValues = useMemo(() => groups.flatMap((g) => g.zones.map((z) => z.value)), [groups]);
-  const currentLabel = groups.flatMap((g) => g.zones).find((z) => z.value === timezone)?.label ?? timezone;
-
-  // Collapsed by default, per explicit request ("so it doesn't load
-  // everything") -- 417 real zones (confirmed directly via
-  // Intl.supportedValuesOf) rendered flat, even scrollable, is still a lot to
-  // mount at once. Only the current value's own region (and, for America,
-  // its own subregion too) starts expanded -- computed once via useState's
-  // own lazy initializer, not recalculated if timezone changes later, so
-  // picking a zone in a different region doesn't yank other regions open
-  // underneath the user. Subregion keys are namespaced "America/North
-  // America" (not just "North America") so this one Set can track both
-  // levels without a region and a same-named subregion ever colliding.
-  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() => {
-    const initial = new Set<string>();
-    for (const group of groups) {
-      if (group.zones.some((z) => z.value === timezone)) initial.add(group.region);
-      for (const sub of group.subregions ?? []) {
-        if (sub.zones.some((z) => z.value === timezone)) {
-          initial.add(group.region);
-          initial.add(`${group.region}/${sub.name}`);
-        }
-      }
-    }
-    return initial;
-  });
-
-  function toggleKey(key: string) {
-    setExpandedKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }
 
   function setTimezone(value: string) {
     setTimezoneState(value);
-    localStorage.setItem(TIMEZONE_STORAGE_KEY, value);
+    saveTimezone(value);
   }
 
   return (
     <SettingsRow id="setting-timezone" title={t("settings.general.timezone.title")} description={t("settings.general.language.description")}>
-      <BaseDropdownMenu size="compact">
-        <BaseDropdownTrigger
-          render={
-            <button type="button" className={SETTINGS_DROPDOWN_TRIGGER_CLASS}>
-              <span className="truncate">{currentLabel}</span>
-              <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
-            </button>
-          }
-        />
-        {/* max-h-72 overflow-y-auto -- same cap-then-scroll treatment as the
-            compose box's own model dropdown. checkedIndex/each row's own index
-            count against flatValues (every zone across every group, in the
-            same order rendered below, collapsed or not), not per-group --
-            BaseMenuItem's keyboard nav and highlight both need one continuous
-            index across the whole popup, the same reason the model dropdown's
-            own per-provider rows never restart their own index either; a
-            collapsed region just means its own indices render nothing right
-            now, the same as the model list's own add/remove case. */}
-        <BaseDropdownContent align="end" className="max-h-72 overflow-y-auto" checkedIndex={flatValues.indexOf(timezone)}>
-          {groups.map((group) => {
-            const expanded = expandedKeys.has(group.region);
-            return (
-              <div key={group.region}>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    toggleKey(group.region);
-                  }}
-                  className="flex w-full items-center justify-between px-2.5 py-1.5 text-[12px] text-muted-foreground hover:text-foreground"
-                >
-                  <span>{group.region}</span>
-                  <ChevronRightIcon className={`size-3 shrink-0 transition-transform ${expanded ? "rotate-90" : ""}`} />
-                </button>
-                {expanded && group.subregions
-                  ? group.subregions.map((sub) => {
-                      const subKey = `${group.region}/${sub.name}`;
-                      const subExpanded = expandedKeys.has(subKey);
-                      return (
-                        <div key={subKey}>
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              toggleKey(subKey);
-                            }}
-                            className="flex w-full items-center justify-between py-1.5 pr-2.5 pl-5 text-[12px] text-muted-foreground hover:text-foreground"
-                          >
-                            <span>{sub.name}</span>
-                            <ChevronRightIcon className={`size-3 shrink-0 transition-transform ${subExpanded ? "rotate-90" : ""}`} />
-                          </button>
-                          {subExpanded &&
-                            sub.zones.map((zone) => (
-                              <BaseMenuItem
-                                key={zone.value}
-                                index={flatValues.indexOf(zone.value)}
-                                label={zone.label}
-                                checked={timezone === zone.value}
-                                onSelect={() => setTimezone(zone.value)}
-                              />
-                            ))}
-                        </div>
-                      );
-                    })
-                  : expanded &&
-                    group.zones.map((zone) => (
-                      <BaseMenuItem
-                        key={zone.value}
-                        index={flatValues.indexOf(zone.value)}
-                        label={zone.label}
-                        checked={timezone === zone.value}
-                        onSelect={() => setTimezone(zone.value)}
-                      />
-                    ))}
-              </div>
-            );
-          })}
-        </BaseDropdownContent>
-      </BaseDropdownMenu>
+      <TimezoneDropdown
+        value={timezone}
+        onChange={setTimezone}
+        trigger={(label) => (
+          <button type="button" className={SETTINGS_DROPDOWN_TRIGGER_CLASS}>
+            <span className="truncate">{label}</span>
+            <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
+          </button>
+        )}
+      />
     </SettingsRow>
   );
 }
