@@ -64,22 +64,6 @@
   50% { transform: translate(-75%, -50%); }
 }
 
-/* The Button's loading glyph (ui/button.tsx). Top level, not inside
-   @theme: Tailwind drops @theme keyframes that no --animate-* token uses,
-   which left the spinner frozen. */
-@keyframes spinner-move {
-  to {
-    stroke-dashoffset: -100;
-  }
-}
-@keyframes spinner-dash {
-  0%, 100% {
-    stroke-dasharray: 15 85;
-  }
-  50% {
-    stroke-dasharray: 40 60;
-  }
-}
 
 @keyframes onboarding-word-in {
   from {
@@ -324,7 +308,8 @@
   --redesign-sidebar-elevated-shadow: none;
   --redesign-sidebar-footer-onboarding-shadow: none;
   --redesign-sidebar-overlay-surface: #212121;
-  --redesign-quick-actions-surface: transparent;
+  /* Same as Getting started in dark mode. */
+  --redesign-quick-actions-surface: var(--redesign-getting-started-surface);
   --redesign-getting-started-surface: var(--redesign-sidebar-overlay-surface);
   /* Inactive accent (Getting Started ring, inactive send) in dark mode:
      the accent lightened toward white first, so it reads as a pale blue on

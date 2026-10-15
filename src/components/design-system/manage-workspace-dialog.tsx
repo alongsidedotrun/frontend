@@ -1,11 +1,7 @@
 import { useEffect, useId, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
-import { WorkspaceFields, type WorkspaceFieldValues } from "@/components/design-system/workspace-fields";
-import { WorkspacePreview } from "@/components/design-system/create-workspace-dialog";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { DeleteWorkspaceItem, WorkspaceFields, WorkspaceTileMenu, WorkspaceTilePreview, type WorkspaceFieldValues } from "@/components/design-system/workspace-fields";
+import { ShellDialog, ShellDialogActions, ShellField, SHELL_FIELD_INPUT } from "@/components/design-system/shell-dialog";
 
 export type ManagedWorkspace = {
   id: string;
@@ -46,9 +42,9 @@ function valuesOf(workspace: ManagedWorkspace): WorkspaceFieldValues {
 }
 
 /**
- * Two-pane dialog for the current workspace, laid out like Create workspace:
- * its logo or letter tile, name and description on the left with a live
- * sidebar preview on the right, and deleting it at the bottom. Every
+ * Manage workspace, in the shell dialog's layout (ShellDialog), like Create
+ * workspace: its tile on top, live as it's edited, its logo, name and
+ * description, and Delete beside the logo's Remove. Every
  * workspace, Personal included, works the same way; only the last one can't
  * be deleted.
  */
@@ -78,103 +74,91 @@ export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, o
   if (values.colorIndex !== saved.colorIndex) change.color = values.colorIndex;
   const changed = Object.keys(change).length > 0;
 
-  const previewName = trimmedName || workspace.name;
+  const formId = useId();
+  // The tile shows the saved name until a new one is typed.
+  const previewValues = { ...values, name: trimmedName || workspace.name };
+  const deleteConfirmed = confirmName.trim() === workspace.name;
 
   return (
-    // !z-[120]: above the app top bar (z-[110]), like the other shell dialogs.
-    <Dialog open={open} onOpenChange={onOpenChange} backdropClassName="!z-[120]">
-      <DialogContent size="xl" motion="gentle" className="!z-[120] max-h-[calc(100dvh-2rem)] max-w-[min(760px,calc(100vw-2rem))] overflow-hidden p-0">
-        <div className="grid min-h-[420px] grid-cols-1 sm:grid-cols-2">
-          <div className="flex max-h-[calc(100dvh-2rem)] flex-col gap-6 overflow-y-auto bg-[var(--redesign-primary-surface)] p-8">
-            <div className="flex flex-col gap-1">
-              <DialogTitle className="text-[18px] font-medium text-foreground">{t("workspace.manage")}</DialogTitle>
-              <DialogDescription className="text-[12px] text-muted-foreground">
-                {t("workspace.manage.description")}
-              </DialogDescription>
-            </div>
-
-            <>
-                <form
-                  className="flex flex-col gap-6"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (changed && trimmedName && !saving) void onSave(change);
-                  }}
-                >
-                  <WorkspaceFields values={values} onChange={setValues} nameError={nameError} />
-                  {error && !confirmingDelete && <p className="text-[12px] text-destructive">{error}</p>}
-                  <div className="flex items-center gap-2">
-                    <Button type="button" variant="tertiary" onClick={() => onOpenChange(false)}>
-                      {t("common.cancel")}
-                    </Button>
-                    <Button type="submit" variant="primary" className="flex-1" disabled={!changed || !trimmedName || saving}>
-                      {t("workspace.manage.save")}
-                    </Button>
-                  </div>
-                </form>
-
-                <section className="flex flex-col gap-2 border-t border-[var(--redesign-sidebar-border)] pt-5">
-                  <span className="text-[13px] font-medium text-foreground">{t("workspace.delete.title")}</span>
-                  <span className="text-[12px] text-muted-foreground">
-                    {canDelete ? t("workspace.delete.description") : t("workspace.delete.onlyWorkspace")}
-                  </span>
-                  {!canDelete ? null : confirmingDelete ? (
-                    <form
-                      className="flex flex-col gap-2 pt-1"
-                      onSubmit={(event) => {
-                        event.preventDefault();
-                        if (confirmName.trim() === workspace.name && !saving) void onDelete();
-                      }}
-                    >
-                      <label htmlFor={confirmId} className="text-[12px] text-muted-foreground">
-                        <Trans
-                          i18nKey="workspace.delete.confirm"
-                          values={{ name: workspace.name }}
-                          components={[<span className="font-medium text-foreground" key="0" />]}
-                        />
-                      </label>
-                      <Input
-                        id={confirmId}
-                        autoFocus
-                        value={confirmName}
-                        onChange={(event) => setConfirmName(event.target.value)}
-                        autoComplete="off"
-                        className="h-8 border-[var(--redesign-sidebar-border)] bg-background text-[13px]"
-                      />
-                      {error && <p className="text-[12px] text-destructive">{error}</p>}
-                      <div className="flex items-center gap-2">
-                        <Button type="button" variant="tertiary" size="compact" onClick={() => { setConfirmingDelete(false); setConfirmName(""); }}>
-                          {t("workspace.delete.keep")}
-                        </Button>
-                        <Button
-                          type="submit"
-                          variant="tertiary"
-                          size="compact"
-                          disabled={confirmName.trim() !== workspace.name || saving}
-                          className="text-destructive"
-                        >
-                          {t("workspace.delete.title")}
-                        </Button>
-                      </div>
-                    </form>
-                  ) : (
-                    <div className="pt-1">
-                      <Button type="button" variant="tertiary" size="compact" className="text-destructive" onClick={() => setConfirmingDelete(true)}>
-                        {t("workspace.delete.start")}
-                      </Button>
-                    </div>
-                  )}
-                </section>
-            </>
-          </div>
-
-          <WorkspacePreview
-            name={previewName}
-            logo={values.logo}
-            monogram={workspaceMonogram(previewName, values.colorIndex)}
+    <ShellDialog
+      centered
+      open={open}
+      onOpenChange={onOpenChange}
+      icon={
+        confirmingDelete ? (
+          <WorkspaceTilePreview values={previewValues} />
+        ) : (
+          <WorkspaceTileMenu
+            values={previewValues}
+            onChange={(next) => setValues({ ...next, name: values.name })}
+            extra={
+              // The last workspace can't be deleted; the tooltip says why.
+              <DeleteWorkspaceItem
+                label={t("workspace.delete.title")}
+                disabled={!canDelete}
+                title={canDelete ? undefined : t("workspace.delete.onlyWorkspace")}
+                onSelect={() => setConfirmingDelete(true)}
+              />
+            }
           />
-        </div>
-      </DialogContent>
-    </Dialog>
+        )
+      }
+      title={confirmingDelete ? t("workspace.delete.title") : t("workspace.manage")}
+      description={confirmingDelete ? t("workspace.delete.description") : t("workspace.manage.description")}
+      actions={
+        confirmingDelete ? (
+          <ShellDialogActions
+            cancelLabel={t("workspace.delete.keep")}
+            onCancel={() => {
+              setConfirmingDelete(false);
+              setConfirmName("");
+            }}
+            primary={{ label: t("workspace.delete.title"), type: "submit", form: formId, disabled: !deleteConfirmed || saving, destructive: true }}
+          />
+        ) : (
+          <ShellDialogActions
+            cancelLabel={t("common.cancel")}
+            onCancel={() => onOpenChange(false)}
+            primary={{ label: t("workspace.manage.save"), type: "submit", form: formId, disabled: !changed || !trimmedName || saving, loading: saving }}
+          />
+        )
+      }
+    >
+      {confirmingDelete ? (
+        // Deleting: in place of the form, until they keep it or confirm with its name.
+        <form
+          id={formId}
+          className="flex flex-col gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (deleteConfirmed && !saving) void onDelete();
+          }}
+        >
+          <ShellField label={t("workspace.fields.name")} htmlFor={confirmId}>
+            <input id={confirmId} autoFocus value={confirmName} onChange={(event) => setConfirmName(event.target.value)} autoComplete="off" className={SHELL_FIELD_INPUT} />
+          </ShellField>
+          <p className="px-1 text-[12px] text-muted-foreground">
+            <Trans i18nKey="workspace.delete.confirm" values={{ name: workspace.name }} components={[<span className="font-medium text-foreground" key="0" />]} />
+          </p>
+          {error && <p className="px-1 text-[12px] text-destructive">{error}</p>}
+        </form>
+      ) : (
+        <form
+          id={formId}
+          className="flex flex-col gap-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (changed && trimmedName && !saving) void onSave(change);
+          }}
+        >
+          <WorkspaceFields
+            values={values}
+            onChange={setValues}
+            nameError={nameError}
+          />
+          {error && <p className="px-1 text-[12px] text-destructive">{error}</p>}
+        </form>
+      )}
+    </ShellDialog>
   );
 }

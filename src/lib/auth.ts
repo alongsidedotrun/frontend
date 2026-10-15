@@ -52,22 +52,25 @@ export async function waitForSignIn(signal: AbortSignal): Promise<"signed-in" | 
 // Email sign-in, entirely in the app: the backend sends a one-time code to the address, and the
 // code typed into the dialog finishes the sign-in (or creates the account, for a new address).
 // Endpoints answer 200 on success, or an error status with `{ "error": "<code>" }`.
-//   POST /identity/email/start   { email }  -> errors: invalid_email, rate_limited
+//   POST /identity/email/start   { email }  -> { status: "code_sent" | "new_account" };
+//                                              errors: invalid_email, rate_limited
+//   POST /identity/email/sign-up { email, first_name, last_name } -> code sent; errors as start,
+//                                              plus invalid_name
 //   POST /identity/email/verify  { code }   -> errors: invalid_code, expired, rate_limited,
 //                                              no_pending_sign_in, sign_up_incomplete
 // "unsupported" is a backend without these endpoints yet (404/405): callers fall back to the
 // browser sign-in.
-export type EmailStartResult = "sent" | "unsupported" | "invalid_email" | "rate_limited" | "failed";
+export type EmailStartResult = "sent" | "new_account" | "unsupported" | "invalid_email" | "rate_limited" | "failed";
 export type EmailVerifyResult = "signed-in" | "invalid_code" | "expired" | "rate_limited" | "sign_up_incomplete" | "failed";
 
-async function postIdentity(path: string, body: unknown): Promise<{ ok: boolean; status: number; error?: string }> {
+async function postIdentity(path: string, body: unknown): Promise<{ ok: boolean; status: number; error?: string; data?: { status?: string } }> {
   try {
     const response = await fetch(path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    if (response.ok) return { ok: true, status: response.status };
+    if (response.ok) return { ok: true, status: response.status, data: (await response.json().catch(() => undefined)) as { status?: string } | undefined };
     const data = (await response.json().catch(() => null)) as { error?: unknown } | null;
     return { ok: false, status: response.status, error: typeof data?.error === "string" ? data.error : undefined };
   } catch {
@@ -77,9 +80,22 @@ async function postIdentity(path: string, body: unknown): Promise<{ ok: boolean;
 
 export async function startEmailSignIn(email: string): Promise<EmailStartResult> {
   const result = await postIdentity("/identity/email/start", { email });
-  if (result.ok) return "sent";
+  // No account for this email yet: the dialog asks for a name, then startEmailSignUp.
+  if (result.ok) return result.data?.status === "new_account" ? "new_account" : "sent";
   if (result.status === 404 || result.status === 405) return "unsupported";
   if (result.error === "invalid_email" || result.error === "rate_limited") return result.error;
+  return "failed";
+}
+
+// What a new account starts with besides its name: language (e.g. "pt-BR") and timezone (IANA),
+// kept with the account.
+export type SignUpPrefs = { language: string; timezone: string };
+
+// Creates the account for a new email, with the person's name, and sends its code.
+export async function startEmailSignUp(email: string, firstName: string, lastName: string, prefs?: SignUpPrefs): Promise<EmailStartResult | "invalid_name"> {
+  const result = await postIdentity("/identity/email/sign-up", { email, first_name: firstName, last_name: lastName, ...prefs });
+  if (result.ok) return "sent";
+  if (result.error === "invalid_email" || result.error === "rate_limited" || result.error === "invalid_name") return result.error;
   return "failed";
 }
 

@@ -7,6 +7,7 @@ import i18n from "@/i18n";
 import { PROVIDER_DISPLAY, ProviderIcon, QUICK_CHAT_MODELS, modelDisplayName } from "@/lib/quick-chat-models";
 import { defaultEffortFor, effortLabel, EFFORT_LEVELS, type EffortLevel } from "@/lib/effort";
 import { loadLastEffort, loadLastPermissionMode, saveLastEffort, saveLastPermissionMode } from "@/lib/last-used";
+import { ClipboardCheck, Hand, ShieldTick, ShieldZap } from "@untitledui/icons";
 import { cn } from "@/lib/utils";
 import { getUserDisplayName } from "@/lib/user";
 import { Button } from "@/components/ui/button";
@@ -31,7 +32,6 @@ import {
   MicIcon,
   PlusIcon,
   ShareIcon,
-  SkillIcon,
   SquareIcon,
   SummarizeIcon,
   TaskIcon,
@@ -156,9 +156,12 @@ const MODES: PermissionModeOption[] = [
 // ("change permissions from the standard to Plan instead of Manual,
 // Remove Ask, and Keep Auto").
 const ANTIGRAVITY_MODES: PermissionModeOption[] = [
-  { value: "plan", labelKey: "compose.permission.plan.label", descriptionKey: "compose.permission.plan.description" },
   { value: "auto", labelKey: "compose.permission.auto.label", descriptionKey: "compose.permission.auto.description" },
 ];
+
+// Synara's permission glyphs, in Untitled UI: a raised hand to ask, a ticked shield to approve
+// for you, a charged shield for full access.
+const PERMISSION_ICONS = { manual: Hand, ask: ShieldTick, auto: ShieldZap, plan: ClipboardCheck } as const;
 
 
 // Real, working action -- pushes one of these placeholder filenames into
@@ -920,7 +923,17 @@ export function ComposeBox({
   // three should have a last_effort, last_permission, last_context saved
   // as well for loading purposes"): was a bare hardcoded "manual" with no
   // memory of what was actually last chosen anywhere in the app.
-  const [mode, setMode] = useState<PermissionModeOption["value"]>(() => loadLastPermissionMode() ?? "manual");
+  const [mode, setMode] = useState<PermissionModeOption["value"]>(() => {
+    const last = loadLastPermissionMode();
+    return last && last !== "plan" ? last : "manual";
+  });
+  // Plan mode (Synara's `+` panel toggle): on top of the permission, for providers that have one.
+  const [planMode, setPlanMode] = useState(() => loadLastPermissionMode() === "plan");
+  const planSupported = selectedModels[0]?.provider === "Claude" || selectedModels[0]?.provider === "Antigravity";
+  // What the next turn runs with (the backend reads the saved value): plan while it's on, else the permission.
+  useEffect(() => {
+    saveLastPermissionMode(planMode && planSupported ? "plan" : mode);
+  }, [planMode, planSupported, mode]);
   // Antigravity's own real-capability set (ANTIGRAVITY_MODES's own comment
   // has the reasoning) instead of the standard Manual/Ask/Auto once an
   // Antigravity model is the current pick.
@@ -932,9 +945,7 @@ export function ComposeBox({
   // own dropdown any more.
   useEffect(() => {
     if (modes.some((m) => m.value === mode)) return;
-    const fallback = modes[0].value;
-    setMode(fallback);
-    saveLastPermissionMode(fallback);
+    setMode(modes[0].value);
   }, [modes, mode]);
   // Real default now (settings-overlay.tsx's own "Default effort" control,
   // lib/effort.ts's own defaultEffortFor) -- was a bare hardcoded "medium",
@@ -1737,21 +1748,200 @@ export function ComposeBox({
               </Button>
             }
           />
-          <BaseDropdownContent side="bottom" align="start" sideOffset={6} className="w-40 min-w-0">
+          {/* Synara's `+` panel: one "Add" list opening above the composer -- files, then plan
+              mode as an on/off row with its state beside it (ComposerExtrasPanel.tsx). */}
+          <BaseDropdownContent side="top" align="start" sideOffset={8} className="w-72 min-w-0">
             <BaseDropdownLabel>{t("common.add")}</BaseDropdownLabel>
-            <DropdownSubItem className="text-[12px] whitespace-nowrap" onClick={openFilePicker}>
-              <AttachmentIcon className="mr-2 inline size-3.5 shrink-0 align-[-3px]" />
-              {t("compose.files")}
+            <DropdownSubItem className="flex items-center gap-2.5 text-[12px] whitespace-nowrap" onClick={openFilePicker}>
+              <AttachmentIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="flex-1">{t("compose.filesAndFolders")}</span>
             </DropdownSubItem>
-            <DropdownSubItem className="text-[12px] whitespace-nowrap" disabled>
-              <SkillIcon className="mr-2 inline size-3.5 shrink-0 align-[-3px]" />
-              {t("compose.skills")}
-              <span className="ml-2 shrink-0 text-[10px] font-normal text-muted-foreground/60">
-                Coming Soon
-              </span>
-            </DropdownSubItem>
+            {planSupported && (
+              <DropdownSubItem className="flex items-center gap-2.5 text-[12px] whitespace-nowrap" onClick={() => setPlanMode((on) => !on)}>
+                <ClipboardCheck aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+                <span>{t("compose.planMode")}</span>
+                <span className="flex-1 truncate text-muted-foreground/70">{planMode ? t("compose.planModeOff") : t("compose.planModeOn")}</span>
+                {planMode && <CheckIcon aria-hidden="true" className="size-3.5 shrink-0 text-foreground/70" />}
+              </DropdownSubItem>
+            )}
           </BaseDropdownContent>
         </BaseDropdownMenu>
+        {/* Manual / Plan / Auto -- how the agent asks before acting (in the leading group, where the model
+            picker was, swapped back per explicit request "swap permissions to where model is at")
+            ("type of access for the AI", matching Synara's own
+            RuntimeUsageControls: approval-required/auto/full-access, the
+            same underlying concept). In the trailing group, next to Effort
+            -- swapped with the model selector's own old spot here per
+            explicit request ("Switch the buttons location Permission
+            should go where models are and models should go where
+            permission are"). Only rendered
+            once a model is actually selected (selectedModels.length > 0)
+            -- per explicit request, since which stances even exist
+            depends on the provider (e.g. GitHub Copilot has its own "Ask"
+            stance, not necessarily this same three-item set), so there's
+            nothing real to offer here until a specific model -- and so a
+            specific provider -- has been picked. Same ghost-trigger
+            treatment as the model picker (h-[28px], same text size),
+            single-select RadioGroup same as that menu, no submenu needed
+            since there's no provider-style grouping here. Defaults to
+            "manual" (state above) -- the safest stance, so a session
+            opens asking before every action rather than something more
+            permissive. */}
+        {hasModel && (
+        <div className={`${modeFade ? "transition-opacity duration-300" : ""} ${modeVisible ? "opacity-100" : "opacity-0"}`}>
+        {/* size="compact" -- matches the app's own 28px row height
+            everywhere else (BaseMenuItem's own useSize() would otherwise
+            default to the reference's 36px "default" step). */}
+        <BaseDropdownMenu
+          size="compact"
+          onOpenChange={(nowOpen) => {
+            modeAnchor.freeze(nowOpen);
+            if (!nowOpen) {
+              const button = modeTriggerRef.current;
+              if (!button) return;
+              const reblur = () => button.blur();
+              button.addEventListener("focus", reblur, { once: true });
+              setTimeout(() => button.removeEventListener("focus", reblur), 1000);
+            }
+          }}
+        >
+          <BaseDropdownTrigger
+            render={
+              <button
+                type="button"
+                ref={modeTriggerRef}
+                className={cn("inline-flex h-[var(--compose-tool-h)] shrink-0 flex-row flex-nowrap items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1.5 text-[length:var(--compose-tool-text)] leading-4 font-normal text-foreground outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]", PRESS_EFFECT)}
+              >
+                {(() => {
+                  // Synara's trigger: the permission's glyph and name; plan mode shows as Plan mode.
+                  const shown = planMode && planSupported ? "plan" : mode;
+                  const Icon = PERMISSION_ICONS[shown];
+                  const found = modes.find((m) => m.value === shown);
+                  return (
+                    <>
+                      <Icon aria-hidden="true" className={cn("size-3.5 shrink-0", shown === "auto" && "text-destructive", shown === "ask" && "text-[var(--send-button-bg)]")} />
+                      <SwapLabel swapKey={shown}>{shown === "plan" ? t("compose.planMode") : found ? t(found.labelKey) : null}</SwapLabel>
+                    </>
+                  );
+                })()}
+                <ChevronDownIcon className="size-[var(--compose-tool-icon)] shrink-0" />
+              </button>
+            }
+          />
+          {/* DropdownSubItem, not BaseMenuItem -- per explicit request ("do
+              a quick description like Synara's one does but without the
+              icon"), each row needs a second, smaller description line
+              under its label (Synara's own RuntimeModeMenuItem,
+              BranchToolbar.tsx: icon + stacked label/description grid --
+              same stacked label/description here, just without the icon
+              column, per "without the icon"), which BaseMenuItem's own
+              fixed single-line layout can't fit. Manual checkmark, not a
+              real radio role -- same reasoning as the model/effort rows'
+              own comments. No hardcoded border/shadow-sm/ring-0 --
+              BaseDropdownContent's own Elevated surface supplies a real
+              nesting-aware background/shadow. */}
+          <BaseDropdownContent
+            side="top"
+            align="start"
+            sideOffset={8}
+            anchor={modeAnchor.anchor}
+            className="w-[26rem] max-w-[calc(100vw-2rem)] min-w-0"
+          >
+            {/* "Permission" describer -- matching the Provider/Model/Effort
+                describer pattern elsewhere in this toolbar. Claude Code's
+                own CLI calls this exact concept "permission mode"
+                (--permission-mode), the primary provider here, so that term
+                over Synara's own "runtime mode" naming. Kept, though Synara's has none. */}
+            <BaseDropdownLabel>{t("compose.permission.title")}</BaseDropdownLabel>
+            {/* Synara's rows: the glyph in its own column, the name over a one-line description;
+                the current one on the active background (not a check), Full access in the
+                warning colour. */}
+            {modes.map((m) => {
+              const Icon = PERMISSION_ICONS[m.value];
+              return (
+                <DropdownSubItem
+                  key={m.value}
+                  className={cn(
+                    "grid h-auto grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-x-3 py-2 pr-2.5 pl-2.5 text-[12px]",
+                    m.value === mode && "bg-hover-2",
+                    m.value === "auto" && "text-destructive"
+                  )}
+                  onClick={() => setMode(m.value)}
+                >
+                  <span className="flex h-5 items-center justify-center">
+                    <Icon aria-hidden="true" className="size-4 shrink-0" />
+                  </span>
+                  <span className="flex min-w-0 flex-col gap-0.5">
+                    <span className="font-medium">{t(m.labelKey)}</span>
+                    <span className={cn("text-[11px] leading-snug font-normal whitespace-normal", m.value === "auto" ? "text-current" : "text-muted-foreground")}>{t(m.descriptionKey)}</span>
+                  </span>
+                </DropdownSubItem>
+              );
+            })}
+          </BaseDropdownContent>
+        </BaseDropdownMenu>
+        </div>
+        )}
+      </div>
+      <div className="mr-1 flex items-center gap-1">
+        {/* Effort -- now its own standalone trigger+dropdown next to the
+            model selector, matching Synara's own split layout (a real
+            reference app cloned for comparison: ProviderModelPicker +
+            TraitsPicker side by side for a fresh draft thread,
+            apps/web/src/components/ChatView.tsx), per explicit request
+            ("model selector plus the dropdown... effort, mic and send" --
+            effort called out as its own step, and a follow-up choice
+            confirming a separate button over keeping it nested in the
+            model dropdown). Unlike the access-mode picker in the leading
+            group, NOT gated on hasModel -- EFFORT_LEVELS is a fixed set
+            regardless of provider (unlike the access-mode picker's own
+            provider-dependent stance set), and gating this on hasModel
+            made it vanish entirely once the compose box stopped
+            pre-selecting a default model, confirmed directly as a real
+            regression ("Effort is missing from the tool row"). */}
+        {/* Hidden for a model whose CLI lists no effort setting (e.g. Haiku). */}
+        {modelEfforts?.length !== 0 && (
+        <BaseDropdownMenu
+          size="compact"
+          onOpenChange={(nowOpen) => {
+            effortAnchor.freeze(nowOpen);
+            if (!nowOpen) {
+              const button = effortTriggerRef.current;
+              if (!button) return;
+              const reblur = () => button.blur();
+              button.addEventListener("focus", reblur, { once: true });
+              setTimeout(() => button.removeEventListener("focus", reblur), 1000);
+            }
+          }}
+        >
+          <BaseDropdownTrigger
+            render={
+              <button
+                type="button"
+                ref={effortTriggerRef}
+                className={cn("inline-flex h-[var(--compose-tool-h)] shrink-0 flex-row flex-nowrap items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1.5 text-[length:var(--compose-tool-text)] leading-4 font-normal text-foreground outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]", PRESS_EFFECT)}
+              >
+                {/* Shows the current choice (e.g. "Low"), not a static
+                    "Effort" label -- per explicit request ("it should
+                    update from effort to the choice we did"). */}
+                <SwapLabel swapKey={effort}>{effortLabel(effort)}</SwapLabel>
+                <ChevronDownIcon className="size-[var(--compose-tool-icon)] shrink-0" />
+              </button>
+            }
+          />
+          <BaseDropdownContent side="bottom" align="center" sideOffset={6} anchor={effortAnchor.anchor} className="w-56 min-w-0 p-3">
+            <EffortSliderPanel
+              levels={modelEfforts}
+              effort={effort}
+              onChange={(level) => {
+                effortTouchedRef.current = true;
+                setEffort(level);
+                saveLastEffort(level);
+              }}
+            />
+          </BaseDropdownContent>
+        </BaseDropdownMenu>
+        )}
         <BaseDropdownMenu
           size="compact"
           onOpenChange={(nowOpen) => {
@@ -1996,173 +2186,6 @@ export function ComposeBox({
             autocompactScope={autocompactScope}
             onSetAutocompact={onSetAutocompact}
           />
-        )}
-      </div>
-      <div className="mr-1 flex items-center gap-1">
-        {/* Effort -- now its own standalone trigger+dropdown next to the
-            model selector, matching Synara's own split layout (a real
-            reference app cloned for comparison: ProviderModelPicker +
-            TraitsPicker side by side for a fresh draft thread,
-            apps/web/src/components/ChatView.tsx), per explicit request
-            ("model selector plus the dropdown... effort, mic and send" --
-            effort called out as its own step, and a follow-up choice
-            confirming a separate button over keeping it nested in the
-            model dropdown). Unlike the access-mode picker in the leading
-            group, NOT gated on hasModel -- EFFORT_LEVELS is a fixed set
-            regardless of provider (unlike the access-mode picker's own
-            provider-dependent stance set), and gating this on hasModel
-            made it vanish entirely once the compose box stopped
-            pre-selecting a default model, confirmed directly as a real
-            regression ("Effort is missing from the tool row"). */}
-        {/* Hidden for a model whose CLI lists no effort setting (e.g. Haiku). */}
-        {modelEfforts?.length !== 0 && (
-        <BaseDropdownMenu
-          size="compact"
-          onOpenChange={(nowOpen) => {
-            effortAnchor.freeze(nowOpen);
-            if (!nowOpen) {
-              const button = effortTriggerRef.current;
-              if (!button) return;
-              const reblur = () => button.blur();
-              button.addEventListener("focus", reblur, { once: true });
-              setTimeout(() => button.removeEventListener("focus", reblur), 1000);
-            }
-          }}
-        >
-          <BaseDropdownTrigger
-            render={
-              <button
-                type="button"
-                ref={effortTriggerRef}
-                className={cn("inline-flex h-[var(--compose-tool-h)] shrink-0 flex-row flex-nowrap items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1.5 text-[length:var(--compose-tool-text)] leading-4 font-normal text-foreground outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]", PRESS_EFFECT)}
-              >
-                {/* Shows the current choice (e.g. "Low"), not a static
-                    "Effort" label -- per explicit request ("it should
-                    update from effort to the choice we did"). */}
-                <SwapLabel swapKey={effort}>{effortLabel(effort)}</SwapLabel>
-                <ChevronDownIcon className="size-[var(--compose-tool-icon)] shrink-0" />
-              </button>
-            }
-          />
-          <BaseDropdownContent side="bottom" align="center" sideOffset={6} anchor={effortAnchor.anchor} className="w-56 min-w-0 p-3">
-            <EffortSliderPanel
-              levels={modelEfforts}
-              effort={effort}
-              onChange={(level) => {
-                effortTouchedRef.current = true;
-                setEffort(level);
-                saveLastEffort(level);
-              }}
-            />
-          </BaseDropdownContent>
-        </BaseDropdownMenu>
-        )}
-        {/* Manual / Plan / Auto -- how the agent asks before acting
-            ("type of access for the AI", matching Synara's own
-            RuntimeUsageControls: approval-required/auto/full-access, the
-            same underlying concept). In the trailing group, next to Effort
-            -- swapped with the model selector's own old spot here per
-            explicit request ("Switch the buttons location Permission
-            should go where models are and models should go where
-            permission are"). Only rendered
-            once a model is actually selected (selectedModels.length > 0)
-            -- per explicit request, since which stances even exist
-            depends on the provider (e.g. GitHub Copilot has its own "Ask"
-            stance, not necessarily this same three-item set), so there's
-            nothing real to offer here until a specific model -- and so a
-            specific provider -- has been picked. Same ghost-trigger
-            treatment as the model picker (h-[28px], same text size),
-            single-select RadioGroup same as that menu, no submenu needed
-            since there's no provider-style grouping here. Defaults to
-            "manual" (state above) -- the safest stance, so a session
-            opens asking before every action rather than something more
-            permissive. */}
-        {hasModel && (
-        <div className={`${modeFade ? "transition-opacity duration-300" : ""} ${modeVisible ? "opacity-100" : "opacity-0"}`}>
-        {/* size="compact" -- matches the app's own 28px row height
-            everywhere else (BaseMenuItem's own useSize() would otherwise
-            default to the reference's 36px "default" step). */}
-        <BaseDropdownMenu
-          size="compact"
-          onOpenChange={(nowOpen) => {
-            modeAnchor.freeze(nowOpen);
-            if (!nowOpen) {
-              const button = modeTriggerRef.current;
-              if (!button) return;
-              const reblur = () => button.blur();
-              button.addEventListener("focus", reblur, { once: true });
-              setTimeout(() => button.removeEventListener("focus", reblur), 1000);
-            }
-          }}
-        >
-          <BaseDropdownTrigger
-            render={
-              <button
-                type="button"
-                ref={modeTriggerRef}
-                className={cn("inline-flex h-[var(--compose-tool-h)] shrink-0 flex-row flex-nowrap items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1.5 text-[length:var(--compose-tool-text)] leading-4 font-normal text-foreground outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]", PRESS_EFFECT)}
-              >
-                <SwapLabel swapKey={mode}>
-                  {(() => {
-                    const found = modes.find((m) => m.value === mode);
-                    return found ? t(found.labelKey) : null;
-                  })()}
-                </SwapLabel>
-                <ChevronDownIcon className="size-[var(--compose-tool-icon)] shrink-0" />
-              </button>
-            }
-          />
-          {/* DropdownSubItem, not BaseMenuItem -- per explicit request ("do
-              a quick description like Synara's one does but without the
-              icon"), each row needs a second, smaller description line
-              under its label (Synara's own RuntimeModeMenuItem,
-              BranchToolbar.tsx: icon + stacked label/description grid --
-              same stacked label/description here, just without the icon
-              column, per "without the icon"), which BaseMenuItem's own
-              fixed single-line layout can't fit. Manual checkmark, not a
-              real radio role -- same reasoning as the model/effort rows'
-              own comments. No hardcoded border/shadow-sm/ring-0 --
-              BaseDropdownContent's own Elevated surface supplies a real
-              nesting-aware background/shadow. */}
-          <BaseDropdownContent
-            side="bottom"
-            align="start"
-            sideOffset={6}
-            anchor={modeAnchor.anchor}
-            className="w-40 min-w-0"
-          >
-            {/* "Permission" describer -- matching the Provider/Model/Effort
-                describer pattern elsewhere in this toolbar. Claude Code's
-                own CLI calls this exact concept "permission mode"
-                (--permission-mode), the primary provider here, so that term
-                over Synara's own "runtime mode" naming. */}
-            <BaseDropdownLabel>{t("compose.permission.title")}</BaseDropdownLabel>
-            {modes.map((m) => (
-              <DropdownSubItem
-                key={m.value}
-                // bg-hover-2/50 when selected, not a trailing checkmark --
-                // per explicit request ("the models and permissions still
-                // have the icon for check but should have the bg active
-                // like effort"), matching Provider/Model/Effort's own
-                // isSelected treatment above.
-                className={cn(
-                  "h-auto flex-col items-start gap-0.5 py-1.5 pr-2.5 pl-2.5 text-[12px]",
-                  m.value === mode && "bg-hover-2"
-                )}
-                onClick={() => {
-                  setMode(m.value);
-                  saveLastPermissionMode(m.value);
-                }}
-              >
-                <span className="flex w-full items-center justify-between gap-2">
-                  <span>{t(m.labelKey)}</span>
-                </span>
-                <span className="text-[11px] font-normal text-muted-foreground">{t(m.descriptionKey)}</span>
-              </DropdownSubItem>
-            ))}
-          </BaseDropdownContent>
-        </BaseDropdownMenu>
-        </div>
         )}
         <Button
           size="icon"

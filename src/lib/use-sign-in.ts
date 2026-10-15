@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { beginSignIn, startEmailSignIn, verifyEmailCode, waitForSignIn, type SignInProvider } from "@/lib/auth";
+import { beginSignIn, startEmailSignIn, startEmailSignUp, verifyEmailCode, waitForSignIn, type SignInProvider, type SignUpPrefs } from "@/lib/auth";
 
 export type SignInPhase = "idle" | "waiting" | "failed" | "timeout";
 
@@ -47,8 +47,9 @@ export function useSignInFlow(onSignedIn: () => void) {
   return { phase, provider, start, cancel };
 }
 
-export type EmailStep = "email" | "code";
-export type EmailError = "invalid_email" | "rate_limited" | "invalid_code" | "expired" | "sign_up_incomplete" | "failed";
+// "details": no account for the email yet; the person adds their name to create one.
+export type EmailStep = "email" | "details" | "code";
+export type EmailError = "invalid_email" | "invalid_name" | "rate_limited" | "invalid_code" | "expired" | "sign_up_incomplete" | "failed";
 
 // Seconds before another code can be sent to the same address.
 export const RESEND_COOLDOWN_S = 30;
@@ -64,6 +65,8 @@ export function useEmailSignIn(onSignedIn: () => void, onUnsupported: () => void
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<EmailError | null>(null);
   const [cooldown, setCooldown] = useState(0);
+  // Creating an account: the name it's created with, so a resent code goes to the same sign-up.
+  const [name, setName] = useState<{ first: string; last: string; prefs?: SignUpPrefs } | null>(null);
   const onSignedInRef = useRef(onSignedIn);
   onSignedInRef.current = onSignedIn;
   const onUnsupportedRef = useRef(onUnsupported);
@@ -86,13 +89,43 @@ export function useEmailSignIn(onSignedIn: () => void, onUnsupported: () => void
       onUnsupportedRef.current();
       return;
     }
+    if (result === "new_account") {
+      setEmail(trimmed);
+      setStep("details");
+      return;
+    }
     if (result !== "sent") {
       setError(result);
       return;
     }
     setEmail(trimmed);
+    setName(null);
     setStep("code");
     setCooldown(RESEND_COOLDOWN_S);
+  }
+
+  // Creates the account (the email may have been changed on the way) and sends its code.
+  async function signUp(address: string, first: string, last: string, prefs?: SignUpPrefs) {
+    const trimmed = address.trim();
+    if (!trimmed || !first.trim() || busy) return;
+    setBusy(true);
+    setError(null);
+    const result = await startEmailSignUp(trimmed, first.trim(), last.trim(), prefs);
+    setBusy(false);
+    if (result !== "sent") {
+      setError(result === "unsupported" || result === "new_account" ? "failed" : result);
+      return;
+    }
+    setEmail(trimmed);
+    setName({ first: first.trim(), last: last.trim(), prefs });
+    setStep("code");
+    setCooldown(RESEND_COOLDOWN_S);
+  }
+
+  // Another code: to the account being created, or the one signing in.
+  function resend() {
+    if (name) void signUp(email, name.first, name.last, name.prefs);
+    else void send(email);
   }
 
   async function verify(code: string) {
@@ -111,11 +144,12 @@ export function useEmailSignIn(onSignedIn: () => void, onUnsupported: () => void
 
   function reset() {
     setStep("email");
+    setName(null);
     setError(null);
     setBusy(false);
   }
 
-  return { step, email, busy, error, cooldown, send, verify, reset, clearError: () => setError(null) };
+  return { step, email, busy, error, cooldown, send, signUp, resend, verify, reset, clearError: () => setError(null) };
 }
 
 // Lets anything (Settings, the account menu, the Join page) open the sign-in

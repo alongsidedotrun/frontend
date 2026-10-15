@@ -1,20 +1,16 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { Backdrop } from "@/components/design-system/backdrop";
+import { ShellDialog, ShellDialogActions, ShellField, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { useIsSignedIn } from "@/lib/auth";
 import { ErrorText } from "@/lib/error-code";
 import { SHARE_ERRORS, formatTypedId } from "@/lib/use-share";
 import { openSignInDialog } from "@/lib/use-sign-in";
+import { cn } from "@/lib/utils";
 
 const CHAT_ID_GROUPS = [5, 5] as const;
 const CODE_GROUPS = [4, 4] as const;
-// The same box the Share dialog shows the chat ID and code in, so what's typed
-// looks like what was given. 44px tall: radius 44 × 8/27 (STYLE_GUIDE.md).
-const FIELD_CLASS = "h-11 rounded-[calc(44px*8/27)] border-[var(--redesign-sidebar-border)] bg-background px-3.5 font-mono text-[15px] tracking-[0.12em] text-foreground md:text-[15px] dark:bg-background";
 
 /**
  * Join someone else's chat (#213, #459) with the chat ID and join code they
@@ -111,95 +107,85 @@ export function JoinChatDialog({ open, onOpenChange }: { open: boolean; onOpenCh
     }
   }
 
+  const formId = "join-chat-form";
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} backdropClassName="!z-[120]">
-      <DialogContent size="xl" motion="gentle" initialFocus={chatIdRef} className="!z-[120] max-w-[min(760px,calc(100vw-2rem))] overflow-hidden p-0">
-        <div className="grid min-h-[420px] grid-cols-1 sm:grid-cols-2">
-          <form
-            className="flex flex-col gap-6 bg-[var(--redesign-primary-surface)] p-8"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void join(Boolean(disclosure));
-            }}
-          >
-            <div className="flex flex-col gap-1">
-              <DialogTitle className="text-[18px] font-medium text-foreground">{t("joinChat.title")}</DialogTitle>
-              <DialogDescription className="text-[13px] text-muted-foreground">{t("joinChat.description")}</DialogDescription>
-            </div>
-
-            {!signedIn ? (
-              <div className="flex flex-col gap-3">
-                <p className="text-[13px] text-muted-foreground">{t("joinChat.signIn")}</p>
-                <Button type="button" variant="primary" onClick={openSignInDialog}>
-                  {t("shareChat.signInButton")}
-                </Button>
-              </div>
-            ) : disclosure ? (
-              <div className="flex flex-col gap-3">
-                <h3 className="text-[13px] font-medium text-foreground">{t("share.disclosure.title")}</h3>
-                <p className="text-[13px] text-muted-foreground">{disclosure}</p>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-4">
-                <label htmlFor={chatIdFieldId} className="flex flex-col gap-1.5 text-[12px] text-muted-foreground">
-                  {t("shareChat.chatId")}
-                  <Input
-                    ref={chatIdRef}
-                    id={chatIdFieldId}
-                    value={chatId}
-                    autoComplete="off"
-                    spellCheck={false}
-                    placeholder="XXXXX-XXXXX"
-                    className={FIELD_CLASS}
-                    aria-invalid={Boolean(error) || undefined}
-                    onChange={(event) => {
-                      setChatId(formatTypedId(event.target.value, CHAT_ID_GROUPS));
-                      setError(null);
-                    }}
-                  />
-                </label>
-                <label htmlFor={codeFieldId} className="flex flex-col gap-1.5 text-[12px] text-muted-foreground">
-                  {t("shareChat.joinCode")}
-                  <Input
-                    id={codeFieldId}
-                    value={code}
-                    autoComplete="off"
-                    spellCheck={false}
-                    placeholder="XXXX-XXXX"
-                    className={FIELD_CLASS}
-                    aria-invalid={Boolean(error) || undefined}
-                    onChange={(event) => {
-                      setCode(formatTypedId(event.target.value, CODE_GROUPS));
-                      setError(null);
-                    }}
-                  />
-                </label>
-              </div>
-            )}
-
-            {error && (
-              <p role="alert" className="text-[12px] text-destructive">
-                <ErrorText message={error} />
-              </p>
-            )}
-
-            {signedIn && (
-              <div className="mt-auto flex items-center gap-2">
-                <Button type="button" variant="tertiary" onClick={() => onOpenChange(false)}>
-                  {t("common.cancel")}
-                </Button>
-                <Button type="submit" variant="primary" className="flex-1" disabled={!complete || busy}>
-                  {disclosure ? t("share.disclosure.agree") : t("joinChat.join")}
-                </Button>
-              </div>
-            )}
-          </form>
-
-          <div aria-hidden="true" className="relative hidden overflow-hidden sm:block">
-            <Backdrop />
+    <ShellDialog
+      centered
+      open={open}
+      onOpenChange={onOpenChange}
+      initialFocus={chatIdRef}
+      title={t("joinChat.title")}
+      description={t("joinChat.description")}
+      actions={
+        <ShellDialogActions
+          cancelLabel={t("common.cancel")}
+          onCancel={() => onOpenChange(false)}
+          primary={signedIn ? { label: disclosure ? t("share.disclosure.agree") : t("joinChat.join"), type: "submit", form: formId, disabled: !complete || busy } : undefined}
+        />
+      }
+    >
+      <form
+        id={formId}
+        className="flex flex-col gap-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void join(Boolean(disclosure));
+        }}
+      >
+        {!signedIn ? (
+          <div className="flex flex-col items-center gap-3 text-center">
+            <p className="text-[12px] text-muted-foreground">{t("joinChat.signIn")}</p>
+            <Button type="button" variant="primary" size="compact" onClick={openSignInDialog}>
+              {t("shareChat.signInButton")}
+            </Button>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        ) : disclosure ? (
+          <div className={cn("flex flex-col gap-3 p-4", SHELL_RADIUS, SHELL_SURFACE)}>
+            <h3 className="text-[13px] font-medium text-foreground">{t("share.disclosure.title")}</h3>
+            <p className="text-[12px] text-muted-foreground">{disclosure}</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {/* The identifier and join code they were given, laid out like Invite members shows them. */}
+            <ShellField label={t("shareChat.chatId")} htmlFor={chatIdFieldId}>
+              <input
+                ref={chatIdRef}
+                id={chatIdFieldId}
+                value={chatId}
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="XXXXX-XXXXX"
+                className={cn(SHELL_FIELD_INPUT, "font-mono tracking-[0.1em]")}
+                aria-invalid={Boolean(error) || undefined}
+                onChange={(event) => {
+                  setChatId(formatTypedId(event.target.value, CHAT_ID_GROUPS));
+                  setError(null);
+                }}
+              />
+            </ShellField>
+            <ShellField label={t("shareChat.joinCode")} htmlFor={codeFieldId}>
+              <input
+                id={codeFieldId}
+                value={code}
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="XXXX-XXXX"
+                className={cn(SHELL_FIELD_INPUT, "font-mono tracking-[0.1em]")}
+                aria-invalid={Boolean(error) || undefined}
+                onChange={(event) => {
+                  setCode(formatTypedId(event.target.value, CODE_GROUPS));
+                  setError(null);
+                }}
+              />
+            </ShellField>
+          </div>
+        )}
+        {error && (
+          <p role="alert" className="text-[12px] text-destructive">
+            <ErrorText message={error} />
+          </p>
+        )}
+      </form>
+    </ShellDialog>
   );
 }

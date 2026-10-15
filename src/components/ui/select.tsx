@@ -355,11 +355,13 @@ const SelectValue = SelectPrimitive.Value;
 
 interface SelectContentProps {
   className?: string;
+  /** Stacking for the popup, e.g. above a dialog (z-50 by default). */
+  positionerClassName?: string;
   children: ReactNode;
 }
 
 const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(
-  ({ className, children }, ref) => {
+  ({ className, positionerClassName, children }, ref) => {
     const { open, value, actionsRef } = useSelectContext();
     const shape = popupShape;
     const containerRef = useRef<HTMLDivElement>(null);
@@ -475,7 +477,7 @@ const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(
           align="start"
           sideOffset={6}
           alignItemWithTrigger={false}
-          className="z-50 outline-none"
+          className={cn("z-50 outline-none", positionerClassName)}
         >
           <motion.div
             className={popupMotionClass}
