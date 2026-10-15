@@ -43,6 +43,7 @@ import {
 } from "@/components/icons/untitled-ui";
 
 const styledFolderIcon = "/icons/styled-folder.svg";
+const appIconTileClass = "flex size-6 shrink-0 items-center justify-center rounded-[calc(24px*8/27)] border border-border bg-white shadow-[0_1px_2px_rgb(0_0_0_/_0.06)] transition-[background-color,border-color,box-shadow,translate] duration-150 hover:-translate-y-px hover:border-foreground/30 hover:bg-hover-2 hover:shadow-[0_2px_5px_rgb(0_0_0_/_0.12)] dark:bg-[#242424] dark:hover:bg-[#343434]";
 
 type SpeechRecognitionLike = {
   start: () => void;
@@ -2309,17 +2310,17 @@ export function ComposeBox({
           className="relative -mt-[var(--compose-shell-radius)] rounded-b-[var(--compose-shell-radius)] border border-t-0 border-border bg-[#FAFAFA] px-4 pt-[calc(var(--compose-shell-radius)+0.25rem)] pb-1 dark:bg-background"
         >
           <div className="flex min-h-7 items-center justify-between gap-3 px-1 text-[11px] text-foreground/75">
-            <button type="button" aria-label={t("compose.workFromFolder")} className="flex min-h-7 min-w-0 items-center gap-1 text-left transition-colors hover:text-foreground">
+            <button type="button" aria-label={t("compose.workFromFolder")} className="-ml-1 flex min-h-7 min-w-0 items-center gap-1 rounded-[calc(28px*8/27)] px-1 text-left transition-colors hover:bg-hover-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/10">
               <img src={styledFolderIcon} alt="" aria-hidden="true" className="size-3.5 shrink-0 object-contain" />
               <span className="@max-[300px]:hidden">{t("compose.workFromFolder")}</span>
             </button>
-            <button type="button" aria-label={t("compose.connectApps")} onClick={onOpenApps} className="flex min-h-7 shrink-0 items-center gap-2 text-right transition-colors hover:text-foreground">
+            <button type="button" aria-label={t("compose.connectApps")} onClick={onOpenApps} className="-mr-1 flex min-h-7 shrink-0 items-center gap-2 rounded-[calc(28px*8/27)] px-1 text-right transition-colors hover:bg-hover-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/10">
               <span className="@max-[420px]:hidden">{t("compose.connectApps")}</span>
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-[calc(24px*8/27)] border border-border bg-white shadow-[0_1px_2px_rgb(0_0_0_/_0.06)] dark:bg-[#242424]">
+              <span className={appIconTileClass}>
                 <img src="/icons/providers/github.svg" alt="" aria-hidden="true" className="size-3.5 object-contain dark:invert" />
               </span>
               {(["drive", "docs", "sheets"] as const).map((app) => (
-                <span key={app} title={`Google ${app[0].toUpperCase()}${app.slice(1)} — ${t("settings.apps.comingSoon")}`} className="flex size-6 shrink-0 items-center justify-center rounded-[calc(24px*8/27)] border border-border bg-white shadow-[0_1px_2px_rgb(0_0_0_/_0.06)] dark:bg-[#242424]">
+                <span key={app} title={`Google ${app[0].toUpperCase()}${app.slice(1)} — ${t("settings.apps.comingSoon")}`} className={appIconTileClass}>
                   <img src={`/icons/google-${app}.svg`} alt="" aria-hidden="true" className="size-[18px] object-contain" />
                 </span>
               ))}
