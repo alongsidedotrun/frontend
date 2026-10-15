@@ -24,33 +24,6 @@ export type UiLocale = "en" | "pt-BR" | "es" | "fr" | "de" | "zh" | "ja";
 type TranslationRow = Record<UiLocale, string>;
 
 export const translations = {
-  "settings.general.tips": {
-    en: "Tips",
-    "pt-BR": "Dicas",
-    es: "Consejos",
-    fr: "Astuces",
-    de: "Tipps",
-    zh: "提示",
-    ja: "ヒント",
-  },
-  "settings.general.gettingStarted.title": {
-    en: "Getting started",
-    "pt-BR": "Primeiros passos",
-    es: "Primeros pasos",
-    fr: "Prise en main",
-    de: "Erste Schritte",
-    zh: "新手入门",
-    ja: "はじめに",
-  },
-  "settings.general.gettingStarted.description": {
-    en: "Show the Getting started page and its sidebar entry.",
-    "pt-BR": "Mostrar a página de Primeiros passos e seu item na barra lateral.",
-    es: "Mostrar la página de Primeros pasos y su entrada en la barra lateral.",
-    fr: "Afficher la page Prise en main et son entrée dans la barre latérale.",
-    de: "Die Seite „Erste Schritte“ und den zugehörigen Eintrag in der Seitenleiste anzeigen.",
-    zh: "显示新手入门页面及其侧边栏条目。",
-    ja: "「はじめに」ページとサイドバーの項目を表示します。",
-  },
   "settings.general.languageAndTimezone": {
     en: "Language & Timezone",
     "pt-BR": "Idioma e fuso horário",
@@ -1853,13 +1826,13 @@ export const translations = {
     ja: "プロフィール写真を更新し、サブスクリプションの種類を確認できます。",
   },
   "settings.nav.subtitle.general": {
-    en: "Show or hide tips, and manage notifications.",
-    "pt-BR": "Mostre ou oculte dicas e gerencie notificações.",
-    es: "Muestra u oculta consejos y gestiona las notificaciones.",
-    fr: "Affichez ou masquez les astuces et gérez les notifications.",
-    de: "Tipps ein- oder ausblenden und Benachrichtigungen verwalten.",
-    zh: "显示或隐藏提示，并管理通知。",
-    ja: "ヒントの表示/非表示や通知の管理ができます。",
+    en: "Manage language, timezone and notifications.",
+    "pt-BR": "Gerencie o idioma, o fuso horário e as notificações.",
+    es: "Gestiona el idioma, la zona horaria y las notificaciones.",
+    fr: "Gérez la langue, le fuseau horaire et les notifications.",
+    de: "Verwalte Sprache, Zeitzone und Benachrichtigungen.",
+    zh: "管理语言、时区和通知。",
+    ja: "言語、タイムゾーン、通知を管理できます。",
   },
   "settings.nav.subtitle.appearance": {
     en: "Pick a theme, adjust fonts, and set how wide chats appear.",
