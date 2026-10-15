@@ -1145,6 +1145,7 @@ export function ComposeBox({
   const addMenuRef = useRef<HTMLDivElement>(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [addMenuSide, setAddMenuSide] = useState<"top" | "bottom">("bottom");
+  const [folderExtensionTop, setFolderExtensionTop] = useState<number | undefined>(undefined);
   const modeMenuRef = useRef<HTMLDivElement>(null);
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [modeMenuSide, setModeMenuSide] = useState<"top" | "bottom">("bottom");
@@ -1367,16 +1368,20 @@ export function ComposeBox({
   // the optional Plan mode row.
   useLayoutEffect(() => {
     if (!addMenuOpen) return;
-    const root = composeRootRef.current;
-    const panel = addMenuRef.current;
-    if (!root || !panel) return;
-
-    const rect = root.getBoundingClientRect();
-    const margin = 12;
-    const spaceBelow = window.innerHeight - rect.bottom - margin;
-    const spaceAbove = rect.top - margin;
-    const panelHeight = panel.scrollHeight;
-    setAddMenuSide(spaceBelow >= panelHeight || spaceBelow >= spaceAbove ? "bottom" : "top");
+    const frame = requestAnimationFrame(() => {
+      const root = composeRootRef.current;
+      const panel = addMenuRef.current;
+      if (!root || !panel) return;
+      const rect = root.getBoundingClientRect();
+      const margin = 12;
+      const spaceBelow = window.innerHeight - rect.bottom - margin;
+      const spaceAbove = rect.top - margin;
+      const panelHeight = panel.scrollHeight;
+      const side = spaceBelow >= panelHeight || spaceBelow >= spaceAbove ? "bottom" : "top";
+      setAddMenuSide(side);
+      setFolderExtensionTop(side === "bottom" ? rect.height + panel.scrollHeight + 8 : rect.height + 8);
+    });
+    return () => cancelAnimationFrame(frame);
   }, [addMenuOpen, planSupported]);
 
   useLayoutEffect(() => {
@@ -1833,12 +1838,6 @@ export function ComposeBox({
                 </DropdownSubItem>
               )}
             </div>
-            <div className="mt-2 overflow-hidden rounded-xl border border-[var(--redesign-sidebar-elevated-border)] bg-[var(--redesign-sidebar-overlay-surface)] shadow-[var(--redesign-sidebar-elevated-shadow)]">
-              <DropdownSubItem className="flex items-center gap-2.5 text-[12px] whitespace-nowrap">
-                <img src={styledFolderIcon} alt="" aria-hidden="true" className="size-4 shrink-0 object-contain" />
-                <span className="flex-1">{t("compose.workFromFolder")}</span>
-              </DropdownSubItem>
-            </div>
           </BaseDropdownContent>
         </BaseDropdownMenu>
         {/* Manual / Plan / Auto -- how the agent asks before acting (in the leading group, where the model
@@ -1962,6 +1961,14 @@ export function ComposeBox({
         </div>
         )}
       </div>
+      {addMenuOpen && (
+        <div className="absolute left-0 z-20 w-72 overflow-hidden rounded-xl border border-[var(--redesign-sidebar-elevated-border)] bg-[var(--redesign-sidebar-overlay-surface)] shadow-[var(--redesign-sidebar-elevated-shadow)]" style={{ top: folderExtensionTop ?? "calc(100% + 8px)" }}>
+          <button type="button" className="flex h-10 w-full items-center gap-2.5 px-3 text-left text-[12px] text-foreground transition-colors hover:bg-muted/60">
+            <img src={styledFolderIcon} alt="" aria-hidden="true" className="size-4 shrink-0 object-contain" />
+            <span className="flex-1">{t("compose.workFromFolder")}</span>
+          </button>
+        </div>
+      )}
       <div className="mr-1 flex items-center gap-1">
         {/* Effort -- now its own standalone trigger+dropdown next to the
             model selector, matching Synara's own split layout (a real
