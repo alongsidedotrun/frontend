@@ -1788,9 +1788,14 @@ export function ComposeBox({
             className="w-72 min-w-0"
           >
             <BaseDropdownLabel>{t("common.add")}</BaseDropdownLabel>
-            <DropdownSubItem className="flex items-center gap-2.5 text-[12px] whitespace-nowrap" onClick={openFilePicker}>
-              <AttachmentIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-              <span className="flex-1">{t("compose.filesAndFolders")}</span>
+            <DropdownSubItem className="flex items-start gap-2.5 py-1.5 text-[12px]" onClick={openFilePicker}>
+              <AttachmentIcon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1">
+                <span className="block">{t("compose.files")}</span>
+                <span className="mt-0.5 block whitespace-normal text-[11px] leading-4 text-muted-foreground">
+                  {t("compose.filesDescription")}
+                </span>
+              </span>
             </DropdownSubItem>
             <DropdownSubItem className="flex items-center gap-2.5 text-[12px] whitespace-nowrap">
               <SkillIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
