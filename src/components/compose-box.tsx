@@ -2307,7 +2307,7 @@ export function ComposeBox({
         <motion.div
           key="work-from-folder"
           exit={{ opacity: 0, transition: spring.moderate.exit }}
-          className="relative -mt-[var(--compose-shell-radius)] rounded-b-[var(--compose-shell-radius)] border border-t-0 border-border bg-[#FAFAFA] px-4 pt-[calc(var(--compose-shell-radius)+0.25rem)] pb-1 dark:bg-background"
+          className="relative -mt-[var(--compose-shell-radius)] rounded-b-[var(--compose-shell-radius)] border border-t-0 border-border bg-[var(--redesign-quick-actions-surface)] px-4 pt-[calc(var(--compose-shell-radius)+0.25rem)] pb-1"
         >
           <div className="flex min-h-7 items-center justify-between gap-3 px-1 text-[11px] text-foreground/75">
             <button type="button" aria-label={t("compose.workFromFolder")} className="-ml-1 flex min-h-7 min-w-0 items-center gap-1 rounded-[calc(28px*8/27)] px-1 text-left transition-colors hover:bg-hover-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/10">
