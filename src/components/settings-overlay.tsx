@@ -1080,15 +1080,17 @@ function AppsSection() {
             <span className="opacity-50">{t("settings.apps.comingSoon")}</span>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <div className={`flex w-full select-none items-center gap-2 ${SETTINGS_CARD_RADIUS} border border-border p-3`}>
-              <span className={PROVIDER_ICON_FRAME}>
-                <img src="/icons/google-drive.svg" alt="" className="size-6 object-contain" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[12px] font-medium text-foreground">Google Drive</span>
-                <span className="line-clamp-2 text-[10px] font-normal text-muted-foreground">{t("settings.apps.comingSoon")}</span>
-              </span>
-            </div>
+            {(["Drive", "Docs", "Sheets"] as const).map((app) => (
+              <div key={app} className={`flex w-full select-none items-center gap-2 ${SETTINGS_CARD_RADIUS} border border-border p-3`}>
+                <span className={PROVIDER_ICON_FRAME}>
+                  <img src={`/icons/google-${app.toLowerCase()}.svg`} alt="" className="size-6 object-contain" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[12px] font-medium text-foreground">Google {app}</span>
+                  <span className="line-clamp-2 text-[10px] font-normal text-muted-foreground">{t("settings.apps.comingSoon")}</span>
+                </span>
+              </div>
+            ))}
             {/* Same row shape/reasoning as ProvidersSection's own "Request a
                 provider" row -- a standing action, not filtered by anything,
                 a real button ahead of a real request form (onClick still a
