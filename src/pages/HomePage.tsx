@@ -294,6 +294,7 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
           onSetAutocompact={() => {}}
           defaultModelValue={defaultModel}
           onOpenSettings={() => openSettings("provider")}
+          onOpenApps={() => openSettings("apps")}
           onPinDefaultModel={(value) => {
             pinnedDefaultModelRef.current = value;
           }}

@@ -641,6 +641,7 @@ export function ComposeBox({
   placeholderCycle,
   initialHeight,
   showWorkFromFolder,
+  onOpenApps,
   autoFocus,
   awaitingReply,
   onStop,
@@ -687,6 +688,7 @@ export function ComposeBox({
   // New-chat only. Exit when HomePage starts handing the composer to ChatPage;
   // an existing chat never renders this pre-chat action.
   showWorkFromFolder?: boolean;
+  onOpenApps?: () => void;
   autoFocus?: boolean;
   // Chat-only: while true, the send button becomes a stop button.
   awaitingReply?: boolean;
@@ -2306,10 +2308,16 @@ export function ComposeBox({
           exit={{ opacity: 0, transition: spring.moderate.exit }}
           className="relative -mt-[var(--compose-shell-radius)] rounded-b-[var(--compose-shell-radius)] border border-t-0 border-border bg-[#FAFAFA] px-[9px] pt-[calc(var(--compose-shell-radius)+0.25rem)] pb-1 dark:bg-background"
         >
-          <button type="button" className="flex h-7 w-full items-center gap-1 px-1 text-left text-[11px] text-foreground/75 transition-colors hover:text-foreground">
-            <img src={styledFolderIcon} alt="" aria-hidden="true" className="size-3.5 shrink-0 object-contain" />
-            <span>{t("compose.workFromFolder")}</span>
-          </button>
+          <div className="flex min-h-7 items-center justify-between gap-3 px-1 text-[11px] text-foreground/75">
+            <button type="button" className="flex min-h-7 min-w-0 items-center gap-1 text-left transition-colors hover:text-foreground">
+              <img src={styledFolderIcon} alt="" aria-hidden="true" className="size-3.5 shrink-0 object-contain" />
+              <span>{t("compose.workFromFolder")}</span>
+            </button>
+            <button type="button" onClick={onOpenApps} className="flex min-h-7 shrink-0 items-center gap-1 text-right transition-colors hover:text-foreground">
+              <span>{t("compose.connectApps")}</span>
+              <img src="/icons/providers/github.svg" alt="" aria-hidden="true" className="size-3.5 shrink-0 object-contain dark:invert" />
+            </button>
+          </div>
         </motion.div>
       )}
     </AnimatePresence>
