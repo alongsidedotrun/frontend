@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { IconComponent } from "@/lib/icon-context";
 import { cn } from "@/lib/utils";
-import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
 import { useLocation, useNavigate, useOutlet } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { ChevronRight, CircleArrowUp, CircleHelp, LogIn, Plus, Search, ShieldCheck } from "lucide-react";
+import { ChevronRight, CircleArrowUp, CircleHelp, LogIn, Plus, ShieldCheck } from "lucide-react";
 import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
 import { CreateWorkspaceDialog } from "@/components/design-system/create-workspace-dialog";
 import { SignInDialog } from "@/components/design-system/sign-in-dialog";
@@ -920,13 +919,6 @@ export function RedesignPage() {
               actionSections={[]}
                 ariaLabel={t("shell.selectWorkspace")}
               />
-              <button
-                type="button"
-                aria-label={t("nav.search.ariaLabel")}
-                className={cn("ml-auto flex size-[var(--redesign-search-control-size)] shrink-0 items-center justify-center text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", PRESS_EFFECT, ICON_PRESS)}
-              >
-                <Search aria-hidden="true" strokeWidth={2} className="size-[var(--redesign-search-icon-size)]" />
-              </button>
             </div>
             <QuickActions
               label={t("shell.quickActions")}
