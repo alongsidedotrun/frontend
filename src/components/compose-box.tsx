@@ -1888,11 +1888,11 @@ export function ComposeBox({
                   return (
                     <>
                       <Icon aria-hidden="true" className={cn("size-3.5 shrink-0", shown === "auto" && "text-orange-500", shown === "ask" && "text-[var(--send-button-bg)]")} />
-                      <SwapLabel className={shown === "auto" ? "text-orange-500" : undefined} swapKey={shown}>{shown === "plan" ? t("compose.planMode") : found ? t(found.labelKey) : null}</SwapLabel>
+                      <SwapLabel className={shown === "auto" ? "text-orange-500" : shown === "ask" ? "text-[var(--send-button-bg)]" : undefined} swapKey={shown}>{shown === "plan" ? t("compose.planMode") : found ? t(found.labelKey) : null}</SwapLabel>
                     </>
                   );
                 })()}
-                <ChevronDownIcon className={cn("size-[var(--compose-tool-icon)] shrink-0", !planMode && mode === "auto" && "text-orange-500")} />
+                <ChevronDownIcon className={cn("size-[var(--compose-tool-icon)] shrink-0", !planMode && mode === "auto" && "text-orange-500", !planMode && mode === "ask" && "text-[var(--send-button-bg)]")} />
               </button>
             }
           />
