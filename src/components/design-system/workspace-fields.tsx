@@ -47,8 +47,7 @@ export function WorkspaceFields({ values, onChange, nameError, autoFocusName }: 
 
   return (
     <>
-      {/* The space the old "Shown in the sidebar" hint took stays, so Name and Description keep their gap. */}
-      <div className="flex flex-col gap-1 pb-5">
+      <div className="flex flex-col gap-1">
         <ShellField label={t("workspace.fields.name")} htmlFor={nameId}>
           <input
             id={nameId}
