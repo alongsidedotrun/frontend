@@ -643,6 +643,7 @@ export function ComposeBox({
   contextUsage,
   onOpenSettings,
   chatId,
+  isMultiplayer,
   defaultEffortValue,
   onPinDefaultModel,
   onCompactNow,
@@ -699,6 +700,9 @@ export function ComposeBox({
   // calls this instead of navigating to a route, same mechanism
   // WelcomePage.tsx's own Initial setup row already uses.
   onOpenSettings?: () => void;
+  // ChatPage's relay status -- shared chats use the per-file and per-day
+  // multiplayer limits shown in the Add panel.
+  isMultiplayer?: boolean;
   // ChatPage-only -- an existing chat's own id. Present, "Set as default"
   // (both the model and effort rows' own three-dot menus) writes THIS
   // chat's own default via the real per-chat endpoint. Absent on HomePage
@@ -1793,7 +1797,7 @@ export function ComposeBox({
               <span className="min-w-0 flex-1">
                 <span className="block">{t("compose.files")}</span>
                 <span className="mt-0.5 block whitespace-normal text-[11px] leading-4 text-muted-foreground">
-                  {t("compose.filesDescription")}
+                  {t(isMultiplayer ? "compose.filesMultiplayerDescription" : "compose.filesDescription")}
                 </span>
               </span>
             </DropdownSubItem>
