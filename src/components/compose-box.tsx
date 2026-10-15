@@ -2314,7 +2314,7 @@ export function ComposeBox({
               <img src={styledFolderIcon} alt="" aria-hidden="true" className="size-3.5 shrink-0 object-contain" />
               <span className="@max-[300px]:hidden">{t("compose.workFromFolder")}</span>
             </button>
-            <button type="button" aria-label={t("compose.connectApps")} onClick={onOpenApps} className="-mr-1 flex min-h-7 shrink-0 items-center gap-2 rounded-[calc(28px*8/27)] px-1 text-right transition-colors hover:bg-hover-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/10">
+            <button type="button" aria-label={t("compose.connectApps")} onClick={onOpenApps} className="-mr-1 flex min-h-7 shrink-0 items-center gap-2 rounded-[calc(28px*8/27)] px-1 text-right focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <span className="@max-[420px]:hidden">{t("compose.connectApps")}</span>
               <span className={appIconTileClass}>
                 <img src="/icons/providers/github.svg" alt="" aria-hidden="true" className="size-3.5 object-contain dark:invert" />
