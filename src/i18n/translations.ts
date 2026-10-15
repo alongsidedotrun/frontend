@@ -1107,15 +1107,6 @@ export const translations = {
   },
 
   // -- settings-overlay.tsx: ProfileSection --
-  "settings.profile.personal": {
-    en: "Personal",
-    "pt-BR": "Pessoal",
-    es: "Personal",
-    fr: "Personnel",
-    de: "Persönlich",
-    zh: "个人信息",
-    ja: "個人設定",
-  },
   "settings.profile.name.title": {
     en: "Name",
     "pt-BR": "Nome",
@@ -1124,15 +1115,6 @@ export const translations = {
     de: "Name",
     zh: "姓名",
     ja: "名前",
-  },
-  "settings.profile.name.description": {
-    en: "Your name comes from your Alongside account.",
-    "pt-BR": "Seu nome vem da sua conta Alongside.",
-    es: "Tu nombre proviene de tu cuenta de Alongside.",
-    fr: "Votre nom provient de votre compte Alongside.",
-    de: "Dein Name stammt aus deinem Alongside-Konto.",
-    zh: "您的姓名来自您的 Alongside 账户。",
-    ja: "名前は Alongside アカウントから取得されます。",
   },
   "settings.profile.name.signedOut": {
     en: "Sign in to use the name from your Alongside account.",
@@ -1260,34 +1242,6 @@ export const translations = {
     zh: "企业版",
     ja: "エンタープライズ",
   },
-  "settings.profile.caution": {
-    en: "Caution",
-    "pt-BR": "Cuidado",
-    es: "Precaución",
-    fr: "Attention",
-    de: "Vorsicht",
-    zh: "注意",
-    ja: "注意",
-  },
-  "settings.profile.logOut.description": {
-    en: "Sign out of your account on this device.",
-    "pt-BR": "Sair da sua conta neste dispositivo.",
-    es: "Cerrar sesión de tu cuenta en este dispositivo.",
-    fr: "Déconnectez-vous de votre compte sur cet appareil.",
-    de: "Melde dich auf diesem Gerät von deinem Konto ab.",
-    zh: "在此设备上退出您的账户。",
-    ja: "このデバイスでアカウントからログアウトします。",
-  },
-  "settings.profile.signIn.description": {
-    en: "Sign in to share chats with other people.",
-    "pt-BR": "Entre para compartilhar conversas com outras pessoas.",
-    es: "Inicia sesión para compartir chats con otras personas.",
-    fr: "Connectez-vous pour partager des discussions avec d'autres personnes.",
-    de: "Melde dich an, um Chats mit anderen zu teilen.",
-    zh: "登录后即可与他人共享对话。",
-    ja: "他の人とチャットを共有するにはサインインしてください。",
-  },
-
   // -- settings-overlay.tsx: AppearanceSection --
   "settings.appearance.theme": {
     en: "Theme",

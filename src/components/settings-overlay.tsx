@@ -34,6 +34,7 @@ import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ShellDialog, ShellDialogActions, ShellField } from "@/components/design-system/shell-dialog";
 import {
   BubbleChatIcon,
   ChevronDownIcon,
@@ -42,7 +43,6 @@ import {
   DownloadIcon,
   HelpCircleIcon,
   IntegrationsIcon,
-  LogOutIcon,
   PaletteIcon,
   ProvidersIcon,
   ProviderUsageIcon,
@@ -55,7 +55,6 @@ import { GlideGroup, RailButton } from "@/components/sidebar-nav";
 import { AccountMenuItems, HelpMenuItems } from "@/components/nav-user";
 import {
   clearUserAvatarImage,
-  getUserDisplayName,
   setUserAvatarImage,
   useUserAvatarImage,
   useUserDisplayName,
@@ -1475,6 +1474,7 @@ function resizeImageFile(file: File, maxSize = 256, quality = 0.85): Promise<str
 // comment has the pointer).
 function ProfileSection() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const isSignedIn = useIsSignedIn();
   const avatarImage = useUserAvatarImage();
   const currentName = useUserDisplayName();
@@ -1527,182 +1527,102 @@ function ProfileSection() {
     link.click();
   }
 
-  return (
-    <div className="flex flex-col">
-      <SettingsSection title={t("settings.profile.personal")}>
-        {/* The name is the identity provider's (lib/identity.ts) and cannot be edited here. */}
-        <SettingsRow
-          id="setting-name"
-          title={t("settings.profile.name.title")}
-          description={isSignedIn ? t("settings.profile.name.description") : t("settings.profile.name.signedOut")}
-        >
-          {/* Signed out there's no name, only the Sign in prompt in the description. */}
-          {isSignedIn && <span className="text-[12px] font-medium text-foreground">{currentName}</span>}
-        </SettingsRow>
-        <SettingsRow
-          id="setting-avatar"
-          title={t("settings.profile.avatar.title")}
-          // No (i) tooltip any more -- per explicit request, after
-          // confirming directly against the real upload code: there's no
-          // actual size requirement (resizeImageFile below auto-resizes
-          // any uploaded image to fit 256px, so "400x400" was never a
-          // real constraint), only a real format restriction (the file
-          // picker's own accept="image/jpeg,image/png" and this row's own
-          // upload handler both reject anything else) -- kept visible in
-          // plain text instead of behind an icon, since it's the one part
-          // of the old copy that was actually true.
-          description={t("settings.profile.avatar.description")}
-          status={error ?? undefined}
-        >
-          {/* disabled when signed out -- per explicit request ("profile
-              items inside like upload picture or logout should show as
-              inactive because those are signed in options"): a profile
-              picture belongs to a real signed-in identity, so managing one
-              isn't meaningful yet without one. Subscription (below) is
-              deliberately NOT gated the same way -- per that same
-              request, "membership is fine as it is". */}
-          <button
-            type="button"
-            className={SETTINGS_ACTION_BUTTON_CLASS}
-            disabled={!isSignedIn}
-            onClick={() => setManageOpen(true)}
-          >
-            {t("settings.profile.avatar.managePhoto")}
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png"
-            className="hidden"
-            onChange={(event) => void handleFileSelected(event)}
-          />
-        </SettingsRow>
-        {/* Manage photo -- per explicit request ("instead of be Upload
-            photo and Remove Photo, it should be Manage photo so we can
-            click that and open a overlay where it shows the existing
-            photo then the option to download, remove or upload a new
-            one"). Download/Remove only make sense when a photo actually
-            exists; Upload a new one is always available. Removing falls
-            back to the generated logo-on-color mark automatically -- per
-            direct follow-up confirming that's the expected behavior --
-            DefaultAvatar (ui/avatar.tsx) already renders that mark
-            whenever getUserAvatarImage() is empty, no extra state needed
-            here for it. */}
-        <Dialog
-          open={manageOpen}
-          onOpenChange={(open) => {
-            setManageOpen(open);
-            if (!open) setPendingImage(null);
-          }}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle className="text-sm font-semibold">{t("settings.profile.avatar.dialogTitle")}</DialogTitle>
-              {/* Format note lives here now, not the Settings row's own
-                  description -- per explicit request. */}
-              <DialogDescription className="text-[13px] font-normal">
-                {avatarImage
-                  ? t("settings.profile.avatar.dialogDescription.withPhoto")
-                  : t("settings.profile.avatar.dialogDescription.noPhoto")}
-              </DialogDescription>
-            </DialogHeader>
-            {/* Photo on the left, name on the right -- per explicit
-                request ("the photo should be at the left and the name of
-                the user at the right to give an example on how it will
-                look like"), the same layout the sidebar's own account row
-                and a chat message's own header both already use. Shows
-                pendingImage (a picked-but-not-yet-confirmed file) once one
-                exists, in place of the actually-saved avatarImage. */}
-            <div className="flex items-center gap-3 py-2">
-              <Avatar size="lg" className="size-16 shrink-0">
-                <AvatarFallback className="text-xl">
-                  {pendingImage ? (
-                    <img src={pendingImage} alt="" className="size-full rounded-full object-cover" />
-                  ) : (
-                    <DefaultAvatar name={getUserDisplayName()} />
-                  )}
-                </AvatarFallback>
-              </Avatar>
-              <span className="text-sm font-medium text-foreground">{getUserDisplayName()}</span>
-            </div>
-            <DialogFooter>
-              {avatarImage && !pendingImage && (
-                <Button variant="outline" className="h-8 gap-1.5 text-[11px]" onClick={handleDownload}>
-                  <DownloadIcon className="size-3.5" />
-                  {t("common.download")}
-                </Button>
-              )}
-              {/* Same red as the chat delete-confirmation dialog's own
-                  Delete button (sidebar-nav.tsx) -- per explicit request. */}
-              {avatarImage && !pendingImage && (
-                <Button
-                  className="h-8 bg-red-600 text-[11px] text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
-                  onClick={() => clearUserAvatarImage()}
-                >
-                  {t("common.remove")}
-                </Button>
-              )}
-              {/* Flips to Confirm once a file has been picked -- per
-                  explicit request ("upload new flips to Confirm") --
-                  handleConfirmUpload is the one place that actually calls
-                  setUserAvatarImage now. */}
-              {pendingImage ? (
-                <Button className="h-8 text-[11px]" onClick={handleConfirmUpload}>
-                  {t("common.confirm")}
-                </Button>
-              ) : (
-                <Button className="h-8 text-[11px]" onClick={() => fileInputRef.current?.click()}>
-                  {t("common.add")}
-                </Button>
-              )}
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-        {/* Static, not a live account/billing lookup -- there is no real
-            subscription/plan concept anywhere in this app yet (confirmed:
-            no backend endpoint, no per-user account system at all, Free
-            tier is the only mode a local install actually runs in), so
-            this states that plainly rather than fabricating a Pro/
-            Enterprise upgrade flow that doesn't exist. Revisit once a real
-            subscription system exists. */}
-        <SettingsRow title={t("settings.profile.subscription.title")} description={t("settings.profile.subscription.description")}>
-          <span className="text-[12px] font-medium text-foreground">{t(`settings.profile.subscription.${plan}`)}</span>
-        </SettingsRow>
-      </SettingsSection>
+  const returnToPreviousPage = () => navigate(-1);
 
-      {/* Caution -- same page-ending convention every other Settings page
-          follows ("Caution should be the last item in all pages"). Log
-          out is real (signOut, lib/auth.ts) -- real bug, confirmed
-          directly ("The logout button is not working"). Since signing in
-          is now optional (App.tsx's own comment on removing RequireAuth's
-          blanket gate has the full reasoning) rather than a forced
-          redirect off every route, this row shows "Sign in" instead once
-          signed out, which opens the sign-in dialog. Logging out itself stays right
-          here in Settings instead of navigating anywhere -- per direct
-          follow-up ("logout is bringing me to the /auth page and that
-          should stay in settings") -- signOut() alone is enough to
-          reactively flip this row (and the disabled Manage photo button
-          above) to their signed-out state. */}
-      <SettingsSection title={t("settings.profile.caution")}>
-        <SettingsRow
-          id="setting-log-out"
-          title={isSignedIn ? t("common.logOut") : t("common.signIn")}
-          description={isSignedIn ? t("settings.profile.logOut.description") : t("settings.profile.signIn.description")}
-        >
-          <button
-            type="button"
-            className={SETTINGS_ACTION_BUTTON_CLASS}
-            onClick={() => {
+  return (
+    <ShellDialog
+      centered
+      open
+      onOpenChange={(open) => {
+        if (!open) returnToPreviousPage();
+      }}
+      icon={
+        <Avatar size="lg" className="size-16 shrink-0">
+          <AvatarFallback className="text-xl">
+            {avatarImage ? <img src={avatarImage} alt="" className="size-full rounded-full object-cover" /> : <DefaultAvatar name={currentName} />}
+          </AvatarFallback>
+        </Avatar>
+      }
+      title={t("settings.nav.profile")}
+      description={t("settings.nav.subtitle.profile")}
+      actions={
+        <ShellDialogActions
+          cancelLabel={t("common.cancel")}
+          onCancel={returnToPreviousPage}
+          primary={{
+            label: isSignedIn ? t("common.logOut") : t("common.signIn"),
+            onClick: () => {
               if (isSignedIn) signOut();
               else openSignInDialog();
-            }}
-          >
-            <LogOutIcon className="size-3.5" />
-            {isSignedIn ? t("common.logOut") : t("common.signIn")}
-          </button>
-        </SettingsRow>
-      </SettingsSection>
-    </div>
+            },
+          }}
+        />
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <ShellField label={t("settings.profile.name.title")}>
+          <span className="truncate text-[13px] text-foreground">{isSignedIn ? currentName : t("settings.profile.name.signedOut")}</span>
+        </ShellField>
+        <ShellField label={t("settings.profile.subscription.title")}>
+          <span className="text-[13px] text-foreground">{t(`settings.profile.subscription.${plan}`)}</span>
+        </ShellField>
+        <div className="flex flex-col gap-1 px-1">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[12px] font-medium text-foreground">{t("settings.profile.avatar.title")}</p>
+              <p className="mt-0.5 text-[12px] text-muted-foreground">{t("settings.profile.avatar.description")}</p>
+            </div>
+            <button type="button" className={SETTINGS_ACTION_BUTTON_CLASS} disabled={!isSignedIn} onClick={() => setManageOpen(true)}>
+              {t("settings.profile.avatar.managePhoto")}
+            </button>
+          </div>
+          {error && <p className="text-[11px] text-destructive"><ErrorText message={error} /></p>}
+        </div>
+        <input ref={fileInputRef} type="file" accept="image/jpeg,image/png" className="hidden" onChange={(event) => void handleFileSelected(event)} />
+      </div>
+      <Dialog
+        open={manageOpen}
+        onOpenChange={(open) => {
+          setManageOpen(open);
+          if (!open) setPendingImage(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold">{t("settings.profile.avatar.dialogTitle")}</DialogTitle>
+            <DialogDescription className="text-[13px] font-normal">
+              {avatarImage ? t("settings.profile.avatar.dialogDescription.withPhoto") : t("settings.profile.avatar.dialogDescription.noPhoto")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-3 py-2">
+            <Avatar size="lg" className="size-16 shrink-0">
+              <AvatarFallback className="text-xl">
+                {pendingImage ? <img src={pendingImage} alt="" className="size-full rounded-full object-cover" /> : <DefaultAvatar name={currentName} />}
+              </AvatarFallback>
+            </Avatar>
+            <span className="text-sm font-medium text-foreground">{currentName}</span>
+          </div>
+          <DialogFooter>
+            {avatarImage && !pendingImage && (
+              <Button variant="outline" className="h-8 gap-1.5 text-[11px]" onClick={handleDownload}>
+                <DownloadIcon className="size-3.5" />
+                {t("common.download")}
+              </Button>
+            )}
+            {avatarImage && !pendingImage && (
+              <Button className="h-8 bg-red-600 text-[11px] text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600" onClick={() => clearUserAvatarImage()}>
+                {t("common.remove")}
+              </Button>
+            )}
+            {pendingImage ? (
+              <Button className="h-8 text-[11px]" onClick={handleConfirmUpload}>{t("common.confirm")}</Button>
+            ) : (
+              <Button className="h-8 text-[11px]" onClick={() => fileInputRef.current?.click()}>{t("common.add")}</Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </ShellDialog>
   );
 }
 
@@ -2918,6 +2838,8 @@ export function SettingsSectionContent({ section }: { section: SettingsSection }
     return () => cancelAnimationFrame(id);
   }, [section]);
 
+  if (section === "profile") return <ProfileSection />;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-background">
       {/* Heading now scrolls with the rest of the page instead of staying
@@ -2953,7 +2875,6 @@ export function SettingsSectionContent({ section }: { section: SettingsSection }
           <p className="mt-0.5 text-[13px] font-normal text-muted-foreground">{t(SECTION_SUBTITLE_KEY[section])}</p>
         </PageContent>
         <PageContent maxWidth="var(--chat-max-width)">
-          {section === "profile" && <ProfileSection />}
           {section === "general" && <GeneralSection />}
           {section === "appearance" && <AppearanceSection />}
           {section === "chat" && <ChatSection />}
