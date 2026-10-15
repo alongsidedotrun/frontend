@@ -136,7 +136,7 @@ export function ShellDialogActions({
   primary?: { label: string; onClick?: () => void; disabled?: boolean; loading?: boolean; type?: "button" | "submit"; form?: string; destructive?: boolean };
 }) {
   return (
-    <div className="mt-auto flex flex-col gap-2 pt-1">
+    <div className="relative top-6 mt-auto flex flex-col gap-2 pt-1">
       <Button type="button" variant="tertiary" className={cn("h-8 w-full bg-white dark:bg-transparent", SHELL_RADIUS)} onClick={onCancel}>
         {cancelLabel}
       </Button>
