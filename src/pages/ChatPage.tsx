@@ -446,6 +446,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // #462: whether this chat is shared through the relay right now, and -- when it is -- whether the next
   // message is just for the people in it ("Just chat") instead of also asking this person's own agent.
   const [sharedChat, setSharedChat] = useState(false);
+  const [sharedRole, setSharedRole] = useState<"owner" | "admin" | "editor" | "participant" | "reader" | null>(null);
   const [justChat, setJustChat] = useState(false);
   // #460: a shared file's state as it changes while the chat is open (arrived, gone, delivered).
   const [fileStates, setFileStates] = useState<Record<string, string>>({});
@@ -456,9 +457,12 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     let cancelled = false;
     const check = () =>
       void fetch(`/sessions/${sessionId}/relay/status`)
-        .then((response) => (response.ok ? (response.json() as Promise<{ syncing?: boolean }>) : null))
+        .then((response) => (response.ok ? (response.json() as Promise<{ syncing?: boolean; role?: "owner" | "admin" | "editor" | "participant" | "reader" }>) : null))
         .then((status) => {
-          if (!cancelled) setSharedChat(Boolean(status?.syncing));
+          if (!cancelled) {
+            setSharedChat(Boolean(status?.syncing));
+            setSharedRole(status?.role ?? null);
+          }
         })
         .catch(() => {});
     check();
@@ -468,6 +472,10 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       clearInterval(timer);
     };
   }, [sessionId]);
+  const commenterChat = sharedChat && sharedRole === "participant";
+  useEffect(() => {
+    if (commenterChat) setJustChat(true);
+  }, [commenterChat]);
   // Real bug, confirmed via a real CI build failure (TS6133, "awaitingReply declared
   // but never read"): the old `awaitingReply` React state was fully superseded by
   // turnInProgress below and awaitingReplyRef (the imperative guard used throughout
@@ -2132,7 +2140,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         // spelling_instruction). Sent on every turn, not just once, since the
         // preference can change mid-session.
         spelling_language: loadLanguage(),
-        chat_only: sharedChat && justChat ? true : undefined,
+        chat_only: sharedChat && (justChat || commenterChat) ? true : undefined,
       }),
     });
 
@@ -2702,7 +2710,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           })()}
         </AnimatePresence>
         {sessionId && <JoinRequests sessionId={sessionId} requests={joinRequests} onDecided={(id) => setJoinRequests((current) => current.filter((r) => r.id !== id))} />}
-        {sharedChat && <AgentModeSwitch justChat={justChat} onChange={setJustChat} />}
+        {commenterChat ? (
+          <p className="mb-2 text-center text-[12px] text-muted-foreground">{t("chat.agentMode.commenterOnly")}</p>
+        ) : sharedChat ? (
+          <AgentModeSwitch justChat={justChat} onChange={setJustChat} />
+        ) : null}
         <ComposeBox
           // Forces a remount whenever a *new* edit starts (editMessage's
           // own comment above has the full reasoning) -- ComposeBox's own
