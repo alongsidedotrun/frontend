@@ -46,7 +46,6 @@ import {
   PaletteIcon,
   ProvidersIcon,
   ProviderUsageIcon,
-  RotateCcwIcon,
   SearchIcon,
   SettingsIcon,
   UserIcon,
@@ -2223,56 +2222,17 @@ function CompactScopeRows() {
 
 function ChatSection() {
   const { t } = useTranslation();
-  const [defaultModel, setDefaultModel] = useState<string | null | undefined>(undefined);
-  const [defaultEffort, setDefaultEffort] = useState<EffortLevel | null>(() => loadDefaultEffort());
   // Moved here from General's own Usage section -- per explicit request
   // ("Chat usage should move from general and be at Chat, in the same way
   // we did for Provider usage"): it's a stat about chats, not a general
   // app preference.
   const { usage, error: usageError } = useUsageStats();
 
-  // Mirrors DefaultModelRow's own fetch, just for the section-level Restore
-  // defaults button's own disabled state -- DefaultModelRow keeps its own
-  // separate copy for its own dropdown, this doesn't try to share state
-  // across the two (a second, harmless GET, not a source-of-truth split:
-  // both read the same real /settings/default-model).
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/settings/default-model")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { model: string | null } | null) => {
-        if (!cancelled) setDefaultModel(data?.model ?? null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const anyChanged = Boolean(defaultModel) || defaultEffort != null;
-  // Bumped on restore, used as both rows' own `key` -- forces a full
-  // remount so each row's own internal state (DefaultModelRow/
-  // DefaultEffortRow both keep their own copy for their own dropdown, not
-  // shared with this section) re-reads the now-cleared value instead of
-  // going stale until Settings is closed and reopened.
-  const [resetCount, setResetCount] = useState(0);
-
-  async function restoreDefaults() {
-    setDefaultModel(null);
-    setDefaultEffort(null);
-    saveDefaultEffort(null);
-    setResetCount((n) => n + 1);
-    await fetch("/settings/default-model", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: null }),
-    });
-  }
-
   return (
     <div className="flex flex-col">
       <SettingsSection title={t("settings.chat.title")}>
-        <DefaultModelRow key={resetCount} />
-        <DefaultEffortRow key={resetCount} />
+        <DefaultModelRow />
+        <DefaultEffortRow />
       </SettingsSection>
 
       <SettingsSection title={t("settings.chat.compact.title")}>
@@ -2292,19 +2252,6 @@ function ChatSection() {
         </SettingsRow>
       </SettingsSection>
 
-      {/* Caution -- same pattern as General/Appearance's own Caution
-          section (each page's own comment on that) -- per explicit
-          request ("chat should have the same as general, caution section
-          with default chat settings option"), replacing the bespoke
-          RestoreDefaultsButton row this used to end on. */}
-      <SettingsSection title={t("settings.chat.caution")}>
-        <SettingsRow title={t("settings.chat.resetDefaults.title")} description={t("settings.chat.resetDefaults.description")}>
-          <button type="button" className={SETTINGS_ACTION_BUTTON_CLASS} disabled={!anyChanged} onClick={() => void restoreDefaults()}>
-            <RotateCcwIcon className="size-3.5" />
-            {t("settings.general.resetDefaults.button")}
-          </button>
-        </SettingsRow>
-      </SettingsSection>
     </div>
   );
 }
