@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import type { IconComponent } from "@/lib/icon-context";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
-import { useGettingStarted } from "@/hooks/use-getting-started";
 import { useIsMac, useIsWindows } from "@/hooks/use-platform";
 import { useIsTauri } from "@/hooks/use-tauri";
 import { useTheme } from "@/hooks/use-theme";
@@ -276,7 +275,6 @@ type SettingsSearchEntry = {
 const SETTINGS_SEARCH_ENTRIES: SettingsSearchEntry[] = [
   { id: "log-out", section: "profile", title: "Log out", keywords: "sign out session logout", target: "setting-log-out" },
   { id: "avatar", section: "profile", title: "Profile picture", keywords: "avatar photo upload image picture", target: "setting-avatar" },
-  { id: "getting-started", section: "general", title: "Getting started", keywords: "welcome onboarding hide show sidebar tips", target: "setting-getting-started" },
   { id: "default-provider", section: "chat", title: "Default provider", keywords: "model claude codex ai new chat", target: "setting-default-provider" },
   { id: "default-effort", section: "chat", title: "Default effort", keywords: "reasoning low medium high xhigh max", target: "setting-default-effort" },
   { id: "providers", section: "provider", title: "Provider", keywords: "api key connect claude codex mistral xai qwen kimi github gemini deepseek providers", target: null },
@@ -1719,18 +1717,12 @@ function ProfileSection() {
   );
 }
 
-// One page, three sub-sections underneath it (Tips/Notifications/Usage,
-// plus Caution), per explicit confirmation ("Not as items but as menu
-// items like synara's style"): Synara's own General page stacks several
-// labeled sub-sections on one page rather than giving each its own nav
-// entry, and this app's existing SettingsSection/SettingsRow already
-// render exactly that shape, so nothing new needed building beyond
-// composing them here. Story: Settings "Application" section
+// General's settings page: language/timezone, notifications and caution.
+// Story: Settings "Application" section
 // (alongsidedotrun/private#207). Appearance used to be a fourth
 // sub-section here too; it now lives in its own AppearanceSection, below.
 function GeneralSection() {
   const { t } = useTranslation();
-  const { show: showGettingStarted, setShow: setShowGettingStarted } = useGettingStarted();
   const [notifyEnabled, setNotifyEnabledState] = useState(loadNotifyTurnComplete);
 
   // Requests the OS notification permission the first time this is turned
@@ -1749,32 +1741,20 @@ function GeneralSection() {
     saveNotifyTurnComplete(next);
   }
 
-  const gettingStartedChanged = showGettingStarted !== true;
   // Baseline flipped to true along with loadNotifyTurnComplete's own new
   // default (notify-turn-complete.ts's own comment has the full
   // reasoning) -- otherwise Reset would show as available on a completely
   // untouched, fresh install, and "restoring the default" would actually
   // turn notifications *off*.
   const notifyChanged = notifyEnabled !== true;
-  const anyChanged = gettingStartedChanged || notifyChanged;
+  const anyChanged = notifyChanged;
 
   function restoreDefaults() {
-    setShowGettingStarted(true);
     void setNotifyEnabled(true);
   }
 
   return (
     <div className="flex flex-col">
-      <SettingsSection title={t("settings.general.tips")}>
-        <SettingsRow
-          id="setting-getting-started"
-          title={t("settings.general.gettingStarted.title")}
-          description={t("settings.general.gettingStarted.description")}
-        >
-          <Switch checked={showGettingStarted} onToggle={() => setShowGettingStarted(!showGettingStarted)} aria-label="Getting started" />
-        </SettingsRow>
-      </SettingsSection>
-
       <SettingsSection title={t("settings.general.languageAndTimezone")}>
         <LanguageRow />
         <TimezoneRow />
