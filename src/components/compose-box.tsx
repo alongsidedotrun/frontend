@@ -951,7 +951,7 @@ export function ComposeBox({
   // own dropdown any more.
   useEffect(() => {
     if (modes.some((m) => m.value === mode)) return;
-    setMode(modes[0].value);
+    setMode(modes[0]?.value ?? "manual");
   }, [modes, mode]);
   // Real default now (settings-overlay.tsx's own "Default effort" control,
   // lib/effort.ts's own defaultEffortFor) -- was a bare hardcoded "medium",
@@ -1883,7 +1883,7 @@ export function ComposeBox({
                 {(() => {
                   // Synara's trigger: the permission's glyph and name; plan mode shows as Plan mode.
                   const shown = planMode && planSupported ? "plan" : mode;
-                  const Icon = PERMISSION_ICONS[shown];
+                  const Icon = PERMISSION_ICONS[shown] ?? Hand;
                   const found = modes.find((m) => m.value === shown);
                   return (
                     <>
