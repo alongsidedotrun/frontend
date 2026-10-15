@@ -1,5 +1,6 @@
 import {
   ArrowCircleBrokenLeft,
+  ArrowCircleBrokenUp,
   ChevronDown,
   ChevronRight,
   ChevronLeft,
@@ -90,6 +91,7 @@ import {
 // strokeWidth (SVGProps<SVGSVGElement>) with no adapter needed.
 export {
   ArrowCircleBrokenLeft as ArrowCircleBrokenLeftIcon,
+  ArrowCircleBrokenUp as ArrowCircleBrokenUpIcon,
   ChevronDown as ChevronDownIcon,
   ChevronRight as ChevronRightIcon,
   // sidebar-nav.tsx's own Tauri-only back/forward navigation arrows.
