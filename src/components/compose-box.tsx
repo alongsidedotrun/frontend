@@ -11,6 +11,8 @@ import { ClipboardCheck, Hand, ShieldTick, ShieldZap } from "@untitledui/icons";
 import { cn } from "@/lib/utils";
 import { getUserDisplayName } from "@/lib/user";
 import { Button } from "@/components/ui/button";
+import { AnimatePresence, motion } from "motion/react";
+import { spring } from "@/lib/springs";
 // The fluidfunctionalism.com reference dropdown (Base UI Menu +
 // proximity-hover animated backgrounds) -- this file's one dropdown
 // system now, per explicit request ("Lets keep all base ui").
@@ -109,6 +111,7 @@ function modelSelectionLabel(selected: typeof QUICK_CHAT_MODELS) {
 // numbers so centred glyphs land on whole pixels. Icon sizes go through
 // [&_svg]:!size-* because Button forces [&_svg]:h-4 w-4 on its icons.
 const COMPOSE_TOOL_VARS = {
+  "--compose-shell-radius": "24px",
   "--compose-tool-h": "round(clamp(22px, calc(16px + 1.5cqw), 28px), 2px)",
   "--compose-tool-text": "clamp(11px, calc(10px + 0.25cqw), 12px)",
   "--compose-tool-icon": "round(clamp(12px, calc(10px + 0.5cqw), 14px), 2px)",
@@ -637,6 +640,7 @@ export function ComposeBox({
   placeholder,
   placeholderCycle,
   initialHeight,
+  showWorkFromFolder,
   autoFocus,
   awaitingReply,
   onStop,
@@ -680,6 +684,9 @@ export function ComposeBox({
   // New-chat only: gives the centred composer a more generous writing area
   // before it transitions into the standard compact chat composer.
   initialHeight?: boolean;
+  // New-chat only. Exit when HomePage starts handing the composer to ChatPage;
+  // an existing chat never renders this pre-chat action.
+  showWorkFromFolder?: boolean;
   autoFocus?: boolean;
   // Chat-only: while true, the send button becomes a stop button.
   awaitingReply?: boolean;
@@ -1489,26 +1496,9 @@ export function ComposeBox({
           center, which is what made the placeholder/mic/send read as "not
           centered" even though the row's own internal alignment (items-
           center, below) was already correct. */}
-      {/* rounded-[var(--row-radius)] now, no @container escalation --
-          went through a few wrong turns first: rounded-2xl (itself
-          replacing the old mobile-first ascending tiers rounded-2xl ->
-          @[280px]:rounded-3xl -> @[420px]:rounded-[24px]), then rounded-xl
-          at the base tier only with the escalating
-          @[420px]:rounded-3xl/@[640px]:rounded-4xl tiers still in place
-          (PAGE_CONTENT_WIDTH is 800px, comfortably past both breakpoints,
-          so the box's real everyday rendered width always landed on
-          rounded-3xl/rounded-4xl regardless of what the base tier said --
-          confirmed directly as having no real visible effect), then a
-          flat literal rounded-[8px] once the escalation was dropped
-          (matching the sidebar's own row radius exactly instead of
-          --radius-xl's close-but-not-equal 8.4px). --row-radius
-          (index.css's :root) is the real fix: a single shared, viewport-
-          responsive value both this box and every sidebar row
-          (sidebar-nav.tsx) read, per explicit request ("setup a dynamic
-          value so it matches... depending on the size of the screen").
-          Neither element can drift from the other any more, and both now
-          actually grow together on a wider screen instead of staying
-          flat. */}
+      {/* Both layers share the 24px shell radius: the composer keeps its
+          rounded lower edge in front of the folder strip, matching the
+          new-chat reference even after the strip fades away. */}
       {/* transition-[padding]: the px-2/@[420px]:px-3/py-2/@[420px]:py-3
           tiers above are container-query breakpoints, so they flip
           *instantly* the moment the box's own width crosses one -- with no
@@ -1525,14 +1515,6 @@ export function ComposeBox({
           shade) -- per explicit request, this box now matches the main
           content area's own background/border exactly in both themes,
           not just light mode. */}
-      {/* --row-radius (index.css's :root) is a real viewport-media-query
-          value, not a @container one -- the sidebar's own width barely
-          changes with the window (it's a fixed rail), so a shared
-          *screen*-size signal is what actually keeps this box and every
-          sidebar row moving together, unlike each reading its own
-          independent element width the way the old @container tiers
-          did. See that variable's own comment (index.css) for the exact
-          breakpoints. */}
       {/* Hidden -- the "+" button below (openFilePicker) is the real trigger, same
           pattern as a styled upload control anywhere: the native input itself is
           never meant to be seen. accept="image/*": per explicit request, this pass
@@ -1567,8 +1549,8 @@ export function ComposeBox({
           void addImageFiles(event.dataTransfer.files);
         }}
         className={cn(
-          "relative z-10 flex flex-col rounded-[calc(var(--radius)*2)] border border-border bg-background px-2 pt-2 pb-[7px] transition-[min-height,padding,border-color] duration-200 [contain:layout_style] @[420px]:px-3 @[420px]:pt-3 @[420px]:pb-1.5",
-          initialHeight && "min-h-32 justify-between",
+          "relative z-10 flex flex-col rounded-[var(--compose-shell-radius)] border border-border bg-background px-2 pt-2 pb-[7px] transition-[min-height,padding,border-color] duration-200 [contain:layout_style] @[420px]:px-3 @[420px]:pt-3 @[420px]:pb-1.5",
+          initialHeight && "min-h-[120px] justify-between",
           dragActive && "border-ring",
           // border-focus-accent -- matches the sidebar/inbox search inputs'
           // own focus-visible:border-focus-accent exactly (sidebar-nav.tsx's
@@ -2317,12 +2299,20 @@ export function ComposeBox({
       </div>
     </div>
     </div>
-    <div className="relative -mt-[calc(var(--radius)*2)] rounded-b-[calc(var(--radius)*2)] border border-t-0 border-border bg-[#FAFAFA] px-[9px] pt-[calc(var(--radius)*2+0.25rem)] pb-1 dark:bg-background">
-      <button type="button" className="flex h-8 w-full items-center gap-1 px-1 text-left text-[11px] text-foreground/75 transition-colors hover:text-foreground">
-        <img src={styledFolderIcon} alt="" aria-hidden="true" className="size-3.5 shrink-0 object-contain" />
-        <span>{t("compose.workFromFolder")}</span>
-      </button>
-    </div>
+    <AnimatePresence initial={false}>
+      {showWorkFromFolder && (
+        <motion.div
+          key="work-from-folder"
+          exit={{ opacity: 0, transition: spring.moderate.exit }}
+          className="relative -mt-[var(--compose-shell-radius)] rounded-b-[var(--compose-shell-radius)] border border-t-0 border-border bg-[#FAFAFA] px-[9px] pt-[calc(var(--compose-shell-radius)+0.25rem)] pb-1 dark:bg-background"
+        >
+          <button type="button" className="flex h-7 w-full items-center gap-1 px-1 text-left text-[11px] text-foreground/75 transition-colors hover:text-foreground">
+            <img src={styledFolderIcon} alt="" aria-hidden="true" className="size-3.5 shrink-0 object-contain" />
+            <span>{t("compose.workFromFolder")}</span>
+          </button>
+        </motion.div>
+      )}
+    </AnimatePresence>
     </div>
   );
 }
