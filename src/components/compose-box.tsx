@@ -1144,6 +1144,9 @@ export function ComposeBox({
   const addMenuRef = useRef<HTMLDivElement>(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [addMenuSide, setAddMenuSide] = useState<"top" | "bottom">("bottom");
+  const modeMenuRef = useRef<HTMLDivElement>(null);
+  const [modeMenuOpen, setModeMenuOpen] = useState(false);
+  const [modeMenuSide, setModeMenuSide] = useState<"top" | "bottom">("bottom");
 
   const rows =
     menu === "slash" ? SLASH_ROWS.filter((r) => r.label.slice(1).startsWith(query)) : [];
@@ -1374,6 +1377,20 @@ export function ComposeBox({
     const panelHeight = panel.scrollHeight;
     setAddMenuSide(spaceBelow >= panelHeight || spaceBelow >= spaceAbove ? "bottom" : "top");
   }, [addMenuOpen, planSupported]);
+
+  useLayoutEffect(() => {
+    if (!modeMenuOpen) return;
+    const root = composeRootRef.current;
+    const panel = modeMenuRef.current;
+    if (!root || !panel) return;
+
+    const rect = root.getBoundingClientRect();
+    const margin = 12;
+    const spaceBelow = window.innerHeight - rect.bottom - margin;
+    const spaceAbove = rect.top - margin;
+    const panelHeight = panel.scrollHeight;
+    setModeMenuSide(spaceBelow >= panelHeight || spaceBelow >= spaceAbove ? "bottom" : "top");
+  }, [modeMenuOpen, modes.length]);
 
   return (
     // @container: its own width, not the host page's -- ChatPage doesn't
@@ -1844,6 +1861,8 @@ export function ComposeBox({
         <BaseDropdownMenu
           size="compact"
           onOpenChange={(nowOpen) => {
+            setModeMenuOpen(nowOpen);
+            if (nowOpen) setModeMenuSide("bottom");
             modeAnchor.freeze(nowOpen);
             if (!nowOpen) {
               const button = modeTriggerRef.current;
@@ -1890,7 +1909,8 @@ export function ComposeBox({
               BaseDropdownContent's own Elevated surface supplies a real
               nesting-aware background/shadow. */}
           <BaseDropdownContent
-            side="top"
+            ref={modeMenuRef}
+            side={modeMenuSide}
             align="start"
             sideOffset={8}
             anchor={modeAnchor.anchor}
