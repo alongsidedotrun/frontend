@@ -1868,7 +1868,7 @@ export function ComposeBox({
                   const found = modes.find((m) => m.value === shown);
                   return (
                     <>
-                      <Icon aria-hidden="true" className={cn("size-3.5 shrink-0", shown === "auto" && "text-destructive", shown === "ask" && "text-[var(--send-button-bg)]")} />
+                      <Icon aria-hidden="true" className={cn("size-3.5 shrink-0", shown === "auto" && "text-orange-500", shown === "ask" && "text-[var(--send-button-bg)]")} />
                       <SwapLabel swapKey={shown}>{shown === "plan" ? t("compose.planMode") : found ? t(found.labelKey) : null}</SwapLabel>
                     </>
                   );
@@ -1894,7 +1894,7 @@ export function ComposeBox({
             align="start"
             sideOffset={8}
             anchor={modeAnchor.anchor}
-            className="w-[26rem] max-w-[calc(100vw-2rem)] min-w-0"
+            className="w-72 max-w-[calc(100vw-2rem)] min-w-0"
           >
             {/* "Permission" describer -- matching the Provider/Model/Effort
                 describer pattern elsewhere in this toolbar. Claude Code's
@@ -1913,7 +1913,7 @@ export function ComposeBox({
                   className={cn(
                     "grid h-auto grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-x-3 py-2 pr-2.5 pl-2.5 text-[12px]",
                     m.value === mode && "bg-hover-2",
-                    m.value === "auto" && "text-destructive"
+                    m.value === "auto" && "text-orange-500"
                   )}
                   onClick={() => setMode(m.value)}
                 >
