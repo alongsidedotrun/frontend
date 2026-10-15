@@ -148,7 +148,6 @@ export function JoinChatDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                 value={chatId}
                 autoComplete="off"
                 spellCheck={false}
-                placeholder="XXXXX-XXXXX"
                 className={cn(SHELL_FIELD_INPUT, "font-mono tracking-[0.1em]")}
                 aria-invalid={Boolean(error) || undefined}
                 onChange={(event) => {
@@ -163,7 +162,6 @@ export function JoinChatDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                 value={code}
                 autoComplete="off"
                 spellCheck={false}
-                placeholder="XXXX-XXXX"
                 className={cn(SHELL_FIELD_INPUT, "font-mono tracking-[0.1em]")}
                 aria-invalid={Boolean(error) || undefined}
                 onChange={(event) => {
