@@ -33,16 +33,16 @@ export function OnboardingPage() {
   }
 
   return (
-    <main className="min-h-dvh bg-[#090909] text-white">
-      <section className="flex min-h-dvh w-full items-center justify-center border border-white/10 bg-white/[0.035] px-6 text-center backdrop-blur-xl sm:px-12">
+    <main className="min-h-dvh bg-background text-foreground">
+      <section className="flex min-h-dvh w-full items-center justify-center border border-border bg-background px-6 text-center sm:px-12">
         <div className="w-full max-w-[440px]">
           <div
             className="mx-auto mb-8 flex items-center justify-center opacity-0"
             style={{ animation: "onboarding-fade-in 700ms ease-out 2.4s forwards" }}
           >
-            <AlongsideLogo className="size-7 text-white" />
+            <AlongsideLogo className="size-7 text-foreground" />
           </div>
-          <h1 className="text-2xl font-medium tracking-[0] text-white sm:text-3xl" style={{ fontFamily: '"Geist", var(--font-sans)' }}>
+          <h1 className="text-2xl font-medium tracking-[0] text-foreground sm:text-3xl" style={{ fontFamily: '"Geist", var(--font-sans)' }}>
             <span className="block">
               {INTRO_WORDS.slice(0, 2).map((word) => (
                 <span key={word.text} className="mr-[0.25em] inline-block" style={wordStyle(word.delay)}>
@@ -50,7 +50,7 @@ export function OnboardingPage() {
                 </span>
               ))}
             </span>
-            <span className="mt-2 block text-white">
+            <span className="mt-2 block text-foreground">
               {INTRO_WORDS.slice(2).map((word) => (
                 <span key={word.text} className="mr-[0.2em] inline-block" style={wordStyle(word.delay)}>
                   {word.text}
@@ -62,7 +62,7 @@ export function OnboardingPage() {
             type="button"
             onClick={continueToApp}
             disabled={isTransitioning}
-            className="mt-8 inline-flex min-h-10 items-center justify-center rounded-full bg-white px-6 text-xs font-medium text-black opacity-0 transition hover:bg-white/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+            className="mt-8 inline-flex min-h-10 items-center justify-center rounded-full bg-foreground px-6 text-xs font-medium text-background opacity-0 transition hover:bg-foreground/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             style={{ animation: "onboarding-fade-in 700ms ease-out 3.25s forwards" }}
           >
             Continue
