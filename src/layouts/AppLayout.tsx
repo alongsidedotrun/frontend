@@ -1996,7 +1996,7 @@ export function AppLayout() {
                     fill
                     placeholderNav={PLACEHOLDER_NAV_ROUTES.includes(settledPathname)}
                     activeNav={
-                      settledPathname === "/new/chat"
+                      settledPathname === "/"
                         ? "home"
                         : settledPathname === "/getting-started"
                           ? "welcome"
@@ -2006,9 +2006,9 @@ export function AppLayout() {
                                 ? "integrations"
                                 : undefined
                     }
-                    onNewChat={() => navigate("/new/chat")}
+                    onNewChat={() => navigate("/")}
                     onNavigate={(key) => {
-                      if (key === "home") navigate("/new/chat");
+                      if (key === "home") navigate("/");
                     }}
                     projects={sidebarProjects}
                     recents={recents}

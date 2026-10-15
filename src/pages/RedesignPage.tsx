@@ -175,7 +175,7 @@ const SETTINGS_SECTIONS: readonly SettingsSection[] = ["profile", "general", "ap
 
 function quickActionForPath(pathname: string) {
   if (pathname === "/overview") return "overview";
-  if (pathname.startsWith("/chat/") || pathname === "/new/chat") return "chats";
+  if (pathname.startsWith("/chat/") || pathname === "/") return "chats";
   if (pathname === "/apps") return "apps";
   if (pathname === "/agents") return "agents";
   return "inbox";
@@ -487,7 +487,7 @@ export function RedesignPage() {
     // Archiving the open chat leaves it for a new one.
     if (chatId === (routeChatId ?? activeChatId)) {
       setActiveChatId(null);
-      navigate("/new/chat");
+      navigate("/");
     }
   }
 
@@ -696,7 +696,7 @@ export function RedesignPage() {
       group: t("shell.commands.group.actions"),
       onSelect: () => {
         setActiveChatId(null);
-        navigate("/new/chat");
+        navigate("/");
       },
     },
     {
@@ -785,7 +785,7 @@ export function RedesignPage() {
   useEffect(() => {
     if (scopeRef.current === identity.scope) return;
     scopeRef.current = identity.scope;
-    if (location.pathname.startsWith("/chat/")) navigate("/new/chat");
+    if (location.pathname.startsWith("/chat/")) navigate("/");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [identity.scope]);
 
@@ -833,10 +833,10 @@ export function RedesignPage() {
     Object.fromEntries(GETTING_STARTED_STEP_IDS.map((id) => [id, liveDone[id] || rememberedDone.includes(id)])) as Record<GettingStartedStepId, boolean>,
     {
       provider: () => navigate("/settings/provider"),
-      message: () => navigate("/new/chat"),
+      message: () => navigate("/"),
       account: () => (identity.signedIn ? navigate("/settings/profile") : openSignIn()),
       // Sharing happens from a chat (/share there): the latest one, or a new one.
-      multiplayer: () => navigate(chats[0] ? `/chat/${chats[0].id}` : "/new/chat"),
+      multiplayer: () => navigate(chats[0] ? `/chat/${chats[0].id}` : "/"),
     },
   );
 
@@ -924,7 +924,7 @@ export function RedesignPage() {
               label={t("shell.quickActions")}
               shortcut="K"
               actions={quickActions(t)}
-              activeId={location.pathname === "/new/chat" ? "chats" : undefined}
+              activeId={location.pathname === "/" ? "chats" : undefined}
               onOpen={() => setQuickActionsOpen(true)}
               onActionSelect={(actionId) => {
                 if (actionId === "join") {
@@ -935,9 +935,9 @@ export function RedesignPage() {
                   // Already on an empty new chat: nothing to do. Navigating to
                   // the same route would push a duplicate entry and re-render
                   // the page for no change.
-                  if (location.pathname === "/new/chat" && !activeChatId) return;
+                  if (location.pathname === "/" && !activeChatId) return;
                   setActiveChatId(null);
-                  navigate("/new/chat");
+                  navigate("/");
                 }
               }}
             />
