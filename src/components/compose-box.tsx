@@ -1792,7 +1792,7 @@ export function ComposeBox({
             className="w-72 min-w-0"
           >
             <BaseDropdownLabel>{t("common.add")}</BaseDropdownLabel>
-            <DropdownSubItem className="flex items-start gap-2.5 py-1.5 text-[12px]" onClick={openFilePicker}>
+            <DropdownSubItem className="!h-auto items-start gap-2.5 py-1.5 text-[12px]" onClick={openFilePicker}>
               <AttachmentIcon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
               <span className="min-w-0 flex-1">
                 <span className="block">{t("compose.files")}</span>
