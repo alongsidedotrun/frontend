@@ -2268,6 +2268,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  const isSignedIn = useIsSignedIn();
   const isMac = useIsMac();
   const displayName = useUserDisplayName();
   const settingsHistory = useSettingsHistory();
@@ -2322,7 +2323,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
   }
 
   const [query, setQuery] = useState("");
-  const results = useMemo(() => rankSettingsSearch(query), [query]);
+  const results = useMemo(() => rankSettingsSearch(query).filter((entry) => isSignedIn || entry.section !== "profile"), [isSignedIn, query]);
   const searching = query.trim().length > 0;
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -2420,7 +2421,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
                     </h2>
                   </div>
                   <div className="mt-[var(--redesign-sidebar-section-row-offset)] flex flex-col gap-[var(--redesign-quick-actions-row-gap)]">
-                    {group.keys.map((key) => {
+                    {group.keys.filter((key) => isSignedIn || key !== "profile").map((key) => {
                       const s = SECTIONS.find((sec) => sec.key === key)!;
                       const isActive = section === key;
                       return (
@@ -2628,7 +2629,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
                 <div className="mx-2 mt-1 mb-0.5 flex h-5 items-center px-2 text-xs font-normal text-foreground select-none">
                   <span className="opacity-50">{t(group.labelKey)}</span>
                 </div>
-                {group.keys.map((key) => {
+                {group.keys.filter((key) => isSignedIn || key !== "profile").map((key) => {
                   const s = SECTIONS.find((sec) => sec.key === key)!;
                   return (
                     <RailButton
