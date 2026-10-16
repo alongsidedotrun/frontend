@@ -57,6 +57,8 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
   const [prompt, setPrompt] = useState("");
   const [sending, setSending] = useState(false);
   const [transitioningToChat, setTransitioningToChat] = useState(false);
+  const [workingDirectory, setWorkingDirectory] = useState<string | null>(null);
+  const [choosingDirectory, setChoosingDirectory] = useState(false);
   const handoffTimerRef = useRef<number | null>(null);
   // ComposeBox owns which models are selected (supports multi-select /
   // "Model fusion"); this just mirrors the current selection so
@@ -99,6 +101,21 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
   // own compose box never shows the Context indicator at all now (always null);
   // ChatPage.tsx picks up the real per-chat value the moment a chat actually exists.
   const contextUsage = null;
+
+  async function chooseWorkingDirectory() {
+    if (choosingDirectory) return;
+    setChoosingDirectory(true);
+    try {
+      const response = await fetch("/sessions/working-directory/pick", { method: "POST" });
+      if (!response.ok) throw new Error(`Folder picker failed: ${response.status}`);
+      const result: { path: string | null } = await response.json();
+      if (result.path) setWorkingDirectory(result.path);
+    } catch {
+      window.alert(t("compose.folderPickerFailed"));
+    } finally {
+      setChoosingDirectory(false);
+    }
+  }
 
   useEffect(() => {
     document.title = t("home.title");
@@ -152,7 +169,7 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
       const res = await fetch("/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ api_key: apiKey, model: model.value }),
+        body: JSON.stringify({ api_key: apiKey, model: model.value, working_directory: workingDirectory }),
       });
       if (!res.ok) {
         window.alert(t("home.createSessionFailed", { status: res.status }));
@@ -284,6 +301,8 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
           onSubmit={createSession}
           initialHeight={!transitioningToChat}
           showWorkFromFolder={!transitioningToChat}
+          workFromFolderPath={workingDirectory}
+          onSelectWorkFromFolder={chooseWorkingDirectory}
           contextUsage={contextUsage}
           // ContextDropdown never actually renders here (contextUsage is always null
           // pre-chat), so these two are dead props in practice -- kept simple, static
