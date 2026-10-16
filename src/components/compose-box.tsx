@@ -642,6 +642,8 @@ export function ComposeBox({
   placeholderCycle,
   initialHeight,
   showWorkFromFolder,
+  workFromFolderPath,
+  onSelectWorkFromFolder,
   onOpenApps,
   autoFocus,
   awaitingReply,
@@ -689,6 +691,8 @@ export function ComposeBox({
   // New-chat only. Exit when HomePage starts handing the composer to ChatPage;
   // an existing chat never renders this pre-chat action.
   showWorkFromFolder?: boolean;
+  workFromFolderPath?: string | null;
+  onSelectWorkFromFolder?: () => void;
   onOpenApps?: () => void;
   autoFocus?: boolean;
   // Chat-only: while true, the send button becomes a stop button.
@@ -2310,9 +2314,9 @@ export function ComposeBox({
           className="relative -mt-[var(--compose-shell-radius)] rounded-b-[var(--compose-shell-radius)] border border-t-0 border-border bg-[var(--redesign-quick-actions-surface)] px-4 pt-[calc(var(--compose-shell-radius)+0.25rem)] pb-1"
         >
           <div className="flex min-h-7 items-center justify-between gap-3 px-1 text-[11px] text-foreground/75">
-            <button type="button" aria-label={t("compose.workFromFolder")} className="-ml-1 flex min-h-7 min-w-0 items-center gap-1 rounded-[calc(28px*8/27)] px-1 text-left transition-colors hover:bg-hover-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/10">
+            <button type="button" aria-label={t("compose.workFromFolder")} onClick={onSelectWorkFromFolder} className="-ml-1 flex h-6 min-w-0 items-center gap-1 rounded-[calc(24px*8/27)] px-1 text-left transition-colors hover:bg-hover-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/10">
               <img src={styledFolderIcon} alt="" aria-hidden="true" className="size-3.5 shrink-0 object-contain" />
-              <span className="@max-[300px]:hidden">{t("compose.workFromFolder")}</span>
+              <span className="@max-[300px]:hidden truncate">{workFromFolderPath ? workFromFolderPath.split(/[\\/]/).filter(Boolean).pop() : t("compose.workFromFolder")}</span>
             </button>
             <button type="button" aria-label={t("compose.connectApps")} onClick={onOpenApps} className="-mr-1 flex min-h-7 shrink-0 items-center gap-2 rounded-[calc(28px*8/27)] px-1 text-right focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <span className="@max-[420px]:hidden">{t("compose.connectApps")}</span>

@@ -1825,6 +1825,15 @@ export const translations = {
     zh: "从文件夹工作",
     ja: "フォルダから作業",
   },
+  "compose.folderPickerFailed": {
+    en: "Could not open the folder picker. Please try again.",
+    "pt-BR": "Não foi possível abrir o seletor de pastas. Tente novamente.",
+    es: "No se pudo abrir el selector de carpetas. Inténtalo de nuevo.",
+    fr: "Impossible d’ouvrir le sélecteur de dossier. Réessayez.",
+    de: "Die Ordnerauswahl konnte nicht geöffnet werden. Bitte versuche es erneut.",
+    zh: "无法打开文件夹选择器。请重试。",
+    ja: "フォルダー選択画面を開けませんでした。もう一度お試しください。",
+  },
   "compose.connectApps": {
     en: "Connect to your Apps",
     "pt-BR": "Conectar seus aplicativos",
