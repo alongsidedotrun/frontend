@@ -1,6 +1,6 @@
 import { useId, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, ImagePlus, Palette, Trash2, Upload, X } from "lucide-react";
+import { Archive, Check, ImagePlus, Palette, Trash2, Upload, X } from "lucide-react";
 import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
 import {
   DropdownMenu as BaseDropdownMenu,
@@ -176,6 +176,14 @@ export function DeleteWorkspaceItem({ label, disabled, title, onSelect }: { labe
   return (
     <span title={title}>
       <BaseMenuItem index={3} icon={Trash2} label={label} className="gap-[7px] text-destructive" disabled={disabled} onSelect={onSelect} />
+    </span>
+  );
+}
+
+export function ArchiveWorkspaceItem({ label, disabled, title, onSelect }: { label: string; disabled?: boolean; title?: string; onSelect: () => void }) {
+  return (
+    <span title={title}>
+      <BaseMenuItem index={3} icon={Archive} label={label} disabled={disabled} onSelect={onSelect} />
     </span>
   );
 }

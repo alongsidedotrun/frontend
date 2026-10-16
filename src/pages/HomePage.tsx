@@ -18,6 +18,7 @@ import { getUserDisplayName } from "@/lib/user";
 // gap already exists independent of this page.
 export type HomePageShellContext = {
   openSettings: (section: SettingsSection) => void;
+  workspaceId?: string;
   workspaceName?: string;
   // The current workspace's uploaded logo and letter-tile colour, so the
   // heading shows the same tile as the sidebar.
@@ -52,7 +53,7 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
   // open the real SettingsOverlay modal directly, threaded down to
   // ComposeBox's own "Add provider" row.
   const outletContext = useOutletContext<HomePageShellContext>();
-  const { openSettings, workspaceName = t("home.defaultWorkspaceName"), workspaceLogo = null, workspaceColor = null } = shellContextOverride ?? outletContext;
+  const { openSettings, workspaceId, workspaceName = t("home.defaultWorkspaceName"), workspaceLogo = null, workspaceColor = null } = shellContextOverride ?? outletContext;
   const workspaceTile = workspaceMonogram(workspaceName, workspaceColor);
   const [prompt, setPrompt] = useState("");
   const [sending, setSending] = useState(false);
@@ -174,6 +175,7 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
           model: model.value,
           working_directory: workingDirectory,
           title_seed: sentPrompt,
+          workspace_id: workspaceId,
         }),
       });
       if (!res.ok) {

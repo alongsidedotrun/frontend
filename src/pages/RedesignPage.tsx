@@ -17,7 +17,7 @@ import { useIdentity } from "@/lib/identity";
 import { signOut } from "@/lib/auth";
 import { moveLocalWorkspaceDetailsToBackend } from "@/lib/workspace-logos";
 import { ManageWorkspaceDialog, type WorkspaceChange } from "@/components/design-system/manage-workspace-dialog";
-import { ArchiveIcon, BubbleChatIcon, DeleteIcon, EditIcon, FolderIcon, IntegrationsIcon, LogOutIcon, MessageChatCircleIcon, PaletteIcon, ProvidersIcon, Settings01Icon, SettingsIcon, UserIcon } from "@/components/icons/untitled-ui";
+import { ArchiveIcon, BubbleChatIcon, EditIcon, FolderIcon, IntegrationsIcon, LogOutIcon, MessageChatCircleIcon, PaletteIcon, ProvidersIcon, Settings01Icon, SettingsIcon, UserIcon } from "@/components/icons/untitled-ui";
 import { SplitView } from "@/components/design-system/split-view";
 import { AppTopBar } from "@/components/app-top-bar";
 import { QuickActions, type QuickActionItem } from "@/components/design-system/quick-actions";
@@ -62,12 +62,14 @@ type InboxMention = {
 type Project = {
   id: string;
   name: string;
+  workspace_id?: string | null;
 };
 
 type Chat = {
   id: string;
   name: string;
   project_id?: string | null;
+  workspace_id?: string | null;
 };
 
 const DEFAULT_WORKSPACE: WorkspaceRecord = {
@@ -170,9 +172,10 @@ const SETTINGS_COMMANDS: readonly { section: SettingsSection; labelKey: string; 
   { section: "security", labelKey: "settings.nav.security", icon: ShieldCheck, keywords: ["privacy", "encryption", "data"] },
   { section: "provider", labelKey: "settings.nav.provider", icon: ProvidersIcon, keywords: ["models", "api key", "ai"] },
   { section: "apps", labelKey: "settings.nav.apps", icon: IntegrationsIcon, keywords: ["integrations", "connect"] },
+  { section: "archived", labelKey: "settings.nav.archived", icon: ArchiveIcon, keywords: ["restore", "delete", "workspace", "project", "chat"] },
 ];
 
-const SETTINGS_SECTIONS: readonly SettingsSection[] = ["profile", "general", "appearance", "chat", "security", "provider", "apps"];
+const SETTINGS_SECTIONS: readonly SettingsSection[] = ["profile", "general", "appearance", "chat", "security", "provider", "apps", "archived"];
 
 function quickActionForPath(pathname: string) {
   if (pathname === "/overview") return "overview";
@@ -231,7 +234,7 @@ export function RedesignPage() {
   const [providerReady, setProviderReady] = useState(false);
   // Sidebar row menus: the project awaiting delete confirmation, and the chat
   // to add to the project being created from its "New project…" entry.
-  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const [projectToArchive, setProjectToArchive] = useState<Project | null>(null);
   const [chatForNewProject, setChatForNewProject] = useState<string | null>(null);
   // Projects open in the sidebar, remembered on this device.
   const [expandedProjects, setExpandedProjects] = useState<ReadonlySet<string>>(() => {
@@ -278,6 +281,8 @@ export function RedesignPage() {
   }
 
   const activeWorkspace = workspaces.find((workspace) => workspace.id === workspaceId) ?? DEFAULT_WORKSPACE;
+  const workspaceProjects = projects.filter((project) => project.workspace_id === activeWorkspace.id);
+  const workspaceChats = chats.filter((chat) => chat.workspace_id === activeWorkspace.id);
   const routeChatId = location.pathname.startsWith("/chat/")
     ? decodeURIComponent(location.pathname.slice("/chat/".length))
     : null;
@@ -431,6 +436,7 @@ export function RedesignPage() {
   } : undefined;
   const redesignHomeContext: HomePageShellContext = {
     openSettings: () => {},
+    workspaceId: activeWorkspace.id,
     workspaceName: activeWorkspace.name,
     workspaceLogo: activeWorkspace.logo ?? null,
     workspaceColor: activeWorkspace.color ?? null,
@@ -440,7 +446,7 @@ export function RedesignPage() {
     pendingChatIdsRef.current.add(sessionId);
     setChats((current) => current.some((chat) => chat.id === sessionId)
       ? current
-      : [{ id: sessionId, name: t("shell.untitledChat") }, ...current]);
+      : [{ id: sessionId, name: t("shell.untitledChat"), workspace_id: activeWorkspace.id }, ...current]);
     setActiveChatId(sessionId);
     void fetch("/sessions")
       .then((response) => response.ok ? response.json() as Promise<Chat[]> : [])
@@ -473,7 +479,14 @@ export function RedesignPage() {
   }
 
   async function setChatProject(chatId: string, projectId: string | null) {
-    setChats((current) => current.map((chat) => chat.id === chatId ? { ...chat, project_id: projectId } : chat));
+    const targetWorkspaceId = projectId
+      ? projects.find((project) => project.id === projectId)?.workspace_id ?? activeWorkspace.id
+      : undefined;
+    setChats((current) => current.map((chat) => chat.id === chatId ? {
+      ...chat,
+      project_id: projectId,
+      workspace_id: targetWorkspaceId ?? chat.workspace_id,
+    } : chat));
     await fetch(`/sessions/${encodeURIComponent(chatId)}/project`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -501,12 +514,16 @@ export function RedesignPage() {
     }).catch(() => undefined);
   }
 
-  // Deleting a project keeps its chats: they move back to Chats (backend).
-  async function deleteProject(project: Project) {
-    await fetch(`/projects/${encodeURIComponent(project.id)}`, { method: "DELETE" }).catch(() => undefined);
+  async function archiveProject(project: Project, includeChats: boolean) {
+    const response = await fetch(`/projects/${encodeURIComponent(project.id)}/archive`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ include_chats: includeChats }),
+    }).catch(() => null);
+    if (!response?.ok) return;
     setProjects((current) => current.filter((item) => item.id !== project.id));
-    setChats((current) => current.map((chat) => chat.project_id === project.id ? { ...chat, project_id: null } : chat));
-    setProjectToDelete(null);
+    if (includeChats) setChats((current) => current.filter((chat) => chat.project_id !== project.id));
+    setProjectToArchive(null);
   }
 
   const chatMenu = (chat: Chat): readonly SidebarItemMenuEntry[] => [
@@ -518,7 +535,7 @@ export function RedesignPage() {
       icon: FolderIcon,
       entries: [
         // Picking the chat's current project again takes it out of the project.
-        ...projects.map((project) => ({
+        ...workspaceProjects.map((project) => ({
           id: project.id,
           label: project.name,
           checked: chat.project_id === project.id,
@@ -542,7 +559,7 @@ export function RedesignPage() {
   const projectMenu = (project: Project): readonly SidebarItemMenuEntry[] => [
     { kind: "rename", id: "rename", label: t("common.rename"), icon: EditIcon },
     { kind: "separator", id: "separator" },
-    { kind: "action", id: "delete", label: t("common.delete"), icon: DeleteIcon, destructive: true, onSelect: () => setProjectToDelete(project) },
+    { kind: "action", id: "archive", label: t("common.archive"), icon: ArchiveIcon, onSelect: () => setProjectToArchive(project) },
   ];
 
   const chatRow = (chat: Chat): SidebarSectionItem => ({
@@ -557,13 +574,13 @@ export function RedesignPage() {
       id: "projects",
       label: t("nav.projects"),
       action: { label: t("nav.newProject.ariaLabel"), icon: Plus, onSelect: () => { setProjectError(null); setNewProjectOpen(true); } },
-      items: projects.map((project) => ({
+      items: workspaceProjects.map((project) => ({
         id: project.id,
         label: project.name,
         menu: projectMenu(project),
         onRename: (name: string) => void renameProject(project.id, name),
         // A project expands to its chats.
-        children: chats.filter((chat) => chat.project_id === project.id).map(chatRow),
+        children: workspaceChats.filter((chat) => chat.project_id === project.id).map(chatRow),
         childrenEmptyLabel: t("shell.sections.noChats"),
       })),
       emptyLabel: t("shell.sections.noProjects"),
@@ -573,7 +590,7 @@ export function RedesignPage() {
       label: t("nav.chats"),
       action: { label: t("common.newChat"), icon: Plus, onSelect: () => { setActiveChatId(null); } },
       // Only chats outside a project; the rest are listed under their project.
-      items: chats.filter((chat) => !chat.project_id || !projects.some((project) => project.id === chat.project_id)).map(chatRow),
+      items: workspaceChats.filter((chat) => !chat.project_id || !workspaceProjects.some((project) => project.id === chat.project_id)).map(chatRow),
       emptyLabel: t("shell.sections.noChats"),
     },
   ];
@@ -601,7 +618,7 @@ export function RedesignPage() {
       const response = await fetch("/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, workspace_id: activeWorkspace.id }),
       });
       if (!response.ok) throw new Error(t("shell.newProject.error"));
       const project = await response.json() as Project;
@@ -663,23 +680,35 @@ export function RedesignPage() {
     }
   }
 
-  async function deleteWorkspace(workspace: WorkspaceRecord) {
+  async function archiveWorkspace(workspace: WorkspaceRecord) {
     if (saving) return;
     setSaving(true);
     setWorkspaceError(null);
     setWorkspaceNameTaken(false);
     try {
-      const response = await fetch(`/workspaces/${encodeURIComponent(workspace.id)}`, { method: "DELETE" });
+      const response = await fetch(`/workspaces/${encodeURIComponent(workspace.id)}/archive`, { method: "POST" });
       if (response.status === 409) throw new Error(t("workspace.errors.onlyWorkspace"));
-      if (!response.ok) throw new Error(t("workspace.errors.delete"));
-      // Moves to the first remaining workspace (syncWorkspaces).
+      if (!response.ok) throw new Error(t("archive.workspace.error"));
       syncWorkspaces(workspaces.filter((item) => item.id !== workspace.id));
+      setProjects((current) => current.filter((project) => project.workspace_id !== workspace.id));
+      setChats((current) => current.filter((chat) => chat.workspace_id !== workspace.id));
       setManageWorkspacesOpen(false);
     } catch (error) {
-      setWorkspaceError(error instanceof Error ? error.message : t("workspace.errors.delete"));
+      setWorkspaceError(error instanceof Error ? error.message : t("archive.workspace.error"));
     } finally {
       setSaving(false);
     }
+  }
+
+  async function moveProjectToWorkspace(projectId: string, destinationId: string) {
+    const response = await fetch(`/projects/${encodeURIComponent(projectId)}/workspace`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ workspace_id: destinationId }),
+    }).catch(() => null);
+    if (!response?.ok) return;
+    setProjects((current) => current.map((project) => project.id === projectId ? { ...project, workspace_id: destinationId } : project));
+    setChats((current) => current.map((chat) => chat.project_id === projectId ? { ...chat, workspace_id: destinationId } : chat));
   }
 
   const workspaceSectionActions: readonly WorkspaceMenuAction[] = [
@@ -915,7 +944,13 @@ export function RedesignPage() {
               <WorkspaceSelector
                 workspaces={workspaceOptions}
                 value={workspaceId}
-                onValueChange={setWorkspaceId}
+                onValueChange={(nextWorkspaceId) => {
+                  if (activeChat?.workspace_id && activeChat.workspace_id !== nextWorkspaceId) {
+                    setActiveChatId(null);
+                    navigate("/");
+                  }
+                  setWorkspaceId(nextWorkspaceId);
+                }}
                 workspaceSectionActions={workspaceSectionActions}
               actionSections={[]}
                 ariaLabel={t("shell.selectWorkspace")}
@@ -1033,23 +1068,25 @@ export function RedesignPage() {
         onOpenChange={setManageWorkspacesOpen}
         workspace={activeWorkspace}
         onSave={(change) => updateWorkspace(activeWorkspace, change)}
-        onDelete={() => deleteWorkspace(activeWorkspace)}
-        canDelete={workspaces.length > 1}
+        onArchive={() => archiveWorkspace(activeWorkspace)}
+        canArchive={workspaces.length > 1}
+        projects={projects}
+        workspaces={workspaces}
+        onMoveProject={moveProjectToWorkspace}
         saving={saving}
         error={workspaceNameTaken ? null : workspaceError}
         nameError={workspaceNameTaken ? workspaceError : null}
       />
-      <Dialog open={projectToDelete !== null} onOpenChange={(open) => { if (!open) setProjectToDelete(null); }} backdropClassName="!z-[120]">
+      <Dialog open={projectToArchive !== null} onOpenChange={(open) => { if (!open) setProjectToArchive(null); }} backdropClassName="!z-[120]">
         <DialogContent className="!z-[120]">
           <DialogHeader>
-            <DialogTitle>{t("shell.deleteProject.title")}</DialogTitle>
-            <DialogDescription>{t("shell.deleteProject.description", { name: projectToDelete?.name ?? "" })}</DialogDescription>
+            <DialogTitle>{t("archive.project.title")}</DialogTitle>
+            <DialogDescription>{t("archive.project.description", { name: projectToArchive?.name ?? "" })}</DialogDescription>
           </DialogHeader>
-          <DialogFooter>
-            <Button type="button" variant="tertiary" onClick={() => setProjectToDelete(null)}>{t("common.cancel")}</Button>
-            <Button type="button" variant="primary" className="bg-destructive text-white" onClick={() => projectToDelete && void deleteProject(projectToDelete)}>
-              {t("shell.deleteProject.confirm")}
-            </Button>
+          <DialogFooter className="sm:flex-col">
+            <Button type="button" variant="tertiary" onClick={() => setProjectToArchive(null)}>{t("common.cancel")}</Button>
+            <Button type="button" variant="tertiary" onClick={() => projectToArchive && void archiveProject(projectToArchive, false)}>{t("archive.project.only")}</Button>
+            <Button type="button" onClick={() => projectToArchive && void archiveProject(projectToArchive, true)}>{t("archive.project.withChats")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

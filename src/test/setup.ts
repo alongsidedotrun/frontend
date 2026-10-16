@@ -23,5 +23,6 @@ window.matchMedia ??= ((query: string) => ({
   removeListener() {},
   dispatchEvent: () => false,
 })) as unknown as typeof window.matchMedia;
+HTMLElement.prototype.getAnimations ??= (() => []) as typeof HTMLElement.prototype.getAnimations;
 
 afterEach(() => cleanup());
