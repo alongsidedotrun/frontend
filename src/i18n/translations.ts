@@ -390,13 +390,13 @@ export const translations = {
     ja: "何に取り組みましょうか",
   },
   "home.defaultWorkspaceName": {
-    en: "Personal",
-    "pt-BR": "Pessoal",
-    es: "Personal",
-    fr: "Personnel",
-    de: "Persönlich",
-    zh: "个人",
-    ja: "個人",
+    en: "Alongside",
+    "pt-BR": "Alongside",
+    es: "Alongside",
+    fr: "Alongside",
+    de: "Alongside",
+    zh: "Alongside",
+    ja: "Alongside",
   },
 
   "home.composePlaceholder": {
