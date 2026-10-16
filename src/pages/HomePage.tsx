@@ -169,7 +169,12 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
       const res = await fetch("/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ api_key: apiKey, model: model.value, working_directory: workingDirectory }),
+        body: JSON.stringify({
+          api_key: apiKey,
+          model: model.value,
+          working_directory: workingDirectory,
+          title_seed: sentPrompt,
+        }),
       });
       if (!res.ok) {
         window.alert(t("home.createSessionFailed", { status: res.status }));
