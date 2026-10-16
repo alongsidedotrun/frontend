@@ -1553,12 +1553,12 @@ export default function SidebarNav({
       const parsed = saved ? JSON.parse(saved) : null;
       return Array.isArray(parsed) && parsed.every((item) => typeof item === "string") && parsed.length
         ? parsed
-        : ["Personal"];
+        : ["Alongside"];
     } catch {
-      return ["Personal"];
+      return ["Alongside"];
     }
   });
-  const [activeWorkspace, setActiveWorkspace] = useState("Personal");
+  const [activeWorkspace, setActiveWorkspace] = useState("Alongside");
 
   function createWorkspace() {
     const name = window.prompt("Workspace name");

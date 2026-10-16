@@ -72,8 +72,9 @@ type Chat = {
 
 const DEFAULT_WORKSPACE: WorkspaceRecord = {
   id: "personal",
-  name: "Personal",
+  name: "Alongside",
   is_personal: true,
+  logo: "/favicon.svg",
 };
 
 function toWorkspaceOption(workspace: WorkspaceRecord): WorkspaceOption {

@@ -45,7 +45,7 @@ function valuesOf(workspace: ManagedWorkspace): WorkspaceFieldValues {
  * Manage workspace, in the shell dialog's layout (ShellDialog), like Create
  * workspace: its tile on top, live as it's edited, its logo, name and
  * description, and Delete beside the logo's Remove. Every
- * workspace, Personal included, works the same way; only the last one can't
+ * workspace, the branded default included, works the same way; only the last one can't
  * be deleted.
  */
 export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, onDelete, canDelete = false, saving = false, error, nameError }: ManageWorkspaceDialogProps) {
