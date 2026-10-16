@@ -53,6 +53,7 @@ export default defineConfig({
       // built, not a new regression today.
       "/projects": backend,
       "/workspaces": backend,
+      "/archived": backend,
       // Each provider CLI's own model list (backend/src/models.rs).
       "/models": backend,
       "/inbox-items": backend,

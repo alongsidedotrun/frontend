@@ -62,7 +62,7 @@ import {
 import { signOut, useIsSignedIn } from "@/lib/auth";
 import { openSignInDialog } from "@/lib/use-sign-in";
 import { useIdentity } from "@/lib/identity";
-import { Command, ShieldCheck } from "lucide-react";
+import { Archive, Command, FolderKanban, MessageSquare, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // General owns the language and timezone controls. Story: Settings
@@ -76,7 +76,7 @@ import { cn } from "@/lib/utils";
 // stays its own separate top-level section instead, and Danger zone was
 // removed entirely rather than folded into a new section (SETTINGS_NAV_GROUPS'
 // own comment below has the full reasoning).
-export type SettingsSection = "profile" | "general" | "appearance" | "chat" | "security" | "provider" | "apps";
+export type SettingsSection = "profile" | "general" | "appearance" | "chat" | "security" | "provider" | "apps" | "archived";
 
 // ---------------------------------------------------------------------------
 // Style pass -- matches a reference open-source app called Synara's own
@@ -210,6 +210,7 @@ const SECTIONS: { key: SettingsSection; label: string; labelKey: string; icon: R
   // explicit correction ("Still inside providers its meant to be settings
   // > apps and not settings > providers > apps").
   { key: "apps", label: "Apps", labelKey: "settings.nav.apps", icon: <IntegrationsIcon className="size-[14px]" /> },
+  { key: "archived", label: "Archived", labelKey: "settings.nav.archived", icon: <Archive className="size-[14px]" /> },
 ];
 
 // Group describers -- per explicit request ("we need to add section
@@ -232,6 +233,7 @@ const SETTINGS_NAV_GROUPS: { labelKey: string; keys: SettingsSection[] }[] = [
   // -- per explicit request.
   { labelKey: "settings.nav.group.application", keys: ["general", "appearance", "chat", "profile", "security"] },
   { labelKey: "settings.nav.group.connections", keys: ["provider", "apps"] },
+  { labelKey: "settings.nav.group.archived", keys: ["archived"] },
 ];
 
 const SECTION_SUBTITLE_KEY: Record<SettingsSection, string> = {
@@ -242,6 +244,7 @@ const SECTION_SUBTITLE_KEY: Record<SettingsSection, string> = {
   security: "settings.nav.subtitle.security",
   provider: "settings.nav.subtitle.provider",
   apps: "settings.nav.subtitle.apps",
+  archived: "settings.nav.subtitle.archived",
 };
 
 // Search -- per explicit request ("Also build search + reset-to-default +
@@ -2770,6 +2773,92 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
   );
 }
 
+type ArchivedSnapshot = {
+  workspaces: { id: string; name: string }[];
+  projects: { id: string; name: string; workspace_id: string | null; archive_scope: string; individually_archived: boolean }[];
+  chats: { id: string; name: string; project_id: string | null; workspace_id: string | null; individually_archived: boolean }[];
+};
+
+type ArchivedEntity = { kind: "workspace" | "project" | "chat"; id: string; name: string };
+
+function ArchivedSection() {
+  const { t } = useTranslation();
+  const [snapshot, setSnapshot] = useState<ArchivedSnapshot>({ workspaces: [], projects: [], chats: [] });
+  const [pendingDelete, setPendingDelete] = useState<ArchivedEntity | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    void fetch("/archived")
+      .then((response) => response.ok ? response.json() as Promise<ArchivedSnapshot> : Promise.reject())
+      .then(setSnapshot)
+      .catch(() => setSnapshot({ workspaces: [], projects: [], chats: [] }));
+  }, []);
+  useEffect(load, [load]);
+
+  const workspaceIds = new Set(snapshot.workspaces.map((item) => item.id));
+  const rootProjects = snapshot.projects.filter((item) => item.individually_archived && (!item.workspace_id || !workspaceIds.has(item.workspace_id)));
+  const subtreeProjectIds = new Set(snapshot.projects.filter((item) => item.archive_scope === "subtree").map((item) => item.id));
+  const rootChats = snapshot.chats.filter((item) => item.individually_archived
+    && (!item.workspace_id || !workspaceIds.has(item.workspace_id))
+    && (!item.project_id || !subtreeProjectIds.has(item.project_id)));
+
+  async function mutate(entity: ArchivedEntity, action: "restore" | "delete") {
+    setBusy(`${entity.kind}:${entity.id}`);
+    const plural = entity.kind === "workspace" ? "workspaces" : entity.kind === "project" ? "projects" : "sessions";
+    const suffix = action === "restore" ? "/restore" : "";
+    const base = entity.kind === "chat" && action === "delete" ? "/archived/sessions" : `/${plural}`;
+    const response = await fetch(`${base}/${encodeURIComponent(entity.id)}${suffix}`, { method: action === "restore" ? "POST" : "DELETE" }).catch(() => null);
+    setBusy(null);
+    if (!response?.ok) return;
+    setPendingDelete(null);
+    load();
+  }
+
+  const rows: ArchivedEntity[] = [
+    ...snapshot.workspaces.map((item) => ({ ...item, kind: "workspace" as const })),
+    ...rootProjects.map((item) => ({ id: item.id, name: item.name, kind: "project" as const })),
+    ...rootChats.map((item) => ({ id: item.id, name: item.name, kind: "chat" as const })),
+  ];
+
+  return (
+    <div className="mt-4 flex flex-col gap-2">
+      {rows.length === 0 ? (
+        <div className="rounded-xl border border-border bg-card px-4 py-8 text-center text-[13px] text-muted-foreground">{t("archive.empty")}</div>
+      ) : rows.map((entity) => {
+        const childProjects = entity.kind === "workspace" ? snapshot.projects.filter((item) => item.workspace_id === entity.id).length : 0;
+        const childChats = entity.kind === "workspace"
+          ? snapshot.chats.filter((item) => item.workspace_id === entity.id).length
+          : entity.kind === "project" ? snapshot.chats.filter((item) => item.project_id === entity.id).length : 0;
+        const Icon = entity.kind === "workspace" ? Archive : entity.kind === "project" ? FolderKanban : MessageSquare;
+        return (
+          <div key={`${entity.kind}:${entity.id}`} className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-3">
+            <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-background"><Icon className="size-4" /></span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[13px] font-medium text-foreground">{entity.name}</p>
+              <p className="text-[12px] text-muted-foreground">{t(`archive.kind.${entity.kind}`)}{childProjects || childChats ? ` · ${t("archive.contents", { projects: childProjects, chats: childChats })}` : ""}</p>
+            </div>
+            <Button size="compact" variant="tertiary" onClick={() => void mutate(entity, "restore")} disabled={busy !== null}><RotateCcw className="size-3.5" />{t("archive.restore")}</Button>
+            <Button size="compact" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setPendingDelete(entity)} disabled={busy !== null}><Trash2 className="size-3.5" />{t("archive.deletePermanently")}</Button>
+          </div>
+        );
+      })}
+      <p className="px-1 pt-1 text-[12px] text-muted-foreground">{t("archive.filesRemain")}</p>
+      <Dialog open={pendingDelete !== null} onOpenChange={(open) => { if (!open) setPendingDelete(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("archive.delete.title")}</DialogTitle>
+            <DialogDescription>{t("archive.delete.description", { name: pendingDelete?.name ?? "" })}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="tertiary" onClick={() => setPendingDelete(null)}>{t("common.cancel")}</Button>
+            <Button variant="destructive" onClick={() => pendingDelete && void mutate(pendingDelete, "delete")} disabled={busy !== null}>{t("archive.deletePermanently")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 // Main content pane -- SettingsPage.tsx's own real content, reading the
 // active section straight off the URL (/settings/:section) rather than a
 // prop threaded down from a modal's own open/section state.
@@ -2845,6 +2934,7 @@ export function SettingsSectionContent({ section }: { section: SettingsSection }
           {section === "security" && <SecuritySection />}
           {section === "provider" && <ProvidersSection />}
           {section === "apps" && <AppsSection />}
+          {section === "archived" && <ArchivedSection />}
         </PageContent>
       </ScrollArea>
     </div>

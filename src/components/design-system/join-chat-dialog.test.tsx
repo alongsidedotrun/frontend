@@ -61,7 +61,8 @@ describe("Join chat dialog (#213, #459)", () => {
     renderDialog();
     await userEvent.click(await screen.findByRole("button", { name: "Sign in" }));
     expect(signIn.open).toHaveBeenCalled();
-    expect(screen.queryByLabelText("Identifier")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Identifier")).toBeDisabled();
+    expect(screen.getByLabelText("Join code")).toBeDisabled();
   });
 
   it("needs both a full chat ID and a full code, shown in their usual shape", async () => {

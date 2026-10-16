@@ -1,7 +1,7 @@
 import { useEffect, useId, useState } from "react";
-import { Trans, useTranslation } from "react-i18next";
-import { DeleteWorkspaceItem, WorkspaceFields, WorkspaceTileMenu, WorkspaceTilePreview, type WorkspaceFieldValues } from "@/components/design-system/workspace-fields";
-import { ShellDialog, ShellDialogActions, ShellField, SHELL_FIELD_INPUT } from "@/components/design-system/shell-dialog";
+import { useTranslation } from "react-i18next";
+import { ArchiveWorkspaceItem, WorkspaceFields, WorkspaceTileMenu, WorkspaceTilePreview, type WorkspaceFieldValues } from "@/components/design-system/workspace-fields";
+import { ShellDialog, ShellDialogActions } from "@/components/design-system/shell-dialog";
 
 export type ManagedWorkspace = {
   id: string;
@@ -12,7 +12,8 @@ export type ManagedWorkspace = {
   color?: number | null;
 };
 
-// Only the fields that changed; null clears one.
+export type ManagedProject = { id: string; name: string; workspace_id?: string | null };
+
 export type WorkspaceChange = {
   name?: string;
   logo?: string | null;
@@ -24,16 +25,14 @@ type ManageWorkspaceDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   workspace: ManagedWorkspace;
-  /** Saves the changes; resolves once saved (the dialog then closes). */
   onSave: (change: WorkspaceChange) => Promise<void> | void;
-  /** Deletes the workspace; resolves once deleted (the dialog then closes). */
-  onDelete: () => Promise<void> | void;
-  /** Whether another workspace exists: the last one can't be deleted. */
-  canDelete?: boolean;
+  onArchive: () => Promise<void> | void;
+  canArchive?: boolean;
+  projects?: ManagedProject[];
+  workspaces?: ManagedWorkspace[];
+  onMoveProject?: (projectId: string, workspaceId: string) => Promise<void> | void;
   saving?: boolean;
-  /** A save or delete error, shown by the button that caused it. */
   error?: string | null;
-  /** A problem with the name (e.g. taken), shown under the Name field. */
   nameError?: string | null;
 };
 
@@ -41,28 +40,17 @@ function valuesOf(workspace: ManagedWorkspace): WorkspaceFieldValues {
   return { name: workspace.name, description: workspace.description ?? "", logo: workspace.logo ?? null, colorIndex: workspace.color ?? null };
 }
 
-/**
- * Manage workspace, in the shell dialog's layout (ShellDialog), like Create
- * workspace: its tile on top, live as it's edited, its logo, name and
- * description, and Delete beside the logo's Remove. Every
- * workspace, the branded default included, works the same way; only the last one can't
- * be deleted.
- */
-export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, onDelete, canDelete = false, saving = false, error, nameError }: ManageWorkspaceDialogProps) {
+export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, onArchive, canArchive = false, projects = [], workspaces = [], onMoveProject, saving = false, error, nameError }: ManageWorkspaceDialogProps) {
   const { t } = useTranslation();
   const [values, setValues] = useState<WorkspaceFieldValues>(() => valuesOf(workspace));
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [confirmName, setConfirmName] = useState("");
-  const confirmId = useId();
+  const [confirmingArchive, setConfirmingArchive] = useState(false);
+  const formId = useId();
 
-  // Each opening starts from the workspace as saved.
   useEffect(() => {
     if (!open) return;
     setValues(valuesOf(workspace));
-    setConfirmingDelete(false);
-    setConfirmName("");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, workspace.id]);
+    setConfirmingArchive(false);
+  }, [open, workspace]);
 
   const saved = valuesOf(workspace);
   const trimmedName = values.name.trim();
@@ -73,89 +61,52 @@ export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, o
   if (description !== saved.description.trim()) change.description = description || null;
   if (values.colorIndex !== saved.colorIndex) change.color = values.colorIndex;
   const changed = Object.keys(change).length > 0;
-
-  const formId = useId();
-  // The tile shows the saved name until a new one is typed.
   const previewValues = { ...values, name: trimmedName || workspace.name };
-  const deleteConfirmed = confirmName.trim() === workspace.name;
+  const workspaceProjects = projects.filter((project) => project.workspace_id === workspace.id);
+  const destinations = workspaces.filter((item) => item.id !== workspace.id);
 
   return (
     <ShellDialog
       centered
       open={open}
       onOpenChange={onOpenChange}
-      icon={
-        confirmingDelete ? (
-          <WorkspaceTilePreview values={previewValues} />
-        ) : (
-          <WorkspaceTileMenu
-            values={previewValues}
-            onChange={(next) => setValues({ ...next, name: values.name })}
-            extra={
-              // The last workspace can't be deleted; the tooltip says why.
-              <DeleteWorkspaceItem
-                label={t("workspace.delete.title")}
-                disabled={!canDelete}
-                title={canDelete ? undefined : t("workspace.delete.onlyWorkspace")}
-                onSelect={() => setConfirmingDelete(true)}
-              />
-            }
-          />
-        )
-      }
-      title={confirmingDelete ? t("workspace.delete.title") : t("workspace.manage")}
-      description={confirmingDelete ? t("workspace.delete.description") : t("workspace.manage.description")}
-      actions={
-        confirmingDelete ? (
-          <ShellDialogActions
-            cancelLabel={t("workspace.delete.keep")}
-            onCancel={() => {
-              setConfirmingDelete(false);
-              setConfirmName("");
-            }}
-            primary={{ label: t("workspace.delete.title"), type: "submit", form: formId, disabled: !deleteConfirmed || saving, destructive: true }}
-          />
-        ) : (
-          <ShellDialogActions
-            cancelLabel={t("common.cancel")}
-            onCancel={() => onOpenChange(false)}
-            primary={{ label: t("workspace.manage.save"), type: "submit", form: formId, disabled: !changed || !trimmedName || saving, loading: saving }}
-          />
-        )
-      }
+      icon={confirmingArchive ? <WorkspaceTilePreview values={previewValues} /> : (
+        <WorkspaceTileMenu
+          values={previewValues}
+          onChange={(next) => setValues({ ...next, name: values.name })}
+          extra={<ArchiveWorkspaceItem label={t("common.archive")} disabled={!canArchive} title={canArchive ? undefined : t("workspace.delete.onlyWorkspace")} onSelect={() => setConfirmingArchive(true)} />}
+        />
+      )}
+      title={confirmingArchive ? t("archive.workspace.title") : t("workspace.manage")}
+      description={confirmingArchive ? t("archive.workspace.description") : t("workspace.manage.description")}
+      actions={confirmingArchive ? (
+        <ShellDialogActions cancelLabel={t("common.cancel")} onCancel={() => setConfirmingArchive(false)} primary={{ label: t("common.archive"), type: "submit", form: formId, disabled: saving }} />
+      ) : (
+        <ShellDialogActions cancelLabel={t("common.cancel")} onCancel={() => onOpenChange(false)} primary={{ label: t("workspace.manage.save"), type: "submit", form: formId, disabled: !changed || !trimmedName || saving, loading: saving }} />
+      )}
     >
-      {confirmingDelete ? (
-        // Deleting: in place of the form, until they keep it or confirm with its name.
-        <form
-          id={formId}
-          className="flex flex-col gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (deleteConfirmed && !saving) void onDelete();
-          }}
-        >
-          <ShellField label={t("workspace.fields.name")} htmlFor={confirmId}>
-            <input id={confirmId} autoFocus value={confirmName} onChange={(event) => setConfirmName(event.target.value)} autoComplete="off" className={SHELL_FIELD_INPUT} />
-          </ShellField>
-          <p className="px-1 text-[12px] text-muted-foreground">
-            <Trans i18nKey="workspace.delete.confirm" values={{ name: workspace.name }} components={[<span className="font-medium text-foreground" key="0" />]} />
-          </p>
+      {confirmingArchive ? (
+        <form id={formId} className="flex flex-col gap-2" onSubmit={(event) => { event.preventDefault(); if (!saving) void onArchive(); }}>
+          <p className="px-1 text-[12px] text-muted-foreground">{t("archive.workspace.projectsHint")}</p>
           {error && <p className="px-1 text-[12px] text-destructive">{error}</p>}
         </form>
       ) : (
-        <form
-          id={formId}
-          className="flex flex-col gap-3"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (changed && trimmedName && !saving) void onSave(change);
-          }}
-        >
-          <WorkspaceFields
-            values={values}
-            onChange={setValues}
-            nameError={nameError}
-          />
+        <form id={formId} className="flex flex-col gap-3" onSubmit={(event) => { event.preventDefault(); if (changed && trimmedName && !saving) void onSave(change); }}>
+          <WorkspaceFields values={values} onChange={setValues} nameError={nameError} />
+          {workspaceProjects.length > 0 && destinations.length > 0 && (
+            <div className="flex flex-col gap-2 pt-1">
+              <p className="px-1 text-[12px] font-medium text-foreground">{t("archive.workspace.moveProjects")}</p>
+              {workspaceProjects.map((project) => (
+                <label key={project.id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2 text-[12px]">
+                  <span className="truncate">{project.name}</span>
+                  <select className="max-w-40 rounded-md border border-border bg-background px-2 py-1" defaultValue="" onChange={(event) => { if (event.target.value) void onMoveProject?.(project.id, event.target.value); }}>
+                    <option value="" disabled>{t("archive.workspace.moveTo")}</option>
+                    {destinations.map((destination) => <option key={destination.id} value={destination.id}>{destination.name}</option>)}
+                  </select>
+                </label>
+              ))}
+            </div>
+          )}
           {error && <p className="px-1 text-[12px] text-destructive">{error}</p>}
         </form>
       )}

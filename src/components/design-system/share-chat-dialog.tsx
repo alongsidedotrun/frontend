@@ -276,7 +276,9 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
       void navigator.clipboard.write([new ClipboardItem({ "text/plain": blob })]).then(done, () => undefined);
       return;
     }
-    void text.then((value) => value !== null && navigator.clipboard?.writeText(value).then(done));
+    void text.then((value) => {
+      if (value !== null) void navigator.clipboard?.writeText(value).then(done);
+    });
   }
 
   const minutesLeft = code ? Math.max(1, Math.ceil((code.expires_at - now) / 60)) : 0;
