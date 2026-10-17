@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { PROVIDER_DISPLAY, ProviderIcon, QUICK_CHAT_MODELS, modelDisplayName } from "@/lib/quick-chat-models";
 import { defaultEffortFor, effortLabel, EFFORT_LEVELS, type EffortLevel } from "@/lib/effort";
-import { loadLastEffort, loadLastPermissionMode, saveLastEffort, saveLastPermissionMode } from "@/lib/last-used";
+import { loadLastEffort, loadLastPermissionMode, saveLastEffort, saveLastPermissionMode, type PermissionMode } from "@/lib/last-used";
 import { ClipboardCheck, Hand, ShieldTick, ShieldZap } from "@untitledui/icons";
 import { cn } from "@/lib/utils";
 import { getUserDisplayName } from "@/lib/user";
@@ -655,6 +655,7 @@ export function ComposeBox({
   chatId,
   isMultiplayer,
   defaultEffortValue,
+  defaultPermissionValue,
   onPinDefaultModel,
   onCompactNow,
   onSteer,
@@ -676,7 +677,7 @@ export function ComposeBox({
   // dial showed Medium." Reading it here, at the exact moment Send is pressed,
   // makes that whole class of timing bug structurally impossible rather than
   // chasing the specific cause.
-  onSubmit: (images: ImageAttachment[], effort: EffortLevel) => void;
+  onSubmit: (images: ImageAttachment[], effort: EffortLevel, permissionMode: PermissionMode) => void;
   placeholder: string;
   // HomePage-only, per explicit request: additional messages that rotate
   // in after `placeholder` itself (index 0 of the full sequence), using
@@ -735,6 +736,7 @@ export function ComposeBox({
   // per-chat default effort, arriving async over the WS's "chat_defaults"
   // message (ChatPage.tsx), not known at mount either.
   defaultEffortValue?: EffortLevel;
+  defaultPermissionValue?: PermissionMode;
   // HomePage-only -- "Set as default for new chat" on a model/effort row,
   // called instead of writing anywhere directly (there's no chatId yet to
   // write to). HomePage holds the pinned value in a ref and applies it to
@@ -946,11 +948,12 @@ export function ComposeBox({
   // as well for loading purposes"): was a bare hardcoded "manual" with no
   // memory of what was actually last chosen anywhere in the app.
   const [mode, setMode] = useState<PermissionModeOption["value"]>(() => {
+    if (defaultPermissionValue && defaultPermissionValue !== "plan") return defaultPermissionValue;
     const last = loadLastPermissionMode();
     return last && last !== "plan" ? last : "manual";
   });
   // Plan mode (Synara's `+` panel toggle): on top of the permission, for providers that have one.
-  const [planMode, setPlanMode] = useState(() => loadLastPermissionMode() === "plan");
+  const [planMode, setPlanMode] = useState(() => defaultPermissionValue === "plan" || (!defaultPermissionValue && loadLastPermissionMode() === "plan"));
   const planSupported = selectedModels[0]?.provider === "Claude" || selectedModels[0]?.provider === "Antigravity";
   // What the next turn runs with (the backend reads the saved value): plan while it's on, else the permission.
   useEffect(() => {
@@ -1692,7 +1695,7 @@ export function ComposeBox({
                 return;
               }
               fadeOutSent();
-              onSubmit(images, effort);
+              onSubmit(images, effort, planMode && planSupported ? "plan" : mode);
               setImages([]);
             }
           }}
@@ -2285,7 +2288,7 @@ export function ComposeBox({
                 return;
               }
               fadeOutSent();
-              onSubmit(images, effort);
+              onSubmit(images, effort, planMode && planSupported ? "plan" : mode);
               setImages([]);
             }}
             aria-label={t("compose.send")}
