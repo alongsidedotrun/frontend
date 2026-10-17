@@ -7,7 +7,7 @@ import i18n from "@/i18n";
 import { PROVIDER_DISPLAY, ProviderIcon, QUICK_CHAT_MODELS, modelDisplayName } from "@/lib/quick-chat-models";
 import { defaultEffortFor, effortLabel, EFFORT_LEVELS, type EffortLevel } from "@/lib/effort";
 import { loadLastEffort, saveLastEffort, type PermissionMode } from "@/lib/last-used";
-import { ClipboardCheck, Hand, ShieldTick, ShieldZap } from "@untitledui/icons";
+import { ClipboardCheck, Hand, ShieldTick, ShieldZap, Target04 } from "@untitledui/icons";
 import { cn } from "@/lib/utils";
 import { getUserDisplayName } from "@/lib/user";
 import { Button } from "@/components/ui/button";
@@ -155,17 +155,15 @@ const MODES: PermissionModeOption[] = [
   { value: "auto", labelKey: "compose.permission.auto.label", descriptionKey: "compose.permission.auto.description" },
 ];
 
-// Antigravity has no real per-action approval prompt at all (agy's own
-// --help lists only two headless modes: --dangerously-skip-permissions
-// and --mode plan -- confirmed directly, no ask/manual equivalent exists
-// to map "Manual"/"Ask" onto), so those two are replaced with the one
-// real stance it does have instead of showing choices that don't
-// correspond to anything the CLI can actually do. Per explicit request
-// ("change permissions from the standard to Plan instead of Manual,
-// Remove Ask, and Keep Auto").
+// Antigravity 1.4 exposes the same safety ladder through its current
+// execution modes: default (review first), accept-edits (ordinary edits run,
+// risky commands still need permission), and --dangerously-skip-permissions.
+// Plan remains available as a separate read-only stance.
 const ANTIGRAVITY_MODES: PermissionModeOption[] = [
-  { value: "plan", labelKey: "compose.planMode", descriptionKey: "compose.permission.plan.description" },
+  { value: "manual", labelKey: "compose.permission.manual.label", descriptionKey: "compose.permission.manual.description" },
+  { value: "ask", labelKey: "compose.permission.ask.label", descriptionKey: "compose.permission.ask.description" },
   { value: "auto", labelKey: "compose.permission.auto.label", descriptionKey: "compose.permission.auto.description" },
+  { value: "plan", labelKey: "compose.planMode", descriptionKey: "compose.permission.plan.description" },
 ];
 
 // Synara's permission glyphs, in Untitled UI: a raised hand to ask, a ticked shield to approve
@@ -216,6 +214,7 @@ type SlashRow = {
   kind: "command" | "placeholder";
   label: string;
   desc: string;
+  descKey?: string;
   icon: ReactNode;
 };
 
@@ -240,6 +239,7 @@ const SLASH_ROWS: SlashRow[] = [
   // request: typing/sending /share is how hosting a chat is triggered
   // now, not a header button.
   { key: "share", kind: "placeholder", label: "/share", desc: "Get a link to invite someone to this chat", icon: <ShareIcon className="size-4" /> },
+  { key: "goal", kind: "placeholder", label: "/goal", desc: "Set a goal to keep pursuing", descKey: "compose.goalDescription", icon: <Target04 className="size-4" /> },
   { key: "compare", kind: "placeholder", label: "/compare", desc: "Compare two things", icon: <CompareIcon className="size-4" /> },
   { key: "summarize", kind: "placeholder", label: "/summarize", desc: "Summarize this chat", icon: <SummarizeIcon className="size-4" /> },
   { key: "task", kind: "placeholder", label: "/task", desc: "Turn this into a task list", icon: <TaskIcon className="size-4" /> },
@@ -954,9 +954,7 @@ export function ComposeBox({
     return "manual";
   });
   // Plan mode (Synara's `+` panel toggle): on top of the permission, for providers that have one.
-  const [planMode, setPlanMode] = useState(
-    () => defaultPermissionValue === "plan" || (!defaultPermissionValue && selectedModels[0]?.provider === "Antigravity")
-  );
+  const [planMode, setPlanMode] = useState(() => defaultPermissionValue === "plan");
   const planSupported = selectedModels[0]?.provider === "Claude" || selectedModels[0]?.provider === "Antigravity";
   // The exact effective value is passed with the submission below. Permission
   // is deliberately not restored or persisted merely by mounting/changing the
@@ -975,22 +973,14 @@ export function ComposeBox({
 
     // Do not overwrite an explicit first-message handoff when its model
     // resolves just after mount. Real provider changes after that reset to
-    // the safest valid stance: Plan for Antigravity (its only restricted
-    // mode), Ask for approval everywhere else.
+    // the safest valid stance every provider now supports: Ask for approval.
     if (previousProvider === undefined && defaultPermissionValue) return;
-    if (selectedProvider === "Antigravity") {
-      setMode("auto");
-      setPlanMode(true);
-    } else {
-      setMode("manual");
-      setPlanMode(false);
-    }
+    setMode("manual");
+    setPlanMode(false);
   }, [defaultPermissionValue, selectedProvider]);
-  // Keeps the selected mode valid for whichever list is now showing --
-  // "manual"/"ask" mean nothing to Antigravity (no such capability), and
-  // "plan" means nothing to every other provider, so switching models
-  // must not leave the trigger showing a choice that isn't even in its
-  // own dropdown any more.
+  // Keeps the selected mode valid for whichever list is now showing. A
+  // provider switch must not leave the trigger showing a choice absent from
+  // that provider's own dropdown.
   useEffect(() => {
     if (modes.some((m) => m.value === mode)) return;
     setMode(modes[0]?.value ?? "manual");
@@ -1207,6 +1197,15 @@ export function ComposeBox({
   // pick() below handles.
   function openFilePicker() {
     fileInputRef.current?.click();
+  }
+
+  // Goal is a native command in the current Codex, Claude Code and
+  // Antigravity CLIs. Preserve an existing draft as its objective, matching
+  // the Add panel's role as a mode applied to what the user is composing.
+  function insertGoal() {
+    const objective = value.trim();
+    onChange(objective ? `/goal ${objective}` : "/goal ");
+    requestAnimationFrame(() => textareaRef.current?.focus());
   }
 
   // Shared by the file picker's onChange and the composer's own onDrop, below --
@@ -1500,7 +1499,7 @@ export function ComposeBox({
                       the search dropdown's own row text exactly (top-bar.tsx,
                       TopBarSearch's results.map), per explicit request. */}
                   <span className="shrink-0 truncate text-[12px] font-normal text-ink-2">{row.label}</span>
-                  <span className="min-w-0 flex-1 truncate text-[12px] text-ink-3">{row.desc}</span>
+                  <span className="min-w-0 flex-1 truncate text-[12px] text-ink-3">{row.descKey ? t(row.descKey) : row.desc}</span>
                 </button>
               ))}
               {rows.length === 0 && (
@@ -1842,6 +1841,13 @@ export function ComposeBox({
               <DropdownSubItem className="flex items-center gap-2.5 text-[12px] whitespace-nowrap">
                 <SkillIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="flex-1">{t("compose.skills")}</span>
+              </DropdownSubItem>
+              <DropdownSubItem className="!h-auto items-start gap-2.5 py-1.5 text-[12px]" onClick={insertGoal}>
+                <Target04 aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                <span className="min-w-0 flex-1">
+                  <span className="block">{t("compose.goal")}</span>
+                  <span className="mt-0.5 block whitespace-normal text-[11px] leading-4 text-muted-foreground">{t("compose.goalDescription")}</span>
+                </span>
               </DropdownSubItem>
               {planSupported && (
                 <DropdownSubItem className="flex items-center gap-2.5 text-[12px] whitespace-nowrap" onClick={() => setPlanMode((on) => !on)}>
