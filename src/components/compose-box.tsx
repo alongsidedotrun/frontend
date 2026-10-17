@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { PROVIDER_DISPLAY, ProviderIcon, QUICK_CHAT_MODELS, modelDisplayName } from "@/lib/quick-chat-models";
 import { defaultEffortFor, effortLabel, EFFORT_LEVELS, type EffortLevel } from "@/lib/effort";
-import { loadLastEffort, loadLastPermissionMode, saveLastEffort, saveLastPermissionMode, type PermissionMode } from "@/lib/last-used";
+import { loadLastEffort, saveLastEffort, type PermissionMode } from "@/lib/last-used";
 import { ClipboardCheck, Hand, ShieldTick, ShieldZap } from "@untitledui/icons";
 import { cn } from "@/lib/utils";
 import { getUserDisplayName } from "@/lib/user";
@@ -943,27 +943,49 @@ export function ComposeBox({
   useEffect(() => {
     void loadModelCatalog();
   }, []);
-  // loadLastPermissionMode() first -- per explicit request ("all these
-  // three should have a last_effort, last_permission, last_context saved
-  // as well for loading purposes"): was a bare hardcoded "manual" with no
-  // memory of what was actually last chosen anywhere in the app.
+  // A fresh composer always starts at the least-privileged mode the selected
+  // provider supports. The backend still stores the exact submitted value
+  // for the current turn, but a future chat must not inherit Full access.
+  // defaultPermissionValue is intentionally the only override: it carries
+  // the exact choice across the centered-composer -> chat-composer handoff.
   const [mode, setMode] = useState<PermissionModeOption["value"]>(() => {
     if (defaultPermissionValue && defaultPermissionValue !== "plan") return defaultPermissionValue;
-    const last = loadLastPermissionMode();
-    return last && last !== "plan" ? last : "manual";
+    return "manual";
   });
   // Plan mode (Synara's `+` panel toggle): on top of the permission, for providers that have one.
-  const [planMode, setPlanMode] = useState(() => defaultPermissionValue === "plan" || (!defaultPermissionValue && loadLastPermissionMode() === "plan"));
+  const [planMode, setPlanMode] = useState(
+    () => defaultPermissionValue === "plan" || (!defaultPermissionValue && selectedModels[0]?.provider === "Antigravity")
+  );
   const planSupported = selectedModels[0]?.provider === "Claude" || selectedModels[0]?.provider === "Antigravity";
-  // What the next turn runs with (the backend reads the saved value): plan while it's on, else the permission.
-  useEffect(() => {
-    saveLastPermissionMode(planMode && planSupported ? "plan" : mode);
-  }, [planMode, planSupported, mode]);
+  // The exact effective value is passed with the submission below. Permission
+  // is deliberately not restored or persisted merely by mounting/changing the
+  // picker: that could make a later fresh chat inherit Full access.
   // Antigravity's own real-capability set (ANTIGRAVITY_MODES's own comment
   // has the reasoning) instead of the standard Manual/Ask/Auto once an
   // Antigravity model is the current pick.
   const modes = selectedModels[0]?.provider === "Antigravity" ? ANTIGRAVITY_MODES : MODES;
-  // Keeps the persisted mode valid for whichever list is now showing --
+  const selectedProvider = selectedModels[0]?.provider;
+  const previousProviderRef = useRef(selectedProvider);
+  useEffect(() => {
+    if (previousProviderRef.current === selectedProvider) return;
+    const previousProvider = previousProviderRef.current;
+    previousProviderRef.current = selectedProvider;
+    if (!selectedProvider) return;
+
+    // Do not overwrite an explicit first-message handoff when its model
+    // resolves just after mount. Real provider changes after that reset to
+    // the safest valid stance: Plan for Antigravity (its only restricted
+    // mode), Ask for approval everywhere else.
+    if (previousProvider === undefined && defaultPermissionValue) return;
+    if (selectedProvider === "Antigravity") {
+      setMode("auto");
+      setPlanMode(true);
+    } else {
+      setMode("manual");
+      setPlanMode(false);
+    }
+  }, [defaultPermissionValue, selectedProvider]);
+  // Keeps the selected mode valid for whichever list is now showing --
   // "manual"/"ask" mean nothing to Antigravity (no such capability), and
   // "plan" means nothing to every other provider, so switching models
   // must not leave the trigger showing a choice that isn't even in its
