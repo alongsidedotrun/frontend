@@ -62,7 +62,7 @@ import {
 import { signOut, useIsSignedIn } from "@/lib/auth";
 import { openSignInDialog } from "@/lib/use-sign-in";
 import { useIdentity } from "@/lib/identity";
-import { Archive, Command, FolderKanban, MessageSquare, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
+import { Archive, Command, FolderKanban, MessageSquare, RotateCcw, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // General owns the language and timezone controls. Story: Settings
@@ -76,7 +76,7 @@ import { cn } from "@/lib/utils";
 // stays its own separate top-level section instead, and Danger zone was
 // removed entirely rather than folded into a new section (SETTINGS_NAV_GROUPS'
 // own comment below has the full reasoning).
-export type SettingsSection = "profile" | "general" | "appearance" | "chat" | "security" | "provider" | "apps" | "archived";
+export type SettingsSection = "profile" | "general" | "appearance" | "chat" | "provider" | "apps" | "archived";
 
 // ---------------------------------------------------------------------------
 // Style pass -- matches a reference open-source app called Synara's own
@@ -204,7 +204,6 @@ const SECTIONS: { key: SettingsSection; label: string; labelKey: string; icon: R
   { key: "general", label: "General", labelKey: "settings.nav.general", icon: <SettingsIcon className="size-[14px]" /> },
   { key: "appearance", label: "Appearance", labelKey: "settings.nav.appearance", icon: <PaletteIcon className="size-[14px]" /> },
   { key: "chat", label: "Chat", labelKey: "settings.nav.chat", icon: <BubbleChatIcon className="size-[14px]" /> },
-  { key: "security", label: "Security", labelKey: "settings.nav.security", icon: <ShieldCheck className="size-[14px]" /> },
   { key: "provider", label: "Provider", labelKey: "settings.nav.provider", icon: <ProvidersIcon className="size-[14px]" /> },
   // Its own top-level section now, not a drill-in under Provider -- per
   // explicit correction ("Still inside providers its meant to be settings
@@ -231,7 +230,7 @@ const SECTIONS: { key: SettingsSection; label: string; labelKey: string; icon: R
 const SETTINGS_NAV_GROUPS: { labelKey: string; keys: SettingsSection[] }[] = [
   // General first, then the rest alphabetical (Appearance, Chat, Profile)
   // -- per explicit request.
-  { labelKey: "settings.nav.group.application", keys: ["general", "appearance", "chat", "profile", "security"] },
+  { labelKey: "settings.nav.group.application", keys: ["general", "appearance", "chat", "profile"] },
   { labelKey: "settings.nav.group.connections", keys: ["provider", "apps"] },
   { labelKey: "settings.nav.group.archived", keys: ["archived"] },
 ];
@@ -241,7 +240,6 @@ const SECTION_SUBTITLE_KEY: Record<SettingsSection, string> = {
   general: "settings.nav.subtitle.general",
   appearance: "settings.nav.subtitle.appearance",
   chat: "settings.nav.subtitle.chat",
-  security: "settings.nav.subtitle.security",
   provider: "settings.nav.subtitle.provider",
   apps: "settings.nav.subtitle.apps",
   archived: "settings.nav.subtitle.archived",
@@ -277,7 +275,6 @@ const SETTINGS_SEARCH_ENTRIES: SettingsSearchEntry[] = [
   { id: "font-smoothing", section: "appearance", title: "Font smoothing", keywords: "antialiased crisp text rendering mac appearance", target: "setting-font-smoothing" },
   { id: "notify-turn-complete", section: "general", title: "Receive a notification from every chat when a turn completes", keywords: "notification toast turn complete finished notify", target: "setting-notify-turn-complete" },
   { id: "chat-usage", section: "chat", title: "Chat usage", keywords: "usage sessions count local", target: "setting-chat-usage" },
-  { id: "data-acknowledgement", section: "security", title: "Data acknowledgement", keywords: "security encryption local data recovery key responsibility privacy", target: "setting-data-acknowledgement" },
 ];
 
 // Simple substring ranking: a title match ranks above a keyword match,
@@ -1646,23 +1643,6 @@ function GeneralSection() {
   );
 }
 
-function SecuritySection() {
-  return (
-    <div className="flex flex-col">
-      <SettingsSection title="Data protection">
-        <SettingsRow
-          title="Local conversation data"
-          description="Your conversations are stored locally on this device."
-        />
-        <SettingsRow
-          title="Encryption"
-          description="Encryption is recommended to reduce exposure if your device or local storage is compromised."
-        />
-      </SettingsSection>
-    </div>
-  );
-}
-
 // Its own top-level section now, not a General sub-section -- per
 // explicit request ("we should get an appearance menu at the sidebar as
 // well as palette icon and move from general").
@@ -2931,7 +2911,6 @@ export function SettingsSectionContent({ section }: { section: SettingsSection }
           {section === "general" && <GeneralSection />}
           {section === "appearance" && <AppearanceSection />}
           {section === "chat" && <ChatSection />}
-          {section === "security" && <SecuritySection />}
           {section === "provider" && <ProvidersSection />}
           {section === "apps" && <AppsSection />}
           {section === "archived" && <ArchivedSection />}
