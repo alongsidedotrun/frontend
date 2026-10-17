@@ -1934,6 +1934,15 @@ export const translations = {
     zh: "关闭计划模式",
     ja: "プランモードをオフ",
   },
+  "compose.permission.plan.description": {
+    en: "Create a plan without making changes",
+    "pt-BR": "Criar um plano sem fazer alterações",
+    es: "Crear un plan sin realizar cambios",
+    fr: "Créer un plan sans apporter de modifications",
+    de: "Einen Plan erstellen, ohne Änderungen vorzunehmen",
+    zh: "制定计划但不进行更改",
+    ja: "変更を加えずに計画を作成します",
+  },
   "compose.permission.manual.label": {
     en: "Ask for approval",
     "pt-BR": "Pedir aprovação",
