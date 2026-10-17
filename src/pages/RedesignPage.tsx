@@ -115,10 +115,9 @@ const quickActions = (t: Translate): readonly QuickActionItem[] => [
   { id: "join", label: t("joinChat.title"), icon: Blend },
 ];
 
-// Getting started: the essentials, each done when the real thing is (a
-// provider connected, a chat sent, signed in, a chat shared), each opening
-// where to do it.
-const GETTING_STARTED_STEP_IDS = ["provider", "message", "account", "multiplayer"] as const;
+// Getting started follows the first-run journey, with each step backed by the
+// corresponding real account, provider, project, chat, workspace or relay state.
+const GETTING_STARTED_STEP_IDS = ["account", "provider", "project", "chat", "workspace", "multiplayer"] as const;
 const GETTING_STARTED_DONE_KEY = "alongside_getting_started_done";
 const GETTING_STARTED_DISMISSED_KEY = "alongside_getting_started_dismissed";
 
@@ -822,9 +821,13 @@ export function RedesignPage() {
   // A step stays done once it has been done (deleting every chat or signing
   // out later doesn't untick it), remembered on this device.
   const liveDone: Record<GettingStartedStepId, boolean> = {
-    provider: providerReady,
-    message: chats.length > 0,
     account: identity.signedIn,
+    provider: providerReady,
+    project: projects.length > 0,
+    chat: chats.length > 0,
+    workspace: workspaces.some(
+      (workspace) => workspace.is_personal && workspace.name.trim().toLocaleLowerCase() !== DEFAULT_WORKSPACE.name.toLocaleLowerCase(),
+    ),
     multiplayer: sharedOnce,
   };
   // Closed with its X once every step was done; stays closed on this device.
@@ -862,9 +865,11 @@ export function RedesignPage() {
     t,
     Object.fromEntries(GETTING_STARTED_STEP_IDS.map((id) => [id, liveDone[id] || rememberedDone.includes(id)])) as Record<GettingStartedStepId, boolean>,
     {
-      provider: () => navigate("/settings/provider"),
-      message: () => navigate("/"),
       account: () => (identity.signedIn ? navigate("/settings/profile") : openSignIn()),
+      provider: () => navigate("/settings/provider"),
+      project: () => { setProjectError(null); setNewProjectOpen(true); },
+      chat: () => navigate("/"),
+      workspace: () => { setWorkspaceError(null); setWorkspaceNameTaken(false); setManageWorkspacesOpen(true); },
       // Sharing happens from a chat (/share there): the latest one, or a new one.
       multiplayer: () => navigate(chats[0] ? `/chat/${chats[0].id}` : "/"),
     },
@@ -1002,7 +1007,7 @@ export function RedesignPage() {
             </SidebarSurfaceTransition>
           )}
           </div>
-          <footer className="mt-auto pt-[var(--redesign-sidebar-section-gap)]">
+          <footer className="mt-auto shrink-0 pt-[var(--redesign-sidebar-section-gap)]">
             {/* #460: people waiting to be let into a chat this person shares. */}
             <JoinRequestsCard enabled={identity.signedIn} />
             {/* Collapses and fades out when closed. */}
@@ -1013,7 +1018,7 @@ export function RedesignPage() {
               )}
               inert={gettingStartedDismissed}
             >
-              <div className={cn("min-h-0", gettingStartedDismissed && "overflow-hidden")}>
+              <div className={cn(gettingStartedDismissed && "min-h-0 overflow-hidden")}>
                 <GettingStartedSummary
                   label={t("shell.gettingStarted.label")}
                   steps={steps}
