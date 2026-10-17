@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { useLocation, useNavigate, useOutlet } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { Blend, ChevronRight, CircleArrowUp, CircleHelp, Plus, ShieldCheck } from "lucide-react";
+import { Blend, ChevronRight, CircleArrowUp, CircleHelp, Plus } from "lucide-react";
 import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
 import { CreateWorkspaceDialog } from "@/components/design-system/create-workspace-dialog";
 import { SignInDialog } from "@/components/design-system/sign-in-dialog";
@@ -168,13 +168,12 @@ const SETTINGS_COMMANDS: readonly { section: SettingsSection; labelKey: string; 
   { section: "appearance", labelKey: "settings.nav.appearance", icon: PaletteIcon, keywords: ["theme", "dark", "light", "font", "transparency"] },
   { section: "chat", labelKey: "settings.nav.chat", icon: BubbleChatIcon, keywords: ["provider", "effort", "usage"] },
   { section: "profile", labelKey: "settings.nav.profile", icon: UserIcon, keywords: ["account", "picture", "sign in", "log out"] },
-  { section: "security", labelKey: "settings.nav.security", icon: ShieldCheck, keywords: ["privacy", "encryption", "data"] },
   { section: "provider", labelKey: "settings.nav.provider", icon: ProvidersIcon, keywords: ["models", "api key", "ai"] },
   { section: "apps", labelKey: "settings.nav.apps", icon: IntegrationsIcon, keywords: ["integrations", "connect"] },
   { section: "archived", labelKey: "settings.nav.archived", icon: ArchiveIcon, keywords: ["restore", "delete", "workspace", "project", "chat"] },
 ];
 
-const SETTINGS_SECTIONS: readonly SettingsSection[] = ["profile", "general", "appearance", "chat", "security", "provider", "apps", "archived"];
+const SETTINGS_SECTIONS: readonly SettingsSection[] = ["profile", "general", "appearance", "chat", "provider", "apps", "archived"];
 
 function quickActionForPath(pathname: string) {
   if (pathname === "/overview") return "overview";
