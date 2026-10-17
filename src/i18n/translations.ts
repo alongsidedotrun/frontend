@@ -1725,15 +1725,6 @@ export const translations = {
     zh: "对话",
     ja: "チャット",
   },
-  "settings.nav.security": {
-    en: "Security",
-    "pt-BR": "Segurança",
-    es: "Seguridad",
-    fr: "Sécurité",
-    de: "Sicherheit",
-    zh: "安全",
-    ja: "セキュリティ",
-  },
   "settings.nav.provider": {
     en: "Providers",
     "pt-BR": "Provedores",
@@ -1805,15 +1796,6 @@ export const translations = {
     de: "Lege das Standardmodell und den Standardaufwand für neue Chats fest und sieh dir die lokale Speichernutzung deiner Chats an.",
     zh: "设置新对话的默认模型和强度，并查看您已开始对话的本地存储占用情况。",
     ja: "新しいチャットのデフォルトモデルとエフォートを設定し、開始したチャットのローカルストレージ使用量を確認できます。",
-  },
-  "settings.nav.subtitle.security": {
-    en: "Review local data protection and your data acknowledgement.",
-    "pt-BR": "Revise a proteção de dados locais e seu reconhecimento de dados.",
-    es: "Revisa la protección de datos locales y tu reconocimiento de datos.",
-    fr: "Consultez la protection des données locales et votre reconnaissance des données.",
-    de: "Überprüfe den lokalen Datenschutz und deine Datenbestätigung.",
-    zh: "查看本地数据保护和您的数据确认。",
-    ja: "ローカルデータの保護とデータ確認を確認できます。",
   },
   "settings.nav.subtitle.provider": {
     en: "Sign in to Claude, ChatGPT, Gemini, or Grok, and see how much each is used.",
