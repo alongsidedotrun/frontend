@@ -7,6 +7,7 @@ import { type EffortLevel } from "@/lib/effort";
 import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
 import type { SettingsSection } from "@/components/settings-overlay";
 import { getUserDisplayName } from "@/lib/user";
+import type { PermissionMode } from "@/lib/last-used";
 
 // Real port of frontend/index.html's "start a new chat" compose box --
 // frontend/ is superseded now that the sidebar/auth shell lives here (see
@@ -147,7 +148,7 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
   // bug, confirmed directly: that ref (onEffortChange keeping it updated) could
   // read stale by the time this actually posted, reported as "I set Low, the
   // reply's own dial showed Medium".
-  async function createSession(images: ImageAttachment[], effort: EffortLevel) {
+  async function createSession(images: ImageAttachment[], effort: EffortLevel, permissionMode: PermissionMode) {
     const trimmed = prompt.trim();
     if (!trimmed || sending || transitioningToChat) return;
     // compose-box.tsx's own Send button/Enter handler already blocks
@@ -246,6 +247,7 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
           images: images.length > 0 ? toImageInputs(images) : undefined,
           effort,
           model: model.value,
+          permissionMode,
         })
       );
 

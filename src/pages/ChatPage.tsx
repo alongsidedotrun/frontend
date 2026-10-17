@@ -53,7 +53,7 @@ type SharedFile = { file_id: string; name: string; media_type: string; size: num
 
 // Provider brand names, as another participant's run reports which one it ran on (#462). Not translated.
 const PROVIDER_NAMES: Record<string, string> = { claude: "Claude", codex: "Codex", antigravity: "Antigravity" };
-import { lastUsedReady, loadLastContext, loadLastModel, saveLastContext, saveLastModel } from "@/lib/last-used";
+import { lastUsedReady, loadLastContext, loadLastModel, saveLastContext, saveLastModel, type PermissionMode } from "@/lib/last-used";
 import { StreamingText } from "@/components/streaming-text";
 import { ThinkingState } from "@/components/thinking-state";
 import { ThinkingReasoning } from "@/components/thinking-reasoning";
@@ -369,6 +369,25 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   const { t } = useTranslation();
   const { sessionId: routeSessionId } = useParams<{ sessionId: string }>();
   const sessionId = sessionIdOverride ?? routeSessionId;
+  // The centered new-chat composer and this bottom composer are two separate
+  // component instances. Carry the exact permission selected for the first
+  // message across that handoff instead of re-reading the asynchronously saved
+  // global "last used" value (which could still be Full access). Cleared as
+  // soon as the queued send is consumed so a later edit-driven remount does not
+  // reset the composer to the chat's first permission.
+  const [handoffPermissionMode, setHandoffPermissionMode] = useState<PermissionMode | undefined>(() => {
+    try {
+      const raw = sessionStorage.getItem("alongside_pending_message");
+      if (!raw) return undefined;
+      const pending = JSON.parse(raw) as { sessionId?: string; permissionMode?: string };
+      if (pending.sessionId !== sessionId) return undefined;
+      return pending.permissionMode === "manual" || pending.permissionMode === "ask" || pending.permissionMode === "auto" || pending.permissionMode === "plan"
+        ? pending.permissionMode
+        : undefined;
+    } catch {
+      return undefined;
+    }
+  });
   // Lifted to AppLayout now (per explicit request -- the chat's name lives
   // in the top bar's breadcrumb, not a second bar this page rendered
   // itself). chatName is read-only here (document.title below);
@@ -1364,9 +1383,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               images?: { media_type: string; data: string }[];
               effort?: EffortLevel;
               model?: string;
+              permissionMode?: PermissionMode;
             };
             if (pending.sessionId === sessionId) {
               sessionStorage.removeItem("alongside_pending_message");
+              setHandoffPermissionMode(undefined);
               lastHumanPromptRef.current = pending.prompt;
               suppressInitialHandoffHumanEntranceRef.current = true;
               // No local sentEffortRef write here any more -- the server's own
@@ -1391,6 +1412,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                   model: pending.model ?? modelRef.current.value,
                   images: pending.images,
                   effort: pending.effort,
+                  permission_mode: pending.permissionMode,
                 }),
               }).then((response) => {
                 // POST only resolves after the human event is persisted, so
@@ -1442,6 +1464,24 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           setTurnInProgress(false);
           setWaitingPhase(null);
         }
+        return;
+      }
+
+      if (type === "provider_error") {
+        const provider = typeof event.provider === "string"
+          ? PROVIDER_NAMES[event.provider] ?? event.provider
+          : i18n.t("chat.providerFallback");
+        const detail = typeof event.detail === "string" && event.detail.trim()
+          ? event.detail.trim()
+          : i18n.t("chat.errors.providerNoDetail");
+        pushMarker(
+          event.reason === "auth"
+            ? i18n.t("chat.errors.providerAuth", { provider })
+            : i18n.t("chat.errors.providerFailed", { provider, detail })
+        );
+        awaitingReplyRef.current = false;
+        setTurnInProgress(false);
+        setWaitingPhase(null);
         return;
       }
 
@@ -2086,7 +2126,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     text: string,
     images: ImageAttachment[] = [],
     effort: EffortLevel = sentEffortRef.current,
-    editFromEventId?: number
+    editFromEventId?: number,
+    permissionMode?: PermissionMode
   ) {
     const trimmed = text.trim();
     if (!trimmed || !sessionId) return;
@@ -2129,6 +2170,10 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         // Claude today (server.rs's own SendMessageRequest comment has the same
         // reasoning), sent regardless of provider since it's harmless either way.
         effort,
+        // Exact value from this submission. Persisting the picker separately is
+        // still useful for future composers, but must not decide which mode this
+        // already-submitted turn runs with.
+        permission_mode: permissionMode,
         // Real "Edit" (server.rs's own SendMessageRequest.edit_from_event_id) --
         // branches instead of the plain append a normal send/Resend does.
         edit_from_event_id: editFromEventId,
@@ -2167,7 +2212,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     }
   }
 
-  function handleSend(images: ImageAttachment[], effort: EffortLevel) {
+  function handleSend(images: ImageAttachment[], effort: EffortLevel, permissionMode: PermissionMode) {
     const trimmed = prompt.trim();
     if (!trimmed) return;
     setPrompt("");
@@ -2212,7 +2257,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         return index === -1 ? prev : prev.slice(0, index);
       });
     }
-    void sendMessage(trimmed, images, effort, editEventId);
+    void sendMessage(trimmed, images, effort, editEventId, permissionMode);
   }
 
   async function stopTurn() {
@@ -2737,6 +2782,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           onStop={stopTurn}
           defaultModelValue={defaultModelValue}
           defaultEffortValue={defaultEffortValue}
+          defaultPermissionValue={handoffPermissionMode}
           isMultiplayer={sharedChat}
           chatId={sessionId}
           contextUsage={contextUsage}
