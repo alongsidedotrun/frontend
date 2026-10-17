@@ -164,6 +164,7 @@ const MODES: PermissionModeOption[] = [
 // ("change permissions from the standard to Plan instead of Manual,
 // Remove Ask, and Keep Auto").
 const ANTIGRAVITY_MODES: PermissionModeOption[] = [
+  { value: "plan", labelKey: "compose.planMode", descriptionKey: "compose.permission.plan.description" },
   { value: "auto", labelKey: "compose.permission.auto.label", descriptionKey: "compose.permission.auto.description" },
 ];
 
@@ -1948,16 +1949,24 @@ export function ComposeBox({
                 warning colour. */}
             {modes.map((m) => {
               const Icon = PERMISSION_ICONS[m.value];
+              const active = m.value === "plan" ? planMode : !planMode && m.value === mode;
               return (
                 <DropdownSubItem
                   key={m.value}
                   className={cn(
                     "grid h-auto grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-x-3 py-2 pr-2.5 pl-2.5 text-[12px]",
-                    m.value === mode && "bg-hover-2",
+                    active && "bg-hover-2",
                     m.value === "auto" && "text-orange-500",
                     m.value === "ask" && "text-[var(--send-button-bg)]"
                   )}
-                  onClick={() => setMode(m.value)}
+                  onClick={() => {
+                    if (m.value === "plan") {
+                      setPlanMode(true);
+                    } else {
+                      setPlanMode(false);
+                      setMode(m.value);
+                    }
+                  }}
                 >
                   <span className="flex h-5 items-center justify-center">
                     <Icon aria-hidden="true" className="size-4 shrink-0" />
