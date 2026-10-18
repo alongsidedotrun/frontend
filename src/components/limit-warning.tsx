@@ -22,24 +22,28 @@ export function LimitWarningStrip({ reading, onDismiss, placement = "top" }: { r
         <motion.div
           key="limit-warning"
           role="status"
-          // On top of a chat's composer it opens and closes; below a new chat's it fades in the
-          // Work from folder row's place (ComposeBox crossfades that slot), so the composer stays put.
+          // On top of a chat's composer it opens and closes; below a new chat's it fades in and
+          // out over the Work from folder row, which stays where it is underneath.
           initial={placement === "top" ? { opacity: 0, height: 0 } : { opacity: 0 }}
-          animate={{ opacity: 1, height: "auto", transition: spring.moderate }}
-          exit={placement === "top" ? { opacity: 0, height: 0, transition: spring.moderate.exit } : { opacity: 0, transition: spring.moderate.exit }}
+          animate={placement === "top" ? { opacity: 1, height: "auto", transition: spring.moderate } : { opacity: 1, transition: { duration: 0.2, ease: "easeInOut" } }}
+          exit={placement === "top" ? { opacity: 0, height: 0, transition: spring.moderate.exit } : { opacity: 0, transition: { duration: 0.2, ease: "easeInOut" } }}
           className={cn(
-            "relative overflow-hidden border border-amber-300/70 bg-amber-50 text-amber-900 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-200",
+            // Warning yellow leaning orange (hue ~35deg, between amber and orange). Solid in dark mode
+            // too (#F29A2E at 12% / 30% over the dark surface), so it fully covers the row beneath.
+            "relative overflow-hidden border border-[#F3C27C] bg-[#FFF2E0] text-[#8A4A0C] dark:border-[#604525] dark:bg-[#3A3022] dark:text-[#F6C489]",
             // Tucked under the composer's edge: above it in a chat, below it (and its Work from
             // folder strip) on a new chat, where the composer sits mid-page.
             placement === "top"
               ? "-mb-[var(--compose-shell-radius)] rounded-t-[var(--compose-shell-radius)] border-b-0"
-              : "-mt-[var(--compose-shell-radius)] rounded-b-[var(--compose-shell-radius)] border-t-0",
+              : // Exactly over the Work from folder row (ComposeBox puts it inside), border and all.
+                "absolute -inset-x-px top-0 -bottom-px z-[1] flex flex-col justify-end rounded-b-[var(--compose-shell-radius)] border-t-0",
           )}
         >
           <div
             className={cn(
               "flex min-h-7 items-center gap-2 px-4 text-[length:var(--redesign-chat-meta)]",
-              placement === "top" ? "pt-1.5 pb-[calc(var(--compose-shell-radius)+0.375rem)]" : "pt-[calc(var(--compose-shell-radius)+0.375rem)] pb-1.5",
+              // Below: the row's own spacing (px-4 pb-1, a min-h-7 line), so the text sits on its line.
+              placement === "top" ? "pt-1.5 pb-[calc(var(--compose-shell-radius)+0.375rem)]" : "mb-1 pr-4 pl-5",
             )}
           >
             <AlertTriangle aria-hidden="true" className="size-3.5 shrink-0" />
@@ -110,7 +114,5 @@ export function useLimitWarning(provider: string | null | undefined, placement: 
     if (found) setReading(found);
     return true;
   };
-  /** Whether the strip is showing (not below the levels, closed, or for another provider). */
-  const active = shown !== null;
-  return { notice, onEvent, active };
+  return { notice, onEvent };
 }

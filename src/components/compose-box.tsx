@@ -787,8 +787,8 @@ export function ComposeBox({
   // ChatPage-only: a strip attached to the top of the composer, above any queued messages
   // (the 5-hour limit warning).
   notice?: ReactNode;
-  // HomePage-only: the same below the composer (a new chat's composer sits mid-page), in the
-  // Work from folder row's place while it shows; the row comes back once it's closed.
+  // HomePage-only: the same below the composer (a new chat's composer sits mid-page), laid over
+  // the Work from folder row, which stays underneath and shows again once it's closed.
   noticeBelow?: ReactNode;
   queue?: {
     items: QueuedMessage[];
@@ -2488,24 +2488,10 @@ export function ComposeBox({
       </div>
     </div>
     </div>
-    {/* The limit warning (noticeBelow) and the Work from folder row share this slot: one fades
-        out before the other fades in. */}
-    <AnimatePresence initial={false} mode="wait">
-      {noticeBelow ? (
-        <motion.div
-          key="notice-below"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1, transition: { duration: 0.2, ease: "easeInOut" } }}
-          exit={{ opacity: 0, transition: { duration: 0.15, ease: "easeInOut" } }}
-        >
-          {noticeBelow}
-        </motion.div>
-      ) : showWorkFromFolder && (
+    <AnimatePresence initial={false}>
+      {showWorkFromFolder && (
         <motion.div
           key="work-from-folder"
-          // Fades back in when the limit warning that took its place is closed.
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1, transition: spring.moderate }}
           exit={{ opacity: 0, transition: spring.moderate.exit }}
           className="relative -mt-[var(--compose-shell-radius)] rounded-b-[var(--compose-shell-radius)] border border-t-0 border-border bg-[var(--redesign-compose-extension-surface)] px-4 pt-[calc(var(--compose-shell-radius)+0.25rem)] pb-1"
         >
@@ -2526,6 +2512,8 @@ export function ComposeBox({
               ))}
             </button>
           </div>
+          {/* The limit warning, laid over this row (which stays underneath). */}
+          {noticeBelow}
         </motion.div>
       )}
     </AnimatePresence>
