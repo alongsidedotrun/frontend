@@ -1428,8 +1428,11 @@ export function ComposeBox({
     const margin = 12;
     const spaceBelow = window.innerHeight - rect.bottom - margin;
     const spaceAbove = rect.top - margin;
-    // Below when it fits there; otherwise whichever side has more room.
-    const side = spaceBelow >= menuHeight || spaceBelow >= spaceAbove ? "bottom" : "top";
+    // Below whenever there's room for a useful part of it (the hint and a few
+    // commands; the rest scrolls), so a new chat's mid-page composer opens it
+    // downward like its other menus even on a short window. Up only when the
+    // composer is pinned to the bottom of a chat.
+    const side = spaceBelow >= Math.min(menuHeight, 160) ? "bottom" : "top";
     setTokenMenuSide(side);
     setTokenMenuMaxHeight(Math.max(0, Math.floor(side === "bottom" ? spaceBelow : spaceAbove)));
   }, [menu, rows.length]);
