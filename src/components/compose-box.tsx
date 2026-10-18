@@ -273,6 +273,36 @@ const SLASH_ROWS: SlashRow[] = [
   { key: "docs", command: "/docs", labelKey: "compose.command.docs", desc: "Draft a new document", icon: <DocIcon className="size-4" /> },
 ];
 
+/**
+ * The command a message starts with, as a chip shows it (icon and name): a /
+ * menu command followed by a space ("/goal ..."), or "/skill <name> " for one
+ * of `skillNames`. `prefix` is the exact text it takes up.
+ */
+export function leadingCommand(text: string, skillNames: readonly string[] = []): { prefix: string; label: string; labelKey?: string; icon: ReactNode } | null {
+  if (text.startsWith("/skill ")) {
+    const name = [...skillNames].sort((a, b) => b.length - a.length).find((skill) => text.startsWith(`/skill ${skill} `) || text === `/skill ${skill}`);
+    if (name) return { prefix: text.startsWith(`/skill ${name} `) ? `/skill ${name} ` : `/skill ${name}`, label: name, icon: <SkillIcon className="size-3.5" /> };
+  }
+  const row = SLASH_ROWS.find((candidate) => text.startsWith(`${candidate.command} `));
+  return row ? { prefix: `${row.command} `, label: row.command.slice(1), labelKey: row.labelKey, icon: row.icon } : null;
+}
+
+/** A message's text with `command` (its leading command) swapped for another, or removed. */
+function withLeadingCommand(text: string, current: { prefix: string } | null, command: string | null) {
+  const rest = (current ? text.slice(current.prefix.length) : text).trimStart();
+  return command ? `${command} ${rest}` : rest;
+}
+
+/** The chip a leading command shows as: its icon and name, in the accent blue. */
+export function CommandChip({ icon, label, className }: { icon: ReactNode; label: string; className?: string }) {
+  return (
+    <span className={cn("inline-flex h-5 items-center gap-1 rounded-[calc(20px*8/27)] bg-[color-mix(in_oklab,var(--focus-accent)_12%,transparent)] px-1.5 align-middle text-[12px] leading-none font-medium whitespace-nowrap text-[var(--focus-accent)] [&_svg]:size-3.5", className)}>
+      {icon}
+      {label}
+    </span>
+  );
+}
+
 // The last /word being typed, if any. + is gone from this (used to open
 // its own PLUS_ROWS menu) -- + is a direct attach-file action now, not a
 // menu, so there's no token-triggered menu left for it to open (see the +
@@ -1086,6 +1116,22 @@ export function ComposeBox({
   const [sentGhost, setSentGhost] = useState<{ text: string; key: number } | null>(null);
   const [queueing, setQueueing] = useQueueing();
   const { installed: installedSkills } = useSkills();
+  // A command at the start of the draft shows as a chip (icon and name) before the text, the
+  // first line indented past it; the draft itself still starts with the command, as sent.
+  const command = leadingCommand(value, installedSkills.map((skill) => skill.name));
+  const commandRef = useRef<HTMLSpanElement>(null);
+  const [commandWidth, setCommandWidth] = useState(0);
+  // Centred on the textarea's first line, wherever its padding and line height put it.
+  const [commandTop, setCommandTop] = useState(0);
+  useLayoutEffect(() => {
+    setCommandWidth(command ? (commandRef.current?.offsetWidth ?? 0) : 0);
+    const area = textareaRef.current;
+    const chip = commandRef.current;
+    if (!command || !area || !chip) return;
+    const style = getComputedStyle(area);
+    const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.5;
+    setCommandTop(area.offsetTop + parseFloat(style.paddingTop) + (lineHeight - chip.offsetHeight) / 2);
+  }, [command?.prefix, command?.label]);
   const [skillsOpen, setSkillsOpen] = useState(false);
   const navigate = useNavigate();
   const fadeOutSent = () => {
@@ -1247,16 +1293,14 @@ export function ComposeBox({
 
   // A skill, like Task and Goal, goes in front of what's already written.
   function insertSkill(name: string) {
-    const draft = value.trim();
-    onChange(draft ? `/skill ${name} ${draft}` : `/skill ${name} `);
+    onChange(withLeadingCommand(value, command, `/skill ${name}`));
     requestAnimationFrame(() => textareaRef.current?.focus());
   }
 
   // Task follows the same draft-preserving pattern as Goal: choosing it
   // turns what is already written into the task command's subject.
   function insertTask() {
-    const objective = value.trim();
-    onChange(objective ? `/task ${objective}` : "/task ");
+    onChange(withLeadingCommand(value, command, "/task"));
     requestAnimationFrame(() => textareaRef.current?.focus());
   }
 
@@ -1264,8 +1308,7 @@ export function ComposeBox({
   // Antigravity CLIs. Preserve an existing draft as its objective, matching
   // the Add panel's role as a mode applied to what the user is composing.
   function insertGoal() {
-    const objective = value.trim();
-    onChange(objective ? `/goal ${objective}` : "/goal ");
+    onChange(withLeadingCommand(value, command, "/goal"));
     requestAnimationFrame(() => textareaRef.current?.focus());
   }
 
@@ -1301,8 +1344,10 @@ export function ComposeBox({
     // The menu presents human-readable labels ("Clear", "Share", ...),
     // while selection inserts the underlying slash command into the draft.
     // Execution still happens only when the user sends it.
+    // The command leads the message (shown as a chip), whatever was already typed after it.
     const start = token ? token.start : value.length;
-    onChange(`${value.slice(0, start)}${row.command} `);
+    const typed = value.slice(0, start);
+    onChange(withLeadingCommand(typed, leadingCommand(typed, installedSkills.map((skill) => skill.name)), row.command));
     setDismissed(true);
     textareaRef.current?.focus();
   }
@@ -1754,16 +1799,28 @@ export function ComposeBox({
               <AnimatedPlaceholder messages={[placeholder, ...placeholderCycle]} />
             </div>
           )}
+        {command && (
+          <span ref={commandRef} style={{ top: commandTop }} className="pointer-events-none absolute left-1 z-[1] flex">
+            <CommandChip icon={command.icon} label={command.labelKey ? t(command.labelKey) : command.label} />
+          </span>
+        )}
         <Textarea
           ref={textareaRef}
-          value={value}
+          value={command ? value.slice(command.prefix.length) : value}
+          style={commandWidth ? { textIndent: commandWidth + 6 } : undefined}
           onChange={(event) => {
-            onChange(event.target.value);
+            onChange((command?.prefix ?? "") + event.target.value);
             setDismissed(false);
           }}
           onFocus={() => setTextareaFocused(true)}
           onBlur={() => setTextareaFocused(false)}
           onKeyDown={(event) => {
+            // Backspace at the very start removes the command chip.
+            if (command && event.key === "Backspace" && event.currentTarget.selectionStart === 0 && event.currentTarget.selectionEnd === 0) {
+              event.preventDefault();
+              onChange(value.slice(command.prefix.length));
+              return;
+            }
             if (menu && rows.length > 0) {
               if (event.key === "ArrowDown" || event.key === "ArrowUp") {
                 event.preventDefault();
