@@ -1,17 +1,14 @@
 import { useSyncExternalStore } from "react";
 
-// Skills: reusable instructions an agent can be given. There is no backend for
-// them yet, so the catalog below is placeholder content (English only, like
-// content from a server would be) and installed skills live in this browser.
-// Settings > Skills manages them; the composer's + menu offers the installed ones.
-
-export type SkillGroup = "recommended" | "new" | "popular";
+// Skills: reusable instructions an agent can be given. Discover and Browse
+// skills come from skills.sh (src/lib/skills-sh.ts); the skills you add (from
+// skills.sh, or your own .md files) live in this browser until skills have a
+// backend. Settings > Skills manages them; the composer's + menu offers them.
 
 export interface SkillPublisher {
   name: string;
-  /** A logo under /public; without one the card shows the name's first letter. */
+  /** A logo; without one the card shows the name's first letter. */
   icon?: string;
-  invertInDark?: boolean;
 }
 
 export interface Skill {
@@ -19,33 +16,18 @@ export interface Skill {
   name: string;
   description: string;
   publisher: SkillPublisher;
-  /** Catalog skills only. */
-  group?: SkillGroup;
-  /** Added or imported here: its own instructions. */
   instructions?: string;
+  /** Added from skills.sh: source/skillId, its page there. */
+  source?: string;
 }
 
-// skills.sh, Vercel's open directory of agent skills. Browse skills searches it
-// through the backend (skills_sh.rs); its pages are linked from results.
+// skills.sh, Vercel's open directory of agent skills.
 export const SKILLS_SH = "https://www.skills.sh";
 
-
-const ALONGSIDE: SkillPublisher = { name: "Alongside", icon: "/alongside-mark.svg" };
 const YOU: SkillPublisher = { name: "You" };
 
-export const SKILL_CATALOG: readonly Skill[] = [
-  { id: "code-review", group: "recommended", name: "Code review", description: "Reviews each change before it lands, flagging risky diffs, missing tests and unclear naming.", publisher: { name: "GitHub", icon: "/icons/providers/github.svg", invertInDark: true } },
-  { id: "meeting-prep", group: "recommended", name: "Meeting prep", description: "Before each call, reads the related docs, notes and past chats and writes a one-page brief.", publisher: { name: "Claude", icon: "/icons/providers/claude.svg" } },
-  { id: "weekly-summary", group: "recommended", name: "Weekly summary", description: "Every Friday, sums up what each chat and project moved forward, with links back to them.", publisher: ALONGSIDE },
-  { id: "translation", group: "new", name: "Translation", description: "Translates docs and replies across 12 languages, keeping your tone and your terms.", publisher: { name: "Mistral", icon: "/icons/providers/mistral.svg" } },
-  { id: "research-brief", group: "new", name: "Research brief", description: "Researches a topic on the web and returns sources, key numbers and open questions.", publisher: { name: "Perplexity", icon: "/icons/providers/perplexity.svg" } },
-  { id: "sheet-cleanup", group: "new", name: "Sheet cleanup", description: "Tidies a spreadsheet: fixes column types, removes duplicates and adds a summary tab.", publisher: { name: "Google Sheets", icon: "/icons/google-sheets.svg" } },
-  { id: "release-notes", group: "popular", name: "Release notes", description: "Turns merged changes into release notes grouped by feature, fix and breaking change.", publisher: { name: "OpenAI", icon: "/icons/providers/chatgpt.svg", invertInDark: true } },
-  { id: "doc-drafts", group: "popular", name: "Doc drafts", description: "Drafts a document from the chat so far, with headings, decisions and next steps.", publisher: { name: "Google Docs", icon: "/icons/google-docs.svg" } },
-  { id: "bug-triage", group: "popular", name: "Bug triage", description: "Reproduces a reported bug, finds the likely cause and proposes a fix with a test.", publisher: { name: "Codex", icon: "/icons/providers/codex.svg", invertInDark: true } },
-];
-
 interface SkillsState {
+  /** Ids from the old placeholder catalog; no longer read. */
   installed: string[];
   custom: Skill[];
 }
@@ -80,26 +62,18 @@ function subscribe(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
-/** Installed skills (catalog ones, then your own), kept in step everywhere they show. */
+/** The skills you've added, kept in step everywhere they show. */
 export function useSkills() {
   const current = useSyncExternalStore(subscribe, read);
-  const installed = [
-    ...SKILL_CATALOG.filter((skill) => current.installed.includes(skill.id)),
-    ...current.custom,
-  ];
   return {
-    installed,
-    isInstalled: (id: string) => current.installed.includes(id) || current.custom.some((skill) => skill.id === id),
-    install: (id: string) => {
-      const now = read();
-      if (!now.installed.includes(id)) write({ ...now, installed: [...now.installed, id] });
-    },
+    installed: current.custom,
+    isInstalled: (id: string) => current.custom.some((skill) => skill.id === id),
     remove: (id: string) => {
       const now = read();
-      write({ installed: now.installed.filter((item) => item !== id), custom: now.custom.filter((skill) => skill.id !== id) });
+      write({ ...now, custom: now.custom.filter((skill) => skill.id !== id) });
     },
-    /** Your own skill, or one from skills.sh (its own id and publisher; added once). */
-    addCustom: (skill: { name: string; description: string; instructions: string; id?: string; publisher?: SkillPublisher }) => {
+    /** Your own skill, or one from skills.sh (its own id, publisher and source; added once). */
+    addCustom: (skill: { name: string; description: string; instructions: string; id?: string; publisher?: SkillPublisher; source?: string }) => {
       const now = read();
       if (skill.id && now.custom.some((item) => item.id === skill.id)) return;
       write({ ...now, custom: [...now.custom, { ...skill, id: skill.id ?? `custom-${crypto.randomUUID()}`, publisher: skill.publisher ?? YOU }] });
