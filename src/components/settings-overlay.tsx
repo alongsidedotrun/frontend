@@ -2351,7 +2351,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
                 }
               }}
               placeholder={t("settings.search.placeholder")}
-              className="h-full rounded-[var(--redesign-control-radius)] border-[var(--redesign-sidebar-border)] bg-transparent pr-[var(--redesign-quick-actions-padding)] pl-[calc(var(--redesign-quick-actions-padding)+var(--redesign-quick-actions-command-icon-size)+var(--redesign-quick-actions-shortcut-gap)+0.5rem+var(--redesign-quick-actions-icon-gap))] text-[length:var(--redesign-sidebar-primary-font-size)] font-normal text-foreground placeholder:text-muted-foreground placeholder:opacity-100 placeholder:transition-opacity placeholder:duration-200 hover:bg-muted/50 focus:placeholder:opacity-0 focus-visible:border-focus-accent md:text-[length:var(--redesign-sidebar-primary-font-size)]"
+              className="h-full rounded-[var(--redesign-control-radius)] border-[var(--redesign-sidebar-border)] bg-transparent pr-[var(--redesign-quick-actions-padding)] pl-[calc(var(--redesign-quick-actions-padding)+var(--redesign-quick-actions-command-icon-size)+var(--redesign-quick-actions-shortcut-gap)+0.5rem+var(--redesign-quick-actions-icon-gap))] text-[length:var(--redesign-sidebar-primary-font-size)] font-normal text-foreground placeholder:text-muted-foreground placeholder:opacity-100 placeholder:transition-opacity placeholder:duration-200 hover:bg-muted/50 transition-[padding,border-color,background-color] duration-200 ease-in-out focus:pl-[var(--redesign-quick-actions-padding)] focus:placeholder:opacity-0 focus-visible:border-focus-accent motion-reduce:transition-none md:text-[length:var(--redesign-sidebar-primary-font-size)]"
             />
           </div>
 

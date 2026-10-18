@@ -184,7 +184,8 @@ export function SkillsSection() {
               onChange={(event) => setQuery(event.target.value)}
               placeholder={tab === "discover" ? t("skills.browse.placeholder") : t("skills.search")}
               aria-label={t("skills.search")}
-              className="h-7 border border-border pl-8 text-[length:var(--redesign-chat-meta)] shadow-none placeholder:transition-opacity placeholder:duration-200 focus:placeholder:opacity-0 focus-visible:border-focus-accent dark:border-border dark:focus-visible:border-focus-accent"
+              // Focused, the text starts at the left edge: the icon's room goes with the icon.
+              className="h-7 border border-border pl-8 text-[length:var(--redesign-chat-meta)] shadow-none transition-[padding,border-color] duration-200 ease-in-out placeholder:transition-opacity placeholder:duration-200 focus:pl-2.5 focus:placeholder:opacity-0 focus-visible:border-focus-accent motion-reduce:transition-none dark:border-border dark:focus-visible:border-focus-accent"
             />
           </div>
           {tab === "discover" && (
