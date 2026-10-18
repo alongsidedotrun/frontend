@@ -1941,8 +1941,16 @@ export function ComposeBox({
                 </span>
                 <ChevronDownIcon aria-hidden="true" className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform duration-150", skillsOpen && "rotate-180")} />
               </DropdownSubItem>
+              {/* Slides open under the row (height and fade), not a snap. */}
+              <AnimatePresence initial={false}>
               {skillsOpen && (
-                <>
+                <motion.div
+                  key="skills"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1, transition: { duration: 0.22, ease: [0.22, 1, 0.36, 1] } }}
+                  exit={{ height: 0, opacity: 0, transition: { duration: 0.16, ease: [0.4, 0, 1, 1] } }}
+                  className="overflow-hidden"
+                >
                   {installedSkills.length === 0 ? (
                     <div className="flex h-8 items-center pl-[34px] text-[12px] text-ink-3">{t("compose.skills.none")}</div>
                   ) : (
@@ -1955,8 +1963,9 @@ export function ComposeBox({
                   <DropdownSubItem className="flex h-8 items-center gap-2.5 text-[12px] text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground pl-[34px]" onClick={() => navigate("/settings/skills")}>
                     {t("compose.skills.browse")}
                   </DropdownSubItem>
-                </>
+                </motion.div>
               )}
+              </AnimatePresence>
               <DropdownSubItem className="h-8 items-center gap-2.5 text-[12px] text-ink-2 transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground" onClick={insertTask}>
                 <TaskIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="flex min-w-0 flex-1 items-baseline gap-3">
