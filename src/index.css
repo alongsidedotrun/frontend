@@ -308,8 +308,9 @@
   --redesign-sidebar-elevated-shadow: none;
   --redesign-sidebar-footer-onboarding-shadow: none;
   --redesign-sidebar-overlay-surface: #212121;
-  /* Same as Getting started in dark mode. */
-  --redesign-quick-actions-surface: var(--redesign-getting-started-surface);
+  /* Quick actions belongs to the sidebar base; its border and hover state
+     provide separation without introducing a second resting surface. */
+  --redesign-quick-actions-surface: var(--redesign-sidebar-surface);
   --redesign-getting-started-surface: var(--redesign-sidebar-overlay-surface);
   /* Inactive accent (Getting Started ring, inactive send) in dark mode:
      the accent lightened toward white first, so it reads as a pale blue on
@@ -2195,4 +2196,3 @@ html.transitioning *, html.transitioning *::before, html.transitioning *::after 
   vector-effect: non-scaling-stroke;
   stroke-width: 1px;
 }
-
