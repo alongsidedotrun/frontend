@@ -1928,6 +1928,36 @@ export const translations = {
     zh: "将其转换为任务列表",
     ja: "タスクリストに変換します",
   },
+  "compose.command.subtask": {
+    en: "Subtask", "pt-BR": "Subtarefa", es: "Subtarea", fr: "Sous-tâche", de: "Unteraufgabe", zh: "子任务", ja: "サブタスク",
+  },
+  "compose.subtaskDescription": {
+    en: "Add a subtask to the active task",
+    "pt-BR": "Adicione uma subtarefa à tarefa ativa",
+    es: "Añade una subtarea a la tarea activa",
+    fr: "Ajoutez une sous-tâche à la tâche active",
+    de: "Füge der aktiven Aufgabe eine Unteraufgabe hinzu",
+    zh: "向当前任务添加子任务",
+    ja: "進行中のタスクにサブタスクを追加します",
+  },
+  "chat.tasks.title": {
+    en: "Tasks", "pt-BR": "Tarefas", es: "Tareas", fr: "Tâches", de: "Aufgaben", zh: "任务", ja: "タスク",
+  },
+  "chat.tasks.count": {
+    en: "{{done}} of {{total}}", "pt-BR": "{{done}} de {{total}}", es: "{{done}} de {{total}}", fr: "{{done}} sur {{total}}", de: "{{done}} von {{total}}", zh: "{{done}} / {{total}}", ja: "{{done}} / {{total}}",
+  },
+  "chat.tasks.pause": {
+    en: "Pause task", "pt-BR": "Pausar tarefa", es: "Pausar tarea", fr: "Mettre la tâche en pause", de: "Aufgabe pausieren", zh: "暂停任务", ja: "タスクを一時停止",
+  },
+  "chat.tasks.subtask.pickedUp": {
+    en: "Picked up", "pt-BR": "Retomada", es: "Retomada", fr: "Prise en compte", de: "Übernommen", zh: "已接手", ja: "対応中",
+  },
+  "chat.tasks.subtask.interrupted": {
+    en: "Interrupted", "pt-BR": "Interrompida", es: "Interrumpida", fr: "Interrompue", de: "Unterbrochen", zh: "已中断", ja: "中断済み",
+  },
+  "chat.tasks.subtask.completed": {
+    en: "Completed", "pt-BR": "Concluída", es: "Completada", fr: "Terminée", de: "Abgeschlossen", zh: "已完成", ja: "完了",
+  },
   "compose.command.docs": {
     en: "Docs", "pt-BR": "Documentos", es: "Documentos", fr: "Documents", de: "Dokumente", zh: "文档", ja: "ドキュメント",
   },

@@ -57,6 +57,11 @@ import { lastUsedReady, loadLastContext, loadLastModel, saveLastContext, saveLas
 import { StreamingText } from "@/components/streaming-text";
 import { ThinkingState } from "@/components/thinking-state";
 import { ThinkingReasoning } from "@/components/thinking-reasoning";
+import {
+  TaskProgressPanel,
+  type TaskProgressItem,
+  type TaskProgressStatus,
+} from "@/components/design-system/task-progress";
 
 // A real agent reply now shows its own provider's mark (ProviderIcon, same as every
 // other place in this app a model icon renders), not always AlongsideLogo -- per
@@ -177,6 +182,53 @@ type ChatRow =
       status: "pending" | "allow" | "deny" | "cancelled" | "timed_out";
     }
   | { kind: "marker"; id: string; text: string };
+
+type ActiveTaskList = {
+  title: string;
+  tasks: TaskProgressItem[];
+};
+
+function normalizeTaskStatus(value: unknown): TaskProgressStatus {
+  if (value === "completed" || value === "done") return "completed";
+  if (value === "inProgress" || value === "in_progress" || value === "running") return "inProgress";
+  return "pending";
+}
+
+function normalizeTaskList(
+  tasks: unknown,
+  previous: ActiveTaskList | null,
+  title = i18n.t("chat.tasks.title"),
+): ActiveTaskList | null {
+  if (!Array.isArray(tasks)) return null;
+  const occurrences = new Map<string, number>();
+  const normalized = tasks.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") return [];
+    const record = entry as Record<string, unknown>;
+    const task = typeof record.task === "string" ? record.task.trim() : typeof record.content === "string" ? record.content.trim() : "";
+    if (!task) return [];
+    const occurrence = (occurrences.get(task) ?? 0) + 1;
+    occurrences.set(task, occurrence);
+    const id = `${task}:${occurrence}`;
+    const old = previous?.tasks.find((candidate) => candidate.id === id);
+    return [{ id, title: task, status: normalizeTaskStatus(record.status), subtasks: old?.subtasks } satisfies TaskProgressItem];
+  });
+  return normalized.length ? { title, tasks: normalized } : null;
+}
+
+function normalizeClaudeTodos(input: unknown, previous: ActiveTaskList | null): ActiveTaskList | null {
+  if (!input || typeof input !== "object") return null;
+  const todos = (input as Record<string, unknown>).todos;
+  if (!Array.isArray(todos)) return null;
+  return normalizeTaskList(
+    todos.map((todo) => {
+      if (!todo || typeof todo !== "object") return todo;
+      const record = todo as Record<string, unknown>;
+      const content = record.status === "in_progress" ? record.activeForm ?? record.content : record.content ?? record.activeForm;
+      return { task: content, status: record.status };
+    }),
+    previous,
+  );
+}
 
 // Same idea as dray's own ToolCall.tsx SUMMARY_FIELDS -- the one input field most
 // worth showing inline for a given tool, so a tool row reads as "Read app.py" or
@@ -424,6 +476,35 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   const [chatHeaderName, setChatHeaderName] = useState(contextLabel ?? chatName);
   const [headerProjects, setHeaderProjects] = useState<Array<{ id: string; name: string }>>([]);
   const [rows, setRows] = useState<ChatRow[]>([]);
+  const [activeTaskList, setActiveTaskList] = useState<ActiveTaskList | null>(null);
+
+  function addTaskSubtask(text: string, status: "pending" | "pickedUp" = "pending") {
+    const title = text.replace(/^\/subtask\s*/i, "").trim();
+    if (!title) return;
+    setActiveTaskList((current) => {
+      if (!current) return current;
+      const activeIndex = current.tasks.findIndex((task) => task.status === "inProgress");
+      const targetIndex = activeIndex >= 0 ? activeIndex : Math.max(current.tasks.length - 1, 0);
+      return {
+        ...current,
+        tasks: current.tasks.map((task, index) =>
+          index === targetIndex
+            ? {
+                ...task,
+                subtasks: [
+                  ...(task.subtasks ?? []).map((subtask) =>
+                    status === "pickedUp" && subtask.status === "pickedUp"
+                      ? { ...subtask, status: "interrupted" as const }
+                      : subtask,
+                  ),
+                  { id: crypto.randomUUID(), title, status },
+                ],
+              }
+            : task,
+        ),
+      };
+    });
+  }
 
   useEffect(() => {
     setChatHeaderName(contextLabel ?? chatName);
@@ -1282,6 +1363,17 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         return;
       }
 
+      // Codex's native update_plan lifecycle is normalized by the backend to
+      // this provider-neutral event. It is recorded like every other chat
+      // event, so reconnect/history replay reconstructs the same task panel.
+      if (type === "task_list_updated") {
+        const title = typeof event.explanation === "string" && event.explanation.trim()
+          ? event.explanation.trim()
+          : i18n.t("chat.tasks.title");
+        setActiveTaskList((current) => normalizeTaskList(event.tasks, current, title));
+        return;
+      }
+
       // Real bug, confirmed via a real transcript (a raw {"type":"user",...}
       // tool_result blob showing up as visible chat text): the Claude Agent
       // SDK's own "user" message type echoes a completed tool call's own
@@ -1845,6 +1937,14 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               // survives in the same hidden, expandable list.
               if (query) addLiveToolCallLine("WebSearch", query);
             } else if (block.type === "tool_use" && block.name) {
+              // Claude's native TodoWrite call already carries the complete
+              // current snapshot. Normalize that instead of displaying the
+              // provider's internal tool name as a generic work trace.
+              if (block.name === "TodoWrite") {
+                setActiveTaskList((current) => normalizeClaudeTodos(block.input, current));
+                setWaitingPhase("working");
+                continue;
+              }
               // summary/input real, not fabricated -- summarizeToolInput (this
               // file's own, above) reads the block's own real input fields; input
               // itself is kept on the row too so ChatRowView can show the full raw
@@ -2215,6 +2315,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   function handleSend(images: ImageAttachment[], effort: EffortLevel, permissionMode: PermissionMode) {
     const trimmed = prompt.trim();
     if (!trimmed) return;
+    if (/^\/subtask(?:\s|$)/i.test(trimmed)) addTaskSubtask(trimmed);
     setPrompt("");
     if (trimmed === "/summarize") {
       if (!sessionId) return;
@@ -2760,6 +2861,14 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         ) : sharedChat ? (
           <AgentModeSwitch justChat={justChat} onChange={setJustChat} />
         ) : null}
+        {activeTaskList ? (
+          <TaskProgressPanel
+            title={activeTaskList.title}
+            tasks={activeTaskList.tasks}
+            running={turnInProgress}
+            onPause={turnInProgress ? () => void stopTurn() : undefined}
+          />
+        ) : null}
         <ComposeBox
           // Forces a remount whenever a *new* edit starts (editMessage's
           // own comment above has the full reasoning) -- ComposeBox's own
@@ -2846,6 +2955,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               ? (text: string) => {
                   const trimmed = text.trim();
                   if (!trimmed || !sessionId) return;
+                  if (/^\/subtask(?:\s|$)/i.test(trimmed)) addTaskSubtask(trimmed, "pickedUp");
                   void fetch(`/sessions/${sessionId}/steer`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
