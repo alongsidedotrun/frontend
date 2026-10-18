@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowUpRight, Check, File02, FilterLines, Plus, SearchMd, Stars02, SwitchVertical01 } from "@untitledui/icons";
+import { ArrowUpRight, Check, File02, FilterLines, Loading02, Plus, SearchMd, Stars02, SwitchVertical01 } from "@untitledui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
@@ -9,7 +9,7 @@ import { MenuItem } from "@/components/ui/menu-item";
 import { ShapeProvider } from "@/lib/shape-context";
 import { ShellDialog, ShellDialogActions, ShellField, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
 import { readSkillFile, SKILLS_SH, useSkills, type Skill } from "@/lib/skills";
-import { compactCount, installedIdFor, loadSkillsShList, loadSkillsShOfficial, searchSkillsSh, skillOwner, useAddRemoteSkill, type OfficialCompany, type RemoteSkill, type SkillsShView } from "@/lib/skills-sh";
+import { cachedSkillsShSearch, compactCount, installedIdFor, loadSkillsShList, loadSkillsShOfficial, searchSkillsSh, skillOwner, useAddRemoteSkill, type OfficialCompany, type RemoteSkill, type SkillsShView } from "@/lib/skills-sh";
 import { cn } from "@/lib/utils";
 
 // Discover's sections after Official, from skills.sh's own lists (and its pages, for See all).
@@ -46,6 +46,8 @@ export function SkillsSection() {
   const [sort, setSort] = useState<Sort>("featured");
   const [lists, setLists] = useState<Record<SkillsShView, Loaded<RemoteSkill[]>>>({ trending: "loading", hot: "loading", "all-time": "loading" });
   const [results, setResults] = useState<Loaded<RemoteSkill[]> | null>(null);
+  // A search is on its way; the results on screen stay until it lands.
+  const [searching, setSearching] = useState(false);
   const [official, setOfficial] = useState<Loaded<OfficialCompany[]>>("loading");
   // Add skill: pick a Markdown file, then name and describe it in the dialog.
   const fileRef = useRef<HTMLInputElement>(null);
@@ -66,15 +68,33 @@ export function SkillsSection() {
   useEffect(() => {
     if (tab !== "discover" || needle.length < 2) {
       setResults(null);
+      setSearching(false);
       return;
     }
-    setResults("loading");
+    // Made before this session: straight away, no wait.
+    const cached = cachedSkillsShSearch(needle);
+    if (cached) {
+      setResults(cached);
+      setSearching(false);
+      return;
+    }
+    // Otherwise the current results stay on screen (narrowed to what's typed, below) while
+    // skills.sh answers; placeholders only when there's nothing to show yet.
+    setSearching(true);
+    setResults((current) => (Array.isArray(current) ? current : "loading"));
     const controller = new AbortController();
     const timer = setTimeout(() => {
       void searchSkillsSh(needle, controller.signal)
-        .then(setResults)
-        .catch(() => !controller.signal.aborted && setResults("error"));
-    }, 250);
+        .then((found) => {
+          setResults(found);
+          setSearching(false);
+        })
+        .catch(() => {
+          if (controller.signal.aborted) return;
+          setResults("error");
+          setSearching(false);
+        });
+    }, 200);
     return () => {
       clearTimeout(timer);
       controller.abort();
@@ -82,6 +102,11 @@ export function SkillsSection() {
   }, [tab, needle]);
 
   const keep = (skill: RemoteSkill) => !officialOnly || skill.isOfficial;
+  // While a search is on its way, the results on screen narrow to what's typed at once.
+  const lowerNeedle = needle.toLowerCase();
+  const shownResults = Array.isArray(results)
+    ? (searching ? results.filter((skill) => `${skill.name} ${skill.source}`.toLowerCase().includes(lowerNeedle)) : results).filter(keep)
+    : results;
   const installed = sortSkills(
     skills.installed.filter((skill) => !needle || `${skill.name} ${skill.description} ${skill.publisher.name}`.toLowerCase().includes(needle.toLowerCase())),
     sort === "installs" ? "featured" : sort,
@@ -144,7 +169,11 @@ export function SkillsSection() {
         </ShapeProvider>
         <div className="flex min-w-0 items-center gap-2">
           <div className="relative w-48 min-w-0">
-            <SearchMd aria-hidden="true" className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            {searching ? (
+              <Loading02 aria-hidden="true" className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 animate-spin text-muted-foreground" />
+            ) : (
+              <SearchMd aria-hidden="true" className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            )}
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -191,14 +220,16 @@ export function SkillsSection() {
       ) : results !== null ? (
         <section className="mt-8">
           <h3 className="mb-2.5 text-[length:var(--redesign-font-size-compact)] text-muted-foreground">{t("skills.results")}</h3>
-          {results === "loading" ? (
+          {shownResults === "loading" || (searching && shownResults?.length === 0) ? (
             <SkillGrid>{Array.from({ length: 6 }, (_, i) => <CardPlaceholder key={i} />)}</SkillGrid>
-          ) : results === "error" ? (
+          ) : shownResults === "error" ? (
             <EmptyState>{t("skills.browse.error")}</EmptyState>
-          ) : results.filter(keep).length === 0 ? (
+          ) : !shownResults || shownResults.length === 0 ? (
             <EmptyState>{t("skills.browse.none", { query: needle })}</EmptyState>
           ) : (
-            <SkillGrid>{sortSkills(results.filter(keep), sort).map(remoteCard)}</SkillGrid>
+            <div className={cn("transition-opacity duration-150", searching && "opacity-70")}>
+              <SkillGrid>{sortSkills(shownResults, sort).map(remoteCard)}</SkillGrid>
+            </div>
           )}
         </section>
       ) : (

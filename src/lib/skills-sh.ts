@@ -101,10 +101,19 @@ export function loadSkillsShOfficial(): Promise<OfficialCompany[]> {
   return official;
 }
 
+// Searches already made this session, so typing back over one is instant.
+const searches = new Map<string, RemoteSkill[]>();
+
+/** A finished search for `query`, if this session already made it. */
+export const cachedSkillsShSearch = (query: string) => searches.get(query.toLowerCase());
+
 /** skills.sh search; it needs at least two characters. */
 export async function searchSkillsSh(query: string, signal?: AbortSignal): Promise<RemoteSkill[]> {
-  const results = await getJson<Wire[]>(`/skills-sh/search?q=${encodeURIComponent(query)}`, signal);
-  return results.map(fromWire);
+  const cached = cachedSkillsShSearch(query);
+  if (cached) return cached;
+  const results = (await getJson<Wire[]>(`/skills-sh/search?q=${encodeURIComponent(query)}`, signal)).map(fromWire);
+  searches.set(query.toLowerCase(), results);
+  return results;
 }
 
 const details = new Map<string, Promise<RemoteSkillDetail>>();
