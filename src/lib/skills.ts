@@ -25,6 +25,12 @@ export interface Skill {
   instructions?: string;
 }
 
+// skills.sh, Vercel's open directory of agent skills. Its API needs a Vercel
+// OIDC token (server-side, on Vercel only), so for now the app links to it.
+export const SKILLS_SH = "https://www.skills.sh";
+export const skillsShSearchUrl = (query: string) => `${SKILLS_SH}/search?q=${encodeURIComponent(query)}`;
+
+
 const ALONGSIDE: SkillPublisher = { name: "Alongside", icon: "/favicon.svg" };
 const YOU: SkillPublisher = { name: "You" };
 
@@ -101,18 +107,19 @@ export function useSkills() {
 }
 
 /**
- * A SKILL.md (Claude's skill format): YAML front matter with a name and a
- * description, then the instructions. Null when either is missing.
+ * A skill file (.md) for Add skill: its name is the first "# " heading
+ * (or the front matter's name, or the file name), its description the front
+ * matter's if it has one (the person adds it otherwise), and the rest of the
+ * file is the instructions.
  */
-export function parseSkillFile(text: string): { name: string; description: string; instructions: string } | null {
-  const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/.exec(text.trimStart());
-  if (!match) return null;
+export function readSkillFile(text: string, fileName: string): { name: string; description: string; instructions: string } {
+  const frontMatter = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(text.trimStart());
   const field = (key: string) => {
-    const line = new RegExp(`^${key}:\\s*(.+)$`, "m").exec(match[1]);
+    const line = frontMatter && new RegExp(`^${key}:\\s*(.+)$`, "m").exec(frontMatter[1]);
     return line ? line[1].trim().replace(/^["']|["']$/g, "") : "";
   };
-  const name = field("name");
-  const description = field("description");
-  if (!name || !description) return null;
-  return { name, description, instructions: match[2].trim() };
+  const body = (frontMatter ? text.trimStart().slice(frontMatter[0].length) : text).trim();
+  const heading = /^#\s+(.+?)\s*#*\s*$/m.exec(body);
+  const name = heading?.[1] ?? (field("name") || fileName.replace(/\.md$/i, ""));
+  return { name, description: field("description"), instructions: body };
 }
