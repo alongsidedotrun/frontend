@@ -72,7 +72,8 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
   const selectedModelsRef = useRef<typeof QUICK_CHAT_MODELS>([]);
   // The selected model's provider, for the 5-hour limit warning on top of the composer.
   const [modelProvider, setModelProvider] = useState<string | null>(null);
-  const limitWarning = useLimitWarning(modelProvider);
+  // Below the composer here: a new chat's composer sits mid-page.
+  const limitWarning = useLimitWarning(modelProvider, "bottom");
   // ComposeBox's own "Set as default for new chat" (compose-box.tsx's own
   // onPinDefaultModel/onPinDefaultEffort props) -- there's no chat yet for
   // that to write a real per-chat default to, so it lands here instead,
@@ -341,7 +342,7 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
             selectedModelsRef.current = models;
             setModelProvider(models[0]?.provider ?? null);
           }}
-          notice={limitWarning.notice}
+          noticeBelow={limitWarning.notice}
         />
         </div>
       </div>

@@ -686,6 +686,7 @@ export function ComposeBox({
   onSteer,
   queue,
   notice,
+  noticeBelow,
   autocompactValue,
   onSetAutocompact,
 }: {
@@ -786,6 +787,9 @@ export function ComposeBox({
   // ChatPage-only: a strip attached to the top of the composer, above any queued messages
   // (the 5-hour limit warning).
   notice?: ReactNode;
+  // HomePage-only: the same, attached below the composer (and its Work from folder strip),
+  // since a new chat's composer sits mid-page.
+  noticeBelow?: ReactNode;
   queue?: {
     items: QueuedMessage[];
     onAdd: (message: Omit<QueuedMessage, "id">) => void;
@@ -2489,7 +2493,7 @@ export function ComposeBox({
         <motion.div
           key="work-from-folder"
           exit={{ opacity: 0, transition: spring.moderate.exit }}
-          className="relative -mt-[var(--compose-shell-radius)] rounded-b-[var(--compose-shell-radius)] border border-t-0 border-border bg-[var(--redesign-compose-extension-surface)] px-4 pt-[calc(var(--compose-shell-radius)+0.25rem)] pb-1"
+          className="relative z-[1] -mt-[var(--compose-shell-radius)] rounded-b-[var(--compose-shell-radius)] border border-t-0 border-border bg-[var(--redesign-compose-extension-surface)] px-4 pt-[calc(var(--compose-shell-radius)+0.25rem)] pb-1"
         >
           <div className="flex min-h-7 items-center justify-between gap-3 px-1 text-[11px] text-foreground/75">
             <button type="button" aria-label={t("compose.workFromFolder")} onClick={onSelectWorkFromFolder} className="-ml-1 flex h-6 min-w-0 items-center gap-1 rounded-[calc(24px*8/27)] px-1 text-left transition-colors hover:bg-hover-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/10">
@@ -2511,6 +2515,7 @@ export function ComposeBox({
         </motion.div>
       )}
     </AnimatePresence>
+    {noticeBelow}
     </div>
   );
 }
