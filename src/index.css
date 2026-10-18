@@ -1451,6 +1451,42 @@
   .t-text-swap { transition: none !important; }
 }
 
+/* Sliding text: a name cut off with an ellipsis slides left while its row
+   is hovered (or focused), to show the rest, like Codex's sidebar.
+   Usage (src/components/ui/sliding-text.tsx sets the variables):
+     <button data-slide-trigger> … <span class="t-slide" data-overflow
+       style="--slide: -48px; --slide-dur: 1.2s">Long name</span></button>
+   Only text that overflows moves; it starts after a short pause, runs at
+   an even pace, and eases back on leave (the ellipsis returns). */
+.t-slide {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+}
+/* The moving line carries the ellipsis itself (an ellipsis can't sit on a
+   transformed inline box inside the clip), and lets it go while sliding. */
+.t-slide > span {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transform: translateX(0);
+  transition: transform 220ms ease-out;
+}
+:is([data-slide-trigger]:hover, [data-slide-trigger]:focus-visible) .t-slide[data-overflow] {
+  /* Soft edges while it moves, so the text doesn't cut off hard. */
+  mask-image: linear-gradient(to right, transparent, #000 8px, #000 calc(100% - 8px), transparent);
+}
+:is([data-slide-trigger]:hover, [data-slide-trigger]:focus-visible) .t-slide[data-overflow] > span {
+  overflow: visible;
+  text-overflow: clip;
+  transform: translateX(var(--slide));
+  transition: transform var(--slide-dur) linear 300ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-slide > span { transition: none !important; transform: none !important; }
+}
+
 /* Transitions.dev — Skeleton loader and reveal */
 /*
   Usage (src/components/ui/skeleton-reveal.tsx drives it):
