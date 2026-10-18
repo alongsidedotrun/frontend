@@ -41,9 +41,10 @@ function tileRadiusPx(size: WorkspaceBrandIconSize) {
 // box (75%), leaving an 8-unit (12.5%) safe area on every side.
 // The Alongside workspace's stored logo is the app's favicon, a finished app
 // icon with its own rounded corners, outline and highlight. Inside this tile,
-// which rounds and edges a logo itself, it's drawn from the flat mark instead.
-const APP_FAVICON = "/favicon.svg";
-const APP_MARK = "/alongside-mark.svg";
+// which rounds a logo itself, the mark is drawn inline instead (the flat
+// public/alongside-mark.svg, as shapes): as an <image>, Safari rasterises a
+// nested SVG at a low resolution and its edges come out soft.
+const APP_LOGOS = new Set(["/favicon.svg", "/alongside-mark.svg"]);
 
 const TILE = 64;
 const INSET = 8;
@@ -114,9 +115,14 @@ export function WorkspaceBrandIcon({
       className={cn("block shrink-0", SIZE_CLASS[size], className)}
     >
       <rect
-        width={TILE}
-        height={TILE}
-        rx={radius}
+        // Behind a logo the white backing is inset a pixel: at the full size,
+        // its anti-aliased edge showed through the logo's own (the same shape,
+        // drawn twice) as a light, blurry rim around the tile.
+        x={imageSrc ? edgeInset * 2 : 0}
+        y={imageSrc ? edgeInset * 2 : 0}
+        width={imageSrc ? TILE - edgeInset * 4 : TILE}
+        height={imageSrc ? TILE - edgeInset * 4 : TILE}
+        rx={imageSrc ? Math.max(0, radius - edgeInset * 2) : radius}
         // One look in both themes: white tile, black mark (no theme
         // inversion); a monogram tile takes its palette colour instead.
         className={monogram && !imageSrc ? undefined : "!fill-white"}
@@ -134,6 +140,19 @@ export function WorkspaceBrandIcon({
         >
           {monogram.letter}
         </text>
+      ) : imageSrc && APP_LOGOS.has(imageSrc) ? (
+        <>
+          <defs>
+            <linearGradient id={`${clipId}-bg`} x1="32" y1="0" x2="32" y2="64" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#2B83FF" />
+              <stop offset="1" stopColor="#056DFF" />
+            </linearGradient>
+          </defs>
+          <rect width={TILE} height={TILE} rx={radius} fill={`url(#${clipId}-bg)`} />
+          <circle cx="21.5" cy="32" r="10.5" fill="#CFCFCF" />
+          <circle cx="32" cy="32" r="10.5" fill="#E8E8E8" />
+          <circle cx="42.5" cy="32" r="10.5" fill="#FFFFFF" />
+        </>
       ) : imageSrc ? (
         // An uploaded logo *is* the tile: full bleed, clipped to the tile's
         // rounded corners, so it matches the tile size and radius everywhere
@@ -143,7 +162,7 @@ export function WorkspaceBrandIcon({
             <rect width={TILE} height={TILE} rx={radius} />
           </clipPath>
           <image
-            href={imageSrc === APP_FAVICON ? APP_MARK : imageSrc}
+            href={imageSrc}
             width={TILE}
             height={TILE}
             preserveAspectRatio="xMidYMid slice"
