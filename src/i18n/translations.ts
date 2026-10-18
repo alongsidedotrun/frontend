@@ -1880,6 +1880,24 @@ export const translations = {
     zh: "设定一个持续推进的目标",
     ja: "継続して取り組む目標を設定します",
   },
+  "compose.command.clear": {
+    en: "Clear", "pt-BR": "Limpar", es: "Borrar", fr: "Effacer", de: "Leeren", zh: "清除", ja: "クリア",
+  },
+  "compose.command.share": {
+    en: "Share", "pt-BR": "Compartilhar", es: "Compartir", fr: "Partager", de: "Teilen", zh: "分享", ja: "共有",
+  },
+  "compose.command.compare": {
+    en: "Compare", "pt-BR": "Comparar", es: "Comparar", fr: "Comparer", de: "Vergleichen", zh: "比较", ja: "比較",
+  },
+  "compose.command.summarize": {
+    en: "Summarize", "pt-BR": "Resumir", es: "Resumir", fr: "Résumer", de: "Zusammenfassen", zh: "总结", ja: "要約",
+  },
+  "compose.command.task": {
+    en: "Task", "pt-BR": "Tarefa", es: "Tarea", fr: "Tâche", de: "Aufgabe", zh: "任务", ja: "タスク",
+  },
+  "compose.command.docs": {
+    en: "Docs", "pt-BR": "Documentos", es: "Documentos", fr: "Documents", de: "Dokumente", zh: "文档", ja: "ドキュメント",
+  },
   "compose.workFromFolder": {
     en: "Work from folder",
     "pt-BR": "Trabalhar a partir de uma pasta",
