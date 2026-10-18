@@ -11,6 +11,7 @@ import { ClipboardCheck, Hand, ShieldTick, ShieldZap, Target04 } from "@untitled
 import { cn } from "@/lib/utils";
 import { getUserDisplayName } from "@/lib/user";
 import { Button } from "@/components/ui/button";
+import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { AnimatePresence, motion } from "motion/react";
 import { spring } from "@/lib/springs";
 // The fluidfunctionalism.com reference dropdown (Base UI Menu +
@@ -126,6 +127,31 @@ const COMPOSE_TOOL_VARS = {
     "calc(4px - (var(--compose-tool-h) - var(--compose-plus-icon)) / 2 - var(--compose-plus-icon) * 5 / 24)",
 } as React.CSSProperties;
 const NO_HOVER_SURFACE = "[&>span:first-child]:hidden [&_svg]:!stroke-[1.5]";
+
+function ComposerMenuKeyboardHints() {
+  const { t } = useTranslation();
+  return (
+    <div className="flex h-9 items-center justify-between border-t border-border px-3 text-[11px] font-normal text-ink-3">
+      <div className="flex items-center gap-4">
+        <span className="flex items-center gap-1.5">
+          <span>{t("compose.menu.select")}</span>
+          <KbdGroup>
+            <Kbd>↑</Kbd>
+            <Kbd>↓</Kbd>
+          </KbdGroup>
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span>{t("common.close")}</span>
+          <Kbd>Esc</Kbd>
+        </span>
+      </div>
+      <span className="flex items-center gap-1.5">
+        <span>{t("compose.menu.enter")}</span>
+        <Kbd>↵</Kbd>
+      </span>
+    </div>
+  );
+}
 
 // How the agent asks before acting -- beside the model trigger, per
 // explicit request. Real for all three providers now: Codex
@@ -1462,6 +1488,11 @@ export function ComposeBox({
               was stealing keystrokes away from the textarea entirely --
               Backspace/Escape stopped reaching it the moment this menu
               opened. */}
+          {/* Search guidance stays above the results; keyboard commands stay
+              in the footer below, matching the Quick actions menu's visual
+              order without introducing a second text field while the
+              composer itself already owns the query. */}
+          <div className="border-b border-border px-3 py-2 text-[11px] font-normal text-ink-3/50">{t("compose.menu.searchCommands")}</div>
           {/* Plain overflow-y-auto, not ScrollArea -- confirmed directly
               as a real bug ("the scroll inside the drawer does not
               work"): ScrollArea's Viewport sizes itself at height:100% of
@@ -1506,13 +1537,7 @@ export function ComposeBox({
               )}
             </GlideMenu>
           </div>
-          {/* Moved below the rows, not above -- matches the search
-              dropdown's own footer-hint placement (top-bar.tsx) instead
-              of this menu being the only one with its guide text at the
-              top. font-normal/text-ink-3/50, not the plain text-ink-3 this
-              had -- matches that dropdown's own "Press Escape to close"
-              hint's exact color/weight, per explicit request. */}
-          <div className="border-t border-border px-3 py-2 text-[11px] font-normal text-ink-3/50">Type to search commands</div>
+          <ComposerMenuKeyboardHints />
         </div>
       )}
 
@@ -1841,7 +1866,10 @@ export function ComposeBox({
               </DropdownSubItem>
               <DropdownSubItem className="flex h-8 items-center gap-2.5 text-[12px] text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground">
                 <SkillIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-                <span className="flex-1">{t("compose.skills")}</span>
+                <span className="flex min-w-0 flex-1 items-baseline gap-3">
+                  <span className="shrink-0">{t("compose.skills")}</span>
+                  <span className="min-w-0 truncate text-[12px] text-ink-3">{t("compose.skillsDescription")}</span>
+                </span>
               </DropdownSubItem>
               <DropdownSubItem className="h-8 items-center gap-2.5 text-[12px] text-ink-2 transition-colors data-[highlighted]:text-foreground" onClick={insertTask}>
                 <TaskIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
@@ -1867,6 +1895,7 @@ export function ComposeBox({
                   {planMode && <CheckIcon aria-hidden="true" className="size-3.5 shrink-0 text-foreground/70" />}
                 </DropdownSubItem>
               )}
+              <ComposerMenuKeyboardHints />
             </div>
           </BaseDropdownContent>
         </BaseDropdownMenu>
@@ -2361,7 +2390,7 @@ export function ComposeBox({
         <motion.div
           key="work-from-folder"
           exit={{ opacity: 0, transition: spring.moderate.exit }}
-          className="relative -mt-[var(--compose-shell-radius)] rounded-b-[var(--compose-shell-radius)] border border-t-0 border-border bg-[var(--redesign-quick-actions-surface)] px-4 pt-[calc(var(--compose-shell-radius)+0.25rem)] pb-1"
+          className="relative -mt-[var(--compose-shell-radius)] rounded-b-[var(--compose-shell-radius)] border border-t-0 border-border bg-[var(--redesign-compose-extension-surface)] px-4 pt-[calc(var(--compose-shell-radius)+0.25rem)] pb-1"
         >
           <div className="flex min-h-7 items-center justify-between gap-3 px-1 text-[11px] text-foreground/75">
             <button type="button" aria-label={t("compose.workFromFolder")} onClick={onSelectWorkFromFolder} className="-ml-1 flex h-6 min-w-0 items-center gap-1 rounded-[calc(24px*8/27)] px-1 text-left transition-colors hover:bg-hover-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/10">

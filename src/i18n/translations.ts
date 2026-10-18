@@ -1862,6 +1862,30 @@ export const translations = {
     zh: "技能",
     ja: "スキル",
   },
+  "compose.skillsDescription": {
+    en: "Use skills from work from folder or skills added to Alongside.",
+    "pt-BR": "Use habilidades da pasta de trabalho ou habilidades adicionadas ao Alongside.",
+    es: "Usa habilidades de la carpeta de trabajo o habilidades añadidas a Alongside.",
+    fr: "Utilisez les compétences du dossier de travail ou celles ajoutées à Alongside.",
+    de: "Verwende Skills aus dem Arbeitsordner oder zu Alongside hinzugefügte Skills.",
+    zh: "使用工作文件夹中的技能或添加到 Alongside 的技能。",
+    ja: "作業フォルダのスキル、または Alongside に追加したスキルを使用します。",
+  },
+  "compose.menu.select": {
+    en: "Select", "pt-BR": "Selecionar", es: "Seleccionar", fr: "Sélectionner", de: "Auswählen", zh: "选择", ja: "選択",
+  },
+  "compose.menu.enter": {
+    en: "Enter", "pt-BR": "Enter", es: "Enter", fr: "Entrée", de: "Eingabe", zh: "Enter", ja: "Enter",
+  },
+  "compose.menu.searchCommands": {
+    en: "Type to search commands",
+    "pt-BR": "Digite para pesquisar comandos",
+    es: "Escribe para buscar comandos",
+    fr: "Saisissez pour rechercher des commandes",
+    de: "Tippen, um Befehle zu suchen",
+    zh: "输入以搜索命令",
+    ja: "入力してコマンドを検索",
+  },
   "compose.goal": {
     en: "Goal",
     "pt-BR": "Objetivo",
