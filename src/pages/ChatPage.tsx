@@ -3205,7 +3205,9 @@ function ChatRowView({
           <span className="size-[18px] shrink-0 overflow-hidden rounded-full">
             <DefaultAvatar name={row.displayName} />
           </span>
-          <span className="text-[length:var(--redesign-chat-meta)] text-muted-foreground">{isSelf ? i18n.t("chat.me") : row.displayName}</span>
+          {/* 2px over the chat's meta size, with the 18px avatar; the same for "Me" and for
+              anyone else in a shared chat (this row is every human message). */}
+          <span className="text-[length:calc(var(--redesign-chat-meta)+2px)] text-muted-foreground">{isSelf ? i18n.t("chat.me") : row.displayName}</span>
         </div>
         {/* transition-[max-width]: sm: is a real viewport breakpoint, so
             without this the bubble snapped width instantly at 640px while
