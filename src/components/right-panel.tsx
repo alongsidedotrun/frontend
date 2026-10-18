@@ -363,7 +363,6 @@ function ChatFileListPanel({
           </button>
           <span
             aria-disabled
-            title={t("rightPanel.terminalUnavailable")}
             className="flex cursor-not-allowed items-center gap-1 truncate rounded-md px-2 py-1 text-[11px] text-muted-foreground opacity-50"
           >
             <TerminalIcon className="size-3.5 shrink-0" />
@@ -377,7 +376,7 @@ function ChatFileListPanel({
             placeholder for a future "..." menu here, not wired to
             anything yet (including Close -- the header's own right-panel
             toggle icon, AppLayout.tsx, still closes this panel). */}
-        <span aria-disabled title="More options coming soon" className="flex size-6 shrink-0 cursor-not-allowed items-center justify-center text-muted-foreground opacity-50">
+        <span aria-disabled aria-label="More options coming soon" className="flex size-6 shrink-0 cursor-not-allowed items-center justify-center text-muted-foreground opacity-50">
           <DotsVerticalIcon className="size-4" />
         </span>
       </div>
@@ -544,7 +543,7 @@ function AgentRunLog({ chatId }: { chatId: string }) {
           {run.stop_reason && <p className="mt-1.5 line-clamp-2 text-[10px] text-muted-foreground">{run.stop_reason}</p>}
           {run.changed_files.length > 0 && (
             <div className="mt-2 border-t border-border/60 pt-2">
-              <p className="truncate text-[10px] text-muted-foreground" title={run.changed_files.join("\n")}>
+              <p className="truncate text-[10px] text-muted-foreground">
                 {t("rightPanel.changedFiles", { count: run.changed_files.length })}
               </p>
               {run.commit_sha ? (

@@ -113,7 +113,6 @@ export function WorkspaceTileMenu({ values, onChange, extra }: { values: Workspa
               <button
                 type="button"
                 aria-label={t("workspace.fields.tileMenu")}
-                title={t("workspace.fields.logoHint")}
                 className="rounded-[8px] transition-shadow outline-none hover:shadow-[0_0_0_3px_var(--redesign-sidebar-border)] focus-visible:ring-2 focus-visible:ring-ring data-[popup-open]:shadow-[0_0_0_3px_var(--redesign-sidebar-border)]"
               >
                 <WorkspaceTilePreview values={values} />
@@ -172,17 +171,17 @@ export function WorkspaceTileMenu({ values, onChange, extra }: { values: Workspa
 }
 
 // Delete workspace in the tile's menu (Manage workspace).
-export function DeleteWorkspaceItem({ label, disabled, title, onSelect }: { label: string; disabled?: boolean; title?: string; onSelect: () => void }) {
+export function DeleteWorkspaceItem({ label, disabled, onSelect }: { label: string; disabled?: boolean; title?: string; onSelect: () => void }) {
   return (
-    <span title={title}>
+    <span>
       <BaseMenuItem index={3} icon={Trash2} label={label} className="gap-[7px] text-destructive" disabled={disabled} onSelect={onSelect} />
     </span>
   );
 }
 
-export function ArchiveWorkspaceItem({ label, disabled, title, onSelect }: { label: string; disabled?: boolean; title?: string; onSelect: () => void }) {
+export function ArchiveWorkspaceItem({ label, disabled, onSelect }: { label: string; disabled?: boolean; title?: string; onSelect: () => void }) {
   return (
-    <span title={title}>
+    <span>
       <BaseMenuItem index={3} icon={Archive} label={label} disabled={disabled} onSelect={onSelect} />
     </span>
   );
