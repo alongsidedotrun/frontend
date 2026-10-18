@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { spring } from "@/lib/springs";
 import { isAutoScrollSuppressed, suppressAutoScroll } from "@/lib/chat-scroll-suppress";
 import { GUEST_NAME, getUserDisplayName } from "@/lib/user";
-import { ComposeBox, toImageInputs, type ImageAttachment } from "@/components/compose-box";
+import { CommandChip, ComposeBox, leadingCommand, toImageInputs, type ImageAttachment } from "@/components/compose-box";
 import { JoinRequests, type JoinRequest } from "@/components/join-requests";
 import { clearPresence, setPresence, type Person } from "@/lib/presence";
 import { openShareDialog } from "@/lib/use-share";
@@ -56,6 +56,7 @@ const PROVIDER_NAMES: Record<string, string> = { claude: "Claude", codex: "Codex
 import { lastUsedReady, loadLastContext, loadLastModel, saveLastContext, saveLastModel, type PermissionMode } from "@/lib/last-used";
 import type { QueuedMessage } from "@/lib/message-queue";
 import { useLimitWarning } from "@/components/limit-warning";
+import { useSkills } from "@/lib/skills";
 import { StreamingText } from "@/components/streaming-text";
 import { ThinkingState } from "@/components/thinking-state";
 import { ThinkingReasoning } from "@/components/thinking-reasoning";
@@ -3056,6 +3057,19 @@ function MessageTime({ time }: { time: string }) {
   );
 }
 
+/** A human message's text, its leading command (e.g. /goal) shown as the composer's chip. */
+function MessageText({ text }: { text: string }) {
+  const { installed } = useSkills();
+  const command = leadingCommand(text, installed.map((skill) => skill.name));
+  if (!command) return <>{text}</>;
+  return (
+    <>
+      <CommandChip icon={command.icon} label={command.labelKey ? i18n.t(command.labelKey) : command.label} className="mr-1.5 -translate-y-px" />
+      {text.slice(command.prefix.length)}
+    </>
+  );
+}
+
 function ChatRowView({
   row,
   isPendingEdit,
@@ -3259,7 +3273,7 @@ function ChatRowView({
               row.failed ? "border border-destructive/40" : ""
             } bg-accent`}
           >
-            {row.text}
+            <MessageText text={row.text} />
           </div>
         </div>
         {row.files && row.files.length > 0 && sessionId && (
