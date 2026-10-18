@@ -24,26 +24,11 @@ export type UiLocale = "en" | "pt-BR" | "es" | "fr" | "de" | "zh" | "ja";
 type TranslationRow = Record<UiLocale, string>;
 
 export const translations = {
-  "settings.nav.archived": {
-    en: "Archived", "pt-BR": "Arquivados", es: "Archivados", fr: "Archivés", de: "Archiviert", zh: "已归档", ja: "アーカイブ済み",
-  },
   "settings.nav.group.archived": {
     en: "Archived", "pt-BR": "Arquivados", es: "Archivados", fr: "Archivés", de: "Archiviert", zh: "已归档", ja: "アーカイブ済み",
   },
-  "settings.nav.subtitle.archived": {
-    en: "Restore or permanently delete archived workspaces, projects and chats.",
-    "pt-BR": "Restaure ou exclua permanentemente espaços de trabalho, projetos e chats arquivados.",
-    es: "Restaura o elimina permanentemente espacios de trabajo, proyectos y chats archivados.",
-    fr: "Restaurez ou supprimez définitivement les espaces, projets et discussions archivés.",
-    de: "Archivierte Arbeitsbereiche, Projekte und Chats wiederherstellen oder endgültig löschen.",
-    zh: "恢复或永久删除已归档的工作区、项目和对话。",
-    ja: "アーカイブしたワークスペース、プロジェクト、チャットを復元または完全に削除します。",
-  },
   "shell.commands.archived.description": {
     en: "Manage archived workspaces, projects and chats", "pt-BR": "Gerenciar espaços, projetos e chats arquivados", es: "Gestionar espacios, proyectos y chats archivados", fr: "Gérer les espaces, projets et discussions archivés", de: "Archivierte Arbeitsbereiche, Projekte und Chats verwalten", zh: "管理已归档的工作区、项目和对话", ja: "アーカイブしたワークスペース、プロジェクト、チャットを管理",
-  },
-  "archive.empty": {
-    en: "Nothing is archived.", "pt-BR": "Nada está arquivado.", es: "No hay nada archivado.", fr: "Aucun élément archivé.", de: "Nichts ist archiviert.", zh: "没有已归档的内容。", ja: "アーカイブはありません。",
   },
   "archive.restore": {
     en: "Restore", "pt-BR": "Restaurar", es: "Restaurar", fr: "Restaurer", de: "Wiederherstellen", zh: "恢复", ja: "復元",
@@ -66,6 +51,18 @@ export const translations = {
   "archive.filesRemain": {
     en: "Archiving or deleting here never removes files from your computer.", "pt-BR": "Arquivar ou excluir aqui nunca remove arquivos do computador.", es: "Archivar o eliminar aquí nunca borra archivos del ordenador.", fr: "Archiver ou supprimer ici n'efface jamais les fichiers de votre ordinateur.", de: "Archivieren oder Löschen entfernt niemals Dateien vom Computer.", zh: "在此归档或删除不会移除电脑中的文件。", ja: "ここでアーカイブまたは削除しても、コンピューター上のファイルは削除されません。",
   },
+  "settings.nav.archivedWorkspaces": { en: "Workspaces", "pt-BR": "Espaços de trabalho", es: "Espacios de trabajo", fr: "Espaces de travail", de: "Arbeitsbereiche", zh: "工作区", ja: "ワークスペース" },
+  "settings.nav.archivedProjects": { en: "Projects", "pt-BR": "Projetos", es: "Proyectos", fr: "Projets", de: "Projekte", zh: "项目", ja: "プロジェクト" },
+  "settings.nav.archivedChats": { en: "Chats", "pt-BR": "Chats", es: "Chats", fr: "Discussions", de: "Chats", zh: "对话", ja: "チャット" },
+  "settings.archived.workspaces.title": { en: "Archived workspaces", "pt-BR": "Espaços de trabalho arquivados", es: "Espacios de trabajo archivados", fr: "Espaces de travail archivés", de: "Archivierte Arbeitsbereiche", zh: "已归档的工作区", ja: "アーカイブ済みのワークスペース" },
+  "settings.archived.projects.title": { en: "Archived projects", "pt-BR": "Projetos arquivados", es: "Proyectos archivados", fr: "Projets archivés", de: "Archivierte Projekte", zh: "已归档的项目", ja: "アーカイブ済みのプロジェクト" },
+  "settings.archived.chats.title": { en: "Archived chats", "pt-BR": "Chats arquivados", es: "Chats archivados", fr: "Discussions archivées", de: "Archivierte Chats", zh: "已归档的对话", ja: "アーカイブ済みのチャット" },
+  "settings.archived.workspaces.subtitle": { en: "Restore or permanently delete archived workspaces, with their projects and chats.", "pt-BR": "Restaure ou exclua permanentemente espaços de trabalho arquivados, com seus projetos e chats.", es: "Restaura o elimina permanentemente espacios de trabajo archivados, con sus proyectos y chats.", fr: "Restaurez ou supprimez définitivement les espaces de travail archivés, avec leurs projets et discussions.", de: "Archivierte Arbeitsbereiche samt Projekten und Chats wiederherstellen oder endgültig löschen.", zh: "恢复或永久删除已归档的工作区及其项目和对话。", ja: "アーカイブ済みのワークスペースを、プロジェクトやチャットごと復元または完全に削除します。" },
+  "settings.archived.projects.subtitle": { en: "Restore or permanently delete archived projects, with their chats.", "pt-BR": "Restaure ou exclua permanentemente projetos arquivados, com seus chats.", es: "Restaura o elimina permanentemente proyectos archivados, con sus chats.", fr: "Restaurez ou supprimez définitivement les projets archivés, avec leurs discussions.", de: "Archivierte Projekte samt Chats wiederherstellen oder endgültig löschen.", zh: "恢复或永久删除已归档的项目及其对话。", ja: "アーカイブ済みのプロジェクトを、チャットごと復元または完全に削除します。" },
+  "settings.archived.chats.subtitle": { en: "Restore or permanently delete archived chats.", "pt-BR": "Restaure ou exclua permanentemente chats arquivados.", es: "Restaura o elimina permanentemente chats archivados.", fr: "Restaurez ou supprimez définitivement les discussions archivées.", de: "Archivierte Chats wiederherstellen oder endgültig löschen.", zh: "恢复或永久删除已归档的对话。", ja: "アーカイブ済みのチャットを復元または完全に削除します。" },
+  "archive.empty.workspace": { en: "No archived workspaces.", "pt-BR": "Nenhum espaço de trabalho arquivado.", es: "No hay espacios de trabajo archivados.", fr: "Aucun espace de travail archivé.", de: "Keine archivierten Arbeitsbereiche.", zh: "没有已归档的工作区。", ja: "アーカイブ済みのワークスペースはありません。" },
+  "archive.empty.project": { en: "No archived projects.", "pt-BR": "Nenhum projeto arquivado.", es: "No hay proyectos archivados.", fr: "Aucun projet archivé.", de: "Keine archivierten Projekte.", zh: "没有已归档的项目。", ja: "アーカイブ済みのプロジェクトはありません。" },
+  "archive.empty.chat": { en: "No archived chats.", "pt-BR": "Nenhum chat arquivado.", es: "No hay chats archivados.", fr: "Aucune discussion archivée.", de: "Keine archivierten Chats.", zh: "没有已归档的对话。", ja: "アーカイブ済みのチャットはありません。" },
   "archive.kind.workspace": { en: "Workspace", "pt-BR": "Espaço de trabalho", es: "Espacio de trabajo", fr: "Espace de travail", de: "Arbeitsbereich", zh: "工作区", ja: "ワークスペース" },
   "archive.kind.project": { en: "Project", "pt-BR": "Projeto", es: "Proyecto", fr: "Projet", de: "Projekt", zh: "项目", ja: "プロジェクト" },
   "archive.kind.chat": { en: "Chat", "pt-BR": "Chat", es: "Chat", fr: "Discussion", de: "Chat", zh: "对话", ja: "チャット" },

@@ -38,6 +38,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ShellField } from "@/components/design-system/shell-dialog";
 import {
   BubbleChatIcon,
+  FolderIcon,
+  MessageChatCircleIcon,
+  WorkspacesIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -63,7 +66,7 @@ import {
 import { signOut, useIsSignedIn } from "@/lib/auth";
 import { openSignInDialog } from "@/lib/use-sign-in";
 import { useIdentity } from "@/lib/identity";
-import { Archive, Command, FolderKanban, MessageSquare, RotateCcw, Trash2 } from "lucide-react";
+import { Command, RotateCcw, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // General owns the language and timezone controls. Story: Settings
@@ -77,7 +80,7 @@ import { cn } from "@/lib/utils";
 // stays its own separate top-level section instead, and Danger zone was
 // removed entirely rather than folded into a new section (SETTINGS_NAV_GROUPS'
 // own comment below has the full reasoning).
-export type SettingsSection = "profile" | "general" | "appearance" | "chat" | "provider" | "apps" | "archived";
+export type SettingsSection = "profile" | "general" | "appearance" | "chat" | "provider" | "apps" | "archived-workspaces" | "archived-projects" | "archived-chats";
 
 // ---------------------------------------------------------------------------
 // Style pass -- matches a reference open-source app called Synara's own
@@ -200,7 +203,8 @@ function SettingsRow({
 // rankSettingsSearch's own substring matching (that function's own comment
 // has the "why not translated" reasoning), never rendered directly.
 // `labelKey` is what every real display site below calls t() with.
-const SECTIONS: { key: SettingsSection; label: string; labelKey: string; icon: ReactNode }[] = [
+// titleKey: the page heading, when the nav label alone needs its group for context.
+const SECTIONS: { key: SettingsSection; label: string; labelKey: string; titleKey?: string; icon: ReactNode }[] = [
   { key: "profile", label: "Profile", labelKey: "settings.nav.profile", icon: <UserIcon className="size-[14px]" /> },
   { key: "general", label: "General", labelKey: "settings.nav.general", icon: <SettingsIcon className="size-[14px]" /> },
   { key: "appearance", label: "Appearance", labelKey: "settings.nav.appearance", icon: <PaletteIcon className="size-[14px]" /> },
@@ -210,7 +214,11 @@ const SECTIONS: { key: SettingsSection; label: string; labelKey: string; icon: R
   // explicit correction ("Still inside providers its meant to be settings
   // > apps and not settings > providers > apps").
   { key: "apps", label: "Apps", labelKey: "settings.nav.apps", icon: <IntegrationsIcon className="size-[14px]" /> },
-  { key: "archived", label: "Archived", labelKey: "settings.nav.archived", icon: <Archive className="size-[14px]" /> },
+  // Archived, one page per kind, so each lists only its own.
+  { key: "archived-workspaces", label: "Archived workspaces", labelKey: "settings.nav.archivedWorkspaces", titleKey: "settings.archived.workspaces.title", icon: <WorkspacesIcon className="size-[14px]" /> },
+  { key: "archived-projects", label: "Archived projects", labelKey: "settings.nav.archivedProjects", titleKey: "settings.archived.projects.title", icon: <FolderIcon className="size-[14px]" /> },
+  // Chats, plural: message-chat-circle. One chat (the rows) is the Chat icon.
+  { key: "archived-chats", label: "Archived chats", labelKey: "settings.nav.archivedChats", titleKey: "settings.archived.chats.title", icon: <MessageChatCircleIcon className="size-[14px]" /> },
 ];
 
 // Group describers -- per explicit request ("we need to add section
@@ -233,7 +241,7 @@ const SETTINGS_NAV_GROUPS: { labelKey: string; keys: SettingsSection[] }[] = [
   // -- per explicit request.
   { labelKey: "settings.nav.group.application", keys: ["general", "appearance", "chat", "profile"] },
   { labelKey: "settings.nav.group.connections", keys: ["provider", "apps"] },
-  { labelKey: "settings.nav.group.archived", keys: ["archived"] },
+  { labelKey: "settings.nav.group.archived", keys: ["archived-workspaces", "archived-projects", "archived-chats"] },
 ];
 
 const SECTION_SUBTITLE_KEY: Record<SettingsSection, string> = {
@@ -243,7 +251,9 @@ const SECTION_SUBTITLE_KEY: Record<SettingsSection, string> = {
   chat: "settings.nav.subtitle.chat",
   provider: "settings.nav.subtitle.provider",
   apps: "settings.nav.subtitle.apps",
-  archived: "settings.nav.subtitle.archived",
+  "archived-workspaces": "settings.archived.workspaces.subtitle",
+  "archived-projects": "settings.archived.projects.subtitle",
+  "archived-chats": "settings.archived.chats.subtitle",
 };
 
 // Search -- per explicit request ("Also build search + reset-to-default +
@@ -2766,7 +2776,9 @@ type ArchivedSnapshot = {
 
 type ArchivedEntity = { kind: "workspace" | "project" | "chat"; id: string; name: string };
 
-function ArchivedSection() {
+// One kind per page (Settings > Archived > Workspaces, Projects or Chats). A project or chat
+// whose workspace (or project) is itself archived is listed with that, not here.
+function ArchivedSection({ kind }: { kind: ArchivedEntity["kind"] }) {
   const { t } = useTranslation();
   const [snapshot, setSnapshot] = useState<ArchivedSnapshot>({ workspaces: [], projects: [], chats: [] });
   const [pendingDelete, setPendingDelete] = useState<ArchivedEntity | null>(null);
@@ -2799,22 +2811,21 @@ function ArchivedSection() {
     load();
   }
 
-  const rows: ArchivedEntity[] = [
-    ...snapshot.workspaces.map((item) => ({ ...item, kind: "workspace" as const })),
-    ...rootProjects.map((item) => ({ id: item.id, name: item.name, kind: "project" as const })),
-    ...rootChats.map((item) => ({ id: item.id, name: item.name, kind: "chat" as const })),
-  ];
+  const rows: ArchivedEntity[] =
+    kind === "workspace" ? snapshot.workspaces.map((item) => ({ id: item.id, name: item.name, kind }))
+    : kind === "project" ? rootProjects.map((item) => ({ id: item.id, name: item.name, kind }))
+    : rootChats.map((item) => ({ id: item.id, name: item.name, kind }));
 
   return (
     <div className="mt-4 flex flex-col gap-2">
       {rows.length === 0 ? (
-        <div className="rounded-xl border border-border bg-card px-4 py-8 text-center text-[13px] text-muted-foreground">{t("archive.empty")}</div>
+        <div className="rounded-xl border border-border bg-card px-4 py-8 text-center text-[13px] text-muted-foreground">{t(`archive.empty.${kind}`)}</div>
       ) : rows.map((entity) => {
         const childProjects = entity.kind === "workspace" ? snapshot.projects.filter((item) => item.workspace_id === entity.id).length : 0;
         const childChats = entity.kind === "workspace"
           ? snapshot.chats.filter((item) => item.workspace_id === entity.id).length
           : entity.kind === "project" ? snapshot.chats.filter((item) => item.project_id === entity.id).length : 0;
-        const Icon = entity.kind === "workspace" ? Archive : entity.kind === "project" ? FolderKanban : MessageSquare;
+        const Icon = entity.kind === "workspace" ? WorkspacesIcon : entity.kind === "project" ? FolderIcon : BubbleChatIcon;
         return (
           <div key={`${entity.kind}:${entity.id}`} className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-3">
             <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-background"><Icon className="size-4" /></span>
@@ -2822,8 +2833,8 @@ function ArchivedSection() {
               <p className="truncate text-[13px] font-medium text-foreground">{entity.name}</p>
               <p className="text-[12px] text-muted-foreground">{t(`archive.kind.${entity.kind}`)}{childProjects || childChats ? ` · ${t("archive.contents", { projects: childProjects, chats: childChats })}` : ""}</p>
             </div>
-            <Button size="compact" variant="tertiary" onClick={() => void mutate(entity, "restore")} disabled={busy !== null}><RotateCcw className="size-3.5" />{t("archive.restore")}</Button>
-            <Button size="compact" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setPendingDelete(entity)} disabled={busy !== null}><Trash2 className="size-3.5" />{t("archive.deletePermanently")}</Button>
+            <Button size="compact" variant="tertiary" leadingIcon={RotateCcw} onClick={() => void mutate(entity, "restore")} disabled={busy !== null}>{t("archive.restore")}</Button>
+            <Button size="compact" variant="ghost" leadingIcon={Trash2} className="text-destructive hover:text-destructive" onClick={() => setPendingDelete(entity)} disabled={busy !== null}>{t("archive.deletePermanently")}</Button>
           </div>
         );
       })}
@@ -2903,8 +2914,9 @@ export function SettingsSectionContent({ section }: { section: SettingsSection }
             <>
               <h2 className="text-[16px] font-semibold text-foreground">
                 {(() => {
-                  const labelKey = SECTIONS.find((s) => s.key === section)?.labelKey;
-                  return labelKey ? t(labelKey) : null;
+                  const entry = SECTIONS.find((s) => s.key === section);
+                  const key = entry?.titleKey ?? entry?.labelKey;
+                  return key ? t(key) : null;
                 })()}
               </h2>
               <p className="mt-0.5 text-[13px] font-normal text-muted-foreground">{t(SECTION_SUBTITLE_KEY[section])}</p>
@@ -2918,7 +2930,9 @@ export function SettingsSectionContent({ section }: { section: SettingsSection }
           {section === "chat" && <ChatSection />}
           {section === "provider" && <ProvidersSection />}
           {section === "apps" && <AppsSection />}
-          {section === "archived" && <ArchivedSection />}
+          {section === "archived-workspaces" && <ArchivedSection kind="workspace" />}
+          {section === "archived-projects" && <ArchivedSection kind="project" />}
+          {section === "archived-chats" && <ArchivedSection kind="chat" />}
         </PageContent>
       </ScrollArea>
     </div>

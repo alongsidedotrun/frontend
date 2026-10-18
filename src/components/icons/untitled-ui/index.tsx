@@ -1,5 +1,6 @@
 import {
   ArrowCircleBrokenLeft,
+  LayersThree01,
   ArrowSquareUp,
   ChevronDown,
   ChevronRight,
@@ -165,6 +166,8 @@ export {
   FolderPlus as FolderPlusIcon,
   // Each individual project row (Projects list).
   Folder as FolderIcon,
+  // Workspaces as a kind (Settings > Archived > Workspaces).
+  LayersThree01 as WorkspacesIcon,
   // Connect-apps brand marks -- Untitled UI is a generic UI icon set with
   // no logo marks (unlike Hugeicons, which shipped real Dropbox/GitHub/
   // Google Drive glyphs), so these fall back to the closest generic
