@@ -116,14 +116,27 @@ export function SkillsBrowserDialog({
         <input id={searchId} autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("skills.browse.placeholder")} className={SHELL_FIELD_INPUT} />
       </ShellField>
 
+      {/* One fixed height whatever it holds (a list, placeholders while one loads, or a
+          message), so switching tabs or searching never resizes the dialog. */}
+      <div className={cn("flex h-[320px] flex-col overflow-hidden", SHELL_RADIUS, SHELL_SURFACE)}>
       {listing.state === "loading" ? (
-        <p className="px-1 text-[12px] text-muted-foreground">{t("skills.browse.loading")}</p>
+        <ol aria-label={t("skills.browse.loading")} className="divide-y divide-border">
+          {Array.from({ length: 6 }, (_, i) => (
+            <li key={i} className="flex h-[53px] items-center gap-3 px-3">
+              <span className="h-3 w-6 rounded bg-muted" />
+              <span className="flex flex-1 flex-col gap-1.5">
+                <span className="h-3 w-2/5 animate-pulse rounded bg-muted" />
+                <span className="h-2.5 w-3/5 animate-pulse rounded bg-muted/70" />
+              </span>
+            </li>
+          ))}
+        </ol>
       ) : listing.state === "error" ? (
-        <p className="px-1 text-[12px] text-destructive">{t(listing.busy ? "skills.browse.busy" : "skills.browse.error")}</p>
+        <p className="m-auto px-4 text-center text-[12px] text-destructive">{t(listing.busy ? "skills.browse.busy" : "skills.browse.error")}</p>
       ) : listing.skills.length === 0 ? (
-        <p className="px-1 text-[12px] text-muted-foreground">{t("skills.browse.none", { query: needle })}</p>
+        <p className="m-auto px-4 text-center text-[12px] text-muted-foreground">{t("skills.browse.none", { query: needle })}</p>
       ) : (
-        <ScrollArea className={cn("flex max-h-[320px] min-h-0 flex-col", SHELL_RADIUS, SHELL_SURFACE)} viewportClassName="min-h-0 flex-1 [&>div[style]]:!block [&>div[style]]:!min-w-0">
+        <ScrollArea className="flex min-h-0 flex-1 flex-col" viewportClassName="min-h-0 flex-1 [&>div[style]]:!block [&>div[style]]:!min-w-0">
           <ol className="divide-y divide-border">
             {listing.skills.slice(0, 100).map((skill, index) => {
               const added = skills.isInstalled(installedIdFor(skill));
@@ -179,6 +192,7 @@ export function SkillsBrowserDialog({
           </ol>
         </ScrollArea>
       )}
+      </div>
     </ShellDialog>
   );
 }
