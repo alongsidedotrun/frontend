@@ -196,12 +196,14 @@ function SidebarRow({
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState(item.label);
   const Icon = item.icon;
+  // A child row without its own icon (a chat inside a project) gets a bullet in its place.
+  const bullet = nested && !Icon && <span aria-hidden="true" className="size-1 shrink-0 rounded-full bg-current opacity-60" />;
   const rowClass = cn(
     "flex h-[var(--redesign-quick-actions-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-left text-[length:var(--redesign-sidebar-primary-font-size)] font-normal text-muted-foreground transition-colors",
     // Only the open chat looks selected; opening a row's "..." menu doesn't.
     active && "bg-muted font-medium text-foreground",
-    // Children sit indented under their parent.
-    nested && "pl-[calc(var(--redesign-quick-actions-padding)+12px)]",
+    // Children sit indented under their parent, behind a bullet.
+    nested && "pl-[calc(var(--redesign-quick-actions-padding)+4px)]",
   );
   const chevron = expanded !== undefined && (
     <svg
@@ -232,6 +234,7 @@ function SidebarRow({
     return (
       <div className={rowClass}>
         {Icon && <Icon aria-hidden="true" strokeWidth={2} className="size-[var(--redesign-quick-actions-icon-size)] shrink-0" />}
+        {bullet}
         <input
           autoFocus
           aria-label={t("common.rename")}
@@ -267,6 +270,7 @@ function SidebarRow({
         )}
       >
         {Icon && <Icon aria-hidden="true" strokeWidth={2} className="size-[var(--redesign-quick-actions-icon-size)] shrink-0" />}
+        {bullet}
         <span className={cn("truncate", menuBeforeChevron && "pr-6")}>{item.label}</span>
         {chevron}
       </button>
