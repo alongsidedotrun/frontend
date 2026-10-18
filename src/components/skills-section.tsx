@@ -11,6 +11,7 @@ import { ShellDialog, ShellDialogActions, ShellField, SHELL_FIELD_INPUT, SHELL_R
 import { readSkillFile, SKILLS_SH, useSkills, type Skill } from "@/lib/skills";
 import { cachedSkillsShSearch, compactCount, installedIdFor, loadSkillsShList, loadSkillsShOfficial, searchSkillsSh, skillOwner, useAddRemoteSkill, type OfficialCompany, type RemoteSkill, type SkillsShView } from "@/lib/skills-sh";
 import { cn } from "@/lib/utils";
+import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 
 // Discover's sections after Official, from skills.sh's own lists (and its pages, for See all).
 const SECTIONS: readonly { view: SkillsShView; titleKey: string; page: string }[] = [
@@ -220,27 +221,29 @@ export function SkillsSection() {
       ) : results !== null ? (
         <section className="mt-8">
           <h3 className="mb-2.5 text-[length:var(--redesign-font-size-compact)] text-muted-foreground">{t("skills.results")}</h3>
-          {shownResults === "loading" || (searching && shownResults?.length === 0) ? (
-            <SkillGrid>{Array.from({ length: 6 }, (_, i) => <CardPlaceholder key={i} />)}</SkillGrid>
-          ) : shownResults === "error" ? (
+          {shownResults === "error" ? (
             <EmptyState>{t("skills.browse.error")}</EmptyState>
-          ) : !shownResults || shownResults.length === 0 ? (
+          ) : !searching && Array.isArray(shownResults) && shownResults.length === 0 ? (
             <EmptyState>{t("skills.browse.none", { query: needle })}</EmptyState>
           ) : (
-            <div className={cn("transition-opacity duration-150", searching && "opacity-70")}>
-              <SkillGrid>{sortSkills(shownResults, sort).map(remoteCard)}</SkillGrid>
-            </div>
+            <SkeletonReveal loading={shownResults === "loading" || !shownResults || (searching && shownResults.length === 0)} skeleton={<SkeletonGrid count={6} />}>
+              {Array.isArray(shownResults) && (
+                <div className={cn("transition-opacity duration-150", searching && "opacity-70")}>
+                  <SkillGrid>{sortSkills(shownResults, sort).map(remoteCard)}</SkillGrid>
+                </div>
+              )}
+            </SkeletonReveal>
           )}
         </section>
       ) : (
         <>
         <section className="mt-8">
           <SectionHeader title={t("skills.official")} page="official" />
-          {official === "loading" ? (
-            <SkillGrid>{Array.from({ length: 3 }, (_, i) => <CardPlaceholder key={i} />)}</SkillGrid>
-          ) : official === "error" ? (
+          {official === "error" ? (
             <EmptyState>{t("skills.browse.error")}</EmptyState>
           ) : (
+            <SkeletonReveal loading={official === "loading"} skeleton={<SkeletonGrid count={6} official />}>
+            {official !== "loading" && (
             <SkillGrid>
               {official.map((company) => (
                 <OfficialCompanyCard
@@ -253,6 +256,8 @@ export function SkillsSection() {
                 />
               ))}
             </SkillGrid>
+            )}
+            </SkeletonReveal>
           )}
         </section>
         {SECTIONS.map(({ view, titleKey, page }) => {
@@ -260,12 +265,12 @@ export function SkillsSection() {
           return (
             <section key={view} className="mt-8">
               <SectionHeader title={t(titleKey)} page={page} />
-              {list === "loading" ? (
-                <SkillGrid>{Array.from({ length: 3 }, (_, i) => <CardPlaceholder key={i} />)}</SkillGrid>
-              ) : list === "error" ? (
+              {list === "error" ? (
                 <EmptyState>{t("skills.browse.error")}</EmptyState>
               ) : (
-                <SkillGrid>{sortSkills(list.filter(keep), sort).slice(0, SECTION_SIZE).map(remoteCard)}</SkillGrid>
+                <SkeletonReveal loading={list === "loading"} skeleton={<SkeletonGrid count={SECTION_SIZE} />}>
+                  {list !== "loading" && <SkillGrid>{sortSkills(list.filter(keep), sort).slice(0, SECTION_SIZE).map(remoteCard)}</SkillGrid>}
+                </SkeletonReveal>
               )}
             </section>
           );
@@ -354,8 +359,40 @@ function EmptyState({ children }: { children: React.ReactNode }) {
 
 const CARD = "flex min-h-[124px] flex-col rounded-xl border border-border bg-card p-3.5";
 
-function CardPlaceholder() {
-  return <div aria-hidden="true" className={cn(CARD, "animate-pulse bg-muted/40")} />;
+/** Skeleton cards shaped like the real ones (a skill card, or an official company's), for SkeletonReveal. */
+function SkeletonGrid({ count, official = false }: { count: number; official?: boolean }) {
+  const bar = "rounded bg-muted";
+  return (
+    <SkillGrid>
+      {Array.from({ length: count }, (_, i) => (
+        <div key={i} className={CARD}>
+          <div className="flex items-center gap-2">
+            <span className={cn(bar, official ? "size-5" : "size-3.5")} />
+            <span className={cn(bar, "h-3 w-2/5")} />
+            <span className={cn(bar, "ml-auto h-3", official ? "w-14" : "size-6")} />
+          </div>
+          <span className={cn(bar, "mt-2.5 h-2.5 w-1/2")} />
+          {official ? (
+            <div className="mt-3 flex flex-col gap-2.5">
+              {[0, 1, 2].map((row) => (
+                <div key={row} className="flex items-center gap-2">
+                  <span className={cn(bar, "size-3")} />
+                  <span className={cn(bar, "h-2.5 w-2/5")} />
+                  <span className={cn(bar, "ml-auto h-2.5 w-8")} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-auto flex items-center gap-1.5 pt-2.5">
+              <span className={cn(bar, "size-3.5")} />
+              <span className={cn(bar, "h-2.5 w-1/4")} />
+              <span className={cn(bar, "ml-auto h-2.5 w-1/5")} />
+            </div>
+          )}
+        </div>
+      ))}
+    </SkillGrid>
+  );
 }
 
 /** + adds; once added it's a check, which removes it again. */
