@@ -7,6 +7,7 @@ import type { TFunction } from "i18next";
 import { Blend, ChevronRight, CircleArrowUp, CircleHelp, Plus } from "lucide-react";
 import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
 import { CreateWorkspaceDialog } from "@/components/design-system/create-workspace-dialog";
+import { CreateProjectDialog } from "@/components/design-system/create-project-dialog";
 import { SignInDialog } from "@/components/design-system/sign-in-dialog";
 import { ShareChatDialog } from "@/components/design-system/share-chat-dialog";
 import { JoinChatDialog } from "@/components/design-system/join-chat-dialog";
@@ -28,7 +29,6 @@ import { SettingsSidebarNav, type SettingsSection } from "@/components/settings-
 import { DefaultAvatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { ChatPage, type ChatPageShellContext } from "@/pages/ChatPage";
 import { HomePage, type HomePageShellContext } from "@/pages/HomePage";
 import { CommandMenuDemo } from "@/components/command-menu-demo";
@@ -1094,26 +1094,21 @@ export function RedesignPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={newProjectOpen} onOpenChange={(open) => { setNewProjectOpen(open); if (!open) setChatForNewProject(null); }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("nav.newProject.ariaLabel")}</DialogTitle>
-            <DialogDescription>{t("shell.newProject.description")}</DialogDescription>
-          </DialogHeader>
-          <Input
-            autoFocus
-            value={newProjectName}
-            onChange={(event) => setNewProjectName(event.target.value)}
-            onKeyDown={(event) => { if (event.key === "Enter") void createProject(); }}
-            placeholder={t("shell.newProject.placeholder")}
-            maxLength={80}
-          />
-          {projectError && <p className="text-sm text-destructive">{projectError}</p>}
-          <DialogFooter>
-            <Button type="button" onClick={() => void createProject()} disabled={!newProjectName.trim() || saving}>{t("shell.newProject.create")}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CreateProjectDialog
+        open={newProjectOpen}
+        onOpenChange={(open) => {
+          setNewProjectOpen(open);
+          if (!open) {
+            setChatForNewProject(null);
+            setNewProjectName("");
+          }
+        }}
+        name={newProjectName}
+        onNameChange={setNewProjectName}
+        onCreate={() => void createProject()}
+        saving={saving}
+        error={projectError}
+      />
     </SplitView>
     <CommandMenuDemo
       open={quickActionsOpen}
