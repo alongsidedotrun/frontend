@@ -36,6 +36,7 @@ import { Switch } from "@/components/ui/switch";
 import { useQueueing } from "@/lib/message-queue";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ShellField } from "@/components/design-system/shell-dialog";
+import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
 import {
   BubbleChatIcon,
   FolderIcon,
@@ -2769,10 +2770,13 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
 }
 
 type ArchivedSnapshot = {
-  workspaces: { id: string; name: string }[];
+  workspaces: { id: string; name: string; logo?: string | null; color?: number | null }[];
   projects: { id: string; name: string; workspace_id: string | null; archive_scope: string; individually_archived: boolean }[];
   chats: { id: string; name: string; project_id: string | null; workspace_id: string | null; individually_archived: boolean }[];
 };
+
+// Solid red, for permanent deletes: the accent button (shell-dialog.tsx's ShellDialogActions does the same) on the destructive colour.
+const DESTRUCTIVE_BUTTON = "text-white [--send-button-bg-active:color-mix(in_oklab,var(--destructive),black_25%)] [--send-button-bg-hover:color-mix(in_oklab,var(--destructive),black_12%)] [--send-button-bg:var(--destructive)]";
 
 type ArchivedEntity = { kind: "workspace" | "project" | "chat"; id: string; name: string };
 
@@ -2825,20 +2829,26 @@ function ArchivedSection({ kind }: { kind: ArchivedEntity["kind"] }) {
         const childChats = entity.kind === "workspace"
           ? snapshot.chats.filter((item) => item.workspace_id === entity.id).length
           : entity.kind === "project" ? snapshot.chats.filter((item) => item.project_id === entity.id).length : 0;
-        const Icon = entity.kind === "workspace" ? WorkspacesIcon : entity.kind === "project" ? FolderIcon : BubbleChatIcon;
+        const Icon = entity.kind === "project" ? FolderIcon : BubbleChatIcon;
+        // A workspace shows its own tile: its logo, or its letter on its colour.
+        const workspace = entity.kind === "workspace" ? snapshot.workspaces.find((item) => item.id === entity.id) : undefined;
+        const monogram = workspace && !workspace.logo ? workspaceMonogram(workspace.name, workspace.color ?? null) : null;
         return (
           <div key={`${entity.kind}:${entity.id}`} className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-3">
-            <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-background"><Icon className="size-4" /></span>
+            {workspace ? (
+              workspace.logo ? <WorkspaceBrandIcon size={32} imageSrc={workspace.logo} /> : monogram ? <WorkspaceBrandIcon size={32} monogram={monogram} /> : null
+            ) : (
+              <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-background"><Icon className="size-4" /></span>
+            )}
             <div className="min-w-0 flex-1">
               <p className="truncate text-[13px] font-medium text-foreground">{entity.name}</p>
               <p className="text-[12px] text-muted-foreground">{t(`archive.kind.${entity.kind}`)}{childProjects || childChats ? ` · ${t("archive.contents", { projects: childProjects, chats: childChats })}` : ""}</p>
             </div>
             <Button size="compact" variant="tertiary" leadingIcon={RotateCcw} onClick={() => void mutate(entity, "restore")} disabled={busy !== null}>{t("archive.restore")}</Button>
-            <Button size="compact" variant="ghost" leadingIcon={Trash2} className="text-destructive hover:text-destructive" onClick={() => setPendingDelete(entity)} disabled={busy !== null}>{t("archive.deletePermanently")}</Button>
+            <Button size="compact" variant="accent" leadingIcon={Trash2} className={DESTRUCTIVE_BUTTON} onClick={() => setPendingDelete(entity)} disabled={busy !== null}>{t("archive.deletePermanently")}</Button>
           </div>
         );
       })}
-      <p className="px-1 pt-1 text-[12px] text-muted-foreground">{t("archive.filesRemain")}</p>
       <Dialog open={pendingDelete !== null} onOpenChange={(open) => { if (!open) setPendingDelete(null); }}>
         <DialogContent>
           <DialogHeader>
@@ -2847,7 +2857,7 @@ function ArchivedSection({ kind }: { kind: ArchivedEntity["kind"] }) {
           </DialogHeader>
           <DialogFooter>
             <Button variant="tertiary" onClick={() => setPendingDelete(null)}>{t("common.cancel")}</Button>
-            <Button variant="destructive" onClick={() => pendingDelete && void mutate(pendingDelete, "delete")} disabled={busy !== null}>{t("archive.deletePermanently")}</Button>
+            <Button variant="accent" className={DESTRUCTIVE_BUTTON} onClick={() => pendingDelete && void mutate(pendingDelete, "delete")} disabled={busy !== null}>{t("archive.deletePermanently")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
