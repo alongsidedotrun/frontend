@@ -36,9 +36,11 @@ import { Switch } from "@/components/ui/switch";
 import { useQueueing } from "@/lib/message-queue";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ShellField } from "@/components/design-system/shell-dialog";
+import { SkillsSection } from "@/components/skills-section";
 import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
 import {
   BubbleChatIcon,
+  SkillIcon,
   FolderIcon,
   MessageChatCircleIcon,
   WorkspacesIcon,
@@ -81,7 +83,7 @@ import { cn } from "@/lib/utils";
 // stays its own separate top-level section instead, and Danger zone was
 // removed entirely rather than folded into a new section (SETTINGS_NAV_GROUPS'
 // own comment below has the full reasoning).
-export type SettingsSection = "profile" | "general" | "appearance" | "chat" | "provider" | "apps" | "archived-workspaces" | "archived-projects" | "archived-chats";
+export type SettingsSection = "profile" | "general" | "appearance" | "chat" | "provider" | "apps" | "skills" | "archived-workspaces" | "archived-projects" | "archived-chats";
 
 // ---------------------------------------------------------------------------
 // Style pass -- matches a reference open-source app called Synara's own
@@ -215,6 +217,7 @@ const SECTIONS: { key: SettingsSection; label: string; labelKey: string; titleKe
   // explicit correction ("Still inside providers its meant to be settings
   // > apps and not settings > providers > apps").
   { key: "apps", label: "Apps", labelKey: "settings.nav.apps", icon: <IntegrationsIcon className="size-[14px]" /> },
+  { key: "skills", label: "Skills", labelKey: "settings.nav.skills", icon: <SkillIcon className="size-[14px]" /> },
   // Archived, one page per kind, so each lists only its own.
   { key: "archived-workspaces", label: "Archived workspaces", labelKey: "settings.nav.archivedWorkspaces", titleKey: "settings.archived.workspaces.title", icon: <WorkspacesIcon className="size-[14px]" /> },
   { key: "archived-projects", label: "Archived projects", labelKey: "settings.nav.archivedProjects", titleKey: "settings.archived.projects.title", icon: <FolderIcon className="size-[14px]" /> },
@@ -241,7 +244,7 @@ const SETTINGS_NAV_GROUPS: { labelKey: string; keys: SettingsSection[] }[] = [
   // General first, then the rest alphabetical (Appearance, Chat, Profile)
   // -- per explicit request.
   { labelKey: "settings.nav.group.application", keys: ["general", "appearance", "chat", "profile"] },
-  { labelKey: "settings.nav.group.connections", keys: ["provider", "apps"] },
+  { labelKey: "settings.nav.group.connections", keys: ["provider", "apps", "skills"] },
   { labelKey: "settings.nav.group.archived", keys: ["archived-workspaces", "archived-projects", "archived-chats"] },
 ];
 
@@ -252,6 +255,7 @@ const SECTION_SUBTITLE_KEY: Record<SettingsSection, string> = {
   chat: "settings.nav.subtitle.chat",
   provider: "settings.nav.subtitle.provider",
   apps: "settings.nav.subtitle.apps",
+  skills: "settings.nav.subtitle.skills",
   "archived-workspaces": "settings.archived.workspaces.subtitle",
   "archived-projects": "settings.archived.projects.subtitle",
   "archived-chats": "settings.archived.chats.subtitle",
@@ -2920,7 +2924,8 @@ export function SettingsSectionContent({ section }: { section: SettingsSection }
             divider under the heading and subheading of each page on
             settings, remove that"). */}
         <PageContent maxWidth="var(--chat-max-width)">
-          {section !== "profile" && (
+          {/* Profile and Skills draw their own header (Skills has actions beside it). */}
+          {section !== "profile" && section !== "skills" && (
             <>
               <h2 className="text-[16px] font-semibold text-foreground">
                 {(() => {
@@ -2940,6 +2945,7 @@ export function SettingsSectionContent({ section }: { section: SettingsSection }
           {section === "chat" && <ChatSection />}
           {section === "provider" && <ProvidersSection />}
           {section === "apps" && <AppsSection />}
+          {section === "skills" && <SkillsSection />}
           {section === "archived-workspaces" && <ArchivedSection kind="workspace" />}
           {section === "archived-projects" && <ArchivedSection kind="project" />}
           {section === "archived-chats" && <ArchivedSection kind="chat" />}

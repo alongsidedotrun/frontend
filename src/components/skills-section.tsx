@@ -1,0 +1,256 @@
+import { useId, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Check, FilterLines, Plus, SearchMd, Stars02, SwitchVertical01, UploadCloud02 } from "@untitledui/icons";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
+import { DropdownMenu, DropdownTrigger, DropdownContent } from "@/components/ui/dropdown";
+import { MenuItem } from "@/components/ui/menu-item";
+import { ShapeProvider } from "@/lib/shape-context";
+import { ShellDialog, ShellDialogActions, ShellField, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
+import { parseSkillFile, SKILL_CATALOG, useSkills, type Skill, type SkillGroup, type SkillPublisher } from "@/lib/skills";
+import { cn } from "@/lib/utils";
+
+const GROUPS: readonly SkillGroup[] = ["recommended", "new", "popular"];
+// Same pill segmented control as Invite members.
+const TAB_CLASS = "h-[22px] px-2.5 [&>span]:!text-[12px] [&>span]:!leading-none";
+
+/**
+ * Settings > Skills: Installed and Discover, with search, a publisher filter
+ * and sort, and Import (a SKILL.md) or Add skill in the header.
+ */
+export function SkillsSection() {
+  const { t } = useTranslation();
+  const skills = useSkills();
+  const [tab, setTab] = useState<"installed" | "discover">("discover");
+  const [query, setQuery] = useState("");
+  const [publisher, setPublisher] = useState<string | null>(null);
+  const [sort, setSort] = useState<"featured" | "name">("featured");
+  const [adding, setAdding] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const pool = tab === "installed" ? skills.installed : SKILL_CATALOG;
+  const publishers = useMemo(() => [...new Set([...SKILL_CATALOG, ...skills.installed].map((skill) => skill.publisher.name))].sort(), [skills.installed]);
+  const needle = query.trim().toLowerCase();
+  const matches = pool.filter(
+    (skill) =>
+      (!publisher || skill.publisher.name === publisher) &&
+      (!needle || `${skill.name} ${skill.description} ${skill.publisher.name}`.toLowerCase().includes(needle)),
+  );
+  // Grouped as the catalog presents them, unless searching, filtering or sorting by name.
+  const grouped = tab === "discover" && sort === "featured" && !needle && !publisher;
+  const flat = sort === "name" ? [...matches].sort((a, b) => a.name.localeCompare(b.name)) : matches;
+
+  async function importFile(file: File | undefined) {
+    if (!file) return;
+    const parsed = parseSkillFile(await file.text());
+    if (!parsed) {
+      setImportError(t("skills.importError"));
+      return;
+    }
+    setImportError(null);
+    skills.addCustom(parsed);
+    setTab("installed");
+  }
+
+  const card = (skill: Skill) => (
+    <SkillCard
+      key={skill.id}
+      skill={skill}
+      installed={skills.isInstalled(skill.id)}
+      onInstall={() => skills.install(skill.id)}
+      onRemove={() => skills.remove(skill.id)}
+    />
+  );
+
+  return (
+    <div className="@container flex flex-col">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h2 className="text-[16px] font-semibold text-foreground">{t("settings.nav.skills")}</h2>
+          <p className="mt-0.5 text-[13px] font-normal text-muted-foreground">{t("settings.nav.subtitle.skills")}</p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <input ref={fileRef} type="file" accept=".md,text/markdown" className="hidden" onChange={(event) => { void importFile(event.target.files?.[0]); event.target.value = ""; }} />
+          <Button size="compact" variant="tertiary" leadingIcon={UploadCloud02} onClick={() => fileRef.current?.click()}>{t("skills.import")}</Button>
+          <Button size="compact" variant="primary" leadingIcon={Plus} onClick={() => setAdding(true)}>{t("skills.add")}</Button>
+        </div>
+      </div>
+      {importError && <p className="mt-2 text-[12px] text-destructive">{importError}</p>}
+
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
+        <ShapeProvider defaultShape="pill">
+          <Tabs size="compact" value={tab} onValueChange={(value) => setTab(value as "installed" | "discover")}>
+            <TabsList className="[&>div:first-child]:!bg-background [&>div:first-child]:!shadow-[0_1px_2px_rgba(0,0,0,0.12),0_0_0_0.5px_rgba(0,0,0,0.08)] dark:[&>div:first-child]:!bg-white/12">
+              <TabItem value="installed" label={t("skills.tabs.installed")} className={TAB_CLASS} />
+              <TabItem value="discover" label={t("skills.tabs.discover")} className={TAB_CLASS} />
+            </TabsList>
+          </Tabs>
+        </ShapeProvider>
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="relative w-48 min-w-0">
+            <SearchMd aria-hidden="true" className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("skills.search")} aria-label={t("skills.search")} className="h-7 border border-border pl-8 text-[12px] shadow-none dark:border-border" />
+          </div>
+          <DropdownMenu size="compact">
+            <DropdownTrigger render={<Button size="compact" variant="tertiary" leadingIcon={FilterLines} active={publisher !== null}>{publisher ?? t("skills.filter")}</Button>} />
+            <DropdownContent align="end" className="w-48 min-w-0">
+              <MenuItem index={0} label={t("skills.filter.all")} checked={publisher === null} onSelect={() => setPublisher(null)} />
+              {publishers.map((name, i) => (
+                <MenuItem key={name} index={i + 1} label={name} checked={publisher === name} onSelect={() => setPublisher(name)} />
+              ))}
+            </DropdownContent>
+          </DropdownMenu>
+          <DropdownMenu size="compact">
+            <DropdownTrigger render={<Button size="compact" variant="tertiary" leadingIcon={SwitchVertical01}>{t("skills.sort")}</Button>} />
+            <DropdownContent align="end" className="w-40 min-w-0">
+              <MenuItem index={0} label={t("skills.sort.featured")} checked={sort === "featured"} onSelect={() => setSort("featured")} />
+              <MenuItem index={1} label={t("skills.sort.name")} checked={sort === "name"} onSelect={() => setSort("name")} />
+            </DropdownContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      {grouped ? (
+        GROUPS.map((group) => (
+          <section key={group} className="mt-8">
+            <h3 className="mb-3 text-[13px] text-muted-foreground">{t(`skills.group.${group}`)}</h3>
+            <SkillGrid>{flat.filter((skill) => skill.group === group).map(card)}</SkillGrid>
+          </section>
+        ))
+      ) : flat.length > 0 ? (
+        <section className="mt-8">
+          {tab === "discover" && <h3 className="mb-3 text-[13px] text-muted-foreground">{t("skills.results")}</h3>}
+          <SkillGrid>{flat.map(card)}</SkillGrid>
+        </section>
+      ) : (
+        <div className="mt-8 flex flex-col items-center gap-3 rounded-xl border border-border bg-card px-4 py-10 text-center text-[13px] text-muted-foreground">
+          {needle || publisher ? t("skills.empty.search") : t("skills.empty.installed")}
+          {tab === "installed" && !needle && !publisher && (
+            <Button size="compact" variant="tertiary" onClick={() => setTab("discover")}>{t("skills.empty.browse")}</Button>
+          )}
+        </div>
+      )}
+
+      <AddSkillDialog open={adding} onOpenChange={setAdding} onAdd={(skill) => { skills.addCustom(skill); setAdding(false); setTab("installed"); }} />
+    </div>
+  );
+}
+
+function SkillGrid({ children }: { children: React.ReactNode }) {
+  // Two across in the settings column, three when it's wide enough.
+  return <div className="grid grid-cols-1 gap-3 @[520px]:grid-cols-2 @[900px]:grid-cols-3">{children}</div>;
+}
+
+function SkillCard({ skill, installed, onInstall, onRemove }: { skill: Skill; installed: boolean; onInstall: () => void; onRemove: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <article className="flex min-h-[148px] flex-col rounded-xl border border-border bg-card p-4">
+      <div className="flex items-center gap-2">
+        <Stars02 aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+        <h4 className="min-w-0 flex-1 truncate text-[14px] font-medium text-foreground">{skill.name}</h4>
+        {/* + installs; once installed it's a check, which removes it again. */}
+        <button
+          type="button"
+          aria-label={t(installed ? "skills.remove" : "skills.install", { name: skill.name })}
+          title={t(installed ? "skills.remove" : "skills.install", { name: skill.name })}
+          onClick={installed ? onRemove : onInstall}
+          className={cn(
+            "grid size-7 shrink-0 place-items-center border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            SHELL_RADIUS,
+            installed ? "border-transparent bg-foreground text-background hover:opacity-85" : "border-border text-muted-foreground hover:bg-hover hover:text-foreground",
+          )}
+        >
+          {installed ? <Check aria-hidden="true" className="size-3.5" /> : <Plus aria-hidden="true" className="size-3.5" />}
+        </button>
+      </div>
+      <p className="mt-2 line-clamp-2 text-[13px] leading-[1.5] text-muted-foreground">{skill.description}</p>
+      <div className="mt-auto flex items-center gap-1.5 pt-3 text-[12px]">
+        <span className="text-muted-foreground">{t("skills.by")}</span>
+        <PublisherMark publisher={skill.publisher} />
+        <span className="truncate text-foreground">{skill.publisher.name}</span>
+      </div>
+    </article>
+  );
+}
+
+function PublisherMark({ publisher }: { publisher: SkillPublisher }) {
+  if (publisher.icon) {
+    return <img src={publisher.icon} alt="" aria-hidden="true" className={cn("size-3.5 shrink-0 rounded-[3px] object-contain", publisher.invertInDark && "dark:invert")} />;
+  }
+  return (
+    <span aria-hidden="true" className="grid size-3.5 shrink-0 place-items-center rounded-[3px] bg-muted text-[9px] font-medium text-foreground">
+      {publisher.name.charAt(0).toUpperCase()}
+    </span>
+  );
+}
+
+function AddSkillDialog({ open, onOpenChange, onAdd }: { open: boolean; onOpenChange: (open: boolean) => void; onAdd: (skill: { name: string; description: string; instructions: string }) => void }) {
+  const { t } = useTranslation();
+  const formId = useId();
+  const nameId = useId();
+  const descriptionId = useId();
+  const instructionsId = useId();
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [instructions, setInstructions] = useState("");
+  const ready = name.trim() && description.trim();
+
+  function close(next: boolean) {
+    onOpenChange(next);
+    if (!next) {
+      setName("");
+      setDescription("");
+      setInstructions("");
+    }
+  }
+
+  return (
+    <ShellDialog
+      centered
+      open={open}
+      onOpenChange={close}
+      icon={<span className={cn("grid size-8 place-items-center", SHELL_RADIUS, SHELL_SURFACE)}><Stars02 aria-hidden="true" className="size-4 text-foreground" /></span>}
+      title={t("skills.add")}
+      description={t("skills.dialog.description")}
+      actions={
+        <ShellDialogActions
+          cancelLabel={t("common.cancel")}
+          onCancel={() => close(false)}
+          primary={{ label: t("skills.add"), type: "submit", form: formId, disabled: !ready }}
+        />
+      }
+    >
+      <form
+        id={formId}
+        className="flex flex-col gap-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!ready) return;
+          onAdd({ name: name.trim(), description: description.trim(), instructions: instructions.trim() });
+          close(false);
+        }}
+      >
+        <ShellField label={t("workspace.fields.name")} htmlFor={nameId}>
+          <input id={nameId} autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder={t("skills.fields.namePlaceholder")} maxLength={60} className={SHELL_FIELD_INPUT} />
+        </ShellField>
+        <ShellField label={t("skills.fields.description")} htmlFor={descriptionId}>
+          <input id={descriptionId} value={description} onChange={(event) => setDescription(event.target.value)} maxLength={160} className={SHELL_FIELD_INPUT} />
+        </ShellField>
+        {/* Instructions: a white card like the fields, its label on top (as Description in workspaces). */}
+        <section className={cn("flex flex-col gap-1 px-3 pt-2 pb-1", SHELL_RADIUS, SHELL_SURFACE)}>
+          <label htmlFor={instructionsId} className="text-[12px] text-muted-foreground">{t("skills.fields.instructions")}</label>
+          <textarea
+            id={instructionsId}
+            value={instructions}
+            onChange={(event) => setInstructions(event.target.value)}
+            placeholder={t("skills.fields.instructionsPlaceholder")}
+            rows={4}
+            className="resize-none bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground/70"
+          />
+        </section>
+      </form>
+    </ShellDialog>
+  );
+}
