@@ -184,9 +184,16 @@ export function SkillsSection() {
               onChange={(event) => setQuery(event.target.value)}
               placeholder={tab === "discover" ? t("skills.browse.placeholder") : t("skills.search")}
               aria-label={t("skills.search")}
-              // Focused, the text starts at the left edge: the icon's room goes with the icon.
-              className="h-7 border border-border pl-8 text-[length:var(--redesign-chat-meta)] shadow-none transition-[padding,border-color] duration-200 ease-in-out placeholder:transition-opacity placeholder:duration-200 focus:pl-2.5 focus:placeholder:opacity-0 focus-visible:border-focus-accent motion-reduce:transition-none dark:border-border dark:focus-visible:border-focus-accent"
+              // Focused, typed text starts at the left edge straight away (no slide); the icon and
+              // the placeholder (drawn below, in place) fade out where they are. The native
+              // placeholder stays for screen readers, just not painted.
+              className="h-7 border border-border pl-8 text-[length:var(--redesign-chat-meta)] shadow-none transition-[border-color] duration-200 placeholder:text-transparent focus:pl-2.5 focus-visible:border-focus-accent dark:border-border dark:focus-visible:border-focus-accent"
             />
+            {!query && (
+              <span aria-hidden="true" className="pointer-events-none absolute top-1/2 left-8 -translate-y-1/2 truncate text-[length:var(--redesign-chat-meta)] text-muted-foreground transition-opacity duration-200 ease-in-out group-focus-within/skills-search:opacity-0 motion-reduce:transition-none">
+                {tab === "discover" ? t("skills.browse.placeholder") : t("skills.search")}
+              </span>
+            )}
           </div>
           {tab === "discover" && (
             <DropdownMenu size="compact">
