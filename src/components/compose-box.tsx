@@ -24,6 +24,7 @@ import { spring } from "@/lib/springs";
 import { DropdownMenu as BaseDropdownMenu, DropdownTrigger as BaseDropdownTrigger, DropdownContent as BaseDropdownContent, DropdownLabel as BaseDropdownLabel, DropdownSubItem, DropdownSubMenuItem, DropdownSeparator, DropdownRowActionMenu, DropdownRowActionItem } from "@/components/ui/dropdown";
 import { MenuItem as BaseMenuItem } from "@/components/ui/menu-item";
 import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { QueuedMessages } from "@/components/queued-messages";
 import { useQueueing, type QueuedMessage } from "@/lib/message-queue";
 import GlideMenu from "@/components/primitives/glide-menu";
@@ -1202,6 +1203,7 @@ export function ComposeBox({
   // rows change, so it never flashes on the wrong side.
   const composeRootRef = useRef<HTMLDivElement>(null);
   const tokenMenuRef = useRef<HTMLDivElement>(null);
+  const tokenListViewportRef = useRef<HTMLDivElement>(null);
   const [tokenMenuSide, setTokenMenuSide] = useState<"top" | "bottom">("top");
   // Caps the menu to the space on its chosen side (short windows), so it
   // scrolls instead of running off screen.
@@ -1437,6 +1439,19 @@ export function ComposeBox({
     setTokenMenuMaxHeight(Math.max(0, Math.floor(side === "bottom" ? spaceBelow : spaceAbove)));
   }, [menu, rows.length]);
 
+  // Arrowing past the visible commands scrolls the list to keep the active row
+  // in view (the viewport only, never the page, unlike scrollIntoView).
+  useEffect(() => {
+    if (!menu) return;
+    const viewport = tokenListViewportRef.current;
+    const row = viewport?.querySelectorAll<HTMLElement>("[data-menu-row]")[active];
+    if (!viewport || !row) return;
+    const top = row.getBoundingClientRect().top - viewport.getBoundingClientRect().top + viewport.scrollTop;
+    const padding = 4;
+    if (top - padding < viewport.scrollTop) viewport.scrollTop = top - padding;
+    else if (top + row.offsetHeight + padding > viewport.scrollTop + viewport.clientHeight) viewport.scrollTop = top + row.offsetHeight + padding - viewport.clientHeight;
+  }, [menu, active]);
+
   // Synara's Add panel follows the composer: it opens below a mid-page
   // composer in a new chat, and above a composer pinned near the bottom of an
   // existing chat. Measure the rendered panel so the choice also accounts for
@@ -1506,51 +1521,46 @@ export function ComposeBox({
               order without introducing a second text field while the
               composer itself already owns the query. */}
           <div className="shrink-0 border-b border-border px-3 py-2 text-[11px] font-normal text-ink-3/50">{t("compose.menu.searchCommands")}</div>
-          {/* Plain overflow-y-auto, not ScrollArea -- confirmed directly
-              as a real bug ("the scroll inside the drawer does not
-              work"): ScrollArea's Viewport sizes itself at height:100% of
-              its Root, which here only ever got a max-height (no explicit
-              height), and a percentage height can't resolve against an
-              auto-height parent capped only by max-height -- the exact
-              same class of ScrollArea layout bug sidebar-nav.tsx's own
-              recents list already hit and reverted for (that div's own
-              comment above has the fuller history). p-1, on this wrapper
-              now, not the outer container -- max-h-[224px] + overflow-y-
-              auto caps the menu to a scrollable window instead of growing
-              indefinitely as SLASH_ROWS grows, and keeping the
-              outer container itself unpadded is what lets the guide
-              text's own border-t below span the box's full width edge-to-
-              edge, same as top-bar.tsx's search dropdown footer, instead
-              of stopping short at this padding's own inset. */}
-          <div className="max-h-[224px] min-h-0 overflow-y-auto p-1">
-            <GlideMenu rowSelector="[data-menu-row]" className="flex flex-col gap-px">
-              {rows.map((row, i) => (
-                <button
-                  key={row.key}
-                  type="button"
-                  data-menu-row
-                  onMouseDown={(event) => event.preventDefault()}
-                  onMouseEnter={() => setActive(i)}
-                  onClick={() => pick(row)}
-                  className={cn(
-                    "relative z-10 flex h-8 w-full items-center gap-2 rounded-[7px] px-2 text-left outline-none",
-                    i === active && "bg-hover-2/50"
-                  )}
-                >
-                  {/* Icon and title turn active with the row (hover or arrow keys). */}
-                  {row.icon && <span className={cn("flex size-5 shrink-0 items-center justify-center transition-colors", i === active ? "text-foreground" : "text-ink-2")}>{row.icon}</span>}
-                  {/* font-normal/text-ink-2, not font-medium/text-ink -- matches
-                      the search dropdown's own row text exactly (top-bar.tsx,
-                      TopBarSearch's results.map), per explicit request. */}
-                  <span className={cn("shrink-0 truncate text-[12px] font-normal transition-colors", i === active ? "text-foreground" : "text-ink-2")}>{t(row.labelKey)}</span>
-                  <span className="min-w-0 flex-1 truncate text-[12px] text-ink-3">{row.descKey ? t(row.descKey) : row.desc}</span>
-                </button>
-              ))}
-              {rows.length === 0 && (
-                <div className="flex h-8 items-center px-2 text-[12px] text-ink-3">No matches for "{query}"</div>
-              )}
-            </GlideMenu>
-          </div>
+          {/* ScrollArea, like Quick actions (ui/command-menu.tsx), for the same thin
+              scrollbar. A flex column with a min-h-0 viewport, not the viewport's
+              own height:100%, which can't resolve under a max-height alone (why
+              this once fell back to native overflow). Capped at 224px and
+              shrinking further when the menu is capped to the room on its side. */}
+          <ScrollArea
+            className="flex max-h-[224px] min-h-0 flex-col"
+            viewportClassName="min-h-0 flex-1 [&>div[style]]:!block [&>div[style]]:!min-w-0"
+            viewportRef={tokenListViewportRef}
+          >
+            <div className="p-1">
+              <GlideMenu rowSelector="[data-menu-row]" className="flex flex-col gap-px">
+                {rows.map((row, i) => (
+                  <button
+                    key={row.key}
+                    type="button"
+                    data-menu-row
+                    onMouseDown={(event) => event.preventDefault()}
+                    onMouseEnter={() => setActive(i)}
+                    onClick={() => pick(row)}
+                    className={cn(
+                      "relative z-10 flex h-8 w-full items-center gap-2 rounded-[7px] px-2 text-left outline-none",
+                      i === active && "bg-hover-2/50"
+                    )}
+                  >
+                    {/* Icon and title turn active with the row (hover or arrow keys). */}
+                    {row.icon && <span className={cn("flex size-5 shrink-0 items-center justify-center transition-colors", i === active ? "text-foreground" : "text-ink-2")}>{row.icon}</span>}
+                    {/* font-normal/text-ink-2, not font-medium/text-ink -- matches
+                        the search dropdown's own row text exactly (top-bar.tsx,
+                        TopBarSearch's results.map), per explicit request. */}
+                    <span className={cn("shrink-0 truncate text-[12px] font-normal transition-colors", i === active ? "text-foreground" : "text-ink-2")}>{t(row.labelKey)}</span>
+                    <span className="min-w-0 flex-1 truncate text-[12px] text-ink-3">{row.descKey ? t(row.descKey) : row.desc}</span>
+                  </button>
+                ))}
+                {rows.length === 0 && (
+                  <div className="flex h-8 items-center px-2 text-[12px] text-ink-3">No matches for "{query}"</div>
+                )}
+              </GlideMenu>
+            </div>
+          </ScrollArea>
           <ComposerMenuKeyboardHints />
         </div>
       )}
