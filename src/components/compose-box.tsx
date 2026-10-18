@@ -211,8 +211,8 @@ function readImageFile(file: File): Promise<ImageAttachment> {
 
 type SlashRow = {
   key: string;
-  kind: "command" | "placeholder";
-  label: string;
+  command: string;
+  labelKey: string;
   desc: string;
   descKey?: string;
   icon: ReactNode;
@@ -224,26 +224,25 @@ type SlashRow = {
 // entirely per explicit request ("remove all @ commands actually we don't
 // need that extra feature now") -- none of those rows were ever wired to a
 // real roster, and this app already has a dedicated "Select model" picker
-// (below) for the one thing @ might otherwise have been for. Each / row
-// renamed to its own short /word label per explicit request (was full
-// phrases like "Create tasks"/"Find previous chats"). /research (connected
-// apps & the web) removed per a later explicit request. Plus a couple of
-// technical ones with no command backend behind them yet.
+// (below) for the one thing @ might otherwise have been for. Rows show
+// readable action names while keeping their /word separately for filtering
+// and insertion into the composer. /research (connected apps & the web) was
+// removed per a later explicit request. Plus a couple of technical commands
+// without a backend action yet.
 const SLASH_ROWS: SlashRow[] = [
-  { key: "clear", kind: "command", label: "/clear", desc: "Clear the draft", icon: <ClearIcon className="size-4" /> },
-  // Real, but not a pick()-time action like /clear above -- picking this
-  // just inserts "/share " into the draft the same way every other
-  // placeholder-kind row below does; the actual behavior happens once
-  // it's sent (ChatPage.tsx's own onSend, checking for this exact command
-  // before treating a prompt as a real chat message). Per explicit
+  { key: "clear", command: "/clear", labelKey: "compose.command.clear", desc: "Clear the draft", icon: <ClearIcon className="size-4" /> },
+  // Real, but not a pick()-time action -- picking this inserts "/share "
+  // into the draft; the actual behavior happens once it's sent
+  // (ChatPage.tsx's own onSend checks for this exact command before treating
+  // it as a real chat message). Per explicit
   // request: typing/sending /share is how hosting a chat is triggered
   // now, not a header button.
-  { key: "share", kind: "placeholder", label: "/share", desc: "Get a link to invite someone to this chat", icon: <ShareIcon className="size-4" /> },
-  { key: "goal", kind: "placeholder", label: "/goal", desc: "Set a goal to keep pursuing", descKey: "compose.goalDescription", icon: <Target04 className="size-4" /> },
-  { key: "compare", kind: "placeholder", label: "/compare", desc: "Compare two things", icon: <CompareIcon className="size-4" /> },
-  { key: "summarize", kind: "placeholder", label: "/summarize", desc: "Summarize this chat", icon: <SummarizeIcon className="size-4" /> },
-  { key: "task", kind: "placeholder", label: "/task", desc: "Turn this into a task list", icon: <TaskIcon className="size-4" /> },
-  { key: "docs", kind: "placeholder", label: "/docs", desc: "Draft a new document", icon: <DocIcon className="size-4" /> },
+  { key: "share", command: "/share", labelKey: "compose.command.share", desc: "Get a link to invite someone to this chat", icon: <ShareIcon className="size-4" /> },
+  { key: "goal", command: "/goal", labelKey: "compose.goal", desc: "Set a goal to keep pursuing", descKey: "compose.goalDescription", icon: <Target04 className="size-4" /> },
+  { key: "compare", command: "/compare", labelKey: "compose.command.compare", desc: "Compare two things", icon: <CompareIcon className="size-4" /> },
+  { key: "summarize", command: "/summarize", labelKey: "compose.command.summarize", desc: "Summarize this chat", icon: <SummarizeIcon className="size-4" /> },
+  { key: "task", command: "/task", labelKey: "compose.command.task", desc: "Turn this into a task list", icon: <TaskIcon className="size-4" /> },
+  { key: "docs", command: "/docs", labelKey: "compose.command.docs", desc: "Draft a new document", icon: <DocIcon className="size-4" /> },
 ];
 
 // The last /word being typed, if any. + is gone from this (used to open
@@ -1181,7 +1180,7 @@ export function ComposeBox({
   const [modeMenuSide, setModeMenuSide] = useState<"top" | "bottom">("bottom");
 
   const rows =
-    menu === "slash" ? SLASH_ROWS.filter((r) => r.label.slice(1).startsWith(query)) : [];
+    menu === "slash" ? SLASH_ROWS.filter((r) => r.command.slice(1).startsWith(query)) : [];
 
   useEffect(() => {
     setActive(0);
@@ -1237,19 +1236,11 @@ export function ComposeBox({
   }
 
   function pick(row: SlashRow) {
-    if (row.key === "clear") {
-      onChange("");
-    } else if (row.kind === "placeholder") {
-      // No real destination yet (see SLASH_ROWS' own comment), but
-      // picking one -- via Enter or a click -- should still do something
-      // visible instead of just closing the menu with nothing to show for
-      // it: inserts the row as text, replacing whatever was typed after
-      // the trigger character. / labels already carry their own leading
-      // "/", so no sigil needs prepending here any more (the @ menu that
-      // used to need one was removed).
-      const start = token ? token.start : value.length;
-      onChange(`${value.slice(0, start)}${row.label} `);
-    }
+    // The menu presents human-readable labels ("Clear", "Share", ...),
+    // while selection inserts the underlying slash command into the draft.
+    // Execution still happens only when the user sends it.
+    const start = token ? token.start : value.length;
+    onChange(`${value.slice(0, start)}${row.command} `);
     setDismissed(true);
     textareaRef.current?.focus();
   }
@@ -1498,7 +1489,7 @@ export function ComposeBox({
                   {/* font-normal/text-ink-2, not font-medium/text-ink -- matches
                       the search dropdown's own row text exactly (top-bar.tsx,
                       TopBarSearch's results.map), per explicit request. */}
-                  <span className="shrink-0 truncate text-[12px] font-normal text-ink-2">{row.label}</span>
+                  <span className="shrink-0 truncate text-[12px] font-normal text-ink-2">{t(row.labelKey)}</span>
                   <span className="min-w-0 flex-1 truncate text-[12px] text-ink-3">{row.descKey ? t(row.descKey) : row.desc}</span>
                 </button>
               ))}
@@ -1824,37 +1815,39 @@ export function ComposeBox({
             ref={addMenuRef}
             side={addMenuSide}
             align="start"
-            sideOffset={8}
-            className="w-[min(28rem,calc(100vw-1.5rem))] min-w-0 !overflow-visible !border-0 !bg-transparent !shadow-none p-0"
+            sideOffset={4}
+            anchor={composeRootRef}
+            collisionAvoidance={{ side: "none", align: "none" }}
+            className="w-[var(--anchor-width)] min-w-0 !overflow-visible !border-0 !bg-transparent !shadow-none p-0"
           >
-            <div className="overflow-hidden rounded-xl border border-[var(--redesign-sidebar-elevated-border)] bg-[var(--redesign-sidebar-overlay-surface)] shadow-[var(--redesign-sidebar-elevated-shadow)]">
+            <div className="w-full overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
               <BaseDropdownLabel>{t("common.add")}</BaseDropdownLabel>
-              <DropdownSubItem className="!h-auto items-center gap-2.5 py-1.5 text-[12px]" onClick={openFilePicker}>
+              <DropdownSubItem className="h-8 items-center gap-2.5 text-[12px]" onClick={openFilePicker}>
                 <AttachmentIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="flex min-w-0 flex-1 items-baseline gap-3">
                   <span className="shrink-0">{t("compose.files")}</span>
-                  <span className="min-w-0 whitespace-normal text-[11px] leading-4 text-muted-foreground">
+                  <span className="min-w-0 truncate text-[12px] text-muted-foreground">
                     {t(isMultiplayer ? "compose.filesMultiplayerDescription" : "compose.filesDescription")}
                   </span>
                 </span>
               </DropdownSubItem>
-              <DropdownSubItem className="flex items-center gap-2.5 text-[12px] whitespace-nowrap">
+              <DropdownSubItem className="flex h-8 items-center gap-2.5 text-[12px] whitespace-nowrap">
                 <SkillIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="flex-1">{t("compose.skills")}</span>
               </DropdownSubItem>
-              <DropdownSubItem className="!h-auto items-center gap-2.5 py-1.5 text-[12px]" onClick={insertGoal}>
+              <DropdownSubItem className="h-8 items-center gap-2.5 text-[12px]" onClick={insertGoal}>
                 <Target04 aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="flex min-w-0 flex-1 items-baseline gap-3">
                   <span className="shrink-0">{t("compose.goal")}</span>
-                  <span className="min-w-0 whitespace-normal text-[11px] leading-4 text-muted-foreground">{t("compose.goalDescription")}</span>
+                  <span className="min-w-0 truncate text-[12px] text-muted-foreground">{t("compose.goalDescription")}</span>
                 </span>
               </DropdownSubItem>
               {planSupported && (
-                <DropdownSubItem className="flex items-center gap-2.5 text-[12px] whitespace-nowrap" onClick={() => setPlanMode((on) => !on)}>
+                <DropdownSubItem className="flex h-8 items-center gap-2.5 text-[12px] whitespace-nowrap" onClick={() => setPlanMode((on) => !on)}>
                   <ClipboardCheck aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                   <span className="flex min-w-0 flex-1 items-baseline gap-3">
                     <span className="shrink-0">{t("compose.planMode")}</span>
-                    <span className="min-w-0 truncate text-[11px] leading-4 text-muted-foreground/70">{planMode ? t("compose.planModeOff") : t("compose.planModeOn")}</span>
+                    <span className="min-w-0 truncate text-[12px] text-muted-foreground/70">{planMode ? t("compose.planModeOff") : t("compose.planModeOn")}</span>
                   </span>
                   {planMode && <CheckIcon aria-hidden="true" className="size-3.5 shrink-0 text-foreground/70" />}
                 </DropdownSubItem>
