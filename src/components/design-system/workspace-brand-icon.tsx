@@ -39,6 +39,12 @@ function tileRadiusPx(size: WorkspaceBrandIconSize) {
 
 // The tile is drawn in a 64-unit viewBox: the artwork fills the centred 48×48
 // box (75%), leaving an 8-unit (12.5%) safe area on every side.
+// The Alongside workspace's stored logo is the app's favicon, a finished app
+// icon with its own rounded corners, outline and highlight. Inside this tile,
+// which rounds and edges a logo itself, it's drawn from the flat mark instead.
+const APP_FAVICON = "/favicon.svg";
+const APP_MARK = "/alongside-mark.svg";
+
 const TILE = 64;
 const INSET = 8;
 const ARTWORK = 48;
@@ -137,7 +143,7 @@ export function WorkspaceBrandIcon({
             <rect width={TILE} height={TILE} rx={radius} />
           </clipPath>
           <image
-            href={imageSrc}
+            href={imageSrc === APP_FAVICON ? APP_MARK : imageSrc}
             width={TILE}
             height={TILE}
             preserveAspectRatio="xMidYMid slice"
@@ -164,8 +170,10 @@ export function WorkspaceBrandIcon({
         />
       )}
       {/* Hairline edge, the Getting Started card's barely-visible border, so
-          the white tile reads as a tile on light surfaces (light mode only). Drawn last so it
-          also edges uploaded logos; inset half a pixel to stay inside. */}
+          the default tile (letter or Alongside mark) reads as a tile on light
+          surfaces (light mode only). Not on a logo (an uploaded image or .svg),
+          which brings its own edge; inset half a pixel to stay inside. */}
+      {!imageSrc && (
       <rect
         x={edgeInset}
         y={edgeInset}
@@ -179,11 +187,12 @@ export function WorkspaceBrandIcon({
         // A black letter tile keeps a faint light edge in both modes: the
         // light-mode grey read as a ring around it from a distance.
         className={cn(
-          monogram?.darkEdge && !imageSrc
+          monogram?.darkEdge
             ? "stroke-white/15"
             : "stroke-[var(--redesign-sidebar-footer-onboarding-border)] dark:stroke-transparent",
         )}
       />
+      )}
     </svg>
   );
 }

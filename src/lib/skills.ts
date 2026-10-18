@@ -30,7 +30,7 @@ export interface Skill {
 export const SKILLS_SH = "https://www.skills.sh";
 
 
-const ALONGSIDE: SkillPublisher = { name: "Alongside", icon: "/favicon.svg" };
+const ALONGSIDE: SkillPublisher = { name: "Alongside", icon: "/alongside-mark.svg" };
 const YOU: SkillPublisher = { name: "You" };
 
 export const SKILL_CATALOG: readonly Skill[] = [
