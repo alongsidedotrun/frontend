@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { SettingsSectionContent, type SettingsSection } from "@/components/settings-overlay";
 import { useIsSignedIn } from "@/lib/auth";
 
-const VALID_SECTIONS: SettingsSection[] = ["profile", "general", "appearance", "chat", "provider", "apps", "archived"];
+const VALID_SECTIONS: SettingsSection[] = ["profile", "general", "appearance", "chat", "provider", "apps", "archived-workspaces", "archived-projects", "archived-chats"];
 
 // Full page now, not a modal -- per explicit request ("we need to update
 // our settings to be exactly like it... i want a full page setting page"),
@@ -29,6 +29,8 @@ export function SettingsPage() {
 
   useEffect(() => {
     if (section === "profile" && !isSignedIn) navigate("/settings/general", { replace: true });
+    // Archived was one page before it split by kind.
+    if (section === "archived") navigate("/settings/archived-chats", { replace: true });
   }, [isSignedIn, navigate, section]);
 
   return <SettingsSectionContent section={resolved} />;

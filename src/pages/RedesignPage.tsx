@@ -18,7 +18,7 @@ import { useIdentity } from "@/lib/identity";
 import { signOut } from "@/lib/auth";
 import { moveLocalWorkspaceDetailsToBackend } from "@/lib/workspace-logos";
 import { ManageWorkspaceDialog, type WorkspaceChange } from "@/components/design-system/manage-workspace-dialog";
-import { ArchiveIcon, BubbleChatIcon, EditIcon, FolderIcon, IntegrationsIcon, LogOutIcon, MessageChatCircleIcon, PaletteIcon, ProvidersIcon, Settings01Icon, SettingsIcon, UserIcon } from "@/components/icons/untitled-ui";
+import { ArchiveIcon, BubbleChatIcon, EditIcon, FolderIcon, WorkspacesIcon, IntegrationsIcon, LogOutIcon, MessageChatCircleIcon, PaletteIcon, ProvidersIcon, Settings01Icon, SettingsIcon, UserIcon } from "@/components/icons/untitled-ui";
 import { SplitView } from "@/components/design-system/split-view";
 import { AppTopBar } from "@/components/app-top-bar";
 import { QuickActions, type QuickActionItem } from "@/components/design-system/quick-actions";
@@ -170,10 +170,12 @@ const SETTINGS_COMMANDS: readonly { section: SettingsSection; labelKey: string; 
   { section: "profile", labelKey: "settings.nav.profile", icon: UserIcon, keywords: ["account", "picture", "sign in", "log out"] },
   { section: "provider", labelKey: "settings.nav.provider", icon: ProvidersIcon, keywords: ["models", "api key", "ai"] },
   { section: "apps", labelKey: "settings.nav.apps", icon: IntegrationsIcon, keywords: ["integrations", "connect"] },
-  { section: "archived", labelKey: "settings.nav.archived", icon: ArchiveIcon, keywords: ["restore", "delete", "workspace", "project", "chat"] },
+  { section: "archived-workspaces", labelKey: "settings.archived.workspaces.title", icon: WorkspacesIcon, keywords: ["archived", "restore", "delete", "workspace"] },
+  { section: "archived-projects", labelKey: "settings.archived.projects.title", icon: FolderIcon, keywords: ["archived", "restore", "delete", "project"] },
+  { section: "archived-chats", labelKey: "settings.archived.chats.title", icon: MessageChatCircleIcon, keywords: ["archived", "restore", "delete", "chat"] },
 ];
 
-const SETTINGS_SECTIONS: readonly SettingsSection[] = ["profile", "general", "appearance", "chat", "provider", "apps", "archived"];
+const SETTINGS_SECTIONS: readonly SettingsSection[] = ["profile", "general", "appearance", "chat", "provider", "apps", "archived-workspaces", "archived-projects", "archived-chats"];
 
 function quickActionForPath(pathname: string) {
   if (pathname === "/overview") return "overview";
@@ -772,7 +774,8 @@ export function RedesignPage() {
       value: `chat-${chat.id}`,
       label: chat.name,
       description: t("shell.commands.openChat"),
-      icon: MessageChatCircleIcon,
+      // One chat: the Chat icon. message-chat-circle is for chats as a group.
+      icon: BubbleChatIcon,
       keywords: ["conversation", "recent"],
       group: t("nav.chats"),
       onSelect: () => {

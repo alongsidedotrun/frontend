@@ -495,7 +495,7 @@ const EMPTY_CHILD_SIDEBAR_ROUTES: string[] = [];
 // The four real SettingsSection nav destinations -- same list
 // SettingsPage.tsx's own VALID_SECTIONS keeps, duplicated rather than
 // shared since each file's own fallback behavior differs slightly.
-const SETTINGS_NAV_SECTIONS: SettingsSection[] = ["profile", "general", "appearance", "chat", "provider", "apps", "archived"];
+const SETTINGS_NAV_SECTIONS: SettingsSection[] = ["profile", "general", "appearance", "chat", "provider", "apps", "archived-workspaces", "archived-projects", "archived-chats"];
 
 export function AppLayout() {
   const { t } = useTranslation();
