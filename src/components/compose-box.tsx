@@ -685,6 +685,7 @@ export function ComposeBox({
   onCompactNow,
   onSteer,
   queue,
+  notice,
   autocompactValue,
   onSetAutocompact,
 }: {
@@ -782,6 +783,9 @@ export function ComposeBox({
   // (shown above the composer, sent when the turn ends) instead of sending or
   // steering it unannounced. With queueing turned off, a provider that can
   // steer (onSteer) steers straight away; one that can't still queues.
+  // ChatPage-only: a strip attached to the top of the composer, above any queued messages
+  // (the 5-hour limit warning).
+  notice?: ReactNode;
   queue?: {
     items: QueuedMessage[];
     onAdd: (message: Omit<QueuedMessage, "id">) => void;
@@ -1619,6 +1623,7 @@ export function ComposeBox({
           event.target.value = "";
         }}
       />
+      {notice}
       {queue && (
         <QueuedMessages
           items={queue.items}
