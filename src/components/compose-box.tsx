@@ -1822,32 +1822,32 @@ export function ComposeBox({
           >
             <div className="w-full overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
               <BaseDropdownLabel>{t("common.add")}</BaseDropdownLabel>
-              <DropdownSubItem className="h-8 items-center gap-2.5 text-[12px]" onClick={openFilePicker}>
+              <DropdownSubItem className="h-8 items-center gap-2.5 text-[12px] text-ink-2 transition-colors data-[highlighted]:text-foreground" onClick={openFilePicker}>
                 <AttachmentIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="flex min-w-0 flex-1 items-baseline gap-3">
                   <span className="shrink-0">{t("compose.files")}</span>
-                  <span className="min-w-0 truncate text-[12px] text-muted-foreground">
+                  <span className="min-w-0 truncate text-[12px] text-ink-3">
                     {t(isMultiplayer ? "compose.filesMultiplayerDescription" : "compose.filesDescription")}
                   </span>
                 </span>
               </DropdownSubItem>
-              <DropdownSubItem className="flex h-8 items-center gap-2.5 text-[12px] whitespace-nowrap">
+              <DropdownSubItem className="flex h-8 items-center gap-2.5 text-[12px] text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground">
                 <SkillIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="flex-1">{t("compose.skills")}</span>
               </DropdownSubItem>
-              <DropdownSubItem className="h-8 items-center gap-2.5 text-[12px]" onClick={insertGoal}>
+              <DropdownSubItem className="h-8 items-center gap-2.5 text-[12px] text-ink-2 transition-colors data-[highlighted]:text-foreground" onClick={insertGoal}>
                 <Target04 aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="flex min-w-0 flex-1 items-baseline gap-3">
                   <span className="shrink-0">{t("compose.goal")}</span>
-                  <span className="min-w-0 truncate text-[12px] text-muted-foreground">{t("compose.goalDescription")}</span>
+                  <span className="min-w-0 truncate text-[12px] text-ink-3">{t("compose.goalDescription")}</span>
                 </span>
               </DropdownSubItem>
               {planSupported && (
-                <DropdownSubItem className="flex h-8 items-center gap-2.5 text-[12px] whitespace-nowrap" onClick={() => setPlanMode((on) => !on)}>
+                <DropdownSubItem className="flex h-8 items-center gap-2.5 text-[12px] text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground" onClick={() => setPlanMode((on) => !on)}>
                   <ClipboardCheck aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                   <span className="flex min-w-0 flex-1 items-baseline gap-3">
                     <span className="shrink-0">{t("compose.planMode")}</span>
-                    <span className="min-w-0 truncate text-[12px] text-muted-foreground/70">{planMode ? t("compose.planModeOff") : t("compose.planModeOn")}</span>
+                    <span className="min-w-0 truncate text-[12px] text-ink-3">{planMode ? t("compose.planModeOff") : t("compose.planModeOn")}</span>
                   </span>
                   {planMode && <CheckIcon aria-hidden="true" className="size-3.5 shrink-0 text-foreground/70" />}
                 </DropdownSubItem>
