@@ -51,5 +51,7 @@ export function readingFromUsage(provider: string, snapshot: { status?: string; 
   const fiveHour = snapshot.limits?.find((limit) => limit.window === "5h");
   if (!fiveHour || typeof fiveHour.used_percent !== "number") return null;
   const resets = fiveHour.resets_at ? Date.parse(fiveHour.resets_at) : NaN;
+  // A saved reading from a window that has since reset says nothing about now.
+  if (Number.isFinite(resets) && resets < Date.now()) return null;
   return { provider, usedPercent: fiveHour.used_percent, resetsAt: Number.isFinite(resets) ? Math.round(resets / 1000) : null };
 }
