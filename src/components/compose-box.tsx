@@ -1537,11 +1537,12 @@ export function ComposeBox({
                     i === active && "bg-hover-2/50"
                   )}
                 >
-                  {row.icon && <span className="flex size-5 shrink-0 items-center justify-center text-ink-2">{row.icon}</span>}
+                  {/* Icon and title turn active with the row (hover or arrow keys). */}
+                  {row.icon && <span className={cn("flex size-5 shrink-0 items-center justify-center transition-colors", i === active ? "text-foreground" : "text-ink-2")}>{row.icon}</span>}
                   {/* font-normal/text-ink-2, not font-medium/text-ink -- matches
                       the search dropdown's own row text exactly (top-bar.tsx,
                       TopBarSearch's results.map), per explicit request. */}
-                  <span className="shrink-0 truncate text-[12px] font-normal text-ink-2">{t(row.labelKey)}</span>
+                  <span className={cn("shrink-0 truncate text-[12px] font-normal transition-colors", i === active ? "text-foreground" : "text-ink-2")}>{t(row.labelKey)}</span>
                   <span className="min-w-0 flex-1 truncate text-[12px] text-ink-3">{row.descKey ? t(row.descKey) : row.desc}</span>
                 </button>
               ))}
@@ -1902,7 +1903,7 @@ export function ComposeBox({
           >
             <div className="w-full overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
               <BaseDropdownLabel>{t("common.add")}</BaseDropdownLabel>
-              <DropdownSubItem className="h-8 items-center gap-2.5 text-[12px] text-ink-2 transition-colors data-[highlighted]:text-foreground" onClick={openFilePicker}>
+              <DropdownSubItem className="h-8 items-center gap-2.5 text-[12px] text-ink-2 transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground" onClick={openFilePicker}>
                 <AttachmentIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="flex min-w-0 flex-1 items-baseline gap-3">
                   <span className="shrink-0">{t("compose.files")}</span>
@@ -1911,21 +1912,21 @@ export function ComposeBox({
                   </span>
                 </span>
               </DropdownSubItem>
-              <DropdownSubItem className="flex h-8 items-center gap-2.5 text-[12px] text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground">
+              <DropdownSubItem className="flex h-8 items-center gap-2.5 text-[12px] text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground">
                 <SkillIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="flex min-w-0 flex-1 items-baseline gap-3">
                   <span className="shrink-0">{t("compose.skills")}</span>
                   <span className="min-w-0 truncate text-[12px] text-ink-3">{t("compose.skillsDescription")}</span>
                 </span>
               </DropdownSubItem>
-              <DropdownSubItem className="h-8 items-center gap-2.5 text-[12px] text-ink-2 transition-colors data-[highlighted]:text-foreground" onClick={insertTask}>
+              <DropdownSubItem className="h-8 items-center gap-2.5 text-[12px] text-ink-2 transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground" onClick={insertTask}>
                 <TaskIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="flex min-w-0 flex-1 items-baseline gap-3">
                   <span className="shrink-0">{t("compose.command.task")}</span>
                   <span className="min-w-0 truncate text-[12px] text-ink-3">{t("compose.taskDescription")}</span>
                 </span>
               </DropdownSubItem>
-              <DropdownSubItem className="h-8 items-center gap-2.5 text-[12px] text-ink-2 transition-colors data-[highlighted]:text-foreground" onClick={insertGoal}>
+              <DropdownSubItem className="h-8 items-center gap-2.5 text-[12px] text-ink-2 transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground" onClick={insertGoal}>
                 <Target04 aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="flex min-w-0 flex-1 items-baseline gap-3">
                   <span className="shrink-0">{t("compose.goal")}</span>
@@ -1933,7 +1934,7 @@ export function ComposeBox({
                 </span>
               </DropdownSubItem>
               {planSupported && (
-                <DropdownSubItem className="flex h-8 items-center gap-2.5 text-[12px] text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground" onClick={() => setPlanMode((on) => !on)}>
+                <DropdownSubItem className="flex h-8 items-center gap-2.5 text-[12px] text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground" onClick={() => setPlanMode((on) => !on)}>
                   <ClipboardCheck aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                   <span className="flex min-w-0 flex-1 items-baseline gap-3">
                     <span className="shrink-0">{t("compose.planMode")}</span>
