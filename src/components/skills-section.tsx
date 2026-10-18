@@ -1,6 +1,6 @@
-import { useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, FilterLines, Plus, SearchMd, Stars02, SwitchVertical01, UploadCloud02 } from "@untitledui/icons";
+import { ArrowUpRight, Check, File02, FilterLines, Plus, SearchMd, Stars02, SwitchVertical01 } from "@untitledui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
@@ -8,7 +8,7 @@ import { DropdownMenu, DropdownTrigger, DropdownContent } from "@/components/ui/
 import { MenuItem } from "@/components/ui/menu-item";
 import { ShapeProvider } from "@/lib/shape-context";
 import { ShellDialog, ShellDialogActions, ShellField, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
-import { parseSkillFile, SKILL_CATALOG, useSkills, type Skill, type SkillGroup, type SkillPublisher } from "@/lib/skills";
+import { readSkillFile, SKILL_CATALOG, SKILLS_SH, skillsShSearchUrl, useSkills, type Skill, type SkillGroup, type SkillPublisher } from "@/lib/skills";
 import { cn } from "@/lib/utils";
 
 const GROUPS: readonly SkillGroup[] = ["recommended", "new", "popular"];
@@ -17,7 +17,7 @@ const TAB_CLASS = "h-[22px] px-2.5 [&>span]:!text-[12px] [&>span]:!leading-none"
 
 /**
  * Settings > Skills: Installed and Discover, with search, a publisher filter
- * and sort, and Import (a SKILL.md) or Add skill in the header.
+ * and sort; Browse skills (skills.sh) and Add skill (a Markdown file) in the header.
  */
 export function SkillsSection() {
   const { t } = useTranslation();
@@ -26,9 +26,10 @@ export function SkillsSection() {
   const [query, setQuery] = useState("");
   const [publisher, setPublisher] = useState<string | null>(null);
   const [sort, setSort] = useState<"featured" | "name">("featured");
-  const [adding, setAdding] = useState(false);
-  const [importError, setImportError] = useState<string | null>(null);
+  // Add skill: pick a Markdown file, then name and describe it in the dialog.
   const fileRef = useRef<HTMLInputElement>(null);
+  const [fileError, setFileError] = useState(false);
+  const [draft, setDraft] = useState<{ fileName: string; name: string; description: string; instructions: string } | null>(null);
 
   const pool = tab === "installed" ? skills.installed : SKILL_CATALOG;
   const publishers = useMemo(() => [...new Set([...SKILL_CATALOG, ...skills.installed].map((skill) => skill.publisher.name))].sort(), [skills.installed]);
@@ -41,18 +42,6 @@ export function SkillsSection() {
   // Grouped as the catalog presents them, unless searching, filtering or sorting by name.
   const grouped = tab === "discover" && sort === "featured" && !needle && !publisher;
   const flat = sort === "name" ? [...matches].sort((a, b) => a.name.localeCompare(b.name)) : matches;
-
-  async function importFile(file: File | undefined) {
-    if (!file) return;
-    const parsed = parseSkillFile(await file.text());
-    if (!parsed) {
-      setImportError(t("skills.importError"));
-      return;
-    }
-    setImportError(null);
-    skills.addCustom(parsed);
-    setTab("installed");
-  }
 
   const card = (skill: Skill) => (
     <SkillCard
@@ -72,12 +61,33 @@ export function SkillsSection() {
           <p className="mt-0.5 text-[13px] font-normal text-muted-foreground">{t("settings.nav.subtitle.skills")}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <input ref={fileRef} type="file" accept=".md,text/markdown" className="hidden" onChange={(event) => { void importFile(event.target.files?.[0]); event.target.value = ""; }} />
-          <Button size="compact" variant="tertiary" leadingIcon={UploadCloud02} onClick={() => fileRef.current?.click()}>{t("skills.import")}</Button>
-          <Button size="compact" variant="primary" leadingIcon={Plus} onClick={() => setAdding(true)}>{t("skills.add")}</Button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".md"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (!file) return;
+              // Markdown only, even when the system picker is switched to All files.
+              if (!/\.md$/i.test(file.name)) {
+                setFileError(true);
+                return;
+              }
+              setFileError(false);
+              void file.text().then((text) => setDraft({ fileName: file.name, ...readSkillFile(text, file.name) }));
+            }}
+          />
+          <Button size="compact" variant="tertiary" leadingIcon={Plus} onClick={() => fileRef.current?.click()}>{t("skills.add")}</Button>
+          {/* skills.sh, searching for whatever is typed here. */}
+          <Button size="compact" variant="primary" trailingIcon={ArrowUpRight} asChild>
+            <a href={needle ? skillsShSearchUrl(query.trim()) : SKILLS_SH} target="_blank" rel="noreferrer">{t("skills.empty.browse")}</a>
+          </Button>
         </div>
       </div>
-      {importError && <p className="mt-2 text-[12px] text-destructive">{importError}</p>}
+
+      {fileError && <p className="mt-2 text-[12px] text-destructive">{t("skills.mdOnly")}</p>}
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
         <ShapeProvider defaultShape="pill">
@@ -127,14 +137,34 @@ export function SkillsSection() {
       ) : (
         <div className="mt-8 flex flex-col items-center gap-3 rounded-xl border border-border bg-card px-4 py-10 text-center text-[length:var(--redesign-chat-text)] text-muted-foreground">
           {needle || publisher ? t("skills.empty.search") : t("skills.empty.installed")}
+          {needle && <SkillsShLink href={skillsShSearchUrl(query.trim())}>{t("skills.searchSkillsSh", { query: query.trim() })}</SkillsShLink>}
           {tab === "installed" && !needle && !publisher && (
             <Button size="compact" variant="tertiary" onClick={() => setTab("discover")}>{t("skills.empty.browse")}</Button>
           )}
         </div>
       )}
 
-      <AddSkillDialog open={adding} onOpenChange={setAdding} onAdd={(skill) => { skills.addCustom(skill); setAdding(false); setTab("installed"); }} />
+      {tab === "discover" && flat.length > 0 && (
+        <p className="mt-6 text-center text-[length:var(--redesign-chat-meta)] text-muted-foreground">
+          <SkillsShLink href={needle ? skillsShSearchUrl(query.trim()) : SKILLS_SH}>{needle ? t("skills.searchSkillsSh", { query: query.trim() }) : t("skills.browseMore")}</SkillsShLink>
+        </p>
+      )}
+
+      <AddSkillDialog
+        draft={draft}
+        onClose={() => setDraft(null)}
+        onAdd={(skill) => { skills.addCustom(skill); setDraft(null); setTab("installed"); }}
+      />
     </div>
+  );
+}
+
+function SkillsShLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a href={href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-foreground underline-offset-2 hover:underline">
+      {children}
+      <ArrowUpRight aria-hidden="true" className="size-3" />
+    </a>
   );
 }
 
@@ -186,38 +216,45 @@ function PublisherMark({ publisher }: { publisher: SkillPublisher }) {
   );
 }
 
-function AddSkillDialog({ open, onOpenChange, onAdd }: { open: boolean; onOpenChange: (open: boolean) => void; onAdd: (skill: { name: string; description: string; instructions: string }) => void }) {
+/**
+ * Add skill, once a file is picked: the name from its # heading (editable), a
+ * description to write, and the file itself as the instructions.
+ */
+function AddSkillDialog({
+  draft,
+  onClose,
+  onAdd,
+}: {
+  draft: { fileName: string; name: string; description: string; instructions: string } | null;
+  onClose: () => void;
+  onAdd: (skill: { name: string; description: string; instructions: string }) => void;
+}) {
   const { t } = useTranslation();
   const formId = useId();
   const nameId = useId();
   const descriptionId = useId();
-  const instructionsId = useId();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [instructions, setInstructions] = useState("");
-  const ready = name.trim() && description.trim();
-
-  function close(next: boolean) {
-    onOpenChange(next);
-    if (!next) {
-      setName("");
-      setDescription("");
-      setInstructions("");
-    }
-  }
+  // Fresh fields for each picked file.
+  useEffect(() => {
+    if (!draft) return;
+    setName(draft.name);
+    setDescription(draft.description);
+  }, [draft]);
+  const ready = Boolean(name.trim() && description.trim());
 
   return (
     <ShellDialog
       centered
-      open={open}
-      onOpenChange={close}
+      open={draft !== null}
+      onOpenChange={(open) => { if (!open) onClose(); }}
       icon={<span className={cn("grid size-8 place-items-center", SHELL_RADIUS, SHELL_SURFACE)}><Stars02 aria-hidden="true" className="size-4 text-foreground" /></span>}
       title={t("skills.add")}
       description={t("skills.dialog.description")}
       actions={
         <ShellDialogActions
           cancelLabel={t("common.cancel")}
-          onCancel={() => close(false)}
+          onCancel={onClose}
           primary={{ label: t("skills.add"), type: "submit", form: formId, disabled: !ready }}
         />
       }
@@ -227,29 +264,33 @@ function AddSkillDialog({ open, onOpenChange, onAdd }: { open: boolean; onOpenCh
         className="flex flex-col gap-3"
         onSubmit={(event) => {
           event.preventDefault();
-          if (!ready) return;
-          onAdd({ name: name.trim(), description: description.trim(), instructions: instructions.trim() });
-          close(false);
+          if (!ready || !draft) return;
+          onAdd({ name: name.trim(), description: description.trim(), instructions: draft.instructions });
         }}
       >
         <ShellField label={t("workspace.fields.name")} htmlFor={nameId}>
-          <input id={nameId} autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder={t("skills.fields.namePlaceholder")} maxLength={60} className={SHELL_FIELD_INPUT} />
+          <input id={nameId} value={name} onChange={(event) => setName(event.target.value)} placeholder={t("skills.fields.namePlaceholder")} maxLength={60} className={SHELL_FIELD_INPUT} />
         </ShellField>
-        <ShellField label={t("skills.fields.description")} htmlFor={descriptionId}>
-          <input id={descriptionId} value={description} onChange={(event) => setDescription(event.target.value)} maxLength={160} className={SHELL_FIELD_INPUT} />
-        </ShellField>
-        {/* Instructions: a white card like the fields, its label on top (as Description in workspaces). */}
+        {/* Description: a white card like the fields, its label on top (as in workspaces). */}
         <section className={cn("flex flex-col gap-1 px-3 pt-2 pb-1", SHELL_RADIUS, SHELL_SURFACE)}>
-          <label htmlFor={instructionsId} className="text-[12px] text-muted-foreground">{t("skills.fields.instructions")}</label>
+          <label htmlFor={descriptionId} className="text-[12px] text-muted-foreground">{t("skills.fields.description")}</label>
           <textarea
-            id={instructionsId}
-            value={instructions}
-            onChange={(event) => setInstructions(event.target.value)}
-            placeholder={t("skills.fields.instructionsPlaceholder")}
-            rows={4}
+            id={descriptionId}
+            autoFocus
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            placeholder={t("skills.fields.descriptionPlaceholder")}
+            maxLength={160}
+            rows={2}
             className="resize-none bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground/70"
           />
         </section>
+        {/* The picked file, which becomes the instructions. */}
+        <div className={cn("flex h-8 items-center gap-2 px-3 text-[12px] text-muted-foreground", SHELL_RADIUS, SHELL_SURFACE)}>
+          <File02 aria-hidden="true" className="size-3.5 shrink-0" />
+          <span className="min-w-0 truncate text-foreground">{draft?.fileName}</span>
+          <span className="ml-auto shrink-0">{t("skills.fields.instructions")}</span>
+        </div>
       </form>
     </ShellDialog>
   );
