@@ -3199,10 +3199,10 @@ function ChatRowView({
             sitting 4px inset from that same edge instead of flush with it,
             reading as a gap on whichever side the row is aligned to. */}
         <div className="flex items-center gap-1.5">
-          {/* size-4 (16px), matching ProviderIcon's own size on the agent
-              row below exactly -- both sides of the conversation keep the
-              same size mark now. */}
-          <span className="size-4 shrink-0 overflow-hidden rounded-full">
+          {/* 18px, a step over the agent row's 16px ProviderIcon: a round avatar
+              reads smaller than a provider's mark in the same box, so this is
+              what makes the two sides look the same size. */}
+          <span className="size-[18px] shrink-0 overflow-hidden rounded-full">
             <DefaultAvatar name={row.displayName} />
           </span>
           <span className="text-[length:var(--redesign-chat-meta)] text-muted-foreground">{isSelf ? i18n.t("chat.me") : row.displayName}</span>
