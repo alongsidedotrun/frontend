@@ -778,14 +778,11 @@ export function ComposeBox({
   // Claude/Antigravity only -- see ChatPage.tsx's own call site comment for
   // the live-tested reasoning behind that split.
   onCompactNow?: () => void;
-  // Codex only, real mid-turn injection (issue #265's own turn/steer) -- per explicit
-  // request ("press enter to send the prompt mid way but keep the send as stop so i can
-  // cancel the prompt as well"): while awaitingReply is true (a turn genuinely still
-  // running, not just "no reply yet"), Enter routes here instead of onSubmit, and the
-  // Stop button itself stays exactly as-is so the whole turn can still be cancelled
-  // outright. Undefined for Claude/Antigravity (no real steer capability), so Enter
-  // during their own awaitingReply window keeps doing nothing, same as before this.
-  onSteer?: (text: string) => void;
+  // Claude and Codex: a message taken into the running turn now (Steer on a
+  // queued message, or Enter mid-turn with queueing off). The Stop button
+  // stays, so the whole turn can still be cancelled. Undefined where the
+  // provider can't steer: messages then always queue.
+  onSteer?: (message: Omit<QueuedMessage, "id">) => void;
   // ChatPage-only: while a turn is running, Enter queues the message here
   // (shown above the composer, sent when the turn ends) instead of sending or
   // steering it unannounced. With queueing turned off, a provider that can
@@ -1607,8 +1604,8 @@ export function ComposeBox({
           onSteer={
             onSteer
               ? (item) => {
-                  onSteer(item.text);
                   queue.onRemove(item.id);
+                  onSteer(item);
                 }
               : undefined
           }
@@ -1766,7 +1763,8 @@ export function ComposeBox({
             if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault();
               if (!value.trim()) return;
-              if (awaitingReply && queue && (queueing || !onSteer)) {
+              // Steering carries text only, so a message with images waits its turn.
+              if (awaitingReply && queue && (queueing || !onSteer || images.length > 0)) {
                 if (selectedModels.length === 0) {
                   triggerModelShake();
                   return;
@@ -1777,9 +1775,9 @@ export function ComposeBox({
                 setImages([]);
                 return;
               }
-              if (awaitingReply && onSteer) {
+              if (awaitingReply && onSteer && images.length === 0) {
                 fadeOutSent();
-                onSteer(value);
+                onSteer({ text: value, images, effort, mode: planMode && planSupported ? "plan" : mode });
                 onChange("");
                 return;
               }
