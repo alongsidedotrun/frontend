@@ -26,6 +26,8 @@ const buttonVariants = cva(
     variants: {
       variant: {
         primary: "text-background",
+        // The send button's blue, for the one action a surface is for (Invite).
+        accent: "text-white",
         secondary: "text-foreground",
         tertiary: "text-foreground",
         ghost: "text-muted-foreground hover:text-foreground",
@@ -132,6 +134,8 @@ interface ButtonProps
    surface or tinted banner under it; its fill and spread ring still never
    double up, since an outer shadow renders only outside the surface box. */
 const bgVariants: Record<string, string> = {
+  accent:
+    "[--btn-bg:var(--send-button-bg)] group-hover:[--btn-bg:var(--send-button-bg-hover)] group-active:[--btn-bg:var(--send-button-bg-active)] bg-[var(--btn-bg)] shadow-[0_0_0_1px_var(--btn-bg)] group-active:shadow-[0_0_0_0px_var(--btn-bg)]",
   primary:
     "[--btn-bg:var(--foreground)] group-hover:[--btn-bg:color-mix(in_oklab,var(--foreground)_90%,var(--background))] group-active:[--btn-bg:color-mix(in_oklab,var(--foreground)_80%,var(--background))] bg-[var(--btn-bg)] shadow-[0_0_0_1px_var(--btn-bg)] group-active:shadow-[0_0_0_0px_var(--btn-bg)]",
   secondary:
@@ -151,6 +155,8 @@ const bgVariants: Record<string, string> = {
 /* Forced-active (`active` prop): pressed colors at full size; the
    geometric press-collapse still reacts on top. */
 const activeBgVariants: Record<string, string> = {
+  accent:
+    "[--btn-bg:var(--send-button-bg-active)] bg-[var(--btn-bg)] shadow-[0_0_0_1px_var(--btn-bg)] group-active:shadow-[0_0_0_0px_var(--btn-bg)]",
   primary:
     "[--btn-bg:color-mix(in_oklab,var(--foreground)_80%,var(--background))] bg-[var(--btn-bg)] shadow-[0_0_0_1px_var(--btn-bg)] group-active:shadow-[0_0_0_0px_var(--btn-bg)]",
   secondary:
@@ -219,7 +225,8 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     const iconSize = isCompact ? 14 : 16;
     // Spinner box tracks the button height so the loading glyph stays
     // proportionate across sizes.
-    const spinnerSizeClass = isCompact ? "h-7 w-7" : "h-9 w-9";
+    // Icon size, like the glyphs it stands in for: 14px compact, 16px default.
+    const spinnerSizeClass = isCompact ? "size-3.5" : "size-4";
     const shape = useShape();
     const resolvedVariant = legacyVariantAliases[variant ?? "primary"] ?? variant ?? "primary";
     const bgClass = active
@@ -248,22 +255,14 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
                 )}
               </span>
               <span className="absolute inset-0 flex items-center justify-center">
+                {/* A circle: a faint ring with a quarter arc going round it. */}
                 <svg
-                  className={spinnerSizeClass}
+                  className={cn(spinnerSizeClass, "animate-spin [animation-duration:800ms]")}
                   viewBox="0 0 24 24"
                   fill="none"
                 >
-                  <path
-                    d="M 12 12 C 14 8.5 19 8.5 19 12 C 19 15.5 14 15.5 12 12 C 10 8.5 5 8.5 5 12 C 5 15.5 10 15.5 12 12 Z"
-                    stroke="currentColor"
-                    strokeWidth="1.125"
-                    strokeLinecap="round"
-                    pathLength="100"
-                    style={{
-                      strokeDasharray: "15 85",
-                      animation: "spinner-move 2s linear infinite, spinner-dash 4s ease-in-out infinite",
-                    }}
-                  />
+                  <circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity="0.25" strokeWidth="3" />
+                  <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" pathLength="100" strokeDasharray="25 75" />
                 </svg>
               </span>
             </>

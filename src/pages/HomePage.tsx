@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useOutletContext } from "react-router-dom";
 import { QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
+import { useLimitWarning } from "@/components/limit-warning";
 import { ComposeBox, toImageInputs, type ImageAttachment } from "@/components/compose-box";
 import { type EffortLevel } from "@/lib/effort";
 import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
 import type { SettingsSection } from "@/components/settings-overlay";
 import { getUserDisplayName } from "@/lib/user";
+import type { PermissionMode } from "@/lib/last-used";
 
 // Real port of frontend/index.html's "start a new chat" compose box --
 // frontend/ is superseded now that the sidebar/auth shell lives here (see
@@ -18,6 +20,7 @@ import { getUserDisplayName } from "@/lib/user";
 // gap already exists independent of this page.
 export type HomePageShellContext = {
   openSettings: (section: SettingsSection) => void;
+  workspaceId?: string;
   workspaceName?: string;
   // The current workspace's uploaded logo and letter-tile colour, so the
   // heading shows the same tile as the sidebar.
@@ -52,11 +55,13 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
   // open the real SettingsOverlay modal directly, threaded down to
   // ComposeBox's own "Add provider" row.
   const outletContext = useOutletContext<HomePageShellContext>();
-  const { openSettings, workspaceName = t("home.defaultWorkspaceName"), workspaceLogo = null, workspaceColor = null } = shellContextOverride ?? outletContext;
+  const { openSettings, workspaceId, workspaceName = t("home.defaultWorkspaceName"), workspaceLogo = null, workspaceColor = null } = shellContextOverride ?? outletContext;
   const workspaceTile = workspaceMonogram(workspaceName, workspaceColor);
   const [prompt, setPrompt] = useState("");
   const [sending, setSending] = useState(false);
   const [transitioningToChat, setTransitioningToChat] = useState(false);
+  const [workingDirectory, setWorkingDirectory] = useState<string | null>(null);
+  const [choosingDirectory, setChoosingDirectory] = useState(false);
   const handoffTimerRef = useRef<number | null>(null);
   // ComposeBox owns which models are selected (supports multi-select /
   // "Model fusion"); this just mirrors the current selection so
@@ -65,6 +70,10 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
   // ("Select model") until defaultModel (below) resolves, at which point
   // ComposeBox's own defaultModelValue re-sync effect picks it up.
   const selectedModelsRef = useRef<typeof QUICK_CHAT_MODELS>([]);
+  // The selected model's provider, for the 5-hour limit warning on top of the composer.
+  const [modelProvider, setModelProvider] = useState<string | null>(null);
+  // Below the composer here: a new chat's composer sits mid-page.
+  const limitWarning = useLimitWarning(modelProvider, "bottom");
   // ComposeBox's own "Set as default for new chat" (compose-box.tsx's own
   // onPinDefaultModel/onPinDefaultEffort props) -- there's no chat yet for
   // that to write a real per-chat default to, so it lands here instead,
@@ -100,6 +109,21 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
   // ChatPage.tsx picks up the real per-chat value the moment a chat actually exists.
   const contextUsage = null;
 
+  async function chooseWorkingDirectory() {
+    if (choosingDirectory) return;
+    setChoosingDirectory(true);
+    try {
+      const response = await fetch("/sessions/working-directory/pick", { method: "POST" });
+      if (!response.ok) throw new Error(`Folder picker failed: ${response.status}`);
+      const result: { path: string | null } = await response.json();
+      if (result.path) setWorkingDirectory(result.path);
+    } catch {
+      window.alert(t("compose.folderPickerFailed"));
+    } finally {
+      setChoosingDirectory(false);
+    }
+  }
+
   useEffect(() => {
     document.title = t("home.title");
   }, [t]);
@@ -129,7 +153,7 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
   // bug, confirmed directly: that ref (onEffortChange keeping it updated) could
   // read stale by the time this actually posted, reported as "I set Low, the
   // reply's own dial showed Medium".
-  async function createSession(images: ImageAttachment[], effort: EffortLevel) {
+  async function createSession(images: ImageAttachment[], effort: EffortLevel, permissionMode: PermissionMode) {
     const trimmed = prompt.trim();
     if (!trimmed || sending || transitioningToChat) return;
     // compose-box.tsx's own Send button/Enter handler already blocks
@@ -152,7 +176,13 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
       const res = await fetch("/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ api_key: apiKey, model: model.value }),
+        body: JSON.stringify({
+          api_key: apiKey,
+          model: model.value,
+          working_directory: workingDirectory,
+          title_seed: sentPrompt,
+          workspace_id: workspaceId,
+        }),
       });
       if (!res.ok) {
         window.alert(t("home.createSessionFailed", { status: res.status }));
@@ -222,6 +252,7 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
           images: images.length > 0 ? toImageInputs(images) : undefined,
           effort,
           model: model.value,
+          permissionMode,
         })
       );
 
@@ -283,16 +314,19 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
           onChange={setPrompt}
           onSubmit={createSession}
           initialHeight={!transitioningToChat}
+          showWorkFromFolder={!transitioningToChat}
+          workFromFolderPath={workingDirectory}
+          onSelectWorkFromFolder={chooseWorkingDirectory}
           contextUsage={contextUsage}
           // ContextDropdown never actually renders here (contextUsage is always null
           // pre-chat), so these two are dead props in practice -- kept simple, static
           // values just to satisfy ComposeBox's required prop types rather than
           // making them optional there for the sake of this one non-using caller.
           autocompactValue="500000"
-          autocompactScope="chat"
           onSetAutocompact={() => {}}
           defaultModelValue={defaultModel}
           onOpenSettings={() => openSettings("provider")}
+          onOpenApps={() => openSettings("apps")}
           onPinDefaultModel={(value) => {
             pinnedDefaultModelRef.current = value;
           }}
@@ -306,7 +340,9 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
           ]}
           onModelsChange={(models) => {
             selectedModelsRef.current = models;
+            setModelProvider(models[0]?.provider ?? null);
           }}
+          noticeBelow={limitWarning.notice}
         />
         </div>
       </div>

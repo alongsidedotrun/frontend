@@ -495,7 +495,7 @@ const EMPTY_CHILD_SIDEBAR_ROUTES: string[] = [];
 // The four real SettingsSection nav destinations -- same list
 // SettingsPage.tsx's own VALID_SECTIONS keeps, duplicated rather than
 // shared since each file's own fallback behavior differs slightly.
-const SETTINGS_NAV_SECTIONS: SettingsSection[] = ["profile", "general", "appearance", "chat", "security", "provider", "apps"];
+const SETTINGS_NAV_SECTIONS: SettingsSection[] = ["profile", "general", "appearance", "chat", "provider", "apps", "skills", "archived-workspaces", "archived-projects", "archived-chats"];
 
 export function AppLayout() {
   const { t } = useTranslation();
@@ -1996,7 +1996,7 @@ export function AppLayout() {
                     fill
                     placeholderNav={PLACEHOLDER_NAV_ROUTES.includes(settledPathname)}
                     activeNav={
-                      settledPathname === "/new/chat"
+                      settledPathname === "/"
                         ? "home"
                         : settledPathname === "/getting-started"
                           ? "welcome"
@@ -2006,9 +2006,9 @@ export function AppLayout() {
                                 ? "integrations"
                                 : undefined
                     }
-                    onNewChat={() => navigate("/new/chat")}
+                    onNewChat={() => navigate("/")}
                     onNavigate={(key) => {
-                      if (key === "home") navigate("/new/chat");
+                      if (key === "home") navigate("/");
                     }}
                     projects={sidebarProjects}
                     recents={recents}

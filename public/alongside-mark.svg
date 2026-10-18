@@ -1,0 +1,13 @@
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <!-- favicon.svg's mark, flat and full bleed: the app's workspace tile rounds and edges it itself. -->
+  <defs>
+    <linearGradient id="background" x1="32" y1="0" x2="32" y2="64" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2B83FF" />
+      <stop offset="1" stop-color="#056DFF" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" fill="url(#background)" />
+  <circle cx="21.5" cy="32" r="10.5" fill="#CFCFCF" />
+  <circle cx="32" cy="32" r="10.5" fill="#E8E8E8" />
+  <circle cx="42.5" cy="32" r="10.5" fill="#FFFFFF" />
+</svg>

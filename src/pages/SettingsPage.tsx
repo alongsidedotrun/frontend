@@ -1,8 +1,9 @@
 import { useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { SettingsSectionContent, type SettingsSection } from "@/components/settings-overlay";
+import { useIsSignedIn } from "@/lib/auth";
 
-const VALID_SECTIONS: SettingsSection[] = ["profile", "general", "appearance", "chat", "security", "provider", "apps"];
+const VALID_SECTIONS: SettingsSection[] = ["profile", "general", "appearance", "chat", "provider", "apps", "skills", "archived-workspaces", "archived-projects", "archived-chats"];
 
 // Full page now, not a modal -- per explicit request ("we need to update
 // our settings to be exactly like it... i want a full page setting page"),
@@ -14,13 +15,23 @@ const VALID_SECTIONS: SettingsSection[] = ["profile", "general", "appearance", "
 // settings-overlay.tsx).
 export function SettingsPage() {
   const { section } = useParams<{ section: string }>();
+  const navigate = useNavigate();
+  const isSignedIn = useIsSignedIn();
   const resolved: SettingsSection = VALID_SECTIONS.includes(section as SettingsSection)
-    ? (section as SettingsSection)
+    ? section === "profile" && !isSignedIn
+      ? "general"
+      : (section as SettingsSection)
     : "general";
 
   useEffect(() => {
     document.title = "Settings";
   }, []);
+
+  useEffect(() => {
+    if (section === "profile" && !isSignedIn) navigate("/settings/general", { replace: true });
+    // Archived was one page before it split by kind.
+    if (section === "archived") navigate("/settings/archived-chats", { replace: true });
+  }, [isSignedIn, navigate, section]);
 
   return <SettingsSectionContent section={resolved} />;
 }

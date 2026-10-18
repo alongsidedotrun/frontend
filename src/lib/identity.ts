@@ -12,10 +12,13 @@ export type Identity = {
   picture: string | null;
   // The plan the identity service reports ("free", "hosted", "enterprise"); null while signed out.
   plan: string | null;
+  // Whose local data is in view: the account's id, or "" while signed out (backend account_scope.rs).
+  // Lists and Getting started are per account, so they reload when this changes.
+  scope: string;
 };
 
 const CACHE_KEY = "alongside_identity_cache";
-const SIGNED_OUT: Identity = { signedIn: false, displayName: null, email: null, picture: null, plan: null };
+const SIGNED_OUT: Identity = { signedIn: false, displayName: null, email: null, picture: null, plan: null, scope: "" };
 const listeners = new Set<() => void>();
 
 function readCache(): Identity {
@@ -61,6 +64,7 @@ export async function refreshIdentity(): Promise<Identity> {
       signed_in: boolean;
       profile: { display_name: string; email: string | null; picture: string | null } | null;
       plan: string | null;
+      scope?: string;
     };
     set({
       signedIn: status.signed_in,
@@ -68,6 +72,7 @@ export async function refreshIdentity(): Promise<Identity> {
       email: status.profile?.email ?? null,
       picture: status.profile?.picture ?? null,
       plan: status.plan ?? null,
+      scope: status.scope ?? "",
     });
   } catch {
     // backend unreachable: keep what is known

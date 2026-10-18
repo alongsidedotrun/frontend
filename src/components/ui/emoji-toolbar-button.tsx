@@ -407,8 +407,7 @@ function EmojiPickerSearchAndClear({
             '-translate-y-1/2 absolute top-1/2 right-0.5 flex size-8 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-popover-foreground hover:bg-transparent'
           )}
           onClick={clearSearch}
-          title={i18n.clear}
-          aria-label="Clear"
+          aria-label={i18n.clear}
           type="button"
         >
           {emojiSearchIcons.delete}

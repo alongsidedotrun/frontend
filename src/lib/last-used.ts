@@ -16,9 +16,8 @@
 // background to persist it.
 import type { EffortLevel } from "@/lib/effort";
 
-// "plan" -- Antigravity-only (compose-box.tsx's own ANTIGRAVITY_MODES has
-// the real reasoning: agy's own CLI has no ask/manual equivalent, only
-// --mode plan and --dangerously-skip-permissions).
+// "plan" is the read-only planning stance exposed by Claude and Antigravity;
+// the remaining values form the shared approval ladder across providers.
 export type PermissionMode = "manual" | "ask" | "auto" | "plan";
 
 interface LastUsedCache {
