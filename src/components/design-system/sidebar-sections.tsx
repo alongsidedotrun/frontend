@@ -250,6 +250,8 @@ function SidebarRow({
   }
 
   let index = 0;
+  // A row with both keeps its chevron at the edge and shows the "..." just before it.
+  const menuBeforeChevron = Boolean(item.menu) && expanded !== undefined;
   return (
     <div className="group/sidebar-row relative">
       <button
@@ -261,11 +263,11 @@ function SidebarRow({
           "group/row-button",
           rowClass,
           "hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          item.menu && "pr-8",
+          item.menu && !menuBeforeChevron && "pr-8",
         )}
       >
         {Icon && <Icon aria-hidden="true" strokeWidth={2} className="size-[var(--redesign-quick-actions-icon-size)] shrink-0" />}
-        <span className="truncate">{item.label}</span>
+        <span className={cn("truncate", menuBeforeChevron && "pr-6")}>{item.label}</span>
         {chevron}
       </button>
       {item.menu && (
@@ -276,7 +278,9 @@ function SidebarRow({
               (PRESS_EFFECT, like the cog) doesn't fight it. */}
           <div
             className={cn(
-              "absolute top-1/2 right-1.5 flex -translate-y-1/2 transition-opacity duration-150",
+              "absolute top-1/2 flex -translate-y-1/2 transition-opacity duration-150",
+              // Past the chevron (14px) and a small gap, or at the edge when there's none.
+              menuBeforeChevron ? "right-[calc(var(--redesign-quick-actions-padding)+18px)]" : "right-1.5",
               menuOpen ? "opacity-100" : "opacity-0 group-hover/sidebar-row:opacity-100 group-has-[:focus-visible]/sidebar-row:opacity-100",
             )}
           >
