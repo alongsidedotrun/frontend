@@ -186,16 +186,10 @@ const MODES: PermissionModeOption[] = [
   { value: "auto", labelKey: "compose.permission.auto.label", descriptionKey: "compose.permission.auto.description" },
 ];
 
-// Antigravity 1.4 exposes the same safety ladder through its current
-// execution modes: default (review first), accept-edits (ordinary edits run,
-// risky commands still need permission), and --dangerously-skip-permissions.
-// Plan remains available as a separate read-only stance.
-const ANTIGRAVITY_MODES: PermissionModeOption[] = [
-  { value: "manual", labelKey: "compose.permission.manual.label", descriptionKey: "compose.permission.manual.description" },
-  { value: "ask", labelKey: "compose.permission.ask.label", descriptionKey: "compose.permission.ask.description" },
-  { value: "auto", labelKey: "compose.permission.auto.label", descriptionKey: "compose.permission.auto.description" },
-  { value: "plan", labelKey: "compose.planMode", descriptionKey: "compose.permission.plan.description" },
-];
+// Antigravity 1.4 exposes the same safety ladder through its execution modes:
+// default (review first), accept-edits (ordinary edits run, risky commands
+// still need permission), and --dangerously-skip-permissions. Plan is not a
+// permission: it's the + menu's Plan mode, for whichever providers offer it.
 
 // Synara's permission glyphs, in Untitled UI: a raised hand to ask, a ticked shield to approve
 // for you, a charged shield for full access.
@@ -994,10 +988,8 @@ export function ComposeBox({
   // The exact effective value is passed with the submission below. Permission
   // is deliberately not restored or persisted merely by mounting/changing the
   // picker: that could make a later fresh chat inherit Full access.
-  // Antigravity's own real-capability set (ANTIGRAVITY_MODES's own comment
-  // has the reasoning) instead of the standard Manual/Ask/Auto once an
-  // Antigravity model is the current pick.
-  const modes = selectedModels[0]?.provider === "Antigravity" ? ANTIGRAVITY_MODES : MODES;
+  // The same three for every provider; Plan mode lives in the + menu.
+  const modes = MODES;
   const selectedProvider = selectedModels[0]?.provider;
   const previousProviderRef = useRef(selectedProvider);
   useEffect(() => {
