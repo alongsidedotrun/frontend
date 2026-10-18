@@ -1,7 +1,7 @@
 // "You're getting close to your 5-hour limit": the provider's own reading of its 5-hour usage
 // window (backend `limit_usage` events mid-turn, or GET /provider-usage when a chat opens),
-// shown above the composer at 80% and again at 95%. Closing it holds until the next level or
-// the next window (a window is known by when it resets).
+// shown with the composer at 80% and again at 95%. Closing it holds for this session, until the
+// next level or the next window (a window is known by when it resets).
 
 export const LIMIT_WARNING_LEVELS = [80, 95] as const;
 
@@ -18,29 +18,23 @@ export function warningLevel(usedPercent: number): number | null {
   return [...LIMIT_WARNING_LEVELS].reverse().find((level) => usedPercent >= level) ?? null;
 }
 
-const DISMISSED_KEY = "alongside_limit_warnings_dismissed";
+// Closed warnings, for this session only: a reload or restart shows the warning again while
+// the window is still past a level. (Dropped: the earlier localStorage list, which kept a
+// closed warning hidden across restarts.)
+const dismissed = new Set<string>();
 const dismissKey = (reading: LimitReading, level: number) => `${reading.provider}:${reading.resetsAt ?? "?"}:${level}`;
-
-function readDismissed(): string[] {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(DISMISSED_KEY) ?? "[]");
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+try {
+  localStorage.removeItem("alongside_limit_warnings_dismissed");
+} catch {
+  // Nothing stored, or no storage.
 }
 
 export function isWarningDismissed(reading: LimitReading, level: number): boolean {
-  return readDismissed().includes(dismissKey(reading, level));
+  return dismissed.has(dismissKey(reading, level));
 }
 
 export function dismissWarning(reading: LimitReading, level: number) {
-  try {
-    // The last few are enough: older windows have reset.
-    localStorage.setItem(DISMISSED_KEY, JSON.stringify([...readDismissed(), dismissKey(reading, level)].slice(-20)));
-  } catch {
-    // Storage unavailable: it just shows again next time.
-  }
+  dismissed.add(dismissKey(reading, level));
 }
 
 /** The 5-hour window from a backend `limit_usage` event, if it has one. */
