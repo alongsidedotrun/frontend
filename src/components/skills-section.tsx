@@ -169,12 +169,13 @@ export function SkillsSection() {
           </Tabs>
         </ShapeProvider>
         <div className="flex min-w-0 items-center gap-2">
-          <div className="relative w-48 min-w-0">
+          {/* Focused, the icon and placeholder fade out, leaving just what's typed. */}
+          <div className="group/skills-search relative w-48 min-w-0">
             {/* Fades out while a search is on its way, back in when it lands. */}
             <SearchMd
               aria-hidden="true"
               className={cn(
-                "pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground transition-opacity duration-200 ease-in-out motion-reduce:transition-none",
+                "pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground transition-opacity duration-200 ease-in-out group-focus-within/skills-search:opacity-0 motion-reduce:transition-none",
                 searching && "opacity-0",
               )}
             />
@@ -183,7 +184,7 @@ export function SkillsSection() {
               onChange={(event) => setQuery(event.target.value)}
               placeholder={tab === "discover" ? t("skills.browse.placeholder") : t("skills.search")}
               aria-label={t("skills.search")}
-              className="h-7 border border-border pl-8 text-[length:var(--redesign-chat-meta)] shadow-none dark:border-border"
+              className="h-7 border border-border pl-8 text-[length:var(--redesign-chat-meta)] shadow-none placeholder:transition-opacity placeholder:duration-200 focus:placeholder:opacity-0 focus-visible:border-focus-accent dark:border-border dark:focus-visible:border-focus-accent"
             />
           </div>
           {tab === "discover" && (
