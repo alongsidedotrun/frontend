@@ -1427,8 +1427,11 @@ export function ComposeBox({
       Object.fromEntries(
         providerGroups.map(([provider, models]) => [
           provider,
-          ({ size = 14, className }: IconComponentProps) => (
-            <span className={cn("inline-grid shrink-0 place-items-center", className)} style={{ width: size, height: size }}>
+          // A step above the menu's 14px icon size, scaling with the window like the rows' text
+          // (16px up to ~1000px wide, 18px from ~1300px): provider marks are full artwork, not
+          // line icons, and read small at 14.
+          ({ className }: IconComponentProps) => (
+            <span className={cn("inline-grid size-[clamp(1rem,calc(0.6rem+0.6vw),1.125rem)] shrink-0 place-items-center", className)}>
               <ProviderIcon model={models[0]} className="size-full" />
             </span>
           ),
@@ -2338,7 +2341,6 @@ export function ComposeBox({
                           isSelected && "bg-hover-2"
                         )}
                         onClick={() => selectModel(m)}
-                        title={m.description}
                       >
                         {modelDisplayName(m)}
                         {/* Set as default -- per explicit request ("the three
@@ -2506,7 +2508,7 @@ export function ComposeBox({
                 <img src="/icons/providers/github.svg" alt="" aria-hidden="true" className="size-3.5 object-contain dark:invert" />
               </span>
               {(["drive", "docs", "sheets"] as const).map((app) => (
-                <span key={app} title={`Google ${app[0].toUpperCase()}${app.slice(1)} — ${t("settings.apps.comingSoon")}`} className={appIconTileClass}>
+                <span key={app} aria-label={`Google ${app[0].toUpperCase()}${app.slice(1)} — ${t("settings.apps.comingSoon")}`} className={appIconTileClass}>
                   <img src={`/icons/google-${app}.svg`} alt="" aria-hidden="true" className="size-[18px] object-contain" />
                 </span>
               ))}

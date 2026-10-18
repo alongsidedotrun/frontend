@@ -415,7 +415,6 @@ function AddToggle({ name, added, busy, failed, onAdd, onRemove }: { name: strin
     <button
       type="button"
       aria-label={label}
-      title={label}
       disabled={busy}
       onClick={added ? onRemove : onAdd}
       className={cn(

@@ -102,7 +102,6 @@ export function TaskProgressPanel({
             type="button"
             onClick={onPause}
             aria-label={t("chat.tasks.pause")}
-            title={t("chat.tasks.pause")}
             className="flex size-6 shrink-0 items-center justify-center rounded-[calc(24px*8/27)] text-muted-foreground transition-colors hover:bg-hover-2/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <Pause aria-hidden="true" className="size-3.5" fill="currentColor" />
