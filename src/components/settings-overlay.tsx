@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import type { IconComponent } from "@/lib/icon-context";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
-import { useGettingStarted } from "@/hooks/use-getting-started";
 import { useIsMac, useIsWindows } from "@/hooks/use-platform";
 import { useIsTauri } from "@/hooks/use-tauri";
 import { useTheme } from "@/hooks/use-theme";
@@ -18,10 +16,11 @@ import {
 import { spring } from "@/lib/springs";
 import { modelDisplayName, PROVIDER_DISPLAY, ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
 import { effortLabel, EFFORT_LEVELS, loadDefaultEffort, saveDefaultEffort, type EffortLevel } from "@/lib/effort";
-import { LANGUAGE_OPTIONS, loadLanguage, saveLanguage, uiLocaleFor, type LanguageValue } from "@/lib/language";
+import { loadLanguage, saveLanguage, uiLocaleFor, type LanguageValue } from "@/lib/language";
+import { loadTimezone, saveTimezone } from "@/lib/timezones";
+import { LanguageDropdown, TimezoneDropdown } from "@/components/locale-dropdowns";
 import { Trans, useTranslation } from "react-i18next";
 import i18n from "@/i18n";
-import { loadNotifyTurnComplete, requestNotificationPermission, saveNotifyTurnComplete } from "@/lib/notify-turn-complete";
 import { formatStorageBytes, useUsageStats } from "@/lib/use-usage";
 import { ErrorText } from "@/lib/error-code";
 import { AlongsideLogo } from "@/components/icons/alongside-logo";
@@ -34,35 +33,35 @@ import { MenuItem as BaseMenuItem } from "@/components/ui/menu-item";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
 import { Switch } from "@/components/ui/switch";
+import { useQueueing } from "@/lib/message-queue";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ShellField } from "@/components/design-system/shell-dialog";
+import { SkillsSection } from "@/components/skills-section";
+import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
 import {
   BubbleChatIcon,
+  SkillIcon,
+  FolderIcon,
+  MessageChatCircleIcon,
+  WorkspacesIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  ChevronsInwardHorizontalIcon,
   DownloadIcon,
-  ExpandedWidthIcon,
   HelpCircleIcon,
   IntegrationsIcon,
-  LogOutIcon,
-  MoonIcon,
   PaletteIcon,
   ProvidersIcon,
   ProviderUsageIcon,
-  RotateCcwIcon,
   SearchIcon,
   SettingsIcon,
-  SunIcon,
-  SystemIcon,
   UserIcon,
   ArrowCircleBrokenLeftIcon,
 } from "@/components/icons/untitled-ui";
-import { GlideGroup, RailButton, SIDEBAR_WIDTH, SIDEBAR_ROW_WIDTH } from "@/components/sidebar-nav";
+import { GlideGroup, RailButton } from "@/components/sidebar-nav";
 import { AccountMenuItems, HelpMenuItems } from "@/components/nav-user";
 import {
   clearUserAvatarImage,
-  getUserDisplayName,
   setUserAvatarImage,
   useUserAvatarImage,
   useUserDisplayName,
@@ -70,15 +69,11 @@ import {
 import { signOut, useIsSignedIn } from "@/lib/auth";
 import { openSignInDialog } from "@/lib/use-sign-in";
 import { useIdentity } from "@/lib/identity";
-import { Command, ShieldCheck } from "lucide-react";
-import { loadDataAcknowledgement, loadDataAcknowledgementTime } from "@/lib/data-acknowledgement";
+import { Command, RotateCcw, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Tips/Notifications/Usage are sub-sections *inside* General, not their
-// own routes -- per explicit request ("Not as items but as menu items
-// like synara's style"), matching Synara's own General page (several
-// labeled sub-sections stacked on one page, not a separate nav entry per
-// sub-section). Story: Settings "Application" section
+// General owns the language and timezone controls. Story: Settings
+// "Application" section
 // (alongsidedotrun/private#207). Appearance moved out to its own
 // top-level section (AppearanceSection, below) -- per explicit request
 // ("we should get an appearance menu at the sidebar as well as palette
@@ -88,7 +83,7 @@ import { cn } from "@/lib/utils";
 // stays its own separate top-level section instead, and Danger zone was
 // removed entirely rather than folded into a new section (SETTINGS_NAV_GROUPS'
 // own comment below has the full reasoning).
-export type SettingsSection = "profile" | "general" | "appearance" | "chat" | "security" | "provider" | "apps";
+export type SettingsSection = "profile" | "general" | "appearance" | "chat" | "provider" | "apps" | "skills" | "archived-workspaces" | "archived-projects" | "archived-chats";
 
 // ---------------------------------------------------------------------------
 // Style pass -- matches a reference open-source app called Synara's own
@@ -113,6 +108,7 @@ export type SettingsSection = "profile" | "general" | "appearance" | "chat" | "s
 // nested/controls inside them, matching Synara's own strict two-step scale
 // (that app's settingsPanelStyles.ts).
 const SETTINGS_CARD_RADIUS = "rounded-xl";
+const PROVIDER_ICON_FRAME = "flex size-8 shrink-0 items-center justify-center rounded-[calc(32px*8/27)] border border-border";
 const SETTINGS_CONTROL_RADIUS = "rounded-lg";
 
 // Shared by every plain action button in a Caution section (Reset, Log
@@ -210,17 +206,23 @@ function SettingsRow({
 // rankSettingsSearch's own substring matching (that function's own comment
 // has the "why not translated" reasoning), never rendered directly.
 // `labelKey` is what every real display site below calls t() with.
-const SECTIONS: { key: SettingsSection; label: string; labelKey: string; icon: ReactNode }[] = [
+// titleKey: the page heading, when the nav label alone needs its group for context.
+const SECTIONS: { key: SettingsSection; label: string; labelKey: string; titleKey?: string; icon: ReactNode }[] = [
   { key: "profile", label: "Profile", labelKey: "settings.nav.profile", icon: <UserIcon className="size-[14px]" /> },
   { key: "general", label: "General", labelKey: "settings.nav.general", icon: <SettingsIcon className="size-[14px]" /> },
   { key: "appearance", label: "Appearance", labelKey: "settings.nav.appearance", icon: <PaletteIcon className="size-[14px]" /> },
   { key: "chat", label: "Chat", labelKey: "settings.nav.chat", icon: <BubbleChatIcon className="size-[14px]" /> },
-  { key: "security", label: "Security", labelKey: "settings.nav.security", icon: <ShieldCheck className="size-[14px]" /> },
   { key: "provider", label: "Provider", labelKey: "settings.nav.provider", icon: <ProvidersIcon className="size-[14px]" /> },
   // Its own top-level section now, not a drill-in under Provider -- per
   // explicit correction ("Still inside providers its meant to be settings
   // > apps and not settings > providers > apps").
   { key: "apps", label: "Apps", labelKey: "settings.nav.apps", icon: <IntegrationsIcon className="size-[14px]" /> },
+  { key: "skills", label: "Skills", labelKey: "settings.nav.skills", icon: <SkillIcon className="size-[14px]" /> },
+  // Archived, one page per kind, so each lists only its own.
+  { key: "archived-workspaces", label: "Archived workspaces", labelKey: "settings.nav.archivedWorkspaces", titleKey: "settings.archived.workspaces.title", icon: <WorkspacesIcon className="size-[14px]" /> },
+  { key: "archived-projects", label: "Archived projects", labelKey: "settings.nav.archivedProjects", titleKey: "settings.archived.projects.title", icon: <FolderIcon className="size-[14px]" /> },
+  // Chats, plural: message-chat-circle. One chat (the rows) is the Chat icon.
+  { key: "archived-chats", label: "Archived chats", labelKey: "settings.nav.archivedChats", titleKey: "settings.archived.chats.title", icon: <MessageChatCircleIcon className="size-[14px]" /> },
 ];
 
 // Group describers -- per explicit request ("we need to add section
@@ -241,8 +243,9 @@ const SECTIONS: { key: SettingsSection; label: string; labelKey: string; icon: R
 const SETTINGS_NAV_GROUPS: { labelKey: string; keys: SettingsSection[] }[] = [
   // General first, then the rest alphabetical (Appearance, Chat, Profile)
   // -- per explicit request.
-  { labelKey: "settings.nav.group.application", keys: ["general", "appearance", "chat", "profile", "security"] },
-  { labelKey: "settings.nav.group.connections", keys: ["provider", "apps"] },
+  { labelKey: "settings.nav.group.application", keys: ["general", "appearance", "chat", "profile"] },
+  { labelKey: "settings.nav.group.connections", keys: ["provider", "apps", "skills"] },
+  { labelKey: "settings.nav.group.archived", keys: ["archived-workspaces", "archived-projects", "archived-chats"] },
 ];
 
 const SECTION_SUBTITLE_KEY: Record<SettingsSection, string> = {
@@ -250,9 +253,12 @@ const SECTION_SUBTITLE_KEY: Record<SettingsSection, string> = {
   general: "settings.nav.subtitle.general",
   appearance: "settings.nav.subtitle.appearance",
   chat: "settings.nav.subtitle.chat",
-  security: "settings.nav.subtitle.security",
   provider: "settings.nav.subtitle.provider",
   apps: "settings.nav.subtitle.apps",
+  skills: "settings.nav.subtitle.skills",
+  "archived-workspaces": "settings.archived.workspaces.subtitle",
+  "archived-projects": "settings.archived.projects.subtitle",
+  "archived-chats": "settings.archived.chats.subtitle",
 };
 
 // Search -- per explicit request ("Also build search + reset-to-default +
@@ -274,7 +280,6 @@ type SettingsSearchEntry = {
 const SETTINGS_SEARCH_ENTRIES: SettingsSearchEntry[] = [
   { id: "log-out", section: "profile", title: "Log out", keywords: "sign out session logout", target: "setting-log-out" },
   { id: "avatar", section: "profile", title: "Profile picture", keywords: "avatar photo upload image picture", target: "setting-avatar" },
-  { id: "getting-started", section: "general", title: "Getting started", keywords: "welcome onboarding hide show sidebar tips", target: "setting-getting-started" },
   { id: "default-provider", section: "chat", title: "Default provider", keywords: "model claude codex ai new chat", target: "setting-default-provider" },
   { id: "default-effort", section: "chat", title: "Default effort", keywords: "reasoning low medium high xhigh max", target: "setting-default-effort" },
   { id: "providers", section: "provider", title: "Provider", keywords: "api key connect claude codex mistral xai qwen kimi github gemini deepseek providers", target: null },
@@ -282,11 +287,10 @@ const SETTINGS_SEARCH_ENTRIES: SettingsSearchEntry[] = [
   { id: "theme", section: "appearance", title: "Theme", keywords: "light dark system color mode appearance", target: "setting-theme" },
   { id: "transparency", section: "appearance", title: "Enable transparency", keywords: "blur vibrancy mac window appearance", target: "setting-transparency" },
   { id: "system-ui-font", section: "appearance", title: "Use system UI font", keywords: "font typography native system appearance", target: "setting-system-ui-font" },
-  { id: "chat-width", section: "appearance", title: "Chat width", keywords: "standard expanded wide column appearance", target: "setting-chat-width" },
+  { id: "content-size", section: "appearance", title: "Content size", keywords: "standard expanded wide column appearance", target: "setting-content-size" },
   { id: "font-smoothing", section: "appearance", title: "Font smoothing", keywords: "antialiased crisp text rendering mac appearance", target: "setting-font-smoothing" },
   { id: "notify-turn-complete", section: "general", title: "Receive a notification from every chat when a turn completes", keywords: "notification toast turn complete finished notify", target: "setting-notify-turn-complete" },
   { id: "chat-usage", section: "chat", title: "Chat usage", keywords: "usage sessions count local", target: "setting-chat-usage" },
-  { id: "data-acknowledgement", section: "security", title: "Data acknowledgement", keywords: "security encryption local data recovery key responsibility privacy", target: "setting-data-acknowledgement" },
 ];
 
 // Simple substring ranking: a title match ranks above a keyword match,
@@ -959,7 +963,7 @@ function ProviderCard({ provider, onClick }: { provider: Provider; onClick: () =
         onClick={onClick}
         className={`flex min-w-0 flex-1 select-none items-center gap-2 text-left ${isFullCardButton ? "w-full" : ""}`}
       >
-        <span className="flex size-8 shrink-0 items-center justify-center">
+        <span className={PROVIDER_ICON_FRAME}>
           <ProviderIcon model={provider} className="size-5" />
         </span>
         <span className="min-w-0 flex-1">
@@ -1092,6 +1096,17 @@ function AppsSection() {
             <span className="opacity-50">{t("settings.apps.comingSoon")}</span>
           </div>
           <div className="grid grid-cols-2 gap-2">
+            {(["Drive", "Docs", "Sheets"] as const).map((app) => (
+              <div key={app} className={`flex w-full select-none items-center gap-2 ${SETTINGS_CARD_RADIUS} border border-border p-3`}>
+                <span className={PROVIDER_ICON_FRAME}>
+                  <img src={`/icons/google-${app.toLowerCase()}.svg`} alt="" className="size-6 object-contain" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[12px] font-medium text-foreground">Google {app}</span>
+                  <span className="line-clamp-2 text-[10px] font-normal text-muted-foreground">{t("settings.apps.comingSoon")}</span>
+                </span>
+              </div>
+            ))}
             {/* Same row shape/reasoning as ProvidersSection's own "Request a
                 provider" row -- a standing action, not filtered by anything,
                 a real button ahead of a real request form (onClick still a
@@ -1101,7 +1116,7 @@ function AppsSection() {
               onClick={() => {}}
               className={`flex w-full select-none items-center gap-2 ${SETTINGS_CARD_RADIUS} border border-border p-3 text-left transition-colors hover:bg-hover-2/50`}
             >
-              <span className="flex size-8 shrink-0 items-center justify-center">
+              <span className={PROVIDER_ICON_FRAME}>
                 <AlongsideLogo className="size-5 text-black dark:text-white" />
               </span>
               <span className="min-w-0 flex-1">
@@ -1392,7 +1407,7 @@ function ProvidersSection() {
               onClick={() => {}}
               className={`flex w-full select-none items-center gap-2 ${SETTINGS_CARD_RADIUS} border border-border p-3 text-left transition-colors hover:bg-hover-2/50`}
             >
-              <span className="flex size-8 shrink-0 items-center justify-center">
+              <span className={PROVIDER_ICON_FRAME}>
                 <AlongsideLogo className="size-5 text-black dark:text-white" />
               </span>
               <span className="min-w-0 flex-1">
@@ -1539,342 +1554,106 @@ function ProfileSection() {
   }
 
   return (
-    <div className="flex flex-col">
-      <SettingsSection title={t("settings.profile.personal")}>
-        {/* The name is the identity provider's (lib/identity.ts) and cannot be edited here. */}
-        <SettingsRow
-          id="setting-name"
-          title={t("settings.profile.name.title")}
-          description={isSignedIn ? t("settings.profile.name.description") : t("settings.profile.name.signedOut")}
-        >
-          {/* Signed out there's no name, only the Sign in prompt in the description. */}
-          {isSignedIn && <span className="text-[12px] font-medium text-foreground">{currentName}</span>}
-        </SettingsRow>
-        <SettingsRow
-          id="setting-avatar"
-          title={t("settings.profile.avatar.title")}
-          // No (i) tooltip any more -- per explicit request, after
-          // confirming directly against the real upload code: there's no
-          // actual size requirement (resizeImageFile below auto-resizes
-          // any uploaded image to fit 256px, so "400x400" was never a
-          // real constraint), only a real format restriction (the file
-          // picker's own accept="image/jpeg,image/png" and this row's own
-          // upload handler both reject anything else) -- kept visible in
-          // plain text instead of behind an icon, since it's the one part
-          // of the old copy that was actually true.
-          description={t("settings.profile.avatar.description")}
-          status={error ?? undefined}
-        >
-          {/* disabled when signed out -- per explicit request ("profile
-              items inside like upload picture or logout should show as
-              inactive because those are signed in options"): a profile
-              picture belongs to a real signed-in identity, so managing one
-              isn't meaningful yet without one. Subscription (below) is
-              deliberately NOT gated the same way -- per that same
-              request, "membership is fine as it is". */}
-          <button
-            type="button"
-            className={SETTINGS_ACTION_BUTTON_CLASS}
-            disabled={!isSignedIn}
-            onClick={() => setManageOpen(true)}
-          >
-            {t("settings.profile.avatar.managePhoto")}
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png"
-            className="hidden"
-            onChange={(event) => void handleFileSelected(event)}
-          />
-        </SettingsRow>
-        {/* Manage photo -- per explicit request ("instead of be Upload
-            photo and Remove Photo, it should be Manage photo so we can
-            click that and open a overlay where it shows the existing
-            photo then the option to download, remove or upload a new
-            one"). Download/Remove only make sense when a photo actually
-            exists; Upload a new one is always available. Removing falls
-            back to the generated logo-on-color mark automatically -- per
-            direct follow-up confirming that's the expected behavior --
-            DefaultAvatar (ui/avatar.tsx) already renders that mark
-            whenever getUserAvatarImage() is empty, no extra state needed
-            here for it. */}
-        <Dialog
-          open={manageOpen}
-          onOpenChange={(open) => {
-            setManageOpen(open);
-            if (!open) setPendingImage(null);
-          }}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle className="text-sm font-semibold">{t("settings.profile.avatar.dialogTitle")}</DialogTitle>
-              {/* Format note lives here now, not the Settings row's own
-                  description -- per explicit request. */}
-              <DialogDescription className="text-[13px] font-normal">
-                {avatarImage
-                  ? t("settings.profile.avatar.dialogDescription.withPhoto")
-                  : t("settings.profile.avatar.dialogDescription.noPhoto")}
-              </DialogDescription>
-            </DialogHeader>
-            {/* Photo on the left, name on the right -- per explicit
-                request ("the photo should be at the left and the name of
-                the user at the right to give an example on how it will
-                look like"), the same layout the sidebar's own account row
-                and a chat message's own header both already use. Shows
-                pendingImage (a picked-but-not-yet-confirmed file) once one
-                exists, in place of the actually-saved avatarImage. */}
-            <div className="flex items-center gap-3 py-2">
-              <Avatar size="lg" className="size-16 shrink-0">
-                <AvatarFallback className="text-xl">
-                  {pendingImage ? (
-                    <img src={pendingImage} alt="" className="size-full rounded-full object-cover" />
-                  ) : (
-                    <DefaultAvatar name={getUserDisplayName()} />
-                  )}
-                </AvatarFallback>
-              </Avatar>
-              <span className="text-sm font-medium text-foreground">{getUserDisplayName()}</span>
+    <div className="mx-auto flex w-full max-w-[540px] flex-col gap-3 bg-[#FAFAFA] px-[max(2.5rem,15%)] py-20 dark:bg-[var(--redesign-primary-surface)]">
+      <div className="flex flex-col items-center gap-0.5 text-center">
+        <div className="mb-2">
+          <Avatar size="lg" className="size-16 shrink-0">
+            <AvatarFallback className="text-xl">
+              {avatarImage ? <img src={avatarImage} alt="" className="size-full rounded-full object-cover" /> : <DefaultAvatar name={currentName} />}
+            </AvatarFallback>
+          </Avatar>
+        </div>
+        <h2 className="text-[15px] font-medium text-foreground">{t("settings.nav.profile")}</h2>
+        <p className="text-[12px] text-muted-foreground">{t("settings.nav.subtitle.profile")}</p>
+      </div>
+      <div className="flex flex-col gap-3">
+        <ShellField label={t("settings.profile.name.title")}>
+          <span className="truncate text-[13px] text-foreground">{isSignedIn ? currentName : t("settings.profile.name.signedOut")}</span>
+        </ShellField>
+        <ShellField label={t("settings.profile.subscription.title")}>
+          <span className="text-[13px] text-foreground">{t(`settings.profile.subscription.${plan}`)}</span>
+        </ShellField>
+        <div className="flex flex-col gap-1 px-1">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[12px] font-medium text-foreground">{t("settings.profile.avatar.title")}</p>
+              <p className="mt-0.5 text-[12px] text-muted-foreground">{t("settings.profile.avatar.description")}</p>
             </div>
-            <DialogFooter>
-              {avatarImage && !pendingImage && (
-                <Button variant="outline" className="h-8 gap-1.5 text-[11px]" onClick={handleDownload}>
-                  <DownloadIcon className="size-3.5" />
-                  {t("common.download")}
-                </Button>
-              )}
-              {/* Same red as the chat delete-confirmation dialog's own
-                  Delete button (sidebar-nav.tsx) -- per explicit request. */}
-              {avatarImage && !pendingImage && (
-                <Button
-                  className="h-8 bg-red-600 text-[11px] text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
-                  onClick={() => clearUserAvatarImage()}
-                >
-                  {t("common.remove")}
-                </Button>
-              )}
-              {/* Flips to Confirm once a file has been picked -- per
-                  explicit request ("upload new flips to Confirm") --
-                  handleConfirmUpload is the one place that actually calls
-                  setUserAvatarImage now. */}
-              {pendingImage ? (
-                <Button className="h-8 text-[11px]" onClick={handleConfirmUpload}>
-                  {t("common.confirm")}
-                </Button>
-              ) : (
-                <Button className="h-8 text-[11px]" onClick={() => fileInputRef.current?.click()}>
-                  {t("common.add")}
-                </Button>
-              )}
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-        {/* Static, not a live account/billing lookup -- there is no real
-            subscription/plan concept anywhere in this app yet (confirmed:
-            no backend endpoint, no per-user account system at all, Free
-            tier is the only mode a local install actually runs in), so
-            this states that plainly rather than fabricating a Pro/
-            Enterprise upgrade flow that doesn't exist. Revisit once a real
-            subscription system exists. */}
-        <SettingsRow title={t("settings.profile.subscription.title")} description={t("settings.profile.subscription.description")}>
-          <span className="text-[12px] font-medium text-foreground">{t(`settings.profile.subscription.${plan}`)}</span>
-        </SettingsRow>
-      </SettingsSection>
-
-      {/* Caution -- same page-ending convention every other Settings page
-          follows ("Caution should be the last item in all pages"). Log
-          out is real (signOut, lib/auth.ts) -- real bug, confirmed
-          directly ("The logout button is not working"). Since signing in
-          is now optional (App.tsx's own comment on removing RequireAuth's
-          blanket gate has the full reasoning) rather than a forced
-          redirect off every route, this row shows "Sign in" instead once
-          signed out, which opens the sign-in dialog. Logging out itself stays right
-          here in Settings instead of navigating anywhere -- per direct
-          follow-up ("logout is bringing me to the /auth page and that
-          should stay in settings") -- signOut() alone is enough to
-          reactively flip this row (and the disabled Manage photo button
-          above) to their signed-out state. */}
-      <SettingsSection title={t("settings.profile.caution")}>
-        <SettingsRow
-          id="setting-log-out"
-          title={isSignedIn ? t("common.logOut") : t("common.signIn")}
-          description={isSignedIn ? t("settings.profile.logOut.description") : t("settings.profile.signIn.description")}
-        >
-          <button
-            type="button"
-            className={SETTINGS_ACTION_BUTTON_CLASS}
-            onClick={() => {
-              if (isSignedIn) signOut();
-              else openSignInDialog();
-            }}
-          >
-            <LogOutIcon className="size-3.5" />
-            {isSignedIn ? t("common.logOut") : t("common.signIn")}
-          </button>
-        </SettingsRow>
-      </SettingsSection>
+            <button type="button" className={SETTINGS_ACTION_BUTTON_CLASS} disabled={!isSignedIn} onClick={() => setManageOpen(true)}>
+              {t("settings.profile.avatar.managePhoto")}
+            </button>
+          </div>
+          {error && <p className="text-[11px] text-destructive"><ErrorText message={error} /></p>}
+        </div>
+        <input ref={fileInputRef} type="file" accept="image/jpeg,image/png" className="hidden" onChange={(event) => void handleFileSelected(event)} />
+      </div>
+      <Dialog
+        open={manageOpen}
+        onOpenChange={(open) => {
+          setManageOpen(open);
+          if (!open) setPendingImage(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold">{t("settings.profile.avatar.dialogTitle")}</DialogTitle>
+            <DialogDescription className="text-[13px] font-normal">
+              {avatarImage ? t("settings.profile.avatar.dialogDescription.withPhoto") : t("settings.profile.avatar.dialogDescription.noPhoto")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-3 py-2">
+            <Avatar size="lg" className="size-16 shrink-0">
+              <AvatarFallback className="text-xl">
+                {pendingImage ? <img src={pendingImage} alt="" className="size-full rounded-full object-cover" /> : <DefaultAvatar name={currentName} />}
+              </AvatarFallback>
+            </Avatar>
+            <span className="text-sm font-medium text-foreground">{currentName}</span>
+          </div>
+          <DialogFooter>
+            {avatarImage && !pendingImage && (
+              <Button variant="outline" className="h-8 gap-1.5 text-[11px]" onClick={handleDownload}>
+                <DownloadIcon className="size-3.5" />
+                {t("common.download")}
+              </Button>
+            )}
+            {avatarImage && !pendingImage && (
+              <Button className="h-8 bg-red-600 text-[11px] text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600" onClick={() => clearUserAvatarImage()}>
+                {t("common.remove")}
+              </Button>
+            )}
+            {pendingImage ? (
+              <Button className="h-8 text-[11px]" onClick={handleConfirmUpload}>{t("common.confirm")}</Button>
+            ) : (
+              <Button className="h-8 text-[11px]" onClick={() => fileInputRef.current?.click()}>{t("common.add")}</Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Button
+        variant="accent"
+        className="h-8 w-full rounded-[calc(32px*8/27)]"
+        onClick={() => {
+          if (isSignedIn) signOut();
+          else openSignInDialog();
+        }}
+      >
+        {isSignedIn ? t("common.logOut") : t("common.signIn")}
+      </Button>
     </div>
   );
 }
 
-// One page, three sub-sections underneath it (Tips/Notifications/Usage,
-// plus Caution), per explicit confirmation ("Not as items but as menu
-// items like synara's style"): Synara's own General page stacks several
-// labeled sub-sections on one page rather than giving each its own nav
-// entry, and this app's existing SettingsSection/SettingsRow already
-// render exactly that shape, so nothing new needed building beyond
-// composing them here. Story: Settings "Application" section
+// General's settings page: language and timezone.
+// Story: Settings "Application" section
 // (alongsidedotrun/private#207). Appearance used to be a fourth
 // sub-section here too; it now lives in its own AppearanceSection, below.
 function GeneralSection() {
   const { t } = useTranslation();
-  const { show: showGettingStarted, setShow: setShowGettingStarted } = useGettingStarted();
-  const [notifyEnabled, setNotifyEnabledState] = useState(loadNotifyTurnComplete);
-
-  // Requests the OS notification permission the first time this is turned
-  // on -- a denial reflects back into the toggle instead of showing "on"
-  // with no way to ever actually notify.
-  async function setNotifyEnabled(next: boolean) {
-    if (next) {
-      const granted = await requestNotificationPermission();
-      if (!granted) {
-        setNotifyEnabledState(false);
-        saveNotifyTurnComplete(false);
-        return;
-      }
-    }
-    setNotifyEnabledState(next);
-    saveNotifyTurnComplete(next);
-  }
-
-  const gettingStartedChanged = showGettingStarted !== true;
-  // Baseline flipped to true along with loadNotifyTurnComplete's own new
-  // default (notify-turn-complete.ts's own comment has the full
-  // reasoning) -- otherwise Reset would show as available on a completely
-  // untouched, fresh install, and "restoring the default" would actually
-  // turn notifications *off*.
-  const notifyChanged = notifyEnabled !== true;
-  const anyChanged = gettingStartedChanged || notifyChanged;
-
-  function restoreDefaults() {
-    setShowGettingStarted(true);
-    void setNotifyEnabled(true);
-  }
-
   return (
     <div className="flex flex-col">
-      <SettingsSection title={t("settings.general.tips")}>
-        <SettingsRow
-          id="setting-getting-started"
-          title={t("settings.general.gettingStarted.title")}
-          description={t("settings.general.gettingStarted.description")}
-        >
-          <Switch checked={showGettingStarted} onToggle={() => setShowGettingStarted(!showGettingStarted)} aria-label="Getting started" />
-        </SettingsRow>
-      </SettingsSection>
-
       <SettingsSection title={t("settings.general.languageAndTimezone")}>
         <LanguageRow />
         <TimezoneRow />
-      </SettingsSection>
-
-      <SettingsSection title={t("settings.general.notifications")}>
-        {/* Copy per explicit request/follow-up, with the two disputed
-            claims in the original wording resolved for real rather than
-            just dropped: "human or provider turn" narrowed to "provider
-            turn" (notifyTurnComplete only ever fires on the agent's own
-            reply, never on another participant's message -- that file's
-            own comment has the full reasoning), and "notifications can be
-            specifically enabled at chats" is now actually true --
-            AppLayout.tsx's own new chat-header "..." menu (Share chat/
-            Enable notification) writes a real per-chat override
-            (chat-notifications.ts) that notifyTurnComplete also checks. */}
-        <SettingsRow
-          id="setting-notify-turn-complete"
-          title={t("settings.general.notifyTurnComplete.title")}
-          description={t("settings.general.notifyTurnComplete.description")}
-        >
-          <Switch
-            checked={notifyEnabled}
-            onToggle={() => void setNotifyEnabled(!notifyEnabled)}
-            aria-label="Receive a notification from every chat when a turn completes"
-          />
-        </SettingsRow>
-      </SettingsSection>
-
-      {/* Caution -- per explicit request, its own sub-section and last on
-          the page, matching every other page's own convention going
-          forward ("Caution should be the last item in all pages"). Not
-          styled destructive -- resetting this page isn't irreversible the
-          way the old Danger zone's own "Reset all settings" was, this
-          heading is just calling it out as worth a second thought. Log
-          out moved to its own new Profile section -- per explicit request
-          ("logout to go inside there instead of general"). */}
-      <SettingsSection title={t("settings.general.caution")}>
-        <SettingsRow title={t("settings.general.resetDefaults.title")} description={t("settings.general.resetDefaults.description")}>
-          <button type="button" className={SETTINGS_ACTION_BUTTON_CLASS} disabled={!anyChanged} onClick={restoreDefaults}>
-            <RotateCcwIcon className="size-3.5" />
-            {t("settings.general.resetDefaults.button")}
-          </button>
-        </SettingsRow>
-      </SettingsSection>
-    </div>
-  );
-}
-
-function SecuritySection() {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
-  const [acknowledged, setAcknowledged] = useState(loadDataAcknowledgement);
-  const [acknowledgedAt, setAcknowledgedAt] = useState(loadDataAcknowledgementTime);
-
-  const refreshAcknowledgement = useCallback(() => {
-    setAcknowledged(loadDataAcknowledgement());
-    setAcknowledgedAt(loadDataAcknowledgementTime());
-  }, []);
-
-  useEffect(() => {
-    window.addEventListener("focus", refreshAcknowledgement);
-    window.addEventListener("storage", refreshAcknowledgement);
-    return () => {
-      window.removeEventListener("focus", refreshAcknowledgement);
-      window.removeEventListener("storage", refreshAcknowledgement);
-    };
-  }, [refreshAcknowledgement]);
-
-  const acknowledgementStatus = acknowledged
-    ? acknowledgedAt
-      ? t("settings.security.acknowledgedOn", { date: new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium" }).format(new Date(acknowledgedAt)) })
-      : t("settings.security.acknowledgedHere")
-    : t("settings.security.required");
-
-  return (
-    <div className="flex flex-col">
-      <SettingsSection title="Data protection">
-        <SettingsRow
-          id="setting-data-acknowledgement"
-          title="Data acknowledgement"
-          description="Review your responsibility for local data, encryption keys, and recovery phrases."
-        >
-          <span className={`text-[11px] ${acknowledged ? "text-emerald-600 dark:text-emerald-300" : "text-muted-foreground"}`}>
-            {acknowledgementStatus}
-          </span>
-          <button
-            type="button"
-            className={SETTINGS_ACTION_BUTTON_CLASS}
-            onClick={() => navigate("/onboard/getting-started?manage=data-acknowledgement")}
-          >
-            Manage
-          </button>
-        </SettingsRow>
-        <SettingsRow
-          title="Local conversation data"
-          description="Your conversations are stored locally on this device."
-        />
-        <SettingsRow
-          title="Encryption"
-          description="Encryption is recommended to reduce exposure if your device or local storage is compromised."
-        />
       </SettingsSection>
     </div>
   );
@@ -1934,62 +1713,30 @@ function AppearanceSection() {
     applyChatWidth(next);
   }
 
-  // The raw icon component, not pre-rendered JSX -- BaseMenuItem's own
-  // `icon` prop (menu-item.tsx) calls this itself with its own size/
-  // strokeWidth/className (the invisible-sizer-plus-visible-icon grid
-  // overlay that keeps a row's icon centered against its label), so a
-  // pre-rendered `<SystemIcon className="size-3.5" />` handed to it
-  // ignores every one of those and renders slightly off -- confirmed
-  // directly as the cause of "the icons are not straight to the text
-  // vertically". Every other real `icon={...}` call site in this app
-  // (nav-user.tsx's own Settings/Docs/Help rows, compose-box.tsx's own
-  // Plus row) already passes the bare component this same way.
-  const themeOptions: { value: typeof theme; label: string; icon: IconComponent }[] = [
-    { value: "system", label: t("settings.appearance.theme.system"), icon: SystemIcon },
-    { value: "light", label: t("settings.appearance.theme.light"), icon: SunIcon },
-    { value: "dark", label: t("settings.appearance.theme.dark"), icon: MoonIcon },
+  const themeOptions: { value: typeof theme; label: string }[] = [
+    { value: "system", label: t("settings.appearance.theme.system") },
+    { value: "light", label: t("settings.appearance.theme.light") },
+    { value: "dark", label: t("settings.appearance.theme.dark") },
   ];
   const currentTheme = themeOptions.find((o) => o.value === theme) ?? themeOptions[0];
 
-  const chatWidthOptions: { value: ChatWidth; label: string; icon: IconComponent }[] = [
-    { value: "standard", label: t("settings.appearance.chatWidth.standard"), icon: ChevronsInwardHorizontalIcon },
-    { value: "expanded", label: t("settings.appearance.chatWidth.expanded"), icon: ExpandedWidthIcon },
+  const chatWidthOptions: { value: ChatWidth; label: string }[] = [
+    { value: "standard", label: t("settings.appearance.contentSize.standard") },
+    { value: "expanded", label: t("settings.appearance.contentSize.expanded") },
   ];
   const currentChatWidth = chatWidthOptions.find((o) => o.value === chatWidth) ?? chatWidthOptions[0];
 
-  const transparencyChanged = transparencyEnabled !== false;
-  const systemUiFontChanged = systemUiFont !== true;
-  const fontSmoothingChanged = fontSmoothing !== true;
-  const chatWidthChanged = chatWidth !== "standard";
-  const anyChanged = transparencyChanged || systemUiFontChanged || fontSmoothingChanged || chatWidthChanged;
-
-  function restoreDefaults() {
-    updateTransparency(false);
-    setSystemUiFont(true);
-    setFontSmoothing(true);
-    setChatWidth("standard");
-  }
-
   return (
     <div className="flex flex-col">
-      {/* Four sections now, not one flat "Appearance" card -- per explicit
-          request ("inside appearance we have only one section called
-          appearance but we should have four sections, Theme, fonts
-          (macOS only), layout, caution"). Fonts groups both font-related
-          rows even though only Font smoothing is actually macOS-gated
-          (Use system UI font applies everywhere); Layout groups the
-          window/column-shape rows, including transparency (macOS-only,
-          same gate as before). */}
+      {/* Theme owns the appearance choices that change the canvas itself,
+          including the content size. */}
       <SettingsSection title={t("settings.appearance.theme")}>
         <SettingsRow id="setting-theme" title={t("settings.appearance.theme")} description={t("settings.appearance.theme.description")}>
           <BaseDropdownMenu size="compact">
             <BaseDropdownTrigger
               render={
                 <button type="button" className={SETTINGS_DROPDOWN_TRIGGER_CLASS}>
-                  <span className="flex items-center gap-1.5">
-                    <currentTheme.icon size={14} />
-                    {currentTheme.label}
-                  </span>
+                  <span>{currentTheme.label}</span>
                   <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
                 </button>
               }
@@ -2010,7 +1757,6 @@ function AppearanceSection() {
                 <BaseMenuItem
                   key={option.value}
                   index={i}
-                  icon={option.icon}
                   label={option.label}
                   checked={theme === option.value}
                   onSelect={() => setTheme(option.value)}
@@ -2019,6 +1765,42 @@ function AppearanceSection() {
             </BaseDropdownContent>
           </BaseDropdownMenu>
         </SettingsRow>
+        <SettingsRow
+          id="setting-content-size"
+          title={t("settings.appearance.contentSize.title")}
+          description={t("settings.appearance.contentSize.description")}
+        >
+          <BaseDropdownMenu size="compact">
+            <BaseDropdownTrigger
+              render={
+                <button type="button" className={SETTINGS_DROPDOWN_TRIGGER_CLASS}>
+                  <span>{currentChatWidth.label}</span>
+                  <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                </button>
+              }
+            />
+            <BaseDropdownContent align="end" checkedIndex={chatWidthOptions.findIndex((o) => o.value === chatWidth)}>
+              {chatWidthOptions.map((option, i) => (
+                <BaseMenuItem
+                  key={option.value}
+                  index={i}
+                  label={option.label}
+                  checked={chatWidth === option.value}
+                  onSelect={() => setChatWidth(option.value)}
+                />
+              ))}
+            </BaseDropdownContent>
+          </BaseDropdownMenu>
+        </SettingsRow>
+        {transparencySupported && (
+          <SettingsRow
+            id="setting-transparency"
+            title={t("settings.appearance.transparency.title")}
+            description={t("settings.appearance.transparency.description")}
+          >
+            <Switch checked={transparencyEnabled} onToggle={() => updateTransparency(!transparencyEnabled)} aria-label="Enable transparency" />
+          </SettingsRow>
+        )}
       </SettingsSection>
 
       <SettingsSection title={t("settings.appearance.fonts")}>
@@ -2042,222 +1824,8 @@ function AppearanceSection() {
         )}
       </SettingsSection>
 
-      <SettingsSection title={t("settings.appearance.layout")}>
-        <SettingsRow
-          id="setting-chat-width"
-          title={t("settings.appearance.chatWidth.title")}
-          description={t("settings.appearance.chatWidth.description")}
-        >
-          {/* A dropdown now, not a segmented control -- per explicit
-              request ("Chat width... should use a dropdown like [Theme's
-              own dropdown]"), matching that row's own BaseDropdownMenu/
-              BaseDropdownTrigger/BaseDropdownContent shape exactly rather
-              than the pill-style SettingsSegmentedControl this used to be. */}
-          <BaseDropdownMenu size="compact">
-            <BaseDropdownTrigger
-              render={
-                <button type="button" className={SETTINGS_DROPDOWN_TRIGGER_CLASS}>
-                  <span className="flex items-center gap-1.5">
-                    <currentChatWidth.icon size={14} />
-                    {currentChatWidth.label}
-                  </span>
-                  <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
-                </button>
-              }
-            />
-            <BaseDropdownContent align="end" checkedIndex={chatWidthOptions.findIndex((o) => o.value === chatWidth)}>
-              {chatWidthOptions.map((option, i) => (
-                <BaseMenuItem
-                  key={option.value}
-                  index={i}
-                  icon={option.icon}
-                  label={option.label}
-                  checked={chatWidth === option.value}
-                  onSelect={() => setChatWidth(option.value)}
-                />
-              ))}
-            </BaseDropdownContent>
-          </BaseDropdownMenu>
-        </SettingsRow>
-        {/* macOS only, hidden (not shown-and-disabled) everywhere else,
-            per the confirmed story text ("Only visible when using macOS"). */}
-        {transparencySupported && (
-          <SettingsRow
-            id="setting-transparency"
-            title={t("settings.appearance.transparency.title")}
-            description={t("settings.appearance.transparency.description")}
-          >
-            <Switch checked={transparencyEnabled} onToggle={() => updateTransparency(!transparencyEnabled)} aria-label="Enable transparency" />
-          </SettingsRow>
-        )}
-      </SettingsSection>
-
-      <SettingsSection title={t("settings.appearance.caution")}>
-        <SettingsRow title={t("settings.appearance.resetDefaults.title")} description={t("settings.appearance.resetDefaults.description")}>
-          <button type="button" className={SETTINGS_ACTION_BUTTON_CLASS} disabled={!anyChanged} onClick={restoreDefaults}>
-            <RotateCcwIcon className="size-3.5" />
-            {t("settings.general.resetDefaults.button")}
-          </button>
-        </SettingsRow>
-      </SettingsSection>
     </div>
   );
-}
-
-// localStorage, not a backend setting -- same reasoning as theme/transparency
-// above (TRANSPARENCY_STORAGE_KEY's own comment): a per-device display
-// preference, not something a Hosted/Enterprise account needs synced across
-// machines yet.
-const TIMEZONE_STORAGE_KEY = "alongside_timezone";
-
-// Real detection -- Intl.DateTimeFormat's own resolvedOptions, the same
-// mechanism every other app on the machine uses to know its own timezone.
-function detectTimezone(): string {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone;
-  } catch {
-    return "UTC";
-  }
-}
-
-function loadTimezone(): string {
-  return localStorage.getItem(TIMEZONE_STORAGE_KEY) ?? detectTimezone();
-}
-
-type TimezoneEntry = { value: string; label: string };
-// subregions is only ever set for "America" today (below) -- every other
-// region renders as one flat, collapsible list, per explicit request (only
-// America was called out as "enormous").
-type TimezoneGroup = { region: string; zones: TimezoneEntry[]; subregions?: { name: string; zones: TimezoneEntry[] }[] };
-
-// The tz database itself has no North/Central/South American distinction --
-// confirmed directly, "America/*" is one flat 143-zone list with no metadata
-// beyond the zone name -- so this is a real, hand-built classification by
-// each zone's own actual country, not something Intl provides. Grouped by
-// country/territory below (comments mark each block), not by zone name
-// pattern-matching, since neither the country nor the continent is reliably
-// derivable from the zone string alone (e.g. "America/Belize" -> Belize is
-// obvious, but "America/Nassau" -> Bahamas isn't spelled out anywhere in the
-// string). Caribbean nations classed under North America (the common 3-way
-// convention when Caribbean isn't its own bucket, which is what was asked
-// for here), not their own fourth group.
-const CENTRAL_AMERICA_ZONES = new Set([
-  "America/Belize",
-  "America/Costa_Rica",
-  "America/El_Salvador",
-  "America/Guatemala",
-  "America/Managua",
-  "America/Panama",
-  "America/Tegucigalpa",
-]);
-const SOUTH_AMERICA_ZONES = new Set([
-  // Argentina
-  "America/Argentina/La_Rioja",
-  "America/Argentina/Rio_Gallegos",
-  "America/Argentina/Salta",
-  "America/Argentina/San_Juan",
-  "America/Argentina/San_Luis",
-  "America/Argentina/Tucuman",
-  "America/Argentina/Ushuaia",
-  "America/Buenos_Aires",
-  "America/Catamarca",
-  "America/Cordoba",
-  "America/Jujuy",
-  "America/Mendoza",
-  // Bolivia
-  "America/La_Paz",
-  // Brazil
-  "America/Araguaina",
-  "America/Bahia",
-  "America/Belem",
-  "America/Boa_Vista",
-  "America/Campo_Grande",
-  "America/Cuiaba",
-  "America/Eirunepe",
-  "America/Fortaleza",
-  "America/Maceio",
-  "America/Manaus",
-  "America/Noronha",
-  "America/Porto_Velho",
-  "America/Recife",
-  "America/Rio_Branco",
-  "America/Santarem",
-  "America/Sao_Paulo",
-  // Chile
-  "America/Santiago",
-  "America/Punta_Arenas",
-  // Colombia, Ecuador, French Guiana, Guyana, Paraguay, Peru, Suriname, Uruguay, Venezuela
-  "America/Bogota",
-  "America/Guayaquil",
-  "America/Cayenne",
-  "America/Guyana",
-  "America/Asuncion",
-  "America/Lima",
-  "America/Paramaribo",
-  "America/Montevideo",
-  "America/Caracas",
-]);
-function americaSubregion(zone: string): "North America" | "Central America" | "South America" {
-  if (CENTRAL_AMERICA_ZONES.has(zone)) return "Central America";
-  if (SOUTH_AMERICA_ZONES.has(zone)) return "South America";
-  return "North America";
-}
-
-// Real IANA zone list, not a hand-picked subset -- Intl.supportedValuesOf
-// (Baseline across every browser this app targets) returns every zone the
-// runtime itself actually supports, the same list any of its own
-// Intl.DateTimeFormat calls could be given -- confirmed directly, this is
-// genuinely 400+ real zones (the tz database tracks every region with its own
-// distinct DST history, not one entry per country), not a bug to trim down.
-// Grouped by the zone's own region prefix ("Europe/London" -> "Europe"),
-// per explicit request, rather than one flat 400-row list -- Etc/* and other
-// no-slash zones group under "Other". Region groups and the zones within each
-// are both alphabetical; each zone's own label drops the repeated region
-// prefix and swaps underscores for spaces ("Los_Angeles" -> "Los Angeles"),
-// since the group header already says "America". America itself further
-// splits into North/Central/South (americaSubregion, above) -- per explicit
-// follow-up ("america has all americas which makes enormous").
-function listTimezoneGroups(): TimezoneGroup[] {
-  let zones: string[];
-  try {
-    zones = Intl.supportedValuesOf("timeZone");
-  } catch {
-    zones = [detectTimezone()];
-  }
-  const byRegion = new Map<string, TimezoneEntry[]>();
-  for (const zone of zones) {
-    const slash = zone.indexOf("/");
-    const region = slash === -1 ? "Other" : zone.slice(0, slash);
-    // Real bug, confirmed directly ("Argentina / La Rioja" leaking through):
-    // slicing after the *first* slash only strips the region prefix
-    // ("America/"), but a handful of real zones have a second path segment
-    // (America/Argentina/La_Rioja, America/Indiana/Knox, America/Kentucky/
-    // Monticello, America/North_Dakota/Beulah) -- the group header (region,
-    // and for America, its own North/Central/South subregion) already gives
-    // that country/state context, so the label itself only needs the final
-    // city component, after the *last* slash.
-    const lastSlash = zone.lastIndexOf("/");
-    const label = (lastSlash === -1 ? zone : zone.slice(lastSlash + 1)).replaceAll("_", " ");
-    if (!byRegion.has(region)) byRegion.set(region, []);
-    byRegion.get(region)!.push({ value: zone, label });
-  }
-  return [...byRegion.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([region, zonesInRegion]) => {
-      const sortedZones = zonesInRegion.sort((a, b) => a.label.localeCompare(b.label));
-      if (region !== "America") return { region, zones: sortedZones };
-      const bySubregion = new Map<string, TimezoneEntry[]>([
-        ["North America", []],
-        ["Central America", []],
-        ["South America", []],
-      ]);
-      for (const zone of sortedZones) bySubregion.get(americaSubregion(zone.value))!.push(zone);
-      return {
-        region,
-        zones: sortedZones,
-        subregions: [...bySubregion.entries()].map(([name, zonesInSub]) => ({ name, zones: zonesInSub })),
-      };
-    });
 }
 
 // One shared LanguageValue now drives both this dropdown's own choice and,
@@ -2277,25 +1845,18 @@ function LanguageRow() {
     void i18n.changeLanguage(uiLocaleFor(value));
   }
 
-  const entry = LANGUAGE_OPTIONS.find((l) => l.value === language) ?? LANGUAGE_OPTIONS[0];
-
   return (
     <SettingsRow id="setting-language" title={t("settings.general.language.title")} description={t("settings.general.language.description")}>
-      <BaseDropdownMenu size="compact">
-        <BaseDropdownTrigger
-          render={
-            <button type="button" className={SETTINGS_DROPDOWN_TRIGGER_FIT_CLASS}>
-              {entry.label}
-              <ChevronDownIcon className="size-3.5 text-muted-foreground" />
-            </button>
-          }
-        />
-        <BaseDropdownContent align="end" className="min-w-52 whitespace-nowrap" checkedIndex={LANGUAGE_OPTIONS.findIndex((l) => l.value === language)}>
-          {LANGUAGE_OPTIONS.map((l, i) => (
-            <BaseMenuItem key={l.value} index={i} label={l.label} checked={language === l.value} onSelect={() => setLanguage(l.value)} />
-          ))}
-        </BaseDropdownContent>
-      </BaseDropdownMenu>
+      <LanguageDropdown
+        value={language}
+        onChange={setLanguage}
+        trigger={(label) => (
+          <button type="button" className={SETTINGS_DROPDOWN_TRIGGER_FIT_CLASS}>
+            {label}
+            <ChevronDownIcon className="size-3.5 text-muted-foreground" />
+          </button>
+        )}
+      />
     </SettingsRow>
   );
 }
@@ -2303,129 +1864,24 @@ function LanguageRow() {
 function TimezoneRow() {
   const { t } = useTranslation();
   const [timezone, setTimezoneState] = useState(loadTimezone);
-  const groups = useMemo(listTimezoneGroups, []);
-  const flatValues = useMemo(() => groups.flatMap((g) => g.zones.map((z) => z.value)), [groups]);
-  const currentLabel = groups.flatMap((g) => g.zones).find((z) => z.value === timezone)?.label ?? timezone;
-
-  // Collapsed by default, per explicit request ("so it doesn't load
-  // everything") -- 417 real zones (confirmed directly via
-  // Intl.supportedValuesOf) rendered flat, even scrollable, is still a lot to
-  // mount at once. Only the current value's own region (and, for America,
-  // its own subregion too) starts expanded -- computed once via useState's
-  // own lazy initializer, not recalculated if timezone changes later, so
-  // picking a zone in a different region doesn't yank other regions open
-  // underneath the user. Subregion keys are namespaced "America/North
-  // America" (not just "North America") so this one Set can track both
-  // levels without a region and a same-named subregion ever colliding.
-  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() => {
-    const initial = new Set<string>();
-    for (const group of groups) {
-      if (group.zones.some((z) => z.value === timezone)) initial.add(group.region);
-      for (const sub of group.subregions ?? []) {
-        if (sub.zones.some((z) => z.value === timezone)) {
-          initial.add(group.region);
-          initial.add(`${group.region}/${sub.name}`);
-        }
-      }
-    }
-    return initial;
-  });
-
-  function toggleKey(key: string) {
-    setExpandedKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }
 
   function setTimezone(value: string) {
     setTimezoneState(value);
-    localStorage.setItem(TIMEZONE_STORAGE_KEY, value);
+    saveTimezone(value);
   }
 
   return (
     <SettingsRow id="setting-timezone" title={t("settings.general.timezone.title")} description={t("settings.general.language.description")}>
-      <BaseDropdownMenu size="compact">
-        <BaseDropdownTrigger
-          render={
-            <button type="button" className={SETTINGS_DROPDOWN_TRIGGER_CLASS}>
-              <span className="truncate">{currentLabel}</span>
-              <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
-            </button>
-          }
-        />
-        {/* max-h-72 overflow-y-auto -- same cap-then-scroll treatment as the
-            compose box's own model dropdown. checkedIndex/each row's own index
-            count against flatValues (every zone across every group, in the
-            same order rendered below, collapsed or not), not per-group --
-            BaseMenuItem's keyboard nav and highlight both need one continuous
-            index across the whole popup, the same reason the model dropdown's
-            own per-provider rows never restart their own index either; a
-            collapsed region just means its own indices render nothing right
-            now, the same as the model list's own add/remove case. */}
-        <BaseDropdownContent align="end" className="max-h-72 overflow-y-auto" checkedIndex={flatValues.indexOf(timezone)}>
-          {groups.map((group) => {
-            const expanded = expandedKeys.has(group.region);
-            return (
-              <div key={group.region}>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    toggleKey(group.region);
-                  }}
-                  className="flex w-full items-center justify-between px-2.5 py-1.5 text-[12px] text-muted-foreground hover:text-foreground"
-                >
-                  <span>{group.region}</span>
-                  <ChevronRightIcon className={`size-3 shrink-0 transition-transform ${expanded ? "rotate-90" : ""}`} />
-                </button>
-                {expanded && group.subregions
-                  ? group.subregions.map((sub) => {
-                      const subKey = `${group.region}/${sub.name}`;
-                      const subExpanded = expandedKeys.has(subKey);
-                      return (
-                        <div key={subKey}>
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              toggleKey(subKey);
-                            }}
-                            className="flex w-full items-center justify-between py-1.5 pr-2.5 pl-5 text-[12px] text-muted-foreground hover:text-foreground"
-                          >
-                            <span>{sub.name}</span>
-                            <ChevronRightIcon className={`size-3 shrink-0 transition-transform ${subExpanded ? "rotate-90" : ""}`} />
-                          </button>
-                          {subExpanded &&
-                            sub.zones.map((zone) => (
-                              <BaseMenuItem
-                                key={zone.value}
-                                index={flatValues.indexOf(zone.value)}
-                                label={zone.label}
-                                checked={timezone === zone.value}
-                                onSelect={() => setTimezone(zone.value)}
-                              />
-                            ))}
-                        </div>
-                      );
-                    })
-                  : expanded &&
-                    group.zones.map((zone) => (
-                      <BaseMenuItem
-                        key={zone.value}
-                        index={flatValues.indexOf(zone.value)}
-                        label={zone.label}
-                        checked={timezone === zone.value}
-                        onSelect={() => setTimezone(zone.value)}
-                      />
-                    ))}
-              </div>
-            );
-          })}
-        </BaseDropdownContent>
-      </BaseDropdownMenu>
+      <TimezoneDropdown
+        value={timezone}
+        onChange={setTimezone}
+        trigger={(label) => (
+          <button type="button" className={SETTINGS_DROPDOWN_TRIGGER_CLASS}>
+            <span className="truncate">{label}</span>
+            <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
+          </button>
+        )}
+      />
     </SettingsRow>
   );
 }
@@ -2645,56 +2101,21 @@ function CompactScopeRows() {
 
 function ChatSection() {
   const { t } = useTranslation();
-  const [defaultModel, setDefaultModel] = useState<string | null | undefined>(undefined);
-  const [defaultEffort, setDefaultEffort] = useState<EffortLevel | null>(() => loadDefaultEffort());
   // Moved here from General's own Usage section -- per explicit request
   // ("Chat usage should move from general and be at Chat, in the same way
   // we did for Provider usage"): it's a stat about chats, not a general
   // app preference.
   const { usage, error: usageError } = useUsageStats();
-
-  // Mirrors DefaultModelRow's own fetch, just for the section-level Restore
-  // defaults button's own disabled state -- DefaultModelRow keeps its own
-  // separate copy for its own dropdown, this doesn't try to share state
-  // across the two (a second, harmless GET, not a source-of-truth split:
-  // both read the same real /settings/default-model).
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/settings/default-model")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { model: string | null } | null) => {
-        if (!cancelled) setDefaultModel(data?.model ?? null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const anyChanged = Boolean(defaultModel) || defaultEffort != null;
-  // Bumped on restore, used as both rows' own `key` -- forces a full
-  // remount so each row's own internal state (DefaultModelRow/
-  // DefaultEffortRow both keep their own copy for their own dropdown, not
-  // shared with this section) re-reads the now-cleared value instead of
-  // going stale until Settings is closed and reopened.
-  const [resetCount, setResetCount] = useState(0);
-
-  async function restoreDefaults() {
-    setDefaultModel(null);
-    setDefaultEffort(null);
-    saveDefaultEffort(null);
-    setResetCount((n) => n + 1);
-    await fetch("/settings/default-model", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: null }),
-    });
-  }
+  const [queueing, setQueueing] = useQueueing();
 
   return (
     <div className="flex flex-col">
       <SettingsSection title={t("settings.chat.title")}>
-        <DefaultModelRow key={resetCount} />
-        <DefaultEffortRow key={resetCount} />
+        <DefaultModelRow />
+        <DefaultEffortRow />
+        <SettingsRow id="setting-queue-messages" title={t("settings.chat.queueMessages.title")} description={t("settings.chat.queueMessages.description")}>
+          <Switch checked={queueing} onToggle={() => setQueueing(!queueing)} aria-label={t("settings.chat.queueMessages.title")} />
+        </SettingsRow>
       </SettingsSection>
 
       <SettingsSection title={t("settings.chat.compact.title")}>
@@ -2714,19 +2135,6 @@ function ChatSection() {
         </SettingsRow>
       </SettingsSection>
 
-      {/* Caution -- same pattern as General/Appearance's own Caution
-          section (each page's own comment on that) -- per explicit
-          request ("chat should have the same as general, caution section
-          with default chat settings option"), replacing the bespoke
-          RestoreDefaultsButton row this used to end on. */}
-      <SettingsSection title={t("settings.chat.caution")}>
-        <SettingsRow title={t("settings.chat.resetDefaults.title")} description={t("settings.chat.resetDefaults.description")}>
-          <button type="button" className={SETTINGS_ACTION_BUTTON_CLASS} disabled={!anyChanged} onClick={() => void restoreDefaults()}>
-            <RotateCcwIcon className="size-3.5" />
-            {t("settings.general.resetDefaults.button")}
-          </button>
-        </SettingsRow>
-      </SettingsSection>
     </div>
   );
 }
@@ -2833,6 +2241,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  const isSignedIn = useIsSignedIn();
   const isMac = useIsMac();
   const displayName = useUserDisplayName();
   const settingsHistory = useSettingsHistory();
@@ -2887,7 +2296,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
   }
 
   const [query, setQuery] = useState("");
-  const results = useMemo(() => rankSettingsSearch(query), [query]);
+  const results = useMemo(() => rankSettingsSearch(query).filter((entry) => isSignedIn || entry.section !== "profile"), [isSignedIn, query]);
   const searching = query.trim().length > 0;
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -2921,10 +2330,11 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
       >
         <div className="flex min-h-0 flex-col">
           {/* Keeps Settings search in the same control rhythm as Quick Actions. */}
-          <div className="relative mb-[var(--redesign-quick-actions-gap)] h-[var(--redesign-quick-actions-trigger-height)] w-full">
+          {/* Focused, the ⌘F hint and the placeholder fade out, leaving just what's typed. */}
+          <div className="group/settings-search relative mb-[var(--redesign-quick-actions-gap)] h-[var(--redesign-quick-actions-trigger-height)] w-full">
             <span
               aria-hidden
-              className="pointer-events-none absolute top-1/2 left-[var(--redesign-quick-actions-padding)] z-10 flex -translate-y-1/2 items-center gap-[var(--redesign-quick-actions-shortcut-gap)] text-[length:var(--redesign-sidebar-primary-font-size)] text-muted-foreground"
+              className="pointer-events-none absolute top-1/2 left-[var(--redesign-quick-actions-padding)] z-10 flex -translate-y-1/2 items-center gap-[var(--redesign-quick-actions-shortcut-gap)] text-[length:var(--redesign-sidebar-primary-font-size)] text-muted-foreground transition-opacity duration-200 group-focus-within/settings-search:opacity-0"
             >
               <Command strokeWidth={2} className="size-[var(--redesign-quick-actions-command-icon-size)]" />
               <span>F</span>
@@ -2941,8 +2351,18 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
                 }
               }}
               placeholder={t("settings.search.placeholder")}
-              className="h-full rounded-[var(--redesign-control-radius)] border-[var(--redesign-sidebar-border)] bg-transparent pr-[var(--redesign-quick-actions-padding)] pl-[calc(var(--redesign-quick-actions-padding)+var(--redesign-quick-actions-command-icon-size)+var(--redesign-quick-actions-shortcut-gap)+0.5rem+var(--redesign-quick-actions-icon-gap))] text-[length:var(--redesign-sidebar-primary-font-size)] font-normal text-foreground placeholder:text-muted-foreground placeholder:opacity-100 placeholder:transition-opacity placeholder:duration-200 hover:bg-muted/50 focus:placeholder:opacity-0 focus-visible:border-ring md:text-[length:var(--redesign-sidebar-primary-font-size)]"
+              className="h-full rounded-[var(--redesign-control-radius)] border-[var(--redesign-sidebar-border)] bg-transparent pr-[var(--redesign-quick-actions-padding)] pl-[calc(var(--redesign-quick-actions-padding)+var(--redesign-quick-actions-command-icon-size)+var(--redesign-quick-actions-shortcut-gap)+0.5rem+var(--redesign-quick-actions-icon-gap))] text-[length:var(--redesign-sidebar-primary-font-size)] font-normal text-foreground hover:bg-muted/50 transition-[border-color,background-color] duration-200 placeholder:text-transparent focus:pl-[var(--redesign-quick-actions-padding)] focus-visible:border-focus-accent md:text-[length:var(--redesign-sidebar-primary-font-size)]"
             />
+            {/* The placeholder, drawn in place so it fades out where it is (with the ⌘F hint) while
+                typed text starts at the left straight away. */}
+            {!query && (
+              <span
+                aria-hidden
+                className="pointer-events-none absolute top-1/2 left-[calc(var(--redesign-quick-actions-padding)+var(--redesign-quick-actions-command-icon-size)+var(--redesign-quick-actions-shortcut-gap)+0.5rem+var(--redesign-quick-actions-icon-gap))] -translate-y-1/2 truncate text-[length:var(--redesign-sidebar-primary-font-size)] text-muted-foreground transition-opacity duration-200 ease-in-out group-focus-within/settings-search:opacity-0 motion-reduce:transition-none"
+              >
+                {t("settings.search.placeholder")}
+              </span>
+            )}
           </div>
 
           {searching ? (
@@ -2985,7 +2405,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
                     </h2>
                   </div>
                   <div className="mt-[var(--redesign-sidebar-section-row-offset)] flex flex-col gap-[var(--redesign-quick-actions-row-gap)]">
-                    {group.keys.map((key) => {
+                    {group.keys.filter((key) => isSignedIn || key !== "profile").map((key) => {
                       const s = SECTIONS.find((sec) => sec.key === key)!;
                       const isActive = section === key;
                       return (
@@ -3017,7 +2437,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
           <div className="-mx-[var(--redesign-sidebar-edge-padding)] border-t border-[var(--redesign-sidebar-border)] px-[var(--redesign-sidebar-edge-padding)] pt-2">
             <button
               type="button"
-              onClick={() => navigate("/new/chat")}
+              onClick={() => navigate("/")}
               className="flex h-[var(--redesign-sidebar-footer-account-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-[length:var(--redesign-sidebar-primary-font-size)] font-normal text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <ArrowCircleBrokenLeftIcon aria-hidden="true" className="size-[var(--redesign-quick-actions-icon-size)] shrink-0" />
@@ -3040,9 +2460,9 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
     <aside
       aria-label={t("settings.nav.ariaLabel")}
       className="relative flex h-full shrink-0 flex-col overflow-hidden border-r border-border bg-sidebar"
-      style={{ width: SIDEBAR_WIDTH }}
+      style={{ width: "var(--redesign-sidebar-width)" }}
     >
-      <div className="flex min-h-0 shrink-0 flex-col pt-2" style={{ width: SIDEBAR_WIDTH }}>
+      <div className="flex min-h-0 shrink-0 flex-col pt-2" style={{ width: "var(--redesign-sidebar-width)" }}>
         {/* Same top-row shape as the real sidebar's own collapse-toggle +
             back/forward row (sidebar-nav.tsx) -- pt-2 wrapper + a 32px row
             containing the same 62px macOS traffic-light reserve -- per
@@ -3055,7 +2475,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
             same pt-2 + 32px-row path), not just clearing the traffic
             lights in isolation. */}
         <div className="h-[32px]">
-        <div className="mx-2 flex h-6 shrink-0 items-center overflow-hidden" style={{ width: SIDEBAR_ROW_WIDTH }}>
+        <div className="mx-2 flex h-6 shrink-0 items-center overflow-hidden" style={{ width: "calc(var(--redesign-sidebar-width) - 16px)" }}>
           {/* Reserved space for macOS's own native traffic-light buttons --
               see sidebar-nav.tsx's own identical span for the full
               reasoning. */}
@@ -3120,7 +2540,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
             one was missing (the Cmd/Ctrl+F shortcut itself already worked
             here, from the earlier request above -- just never rendered a
             visible hint for it). */}
-        <div className="relative mx-2 mb-2 h-7 w-[204px]">
+        <div className="relative mx-2 mb-2 h-7" style={{ width: "calc(var(--redesign-sidebar-width) - 16px)" }}>
           <SearchIcon className="pointer-events-none absolute top-1/2 left-[9px] size-[14px] -translate-y-1/2 text-foreground select-none" />
           <Input
             ref={searchRef}
@@ -3193,7 +2613,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
                 <div className="mx-2 mt-1 mb-0.5 flex h-5 items-center px-2 text-xs font-normal text-foreground select-none">
                   <span className="opacity-50">{t(group.labelKey)}</span>
                 </div>
-                {group.keys.map((key) => {
+                {group.keys.filter((key) => isSignedIn || key !== "profile").map((key) => {
                   const s = SECTIONS.find((sec) => sec.key === key)!;
                   return (
                     <RailButton
@@ -3258,11 +2678,11 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
             // visibly heavier than every other row icon at the same box).
             icon={<AlongsideLogo className="size-[13px]" />}
             label={t("settings.returnToAlongside")}
-            onClick={() => navigate("/new/chat")}
+              onClick={() => navigate("/")}
           />
         </GlideGroup>
         {false && (
-        <div className="mx-2 mt-1 flex h-7 shrink-0 items-center gap-1 overflow-hidden rounded-[var(--row-radius)]" style={{ width: SIDEBAR_ROW_WIDTH }}>
+        <div className="mx-2 mt-1 flex h-7 shrink-0 items-center gap-1 overflow-hidden rounded-[var(--row-radius)]" style={{ width: "calc(var(--redesign-sidebar-width) - 16px)" }}>
           <BaseDropdownMenu
             size="compact"
             onOpenChange={(nowOpen) => {
@@ -3364,6 +2784,102 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
   );
 }
 
+type ArchivedSnapshot = {
+  workspaces: { id: string; name: string; logo?: string | null; color?: number | null }[];
+  projects: { id: string; name: string; workspace_id: string | null; archive_scope: string; individually_archived: boolean }[];
+  chats: { id: string; name: string; project_id: string | null; workspace_id: string | null; individually_archived: boolean }[];
+};
+
+// Solid red, for permanent deletes: the accent button (shell-dialog.tsx's ShellDialogActions does the same) on the destructive colour.
+const DESTRUCTIVE_BUTTON = "text-white [--send-button-bg-active:color-mix(in_oklab,var(--destructive),black_25%)] [--send-button-bg-hover:color-mix(in_oklab,var(--destructive),black_12%)] [--send-button-bg:var(--destructive)]";
+
+type ArchivedEntity = { kind: "workspace" | "project" | "chat"; id: string; name: string };
+
+// One kind per page (Settings > Archived > Workspaces, Projects or Chats). A project or chat
+// whose workspace (or project) is itself archived is listed with that, not here.
+function ArchivedSection({ kind }: { kind: ArchivedEntity["kind"] }) {
+  const { t } = useTranslation();
+  const [snapshot, setSnapshot] = useState<ArchivedSnapshot>({ workspaces: [], projects: [], chats: [] });
+  const [pendingDelete, setPendingDelete] = useState<ArchivedEntity | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    void fetch("/archived")
+      .then((response) => response.ok ? response.json() as Promise<ArchivedSnapshot> : Promise.reject())
+      .then(setSnapshot)
+      .catch(() => setSnapshot({ workspaces: [], projects: [], chats: [] }));
+  }, []);
+  useEffect(load, [load]);
+
+  const workspaceIds = new Set(snapshot.workspaces.map((item) => item.id));
+  const rootProjects = snapshot.projects.filter((item) => item.individually_archived && (!item.workspace_id || !workspaceIds.has(item.workspace_id)));
+  const subtreeProjectIds = new Set(snapshot.projects.filter((item) => item.archive_scope === "subtree").map((item) => item.id));
+  const rootChats = snapshot.chats.filter((item) => item.individually_archived
+    && (!item.workspace_id || !workspaceIds.has(item.workspace_id))
+    && (!item.project_id || !subtreeProjectIds.has(item.project_id)));
+
+  async function mutate(entity: ArchivedEntity, action: "restore" | "delete") {
+    setBusy(`${entity.kind}:${entity.id}`);
+    const plural = entity.kind === "workspace" ? "workspaces" : entity.kind === "project" ? "projects" : "sessions";
+    const suffix = action === "restore" ? "/restore" : "";
+    const base = entity.kind === "chat" && action === "delete" ? "/archived/sessions" : `/${plural}`;
+    const response = await fetch(`${base}/${encodeURIComponent(entity.id)}${suffix}`, { method: action === "restore" ? "POST" : "DELETE" }).catch(() => null);
+    setBusy(null);
+    if (!response?.ok) return;
+    setPendingDelete(null);
+    load();
+  }
+
+  const rows: ArchivedEntity[] =
+    kind === "workspace" ? snapshot.workspaces.map((item) => ({ id: item.id, name: item.name, kind }))
+    : kind === "project" ? rootProjects.map((item) => ({ id: item.id, name: item.name, kind }))
+    : rootChats.map((item) => ({ id: item.id, name: item.name, kind }));
+
+  return (
+    <div className="mt-4 flex flex-col gap-2">
+      {rows.length === 0 ? (
+        <div className="rounded-xl border border-border bg-card px-4 py-8 text-center text-[13px] text-muted-foreground">{t(`archive.empty.${kind}`)}</div>
+      ) : rows.map((entity) => {
+        const childProjects = entity.kind === "workspace" ? snapshot.projects.filter((item) => item.workspace_id === entity.id).length : 0;
+        const childChats = entity.kind === "workspace"
+          ? snapshot.chats.filter((item) => item.workspace_id === entity.id).length
+          : entity.kind === "project" ? snapshot.chats.filter((item) => item.project_id === entity.id).length : 0;
+        const Icon = entity.kind === "project" ? FolderIcon : BubbleChatIcon;
+        // A workspace shows its own tile: its logo, or its letter on its colour.
+        const workspace = entity.kind === "workspace" ? snapshot.workspaces.find((item) => item.id === entity.id) : undefined;
+        const monogram = workspace && !workspace.logo ? workspaceMonogram(workspace.name, workspace.color ?? null) : null;
+        return (
+          <div key={`${entity.kind}:${entity.id}`} className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-3">
+            {workspace ? (
+              workspace.logo ? <WorkspaceBrandIcon size={32} imageSrc={workspace.logo} /> : monogram ? <WorkspaceBrandIcon size={32} monogram={monogram} /> : null
+            ) : (
+              <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-background"><Icon className="size-4" /></span>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[13px] font-medium text-foreground">{entity.name}</p>
+              <p className="text-[12px] text-muted-foreground">{t(`archive.kind.${entity.kind}`)}{childProjects || childChats ? ` · ${t("archive.contents", { projects: childProjects, chats: childChats })}` : ""}</p>
+            </div>
+            <Button size="compact" variant="tertiary" leadingIcon={RotateCcw} onClick={() => void mutate(entity, "restore")} disabled={busy !== null}>{t("archive.restore")}</Button>
+            <Button size="compact" variant="accent" leadingIcon={Trash2} className={DESTRUCTIVE_BUTTON} onClick={() => setPendingDelete(entity)} disabled={busy !== null}>{t("archive.deletePermanently")}</Button>
+          </div>
+        );
+      })}
+      <Dialog open={pendingDelete !== null} onOpenChange={(open) => { if (!open) setPendingDelete(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("archive.delete.title")}</DialogTitle>
+            <DialogDescription>{t("archive.delete.description", { name: pendingDelete?.name ?? "" })}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="tertiary" onClick={() => setPendingDelete(null)}>{t("common.cancel")}</Button>
+            <Button variant="accent" className={DESTRUCTIVE_BUTTON} onClick={() => pendingDelete && void mutate(pendingDelete, "delete")} disabled={busy !== null}>{t("archive.deletePermanently")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 // Main content pane -- SettingsPage.tsx's own real content, reading the
 // active section straight off the URL (/settings/:section) rather than a
 // prop threaded down from a modal's own open/section state.
@@ -3419,22 +2935,31 @@ export function SettingsSectionContent({ section }: { section: SettingsSection }
             divider under the heading and subheading of each page on
             settings, remove that"). */}
         <PageContent maxWidth="var(--chat-max-width)">
-          <h2 className="text-[16px] font-semibold text-foreground">
-            {(() => {
-              const labelKey = SECTIONS.find((s) => s.key === section)?.labelKey;
-              return labelKey ? t(labelKey) : null;
-            })()}
-          </h2>
-          <p className="mt-0.5 text-[13px] font-normal text-muted-foreground">{t(SECTION_SUBTITLE_KEY[section])}</p>
+          {/* Profile and Skills draw their own header (Skills has actions beside it). */}
+          {section !== "profile" && section !== "skills" && (
+            <>
+              <h2 className="text-[16px] font-semibold text-foreground">
+                {(() => {
+                  const entry = SECTIONS.find((s) => s.key === section);
+                  const key = entry?.titleKey ?? entry?.labelKey;
+                  return key ? t(key) : null;
+                })()}
+              </h2>
+              <p className="mt-0.5 text-[13px] font-normal text-muted-foreground">{t(SECTION_SUBTITLE_KEY[section])}</p>
+            </>
+          )}
         </PageContent>
         <PageContent maxWidth="var(--chat-max-width)">
           {section === "profile" && <ProfileSection />}
           {section === "general" && <GeneralSection />}
           {section === "appearance" && <AppearanceSection />}
           {section === "chat" && <ChatSection />}
-          {section === "security" && <SecuritySection />}
           {section === "provider" && <ProvidersSection />}
           {section === "apps" && <AppsSection />}
+          {section === "skills" && <SkillsSection />}
+          {section === "archived-workspaces" && <ArchivedSection kind="workspace" />}
+          {section === "archived-projects" && <ArchivedSection kind="project" />}
+          {section === "archived-chats" && <ArchivedSection kind="chat" />}
         </PageContent>
       </ScrollArea>
     </div>

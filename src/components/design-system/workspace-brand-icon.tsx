@@ -39,6 +39,13 @@ function tileRadiusPx(size: WorkspaceBrandIconSize) {
 
 // The tile is drawn in a 64-unit viewBox: the artwork fills the centred 48×48
 // box (75%), leaving an 8-unit (12.5%) safe area on every side.
+// The Alongside workspace's stored logo is the app's favicon, a finished app
+// icon with its own rounded corners, outline and highlight. Inside this tile,
+// which rounds a logo itself, the mark is drawn inline instead (the flat
+// public/alongside-mark.svg, as shapes): as an <image>, Safari rasterises a
+// nested SVG at a low resolution and its edges come out soft.
+const APP_LOGOS = new Set(["/favicon.svg", "/alongside-mark.svg"]);
+
 const TILE = 64;
 const INSET = 8;
 const ARTWORK = 48;
@@ -108,9 +115,14 @@ export function WorkspaceBrandIcon({
       className={cn("block shrink-0", SIZE_CLASS[size], className)}
     >
       <rect
-        width={TILE}
-        height={TILE}
-        rx={radius}
+        // Behind a logo the white backing is inset a pixel: at the full size,
+        // its anti-aliased edge showed through the logo's own (the same shape,
+        // drawn twice) as a light, blurry rim around the tile.
+        x={imageSrc ? edgeInset * 2 : 0}
+        y={imageSrc ? edgeInset * 2 : 0}
+        width={imageSrc ? TILE - edgeInset * 4 : TILE}
+        height={imageSrc ? TILE - edgeInset * 4 : TILE}
+        rx={imageSrc ? Math.max(0, radius - edgeInset * 2) : radius}
         // One look in both themes: white tile, black mark (no theme
         // inversion); a monogram tile takes its palette colour instead.
         className={monogram && !imageSrc ? undefined : "!fill-white"}
@@ -128,6 +140,19 @@ export function WorkspaceBrandIcon({
         >
           {monogram.letter}
         </text>
+      ) : imageSrc && APP_LOGOS.has(imageSrc) ? (
+        <>
+          <defs>
+            <linearGradient id={`${clipId}-bg`} x1="32" y1="0" x2="32" y2="64" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#2B83FF" />
+              <stop offset="1" stopColor="#056DFF" />
+            </linearGradient>
+          </defs>
+          <rect width={TILE} height={TILE} rx={radius} fill={`url(#${clipId}-bg)`} />
+          <circle cx="21.5" cy="32" r="10.5" fill="#CFCFCF" />
+          <circle cx="32" cy="32" r="10.5" fill="#E8E8E8" />
+          <circle cx="42.5" cy="32" r="10.5" fill="#FFFFFF" />
+        </>
       ) : imageSrc ? (
         // An uploaded logo *is* the tile: full bleed, clipped to the tile's
         // rounded corners, so it matches the tile size and radius everywhere
@@ -164,8 +189,10 @@ export function WorkspaceBrandIcon({
         />
       )}
       {/* Hairline edge, the Getting Started card's barely-visible border, so
-          the white tile reads as a tile on light surfaces (light mode only). Drawn last so it
-          also edges uploaded logos; inset half a pixel to stay inside. */}
+          the default tile (letter or Alongside mark) reads as a tile on light
+          surfaces (light mode only). Not on a logo (an uploaded image or .svg),
+          which brings its own edge; inset half a pixel to stay inside. */}
+      {!imageSrc && (
       <rect
         x={edgeInset}
         y={edgeInset}
@@ -179,11 +206,12 @@ export function WorkspaceBrandIcon({
         // A black letter tile keeps a faint light edge in both modes: the
         // light-mode grey read as a ring around it from a distance.
         className={cn(
-          monogram?.darkEdge && !imageSrc
+          monogram?.darkEdge
             ? "stroke-white/15"
             : "stroke-[var(--redesign-sidebar-footer-onboarding-border)] dark:stroke-transparent",
         )}
       />
+      )}
     </svg>
   );
 }

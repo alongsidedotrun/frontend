@@ -1,16 +1,13 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { AlongsideLogo } from "@/components/icons/alongside-logo";
-import { loadDataAcknowledgement } from "@/lib/data-acknowledgement";
-import { diagnose_onboarding, hasCompletedOnboardingIntro, ONBOARDING_COMPLETE_KEY } from "@/lib/onboarding";
 
 const INTRO_WORDS = [
-  { text: "Introducing", delay: "350ms" },
-  { text: "Alongside", delay: "530ms" },
-  { text: "The", delay: "1170ms" },
-  { text: "Multiplayer", delay: "1350ms" },
-  { text: "AI", delay: "1530ms" },
-  { text: "Platform", delay: "1710ms" },
+  { text: "Multiplayer", delay: "350ms" },
+  { text: "AI", delay: "530ms" },
+  { text: "available", delay: "1170ms" },
+  { text: "for", delay: "1350ms" },
+  { text: "everyone", delay: "1530ms" },
 ];
 
 const wordStyle = (delay: string): CSSProperties => ({
@@ -20,7 +17,6 @@ const wordStyle = (delay: string): CSSProperties => ({
 
 export function OnboardingPage() {
   const navigate = useNavigate();
-  const complete = hasCompletedOnboardingIntro();
   const [isTransitioning, setIsTransitioning] = useState(false);
   const transitionTimer = useRef<number | null>(null);
 
@@ -30,60 +26,48 @@ export function OnboardingPage() {
     };
   }, []);
 
-  if (complete === true && !diagnose_onboarding) {
-    return <Navigate to={loadDataAcknowledgement() ? "/getting-started" : "/onboard/getting-started"} replace />;
-  }
-
-  function finishOnboarding() {
+  function continueToApp() {
     if (isTransitioning) return;
-
-    localStorage.setItem(ONBOARDING_COMPLETE_KEY, "true");
     setIsTransitioning(true);
-    transitionTimer.current = window.setTimeout(() => {
-      navigate("/onboard/getting-started", { replace: true, state: { fromOnboarding: true } });
-    }, 700);
+    transitionTimer.current = window.setTimeout(() => navigate("/", { replace: true }), 700);
   }
 
   return (
-    <main className="min-h-dvh bg-[#090909] text-white">
-      <section className="flex min-h-dvh w-full items-center justify-center border border-white/10 bg-white/[0.035] px-6 text-center backdrop-blur-xl sm:px-12">
+    <main className="min-h-dvh bg-background text-foreground">
+      <section className="flex min-h-dvh w-full items-center justify-center border border-border bg-background px-6 text-center sm:px-12">
         <div className="w-full max-w-[440px]">
-            <div
-              className="mx-auto mb-8 flex items-center justify-center opacity-0"
-              style={{ animation: "onboarding-fade-in 700ms ease-out 2.4s forwards" }}
-            >
-              <AlongsideLogo className="size-7 text-white" />
-            </div>
-            <h1
-              className="text-2xl font-medium tracking-[0] text-white sm:text-3xl"
-              style={{ fontFamily: '"Geist", var(--font-sans)' }}
-            >
-              <span className="block">
-                {INTRO_WORDS.slice(0, 2).map((word) => (
-                  <span key={word.text} className="mr-[0.25em] inline-block" style={wordStyle(word.delay)}>
-                    {word.text}
-                  </span>
-                ))}
-              </span>
-              <span className="mt-2 block text-white">
-                {INTRO_WORDS.slice(2).map((word) => (
-                  <span key={word.text} className="mr-[0.2em] inline-block" style={wordStyle(word.delay)}>
-                    {word.text}
-                  </span>
-                ))}
-              </span>
-            </h1>
-            <button
-              type="button"
-              onClick={finishOnboarding}
-              disabled={isTransitioning}
-              className="mt-8 inline-flex min-h-10 items-center justify-center rounded-full bg-white px-6 text-xs font-medium text-black opacity-0 transition hover:bg-white/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-              style={{ animation: "onboarding-fade-in 700ms ease-out 3.25s forwards" }}
-            >
-              Let&apos;s get started
-            </button>
-            {/* The logo and button reveal only after the word sequence completes. */}
-            <span className="sr-only">Introducing Alongside. The Multiplayer AI platform.</span>
+          <div
+            className="mx-auto mb-8 flex items-center justify-center opacity-0"
+            style={{ animation: "onboarding-fade-in 700ms ease-out 2.4s forwards" }}
+          >
+            <AlongsideLogo className="size-7 text-foreground" />
+          </div>
+          <h1 className="text-2xl font-medium tracking-[0] text-foreground sm:text-3xl" style={{ fontFamily: '"Geist", var(--font-sans)' }}>
+            <span className="block">
+              {INTRO_WORDS.slice(0, 2).map((word) => (
+                <span key={word.text} className="mr-[0.25em] inline-block" style={wordStyle(word.delay)}>
+                  {word.text}
+                </span>
+              ))}
+            </span>
+            <span className="mt-2 block text-foreground">
+              {INTRO_WORDS.slice(2).map((word) => (
+                <span key={word.text} className="mr-[0.2em] inline-block" style={wordStyle(word.delay)}>
+                  {word.text}
+                </span>
+              ))}
+            </span>
+          </h1>
+          <button
+            type="button"
+            onClick={continueToApp}
+            disabled={isTransitioning}
+            className="mt-8 inline-flex min-h-10 items-center justify-center rounded-full bg-foreground px-6 text-xs font-medium text-background opacity-0 transition hover:bg-foreground/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            style={{ animation: "onboarding-fade-in 700ms ease-out 3.25s forwards" }}
+          >
+            Continue
+          </button>
+          <span className="sr-only">Multiplayer AI available for everyone.</span>
         </div>
       </section>
       <div

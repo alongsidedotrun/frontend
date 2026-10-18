@@ -1,5 +1,4 @@
-import { BrowserRouter, Navigate, useLocation, useRoutes, type RouteObject } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { BrowserRouter, Navigate, useRoutes, type RouteObject } from "react-router-dom";
 import * as Sentry from "@sentry/react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { GettingStartedProvider, useGettingStarted } from "@/hooks/use-getting-started";
@@ -7,7 +6,6 @@ import { ThemeProvider } from "@/hooks/use-theme";
 import { useApplyAppearanceSettings } from "@/hooks/use-appearance-settings";
 import { AppsPage } from "@/pages/AppsPage";
 import { ChatPage } from "@/pages/ChatPage";
-import { DataAcknowledgementPage } from "@/pages/DataAcknowledgementPage";
 import { DocsPage } from "@/pages/DocsPage";
 import { HelpPage } from "@/pages/HelpPage";
 import { HomePage } from "@/pages/HomePage";
@@ -21,39 +19,10 @@ import { ProjectsPage } from "@/pages/ProjectsPage";
 import { RedesignPage } from "@/pages/RedesignPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { WelcomePage } from "@/pages/WelcomePage";
-import { diagnose_onboarding, hasCompletedOnboardingIntro } from "@/lib/onboarding";
-
-// Opening the app lands on a new chat in the redesigned workspace. Onboarding
-// is still available at its explicit routes, but it must not block normal use
-// of the local app shell.
-function AppRoot() {
-  return <Navigate to="/new/chat" replace />;
-}
 
 function GettingStartedRoute() {
   const { show } = useGettingStarted();
   return show ? <WelcomePage /> : <Navigate to="/" replace />;
-}
-
-function OnboardGettingStartedRoute() {
-  const location = useLocation();
-  const openedFromSettings = new URLSearchParams(location.search).get("manage") === "data-acknowledgement";
-  const [backendAcknowledged, setBackendAcknowledged] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    void fetch("/storage/status")
-      .then(async (response) => response.ok ? response.json() as Promise<{ acknowledged: boolean }> : { acknowledged: false })
-      .then((status) => setBackendAcknowledged(status.acknowledged))
-      .catch(() => setBackendAcknowledged(false));
-  }, []);
-
-  const onboardingComplete = hasCompletedOnboardingIntro() && backendAcknowledged === true;
-
-  if (!diagnose_onboarding && onboardingComplete && !openedFromSettings) {
-    return <Navigate to="/getting-started" replace />;
-  }
-
-  return <DataAcknowledgementPage />;
 }
 
 function SecureAppRoute() {
@@ -63,9 +32,8 @@ function SecureAppRoute() {
 }
 
 const ROUTES: RouteObject[] = [
-  { path: "/", element: <AppRoot /> },
   { path: "/onboard", element: <OnboardingPage /> },
-  { path: "/onboard/getting-started", element: <OnboardGettingStartedRoute /> },
+  { path: "/onboard/*", element: <Navigate to="/" replace /> },
   // Kept as a compatibility alias while the redesign is now the production
   // shell for every authenticated route.
   { path: "/redesign", element: <Navigate to="/inbox" replace /> },
@@ -82,11 +50,11 @@ const ROUTES: RouteObject[] = [
     // check instead.
     element: <SecureAppRoute />,
     children: [
+      { index: true, element: <HomePage /> },
       // Overview is switched off for now (pages/OverviewPage.tsx is kept);
       // an old link to it opens a new chat instead.
-      { path: "/overview", element: <Navigate to="/new/chat" replace /> },
+      { path: "/overview", element: <Navigate to="/" replace /> },
       { path: "/getting-started", element: <GettingStartedRoute /> },
-      { path: "/new/chat", element: <HomePage /> },
       { path: "/new-chat", element: <Navigate to="/" replace /> },
       { path: "/chat/:sessionId", element: <ChatPage /> },
       // Joining a chat someone else hosts, from an invite link (JoinPage.tsx).

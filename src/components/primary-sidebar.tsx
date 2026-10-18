@@ -44,7 +44,6 @@ function RailItem({
     <button
       type="button"
       aria-label={label}
-      title={label}
       onClick={onClick}
       className={`flex size-7 items-center justify-center rounded-xl text-white transition-colors duration-150 ${
         active ? "bg-hover-2/70 text-white" : "text-white hover:bg-hover-2/50"
@@ -87,7 +86,6 @@ export function PrimarySidebar({ collapsed, onOpenSettings, onNavigate }: Primar
                 <button
                   type="button"
                   aria-label="Getting started"
-                  title="Getting started"
                   onClick={() => navigateTo("/getting-started")}
                   className={`flex size-7 shrink-0 items-center justify-center rounded-xl text-white transition-colors duration-150 hover:bg-hover-2/50 ${location.pathname === "/getting-started" ? "bg-hover-2/70" : ""}`}
                 >
@@ -103,7 +101,7 @@ export function PrimarySidebar({ collapsed, onOpenSettings, onNavigate }: Primar
         <RailItem label="Inbox" active={location.pathname === "/inbox"} onClick={() => navigateTo("/inbox")}>
           <InboxIcon className="size-[14px]" />
         </RailItem>
-        <RailItem label="Chats" active={location.pathname === "/new/chat" || location.pathname.startsWith("/chat/")} onClick={() => navigateTo("/new/chat")}>
+        <RailItem label="Chats" active={location.pathname === "/" || location.pathname.startsWith("/chat/")} onClick={() => navigateTo("/")}>
           <MessageChatCircleIcon className="size-[14px]" />
         </RailItem>
         <RailItem label="Code Browser" active={location.pathname === "/code"} onClick={() => navigateTo("/code")}>

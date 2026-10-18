@@ -45,7 +45,7 @@ function renderDialog() {
 }
 
 async function typeBoth(chatId = "7kq2m 9xf4t", code = "k7qf2m9x") {
-  await userEvent.type(await screen.findByLabelText("Chat ID"), chatId);
+  await userEvent.type(await screen.findByLabelText("Identifier"), chatId);
   await userEvent.type(screen.getByLabelText("Join code"), code);
 }
 
@@ -61,15 +61,16 @@ describe("Join chat dialog (#213, #459)", () => {
     renderDialog();
     await userEvent.click(await screen.findByRole("button", { name: "Sign in" }));
     expect(signIn.open).toHaveBeenCalled();
-    expect(screen.queryByLabelText("Chat ID")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Identifier")).toBeDisabled();
+    expect(screen.getByLabelText("Join code")).toBeDisabled();
   });
 
   it("needs both a full chat ID and a full code, shown in their usual shape", async () => {
     backend();
     renderDialog();
     const join = await screen.findByRole("button", { name: "Join" });
-    await userEvent.type(screen.getByLabelText("Chat ID"), "7kq2m9xf4t");
-    expect(screen.getByLabelText("Chat ID")).toHaveValue("7KQ2M-9XF4T");
+    await userEvent.type(screen.getByLabelText("Identifier"), "7kq2m9xf4t");
+    expect(screen.getByLabelText("Identifier")).toHaveValue("7KQ2M-9XF4T");
     expect(join).toBeDisabled();
     await userEvent.type(screen.getByLabelText("Join code"), "k7qf2m9");
     expect(join).toBeDisabled();

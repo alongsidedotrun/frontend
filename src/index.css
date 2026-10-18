@@ -64,22 +64,6 @@
   50% { transform: translate(-75%, -50%); }
 }
 
-/* The Button's loading glyph (ui/button.tsx). Top level, not inside
-   @theme: Tailwind drops @theme keyframes that no --animate-* token uses,
-   which left the spinner frozen. */
-@keyframes spinner-move {
-  to {
-    stroke-dashoffset: -100;
-  }
-}
-@keyframes spinner-dash {
-  0%, 100% {
-    stroke-dasharray: 15 85;
-  }
-  50% {
-    stroke-dasharray: 40 60;
-  }
-}
 
 @keyframes onboarding-word-in {
   from {
@@ -258,6 +242,7 @@
   /* Quick actions field and Getting Started panel: pure white on the
      #FAFAFA light sidebar, per request. Dark mode keeps their old look. */
   --redesign-quick-actions-surface: #FFFFFF;
+  --redesign-compose-extension-surface: var(--redesign-quick-actions-surface);
   --redesign-getting-started-surface: #FFFFFF;
   --redesign-overlay-border: #EBEBEB;
   --redesign-progress-track: color-mix(in srgb, var(--focus-accent) 30%, transparent);
@@ -324,8 +309,11 @@
   --redesign-sidebar-elevated-shadow: none;
   --redesign-sidebar-footer-onboarding-shadow: none;
   --redesign-sidebar-overlay-surface: #212121;
-  --redesign-quick-actions-surface: transparent;
+  /* Quick actions belongs to the sidebar base; its border and hover state
+     provide separation without introducing a second resting surface. */
+  --redesign-quick-actions-surface: var(--redesign-sidebar-surface);
   --redesign-getting-started-surface: var(--redesign-sidebar-overlay-surface);
+  --redesign-compose-extension-surface: var(--redesign-getting-started-surface);
   /* Inactive accent (Getting Started ring, inactive send) in dark mode:
      the accent lightened toward white first, so it reads as a pale blue on
      the dark surface instead of a murky dark blue. */
@@ -1463,6 +1451,124 @@
   .t-text-swap { transition: none !important; }
 }
 
+/* Sliding text: a name cut off with an ellipsis slides left while its row
+   is hovered (or focused), to show the rest, like Codex's sidebar.
+   Usage (src/components/ui/sliding-text.tsx sets the variables):
+     <button data-slide-trigger> … <span class="t-slide" data-overflow
+       style="--slide: -48px; --slide-dur: 1.2s">Long name</span></button>
+   Only text that overflows moves; it starts after a short pause, runs at
+   an even pace, and eases back on leave (the ellipsis returns). */
+.t-slide {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+}
+/* The moving line carries the ellipsis itself (an ellipsis can't sit on a
+   transformed inline box inside the clip), and lets it go while sliding. */
+.t-slide > span {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transform: translateX(0);
+  transition: transform 220ms ease-out;
+}
+:is([data-slide-trigger]:hover, [data-slide-trigger]:focus-visible) .t-slide[data-overflow] {
+  /* Soft edges while it moves, so the text doesn't cut off hard. */
+  mask-image: linear-gradient(to right, transparent, #000 8px, #000 calc(100% - 8px), transparent);
+}
+:is([data-slide-trigger]:hover, [data-slide-trigger]:focus-visible) .t-slide[data-overflow] > span {
+  overflow: visible;
+  text-overflow: clip;
+  transform: translateX(var(--slide));
+  transition: transform var(--slide-dur) linear 300ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-slide > span { transition: none !important; transform: none !important; }
+}
+
+/* Transitions.dev — Skeleton loader and reveal */
+/*
+  Usage (src/components/ui/skeleton-reveal.tsx drives it):
+    <div class="t-skel" data-state="loading">
+      <div class="t-skel-skeleton is-pulsing">…</div>
+      <div class="t-skel-content">…</div>
+    </div>
+
+  State:
+    - The skeleton pulses (.is-pulsing) while loading; .is-looping
+      repeats the pulse until the data arrives (the recipe's own
+      --pulse-count is for a known delay).
+    - When data arrives, .is-revealed on .t-skel: the skeleton
+      fades out + blurs and the content fades in + un-blurs over
+      --reveal-dur.
+
+  Adapted from the recipe: the two layers share one grid cell
+  instead of being absolutely positioned, so the wrap keeps the
+  content's own height (a section of cards has none to give an
+  absolute layer). Used by Settings > Skills while skills.sh loads.
+*/
+:root {
+  --pulse-dur: 1000ms;
+  --pulse-count: 1;
+  --pulse-min: 0.5;
+  --reveal-dur: 400ms;
+  --reveal-blur: 2px;
+  --reveal-ease: ease-in-out;
+}
+
+.t-skel { display: grid; }
+.t-skel-skeleton,
+.t-skel-content {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+
+.t-skel-skeleton {
+  z-index: 1;
+  opacity: 1;
+  filter: blur(0);
+  transition:
+    opacity var(--reveal-dur) var(--reveal-ease),
+    filter  var(--reveal-dur) var(--reveal-ease);
+}
+.t-skel-content {
+  z-index: 2;
+  opacity: 0;
+  filter: blur(var(--reveal-blur));
+  transition:
+    opacity var(--reveal-dur) var(--reveal-ease),
+    filter  var(--reveal-dur) var(--reveal-ease);
+}
+.t-skel.is-revealed .t-skel-skeleton {
+  opacity: 0;
+  filter: blur(var(--reveal-blur));
+}
+.t-skel.is-revealed .t-skel-content {
+  opacity: 1;
+  filter: blur(0);
+}
+
+/* Pulse on the skeleton's children, so its own opacity / filter
+   stay free for the cross-fade above. */
+.t-skel-skeleton.is-pulsing > * {
+  animation: t-skel-pulse var(--pulse-dur) ease-in-out var(--pulse-count);
+}
+.t-skel-skeleton.is-pulsing.is-looping > * {
+  animation-iteration-count: infinite;
+}
+@keyframes t-skel-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: var(--pulse-min); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-skel-skeleton, .t-skel-content {
+    transition: none !important;
+  }
+  .t-skel-skeleton.is-pulsing > * { animation: none !important; }
+}
+
 /* Transitions.dev — Error state shake */
 /*
   Usage:
@@ -2210,4 +2316,3 @@ html.transitioning *, html.transitioning *::before, html.transitioning *::after 
   vector-effect: non-scaling-stroke;
   stroke-width: 1px;
 }
-

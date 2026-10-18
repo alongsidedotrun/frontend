@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { spring } from "@/lib/springs";
 import { isAutoScrollSuppressed, suppressAutoScroll } from "@/lib/chat-scroll-suppress";
 import { GUEST_NAME, getUserDisplayName } from "@/lib/user";
-import { ComposeBox, toImageInputs, type ImageAttachment } from "@/components/compose-box";
+import { CommandChip, ComposeBox, leadingCommand, toImageInputs, type ImageAttachment } from "@/components/compose-box";
 import { JoinRequests, type JoinRequest } from "@/components/join-requests";
 import { clearPresence, setPresence, type Person } from "@/lib/presence";
 import { openShareDialog } from "@/lib/use-share";
@@ -53,10 +53,18 @@ type SharedFile = { file_id: string; name: string; media_type: string; size: num
 
 // Provider brand names, as another participant's run reports which one it ran on (#462). Not translated.
 const PROVIDER_NAMES: Record<string, string> = { claude: "Claude", codex: "Codex", antigravity: "Antigravity" };
-import { lastUsedReady, loadLastContext, loadLastModel, saveLastContext, saveLastModel } from "@/lib/last-used";
+import { lastUsedReady, loadLastContext, loadLastModel, saveLastContext, saveLastModel, type PermissionMode } from "@/lib/last-used";
+import type { QueuedMessage } from "@/lib/message-queue";
+import { useLimitWarning } from "@/components/limit-warning";
+import { useSkills } from "@/lib/skills";
 import { StreamingText } from "@/components/streaming-text";
 import { ThinkingState } from "@/components/thinking-state";
 import { ThinkingReasoning } from "@/components/thinking-reasoning";
+import {
+  TaskProgressPanel,
+  type TaskProgressItem,
+  type TaskProgressStatus,
+} from "@/components/design-system/task-progress";
 
 // A real agent reply now shows its own provider's mark (ProviderIcon, same as every
 // other place in this app a model icon renders), not always AlongsideLogo -- per
@@ -177,6 +185,53 @@ type ChatRow =
       status: "pending" | "allow" | "deny" | "cancelled" | "timed_out";
     }
   | { kind: "marker"; id: string; text: string };
+
+type ActiveTaskList = {
+  title: string;
+  tasks: TaskProgressItem[];
+};
+
+function normalizeTaskStatus(value: unknown): TaskProgressStatus {
+  if (value === "completed" || value === "done") return "completed";
+  if (value === "inProgress" || value === "in_progress" || value === "running") return "inProgress";
+  return "pending";
+}
+
+function normalizeTaskList(
+  tasks: unknown,
+  previous: ActiveTaskList | null,
+  title = i18n.t("chat.tasks.title"),
+): ActiveTaskList | null {
+  if (!Array.isArray(tasks)) return null;
+  const occurrences = new Map<string, number>();
+  const normalized = tasks.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") return [];
+    const record = entry as Record<string, unknown>;
+    const task = typeof record.task === "string" ? record.task.trim() : typeof record.content === "string" ? record.content.trim() : "";
+    if (!task) return [];
+    const occurrence = (occurrences.get(task) ?? 0) + 1;
+    occurrences.set(task, occurrence);
+    const id = `${task}:${occurrence}`;
+    const old = previous?.tasks.find((candidate) => candidate.id === id);
+    return [{ id, title: task, status: normalizeTaskStatus(record.status), subtasks: old?.subtasks } satisfies TaskProgressItem];
+  });
+  return normalized.length ? { title, tasks: normalized } : null;
+}
+
+function normalizeClaudeTodos(input: unknown, previous: ActiveTaskList | null): ActiveTaskList | null {
+  if (!input || typeof input !== "object") return null;
+  const todos = (input as Record<string, unknown>).todos;
+  if (!Array.isArray(todos)) return null;
+  return normalizeTaskList(
+    todos.map((todo) => {
+      if (!todo || typeof todo !== "object") return todo;
+      const record = todo as Record<string, unknown>;
+      const content = record.status === "in_progress" ? record.activeForm ?? record.content : record.content ?? record.activeForm;
+      return { task: content, status: record.status };
+    }),
+    previous,
+  );
+}
 
 // Same idea as dray's own ToolCall.tsx SUMMARY_FIELDS -- the one input field most
 // worth showing inline for a given tool, so a tool row reads as "Read app.py" or
@@ -369,6 +424,25 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   const { t } = useTranslation();
   const { sessionId: routeSessionId } = useParams<{ sessionId: string }>();
   const sessionId = sessionIdOverride ?? routeSessionId;
+  // The centered new-chat composer and this bottom composer are two separate
+  // component instances. Carry the exact permission selected for the first
+  // message across that handoff instead of re-reading the asynchronously saved
+  // global "last used" value (which could still be Full access). Cleared as
+  // soon as the queued send is consumed so a later edit-driven remount does not
+  // reset the composer to the chat's first permission.
+  const [handoffPermissionMode, setHandoffPermissionMode] = useState<PermissionMode | undefined>(() => {
+    try {
+      const raw = sessionStorage.getItem("alongside_pending_message");
+      if (!raw) return undefined;
+      const pending = JSON.parse(raw) as { sessionId?: string; permissionMode?: string };
+      if (pending.sessionId !== sessionId) return undefined;
+      return pending.permissionMode === "manual" || pending.permissionMode === "ask" || pending.permissionMode === "auto" || pending.permissionMode === "plan"
+        ? pending.permissionMode
+        : undefined;
+    } catch {
+      return undefined;
+    }
+  });
   // Lifted to AppLayout now (per explicit request -- the chat's name lives
   // in the top bar's breadcrumb, not a second bar this page rendered
   // itself). chatName is read-only here (document.title below);
@@ -405,6 +479,35 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   const [chatHeaderName, setChatHeaderName] = useState(contextLabel ?? chatName);
   const [headerProjects, setHeaderProjects] = useState<Array<{ id: string; name: string }>>([]);
   const [rows, setRows] = useState<ChatRow[]>([]);
+  const [activeTaskList, setActiveTaskList] = useState<ActiveTaskList | null>(null);
+
+  function addTaskSubtask(text: string, status: "pending" | "pickedUp" = "pending") {
+    const title = text.replace(/^\/subtask\s*/i, "").trim();
+    if (!title) return;
+    setActiveTaskList((current) => {
+      if (!current) return current;
+      const activeIndex = current.tasks.findIndex((task) => task.status === "inProgress");
+      const targetIndex = activeIndex >= 0 ? activeIndex : Math.max(current.tasks.length - 1, 0);
+      return {
+        ...current,
+        tasks: current.tasks.map((task, index) =>
+          index === targetIndex
+            ? {
+                ...task,
+                subtasks: [
+                  ...(task.subtasks ?? []).map((subtask) =>
+                    status === "pickedUp" && subtask.status === "pickedUp"
+                      ? { ...subtask, status: "interrupted" as const }
+                      : subtask,
+                  ),
+                  { id: crypto.randomUUID(), title, status },
+                ],
+              }
+            : task,
+        ),
+      };
+    });
+  }
 
   useEffect(() => {
     setChatHeaderName(contextLabel ?? chatName);
@@ -446,6 +549,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // #462: whether this chat is shared through the relay right now, and -- when it is -- whether the next
   // message is just for the people in it ("Just chat") instead of also asking this person's own agent.
   const [sharedChat, setSharedChat] = useState(false);
+  const [sharedRole, setSharedRole] = useState<"owner" | "admin" | "editor" | "participant" | "reader" | null>(null);
   const [justChat, setJustChat] = useState(false);
   // #460: a shared file's state as it changes while the chat is open (arrived, gone, delivered).
   const [fileStates, setFileStates] = useState<Record<string, string>>({});
@@ -456,9 +560,12 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     let cancelled = false;
     const check = () =>
       void fetch(`/sessions/${sessionId}/relay/status`)
-        .then((response) => (response.ok ? (response.json() as Promise<{ syncing?: boolean }>) : null))
+        .then((response) => (response.ok ? (response.json() as Promise<{ syncing?: boolean; role?: "owner" | "admin" | "editor" | "participant" | "reader" }>) : null))
         .then((status) => {
-          if (!cancelled) setSharedChat(Boolean(status?.syncing));
+          if (!cancelled) {
+            setSharedChat(Boolean(status?.syncing));
+            setSharedRole(status?.role ?? null);
+          }
         })
         .catch(() => {});
     check();
@@ -468,6 +575,10 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       clearInterval(timer);
     };
   }, [sessionId]);
+  const commenterChat = sharedChat && sharedRole === "participant";
+  useEffect(() => {
+    if (commenterChat) setJustChat(true);
+  }, [commenterChat]);
   // Real bug, confirmed via a real CI build failure (TS6133, "awaitingReply declared
   // but never read"): the old `awaitingReply` React state was fully superseded by
   // turnInProgress below and awaitingReplyRef (the imperative guard used throughout
@@ -485,6 +596,13 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // replaced: the old state cleared the instant ANY renderable content arrived,
   // vanishing the compose box's Stop button mid-turn on longer, multi-step runs).
   const [turnInProgress, setTurnInProgress] = useState(false);
+  // Messages written while a turn runs (compose-box.tsx's queue prop), sent one per turn
+  // as each ends. queueSending: one has gone out and its turn hasn't started yet.
+  const [queuedMessages, setQueuedMessages] = useState<QueuedMessage[]>([]);
+  // The chat's provider, for the 5-hour limit warning above the composer.
+  const [modelProvider, setModelProvider] = useState<string | null>(null);
+  const limitWarning = useLimitWarning(modelProvider);
+  const [queueSending, setQueueSending] = useState(false);
   // "reasoning" added per explicit request ("add the effects like Claude, Codex and
   // others do") -- real signal, not fabricated: a claude_agent_sdk_rs ContentBlock of
   // type "thinking" means the CLI's own extended-thinking output has started, arriving
@@ -1017,6 +1135,9 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
 
       const type = event.type as string;
 
+      // Live only (never stored): the provider's own usage after a turn (backend lib.rs limit_usage_event).
+      if (limitWarningRef.current(event)) return;
+
       if (typeof event.event_id === "number") {
         if (event.event_id <= lastEventIdRef.current) return;
         lastEventIdRef.current = event.event_id;
@@ -1255,6 +1376,17 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         return;
       }
 
+      // Codex's native update_plan lifecycle is normalized by the backend to
+      // this provider-neutral event. It is recorded like every other chat
+      // event, so reconnect/history replay reconstructs the same task panel.
+      if (type === "task_list_updated") {
+        const title = typeof event.explanation === "string" && event.explanation.trim()
+          ? event.explanation.trim()
+          : i18n.t("chat.tasks.title");
+        setActiveTaskList((current) => normalizeTaskList(event.tasks, current, title));
+        return;
+      }
+
       // Real bug, confirmed via a real transcript (a raw {"type":"user",...}
       // tool_result blob showing up as visible chat text): the Claude Agent
       // SDK's own "user" message type echoes a completed tool call's own
@@ -1356,9 +1488,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               images?: { media_type: string; data: string }[];
               effort?: EffortLevel;
               model?: string;
+              permissionMode?: PermissionMode;
             };
             if (pending.sessionId === sessionId) {
               sessionStorage.removeItem("alongside_pending_message");
+              setHandoffPermissionMode(undefined);
               lastHumanPromptRef.current = pending.prompt;
               suppressInitialHandoffHumanEntranceRef.current = true;
               // No local sentEffortRef write here any more -- the server's own
@@ -1383,6 +1517,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                   model: pending.model ?? modelRef.current.value,
                   images: pending.images,
                   effort: pending.effort,
+                  permission_mode: pending.permissionMode,
                 }),
               }).then((response) => {
                 // POST only resolves after the human event is persisted, so
@@ -1434,6 +1569,24 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           setTurnInProgress(false);
           setWaitingPhase(null);
         }
+        return;
+      }
+
+      if (type === "provider_error") {
+        const provider = typeof event.provider === "string"
+          ? PROVIDER_NAMES[event.provider] ?? event.provider
+          : i18n.t("chat.providerFallback");
+        const detail = typeof event.detail === "string" && event.detail.trim()
+          ? event.detail.trim()
+          : i18n.t("chat.errors.providerNoDetail");
+        pushMarker(
+          event.reason === "auth"
+            ? i18n.t("chat.errors.providerAuth", { provider })
+            : i18n.t("chat.errors.providerFailed", { provider, detail })
+        );
+        awaitingReplyRef.current = false;
+        setTurnInProgress(false);
+        setWaitingPhase(null);
         return;
       }
 
@@ -1797,6 +1950,14 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               // survives in the same hidden, expandable list.
               if (query) addLiveToolCallLine("WebSearch", query);
             } else if (block.type === "tool_use" && block.name) {
+              // Claude's native TodoWrite call already carries the complete
+              // current snapshot. Normalize that instead of displaying the
+              // provider's internal tool name as a generic work trace.
+              if (block.name === "TodoWrite") {
+                setActiveTaskList((current) => normalizeClaudeTodos(block.input, current));
+                setWaitingPhase("working");
+                continue;
+              }
               // summary/input real, not fabricated -- summarizeToolInput (this
               // file's own, above) reads the block's own real input fields; input
               // itself is kept on the row too so ChatRowView can show the full raw
@@ -2078,14 +2239,15 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     text: string,
     images: ImageAttachment[] = [],
     effort: EffortLevel = sentEffortRef.current,
-    editFromEventId?: number
-  ) {
+    editFromEventId?: number,
+    permissionMode?: PermissionMode
+  ): Promise<boolean> {
     const trimmed = text.trim();
-    if (!trimmed || !sessionId) return;
+    if (!trimmed || !sessionId) return false;
     // /share opens the Share dialog (#213) rather than being sent as a message.
     if (trimmed === "/share" && images.length === 0) {
       openShareDialog(sessionId);
-      return;
+      return false;
     }
 
     // No local sentEffortRef write here any more -- that was the actual bug
@@ -2121,6 +2283,10 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         // Claude today (server.rs's own SendMessageRequest comment has the same
         // reasoning), sent regardless of provider since it's harmless either way.
         effort,
+        // Exact value from this submission. Persisting the picker separately is
+        // still useful for future composers, but must not decide which mode this
+        // already-submitted turn runs with.
+        permission_mode: permissionMode,
         // Real "Edit" (server.rs's own SendMessageRequest.edit_from_event_id) --
         // branches instead of the plain append a normal send/Resend does.
         edit_from_event_id: editFromEventId,
@@ -2132,7 +2298,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         // spelling_instruction). Sent on every turn, not just once, since the
         // preference can change mid-session.
         spelling_language: loadLanguage(),
-        chat_only: sharedChat && justChat ? true : undefined,
+        chat_only: sharedChat && (justChat || commenterChat) ? true : undefined,
       }),
     });
 
@@ -2157,14 +2323,23 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         failed: { errorText: sharedChat ? sharedSendError(res.status) ?? i18n.t("chat.errors.sendFailed", { status: res.status }) : i18n.t("chat.errors.sendFailed", { status: res.status }), images, effort },
       });
     }
+    // Whether an agent turn starts now (the message queue waits for it): not for Just chat.
+    return res.ok && !(sharedChat && (justChat || commenterChat));
   }
 
-  function handleSend(images: ImageAttachment[], effort: EffortLevel) {
+  function handleSend(images: ImageAttachment[], effort: EffortLevel, permissionMode: PermissionMode) {
     const trimmed = prompt.trim();
     if (!trimmed) return;
     setPrompt("");
+    void submitPrompt(trimmed, images, effort, permissionMode, true);
+  }
+
+  // A composed message on its way out, typed now or drained from the queue. A queued one
+  // never picks up an edit started since (allowEdit). Resolves to whether a turn starts.
+  async function submitPrompt(trimmed: string, images: ImageAttachment[], effort: EffortLevel, permissionMode: PermissionMode, allowEdit: boolean): Promise<boolean> {
+    if (/^\/subtask(?:\s|$)/i.test(trimmed)) addTaskSubtask(trimmed);
     if (trimmed === "/summarize") {
-      if (!sessionId) return;
+      if (!sessionId) return false;
       void fetch(`/sessions/${sessionId}/summarize`, { method: "POST" })
         .then(async (response) => {
           const body = await response.json().catch(() => ({}));
@@ -2176,7 +2351,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           });
         })
         .catch(() => pushRow({ kind: "command", id: nextRowId(), text: "Unable to summarize this chat.", time: messageTime() }));
-      return;
+      return false;
     }
     // Real branching only happens now, right as the edited text actually
     // goes out -- not the moment Edit was clicked (pendingEditEventId's
@@ -2184,8 +2359,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     // edit_from_event_id is what tells the backend to branch
     // (db::create_edit_branch) instead of just appending. A plain send
     // (no pending edit) passes undefined, same as it always has.
-    const editEventId = pendingEditEventId ?? undefined;
-    setPendingEditEventId(null);
+    const editEventId = allowEdit ? pendingEditEventId ?? undefined : undefined;
+    if (allowEdit) setPendingEditEventId(null);
     // Real bug, confirmed directly ("instead of replacing the current
     // message, it sent as a new message and i had to refresh to look
     // like it replaced the current one"): the backend genuinely does
@@ -2204,8 +2379,35 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         return index === -1 ? prev : prev.slice(0, index);
       });
     }
-    void sendMessage(trimmed, images, effort, editEventId);
+    return sendMessage(trimmed, images, effort, editEventId, permissionMode);
   }
+
+  // handleEvent is set up once per chat, so it reaches the warning through a ref.
+  const limitWarningRef = useRef(limitWarning.onEvent);
+  limitWarningRef.current = limitWarning.onEvent;
+
+  // The queue belongs to this chat only.
+  useEffect(() => {
+    setQueuedMessages([]);
+    setQueueSending(false);
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (turnInProgress) setQueueSending(false);
+  }, [turnInProgress]);
+
+  // Once the turn ends, the next queued message goes out, and waits for its own turn to
+  // start before another can follow (or goes straight on when none will, e.g. Just chat).
+  useEffect(() => {
+    if (turnInProgress || queueSending || queuedMessages.length === 0) return;
+    const [next, ...rest] = queuedMessages;
+    setQueuedMessages(rest);
+    setQueueSending(true);
+    void submitPrompt(next.text, next.images, next.effort, next.mode, false).then((started) => {
+      if (!started) setQueueSending(false);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- submitPrompt is recreated every render
+  }, [turnInProgress, queueSending, queuedMessages]);
 
   async function stopTurn() {
     if (!sessionId) return;
@@ -2702,7 +2904,19 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           })()}
         </AnimatePresence>
         {sessionId && <JoinRequests sessionId={sessionId} requests={joinRequests} onDecided={(id) => setJoinRequests((current) => current.filter((r) => r.id !== id))} />}
-        {sharedChat && <AgentModeSwitch justChat={justChat} onChange={setJustChat} />}
+        {commenterChat ? (
+          <p className="mb-2 text-center text-[12px] text-muted-foreground">{t("chat.agentMode.commenterOnly")}</p>
+        ) : sharedChat ? (
+          <AgentModeSwitch justChat={justChat} onChange={setJustChat} />
+        ) : null}
+        {activeTaskList ? (
+          <TaskProgressPanel
+            title={activeTaskList.title}
+            tasks={activeTaskList.tasks}
+            running={turnInProgress}
+            onPause={turnInProgress ? () => void stopTurn() : undefined}
+          />
+        ) : null}
         <ComposeBox
           // Forces a remount whenever a *new* edit starts (editMessage's
           // own comment above has the full reasoning) -- ComposeBox's own
@@ -2723,12 +2937,26 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           // separate role driving the "Waiting"/"Thinking" shimmer above.
           awaitingReply={turnInProgress}
           onStop={stopTurn}
+          notice={limitWarning.notice}
+          queue={{
+            items: queuedMessages,
+            onAdd: (message) => {
+              // Mid-edit, the edit goes out now: it rewrites history, so it can't wait in line.
+              if (pendingEditEventId !== null) {
+                void submitPrompt(message.text, message.images, message.effort, message.mode, true);
+                return;
+              }
+              setQueuedMessages((queued) => [...queued, { ...message, id: crypto.randomUUID() }]);
+            },
+            onRemove: (id) => setQueuedMessages((queued) => queued.filter((item) => item.id !== id)),
+          }}
           defaultModelValue={defaultModelValue}
           defaultEffortValue={defaultEffortValue}
+          defaultPermissionValue={handoffPermissionMode}
+          isMultiplayer={sharedChat}
           chatId={sessionId}
           contextUsage={contextUsage}
           autocompactValue={autocompactValue}
-          autocompactScope={autocompactScope}
           onSetAutocompact={(value) => {
             setAutocompactValue(value);
             const parsed = Number(value);
@@ -2777,21 +3005,25 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               void sendMessage("/compact");
             }
           }}
-          // Codex only (compose-box.tsx's own onSteer comment has the full reasoning) --
-          // real mid-turn injection via turn/steer, per explicit request ("press enter to
-          // send the prompt mid way but keep the send as stop"). undefined for
-          // Claude/Antigravity, so Enter during their own awaitingReply window keeps
-          // doing nothing, unchanged from before this existed.
+          // Claude and Codex take a message into the running turn (backend harness.rs's
+          // supports_steer). One that can't land -- no turn live any more, or a failed
+          // write -- goes back to the front of the queue rather than vanishing.
           onSteer={
-            modelRef.current.provider === "Codex"
-              ? (text: string) => {
-                  const trimmed = text.trim();
+            modelRef.current.provider === "Codex" || modelRef.current.provider === "Claude"
+              ? (message) => {
+                  const trimmed = message.text.trim();
                   if (!trimmed || !sessionId) return;
+                  if (/^\/subtask(?:\s|$)/i.test(trimmed)) addTaskSubtask(trimmed, "pickedUp");
+                  const requeue = () => setQueuedMessages((queued) => [{ ...message, text: trimmed, id: crypto.randomUUID() }, ...queued]);
                   void fetch(`/sessions/${sessionId}/steer`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ text: trimmed, sender_name: getUserDisplayName() }),
-                  });
+                  })
+                    .then((response) => {
+                      if (!response.ok) requeue();
+                    })
+                    .catch(requeue);
                 }
               : undefined
           }
@@ -2803,6 +3035,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             // future agent replies -- always the first selected model, since
             // that's the one the session actually runs on.
             modelRef.current = models[0];
+            setModelProvider(models[0]?.provider ?? null);
             saveLastModel(models[0].value);
           }}
         />
@@ -2821,6 +3054,19 @@ function MessageTime({ time }: { time: string }) {
     <p className="px-1 text-[length:var(--redesign-chat-meta)] text-muted-foreground">
       {time}
     </p>
+  );
+}
+
+/** A human message's text, its leading command (e.g. /goal) shown as the composer's chip. */
+function MessageText({ text }: { text: string }) {
+  const { installed } = useSkills();
+  const command = leadingCommand(text, installed.map((skill) => skill.name));
+  if (!command) return <>{text}</>;
+  return (
+    <>
+      <CommandChip icon={command.icon} label={command.labelKey ? i18n.t(command.labelKey) : command.label} className="mr-1.5 -translate-y-px" />
+      {text.slice(command.prefix.length)}
+    </>
   );
 }
 
@@ -2967,13 +3213,15 @@ function ChatRowView({
             sitting 4px inset from that same edge instead of flush with it,
             reading as a gap on whichever side the row is aligned to. */}
         <div className="flex items-center gap-1.5">
-          {/* size-4 (16px), matching ProviderIcon's own size on the agent
-              row below exactly -- both sides of the conversation keep the
-              same size mark now. */}
-          <span className="size-4 shrink-0 overflow-hidden rounded-full">
+          {/* 18px, a step over the agent row's 16px ProviderIcon: a round avatar
+              reads smaller than a provider's mark in the same box, so this is
+              what makes the two sides look the same size. */}
+          <span className="size-[18px] shrink-0 overflow-hidden rounded-full">
             <DefaultAvatar name={row.displayName} />
           </span>
-          <span className="text-[length:var(--redesign-chat-meta)] text-muted-foreground">{isSelf ? i18n.t("chat.me") : row.displayName}</span>
+          {/* 2px over the chat's meta size, with the 18px avatar; the same for "Me" and for
+              anyone else in a shared chat (this row is every human message). */}
+          <span className="text-[length:calc(var(--redesign-chat-meta)+2px)] text-muted-foreground">{isSelf ? i18n.t("chat.me") : row.displayName}</span>
         </div>
         {/* transition-[max-width]: sm: is a real viewport breakpoint, so
             without this the bubble snapped width instantly at 640px while
@@ -3025,7 +3273,7 @@ function ChatRowView({
               row.failed ? "border border-destructive/40" : ""
             } bg-accent`}
           >
-            {row.text}
+            <MessageText text={row.text} />
           </div>
         </div>
         {row.files && row.files.length > 0 && sessionId && (

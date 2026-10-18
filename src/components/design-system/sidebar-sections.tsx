@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown";
 import { MenuItem } from "@/components/ui/menu-item";
 import { MoreTrigger } from "@/components/ui/more-trigger";
+import { SlidingText } from "@/components/ui/sliding-text";
 
 /** A row's "..." menu: actions, a nested list (e.g. Add to project), dividers,
  *  and "rename", which edits the row's label in place (then onRename). */
@@ -196,12 +197,14 @@ function SidebarRow({
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState(item.label);
   const Icon = item.icon;
+  // A child row without its own icon (a chat inside a project) gets a bullet in its place.
+  const bullet = nested && !Icon && <span aria-hidden="true" className="size-1 shrink-0 rounded-full bg-current opacity-60" />;
   const rowClass = cn(
     "flex h-[var(--redesign-quick-actions-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-left text-[length:var(--redesign-sidebar-primary-font-size)] font-normal text-muted-foreground transition-colors",
     // Only the open chat looks selected; opening a row's "..." menu doesn't.
     active && "bg-muted font-medium text-foreground",
-    // Children sit indented under their parent.
-    nested && "pl-[calc(var(--redesign-quick-actions-padding)+12px)]",
+    // Children sit indented under their parent, behind a bullet.
+    nested && "pl-[calc(var(--redesign-quick-actions-padding)+4px)]",
   );
   const chevron = expanded !== undefined && (
     <svg
@@ -232,6 +235,7 @@ function SidebarRow({
     return (
       <div className={rowClass}>
         {Icon && <Icon aria-hidden="true" strokeWidth={2} className="size-[var(--redesign-quick-actions-icon-size)] shrink-0" />}
+        {bullet}
         <input
           autoFocus
           aria-label={t("common.rename")}
@@ -250,6 +254,8 @@ function SidebarRow({
   }
 
   let index = 0;
+  // A row with both keeps its chevron at the edge and shows the "..." just before it.
+  const menuBeforeChevron = Boolean(item.menu) && expanded !== undefined;
   return (
     <div className="group/sidebar-row relative">
       <button
@@ -257,15 +263,18 @@ function SidebarRow({
         onClick={onSelect}
         aria-current={active ? "page" : undefined}
         aria-expanded={expanded}
+        data-slide-trigger
         className={cn(
           "group/row-button",
           rowClass,
           "hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          item.menu && "pr-8",
+          item.menu && !menuBeforeChevron && "pr-8",
         )}
       >
         {Icon && <Icon aria-hidden="true" strokeWidth={2} className="size-[var(--redesign-quick-actions-icon-size)] shrink-0" />}
-        <span className="truncate">{item.label}</span>
+        {bullet}
+        {/* Too long to fit, it slides left on hover to show the rest (like Codex). */}
+        <SlidingText text={item.label} className={cn(menuBeforeChevron && "mr-6")} />
         {chevron}
       </button>
       {item.menu && (
@@ -276,7 +285,9 @@ function SidebarRow({
               (PRESS_EFFECT, like the cog) doesn't fight it. */}
           <div
             className={cn(
-              "absolute top-1/2 right-1.5 flex -translate-y-1/2 transition-opacity duration-150",
+              "absolute top-1/2 flex -translate-y-1/2 transition-opacity duration-150",
+              // Past the chevron (14px) and a small gap, or at the edge when there's none.
+              menuBeforeChevron ? "right-[calc(var(--redesign-quick-actions-padding)+18px)]" : "right-1.5",
               menuOpen ? "opacity-100" : "opacity-0 group-hover/sidebar-row:opacity-100 group-has-[:focus-visible]/sidebar-row:opacity-100",
             )}
           >

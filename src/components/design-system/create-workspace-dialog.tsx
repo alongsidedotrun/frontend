@@ -1,12 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, Command, Plus, Search } from "lucide-react";
-import { Backdrop } from "@/components/design-system/backdrop";
-import { WorkspaceBrandIcon, workspaceMonogram, type WorkspaceMonogram } from "@/components/design-system/workspace-brand-icon";
-import { WorkspaceFields, type WorkspaceFieldValues } from "@/components/design-system/workspace-fields";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
+import { ShellDialog, ShellDialogActions } from "@/components/design-system/shell-dialog";
+import { WorkspaceFields, WorkspaceTileMenu, type WorkspaceFieldValues } from "@/components/design-system/workspace-fields";
 
 type CreateWorkspaceDialogProps = {
   open: boolean;
@@ -21,13 +16,14 @@ type CreateWorkspaceDialogProps = {
 const EMPTY: WorkspaceFieldValues = { name: "", description: "", logo: null, colorIndex: null };
 
 /**
- * Two-pane create-workspace dialog: the form on the left, and on the right a
- * live preview of the sidebar showing the new workspace's tile and name as
- * they're entered.
+ * Create workspace, in the shell dialog's layout (ShellDialog): the new
+ * workspace's tile on top, live as its logo, name and colour are set, then
+ * the fields, then Cancel and Create workspace.
  */
 export function CreateWorkspaceDialog({ open, onOpenChange, onCreate, saving = false, error }: CreateWorkspaceDialogProps) {
   const { t } = useTranslation();
   const [values, setValues] = useState<WorkspaceFieldValues>(EMPTY);
+  const formId = useId();
 
   // Start fresh each time the dialog opens.
   useEffect(() => {
@@ -41,109 +37,31 @@ export function CreateWorkspaceDialog({ open, onOpenChange, onCreate, saving = f
   };
 
   return (
-    // !z-[120]: above the app top bar (z-[110]), so the dim overlay covers it
-    // too -- same as the command menu.
-    <Dialog open={open} onOpenChange={onOpenChange} backdropClassName="!z-[120]">
-      <DialogContent size="xl" motion="gentle" className="!z-[120] max-w-[min(760px,calc(100vw-2rem))] overflow-hidden p-0">
-        <div className="grid min-h-[420px] grid-cols-1 sm:grid-cols-2">
-          <form
-            className="flex flex-col gap-6 bg-[var(--redesign-primary-surface)] p-8"
-            onSubmit={(event) => {
-              event.preventDefault();
-              submit();
-            }}
-          >
-            <div className="flex flex-col gap-1">
-              <DialogTitle className="text-[18px] font-medium text-foreground">{t("workspace.create.title")}</DialogTitle>
-              <DialogDescription className="sr-only">{t("workspace.create.description")}</DialogDescription>
-            </div>
-
-            <WorkspaceFields values={values} onChange={setValues} nameError={error} autoFocusName />
-
-            <div className="mt-auto flex items-center gap-2">
-              <Button type="button" variant="tertiary" onClick={() => onOpenChange(false)}>
-                {t("common.cancel")}
-              </Button>
-              <Button type="submit" variant="primary" className="flex-1" disabled={!trimmed || saving}>
-                {t("workspace.create.title")}
-              </Button>
-            </div>
-          </form>
-
-          <WorkspacePreview name={trimmed} logo={values.logo} monogram={workspaceMonogram(trimmed, values.colorIndex)} />
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/** Grey stand-in for a line of text or an icon in the preview. */
-function Bar({ className }: { className?: string }) {
-  return <span className={cn("block shrink-0 rounded-full bg-muted-foreground/15", className)} />;
-}
-
-/**
- * A mini sidebar mirroring the top of the real one (workspace row, Quick
- * actions, New chat, Projects/Chats sections), running off the bottom edge,
- * with the new workspace's tile and name live, everything that's the same in
- * every workspace shown as is, and only the project and chat names as grey
- * placeholders.
- * Same 28px rows and spacing as the sidebar.
- */
-export function WorkspacePreview({ name, logo, monogram }: { name: string; logo: string | null; monogram: WorkspaceMonogram | null }) {
-  const { t } = useTranslation();
-  return (
-    <div aria-hidden="true" className="relative hidden overflow-hidden sm:block">
-      <Backdrop />
-      <div data-icon-stroke className="absolute top-10 -bottom-6 left-10 -right-6 flex flex-col rounded-tl-[calc(var(--radius)*1.4)] border border-r-0 border-b-0 border-[var(--redesign-sidebar-border)] bg-[var(--redesign-sidebar-surface)] px-[var(--redesign-sidebar-edge-padding)] pt-4">
-        {/* Workspace row: live tile + name, chevron, search on the right. */}
-        <div className="flex h-7 items-center gap-2 pr-6">
-          {logo ? (
-            <WorkspaceBrandIcon size={20} imageSrc={logo} />
-          ) : monogram ? (
-            <WorkspaceBrandIcon size={20} monogram={monogram} />
-          ) : (
-            <span className="size-5 shrink-0 rounded-[6.32px] bg-muted-foreground/25" />
-          )}
-          <span className={cn("min-w-0 truncate text-[13px] font-medium", name ? "text-foreground" : "text-muted-foreground")}>
-            {name || t("workspace.preview.placeholderName")}
-          </span>
-          <ChevronDown aria-hidden="true" className="size-3.5 shrink-0 text-foreground" />
-          <Search aria-hidden="true" className="ml-auto size-3.5 shrink-0 text-muted-foreground" />
-        </div>
-
-        {/* Quick actions field -- the same in every workspace, so shown as is. */}
-        <div className="mt-3 mr-6 flex h-7 items-center justify-between rounded-[var(--radius)] border border-[var(--redesign-sidebar-border)] bg-[var(--redesign-quick-actions-surface)] px-3 text-muted-foreground">
-          <span className="text-[13px]">{t("shell.quickActions")}</span>
-          <span className="flex items-center gap-1 text-[11px]">
-            <Command aria-hidden="true" className="size-[11px]" />
-            K
-          </span>
-        </div>
-
-        {/* New chat. */}
-        <div className="mt-3 flex h-7 items-center gap-[9px] px-[var(--redesign-quick-actions-padding)] text-[13px] font-medium text-muted-foreground">
-          <Plus aria-hidden="true" className="size-[15px] shrink-0" />
-          {t("common.newChat")}
-        </div>
-
-        {/* Projects and Chats: real headers with their +, and grey bars for
-            the project/chat names -- the only part that varies. */}
-        {[{ label: t("nav.projects"), items: ["w-24", "w-16"] }, { label: t("nav.chats"), items: ["w-28", "w-20", "w-24"] }].map((section) => (
-          <div key={section.label} className="mt-[var(--redesign-sidebar-section-gap)] flex flex-col">
-            <div className="flex h-7 items-center justify-between px-[var(--redesign-quick-actions-padding)] pr-8 text-muted-foreground">
-              <span className="text-[11px] font-medium">{section.label}</span>
-              <Plus aria-hidden="true" className="size-2.5 shrink-0" />
-            </div>
-            {section.items.map((width, index) => (
-              <div key={index} className="flex h-7 items-center px-[var(--redesign-quick-actions-padding)]">
-                <Bar className={cn("h-2", width)} />
-              </div>
-            ))}
-          </div>
-        ))}
-
-      </div>
-    </div>
+    <ShellDialog
+      centered
+      open={open}
+      onOpenChange={onOpenChange}
+      icon={<WorkspaceTileMenu values={values} onChange={setValues} />}
+      title={t("workspace.create.title")}
+      description={t("workspace.create.description")}
+      actions={
+        <ShellDialogActions
+          cancelLabel={t("common.cancel")}
+          onCancel={() => onOpenChange(false)}
+          primary={{ label: t("workspace.create.title"), type: "submit", form: formId, disabled: !trimmed || saving, loading: saving }}
+        />
+      }
+    >
+      <form
+        id={formId}
+        className="flex flex-col gap-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          submit();
+        }}
+      >
+        <WorkspaceFields values={values} onChange={setValues} nameError={error} autoFocusName />
+      </form>
+    </ShellDialog>
   );
 }

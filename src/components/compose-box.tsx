@@ -6,10 +6,14 @@ import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { PROVIDER_DISPLAY, ProviderIcon, QUICK_CHAT_MODELS, modelDisplayName } from "@/lib/quick-chat-models";
 import { defaultEffortFor, effortLabel, EFFORT_LEVELS, type EffortLevel } from "@/lib/effort";
-import { loadLastEffort, loadLastPermissionMode, saveLastEffort, saveLastPermissionMode } from "@/lib/last-used";
+import { loadLastEffort, saveLastEffort, type PermissionMode } from "@/lib/last-used";
+import { ClipboardCheck, Hand, ShieldTick, ShieldZap, Target04 } from "@untitledui/icons";
 import { cn } from "@/lib/utils";
 import { getUserDisplayName } from "@/lib/user";
 import { Button } from "@/components/ui/button";
+import { Kbd, KbdGroup } from "@/components/ui/kbd";
+import { AnimatePresence, motion } from "motion/react";
+import { spring } from "@/lib/springs";
 // The fluidfunctionalism.com reference dropdown (Base UI Menu +
 // proximity-hover animated backgrounds) -- this file's one dropdown
 // system now, per explicit request ("Lets keep all base ui").
@@ -20,10 +24,16 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu as BaseDropdownMenu, DropdownTrigger as BaseDropdownTrigger, DropdownContent as BaseDropdownContent, DropdownLabel as BaseDropdownLabel, DropdownSubItem, DropdownSubMenuItem, DropdownSeparator, DropdownRowActionMenu, DropdownRowActionItem } from "@/components/ui/dropdown";
 import { MenuItem as BaseMenuItem } from "@/components/ui/menu-item";
 import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { QueuedMessages } from "@/components/queued-messages";
+import { useQueueing, type QueuedMessage } from "@/lib/message-queue";
+import { useSkills } from "@/lib/skills";
+import { useNavigate } from "react-router-dom";
 import GlideMenu from "@/components/primitives/glide-menu";
 import {
   ArrowUpIcon,
   AttachmentIcon,
+  CheckIcon,
   ChevronDownIcon,
   ClearIcon,
   CompareIcon,
@@ -37,6 +47,9 @@ import {
   TaskIcon,
   XIcon,
 } from "@/components/icons/untitled-ui";
+
+const styledFolderIcon = "/icons/styled-folder.svg";
+const appIconTileClass = "flex size-6 shrink-0 items-center justify-center rounded-[calc(24px*8/27)] border border-border bg-white shadow-[0_1px_2px_rgb(0_0_0_/_0.06)] transition-[background-color,border-color,box-shadow,translate] duration-150 hover:-translate-y-px hover:border-foreground/30 hover:bg-hover-2 hover:shadow-[0_2px_5px_rgb(0_0_0_/_0.12)] dark:bg-[#242424] dark:hover:bg-[#343434]";
 
 type SpeechRecognitionLike = {
   start: () => void;
@@ -105,10 +118,13 @@ function modelSelectionLabel(selected: typeof QUICK_CHAT_MODELS) {
 // numbers so centred glyphs land on whole pixels. Icon sizes go through
 // [&_svg]:!size-* because Button forces [&_svg]:h-4 w-4 on its icons.
 const COMPOSE_TOOL_VARS = {
+  "--compose-shell-radius": "24px",
   "--compose-tool-h": "round(clamp(22px, calc(16px + 1.5cqw), 28px), 2px)",
   "--compose-tool-text": "clamp(11px, calc(10px + 0.25cqw), 12px)",
   "--compose-tool-icon": "round(clamp(12px, calc(10px + 0.5cqw), 14px), 2px)",
   "--compose-plus-icon": "round(clamp(14px, calc(12px + 0.5cqw), 16px), 2px)",
+  // Provider marks are full artwork, not line icons: the + and mic's size reads like their 12-14.
+  "--compose-provider-icon": "round(clamp(14px, calc(12px + 0.5cqw), 16px), 2px)",
   "--compose-action-size": "round(clamp(20px, calc(16px + 1cqw), 24px), 2px)",
   "--compose-mic-icon": "round(clamp(14px, calc(12px + 0.5cqw), 16px), 2px)",
   "--compose-send-icon": "round(clamp(10px, calc(8px + 0.5cqw), 12px), 2px)",
@@ -118,6 +134,31 @@ const COMPOSE_TOOL_VARS = {
     "calc(4px - (var(--compose-tool-h) - var(--compose-plus-icon)) / 2 - var(--compose-plus-icon) * 5 / 24)",
 } as React.CSSProperties;
 const NO_HOVER_SURFACE = "[&>span:first-child]:hidden [&_svg]:!stroke-[1.5]";
+
+function ComposerMenuKeyboardHints() {
+  const { t } = useTranslation();
+  return (
+    <div className="flex h-9 shrink-0 items-center justify-between border-t border-border px-3 text-[11px] font-normal text-ink-3">
+      <div className="flex items-center gap-4">
+        <span className="flex items-center gap-1.5">
+          <span>{t("compose.menu.select")}</span>
+          <KbdGroup>
+            <Kbd>↑</Kbd>
+            <Kbd>↓</Kbd>
+          </KbdGroup>
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span>{t("common.close")}</span>
+          <Kbd>Esc</Kbd>
+        </span>
+      </div>
+      <span className="flex items-center gap-1.5">
+        <span>{t("compose.menu.enter")}</span>
+        <Kbd>↵</Kbd>
+      </span>
+    </div>
+  );
+}
 
 // How the agent asks before acting -- beside the model trigger, per
 // explicit request. Real for all three providers now: Codex
@@ -147,18 +188,14 @@ const MODES: PermissionModeOption[] = [
   { value: "auto", labelKey: "compose.permission.auto.label", descriptionKey: "compose.permission.auto.description" },
 ];
 
-// Antigravity has no real per-action approval prompt at all (agy's own
-// --help lists only two headless modes: --dangerously-skip-permissions
-// and --mode plan -- confirmed directly, no ask/manual equivalent exists
-// to map "Manual"/"Ask" onto), so those two are replaced with the one
-// real stance it does have instead of showing choices that don't
-// correspond to anything the CLI can actually do. Per explicit request
-// ("change permissions from the standard to Plan instead of Manual,
-// Remove Ask, and Keep Auto").
-const ANTIGRAVITY_MODES: PermissionModeOption[] = [
-  { value: "plan", labelKey: "compose.permission.plan.label", descriptionKey: "compose.permission.plan.description" },
-  { value: "auto", labelKey: "compose.permission.auto.label", descriptionKey: "compose.permission.auto.description" },
-];
+// Antigravity 1.4 exposes the same safety ladder through its execution modes:
+// default (review first), accept-edits (ordinary edits run, risky commands
+// still need permission), and --dangerously-skip-permissions. Plan is not a
+// permission: it's the + menu's Plan mode, for whichever providers offer it.
+
+// Synara's permission glyphs, in Untitled UI: a raised hand to ask, a ticked shield to approve
+// for you, a charged shield for full access.
+const PERMISSION_ICONS = { manual: Hand, ask: ShieldTick, auto: ShieldZap, plan: ClipboardCheck } as const;
 
 
 // Real, working action -- pushes one of these placeholder filenames into
@@ -201,9 +238,10 @@ function readImageFile(file: File): Promise<ImageAttachment> {
 
 type SlashRow = {
   key: string;
-  kind: "command" | "placeholder";
-  label: string;
+  command: string;
+  labelKey: string;
   desc: string;
+  descKey?: string;
   icon: ReactNode;
 };
 
@@ -213,26 +251,57 @@ type SlashRow = {
 // entirely per explicit request ("remove all @ commands actually we don't
 // need that extra feature now") -- none of those rows were ever wired to a
 // real roster, and this app already has a dedicated "Select model" picker
-// (below) for the one thing @ might otherwise have been for. Each / row
-// renamed to its own short /word label per explicit request (was full
-// phrases like "Create tasks"/"Find previous chats"). /research (connected
-// apps & the web) removed per a later explicit request. Plus a couple of
-// technical ones with no command backend behind them yet.
+// (below) for the one thing @ might otherwise have been for. Rows show
+// readable action names while keeping their /word separately for filtering
+// and insertion into the composer. /research (connected apps & the web) was
+// removed per a later explicit request. Plus a couple of technical commands
+// without a backend action yet.
 const SLASH_ROWS: SlashRow[] = [
-  { key: "clear", kind: "command", label: "/clear", desc: "Clear the draft", icon: <ClearIcon className="size-4" /> },
-  // Real, but not a pick()-time action like /clear above -- picking this
-  // just inserts "/share " into the draft the same way every other
-  // placeholder-kind row below does; the actual behavior happens once
-  // it's sent (ChatPage.tsx's own onSend, checking for this exact command
-  // before treating a prompt as a real chat message). Per explicit
+  { key: "clear", command: "/clear", labelKey: "compose.command.clear", desc: "Clear the draft", icon: <ClearIcon className="size-4" /> },
+  // Real, but not a pick()-time action -- picking this inserts "/share "
+  // into the draft; the actual behavior happens once it's sent
+  // (ChatPage.tsx's own onSend checks for this exact command before treating
+  // it as a real chat message). Per explicit
   // request: typing/sending /share is how hosting a chat is triggered
   // now, not a header button.
-  { key: "share", kind: "placeholder", label: "/share", desc: "Get a link to invite someone to this chat", icon: <ShareIcon className="size-4" /> },
-  { key: "compare", kind: "placeholder", label: "/compare", desc: "Compare two things", icon: <CompareIcon className="size-4" /> },
-  { key: "summarize", kind: "placeholder", label: "/summarize", desc: "Summarize this chat", icon: <SummarizeIcon className="size-4" /> },
-  { key: "task", kind: "placeholder", label: "/task", desc: "Turn this into a task list", icon: <TaskIcon className="size-4" /> },
-  { key: "docs", kind: "placeholder", label: "/docs", desc: "Draft a new document", icon: <DocIcon className="size-4" /> },
+  { key: "share", command: "/share", labelKey: "compose.command.share", desc: "Get a link to invite someone to this chat", icon: <ShareIcon className="size-4" /> },
+  { key: "goal", command: "/goal", labelKey: "compose.goal", desc: "Set a goal to keep pursuing", descKey: "compose.goalDescription", icon: <Target04 className="size-4" /> },
+  { key: "compare", command: "/compare", labelKey: "compose.command.compare", desc: "Compare two things", icon: <CompareIcon className="size-4" /> },
+  { key: "summarize", command: "/summarize", labelKey: "compose.command.summarize", desc: "Summarize this chat", icon: <SummarizeIcon className="size-4" /> },
+  { key: "task", command: "/task", labelKey: "compose.command.task", desc: "Turn this into a task list", descKey: "compose.taskDescription", icon: <TaskIcon className="size-4" /> },
+  { key: "subtask", command: "/subtask", labelKey: "compose.command.subtask", desc: "Add a subtask to the active task", descKey: "compose.subtaskDescription", icon: <TaskIcon className="size-4" /> },
+  { key: "docs", command: "/docs", labelKey: "compose.command.docs", desc: "Draft a new document", icon: <DocIcon className="size-4" /> },
 ];
+
+/**
+ * The command a message starts with, as a chip shows it (icon and name): a /
+ * menu command followed by a space ("/goal ..."), or "/skill <name> " for one
+ * of `skillNames`. `prefix` is the exact text it takes up.
+ */
+export function leadingCommand(text: string, skillNames: readonly string[] = []): { prefix: string; label: string; labelKey?: string; icon: ReactNode } | null {
+  if (text.startsWith("/skill ")) {
+    const name = [...skillNames].sort((a, b) => b.length - a.length).find((skill) => text.startsWith(`/skill ${skill} `) || text === `/skill ${skill}`);
+    if (name) return { prefix: text.startsWith(`/skill ${name} `) ? `/skill ${name} ` : `/skill ${name}`, label: name, icon: <SkillIcon className="size-3.5" /> };
+  }
+  const row = SLASH_ROWS.find((candidate) => text.startsWith(`${candidate.command} `));
+  return row ? { prefix: `${row.command} `, label: row.command.slice(1), labelKey: row.labelKey, icon: row.icon } : null;
+}
+
+/** A message's text with `command` (its leading command) swapped for another, or removed. */
+function withLeadingCommand(text: string, current: { prefix: string } | null, command: string | null) {
+  const rest = (current ? text.slice(current.prefix.length) : text).trimStart();
+  return command ? `${command} ${rest}` : rest;
+}
+
+/** The chip a leading command shows as: its icon and name, in the accent blue. */
+export function CommandChip({ icon, label, className }: { icon: ReactNode; label: string; className?: string }) {
+  return (
+    <span className={cn("inline-flex h-5 items-center gap-1 rounded-[calc(20px*8/27)] bg-[color-mix(in_oklab,var(--focus-accent)_12%,transparent)] px-1.5 align-middle text-[12px] leading-none font-medium whitespace-nowrap text-[var(--focus-accent)] [&_svg]:size-3.5", className)}>
+      {icon}
+      {label}
+    </span>
+  );
+}
 
 // The last /word being typed, if any. + is gone from this (used to open
 // its own PLUS_ROWS menu) -- + is a direct attach-file action now, not a
@@ -416,7 +485,6 @@ function ContextDropdown({
   modelCount,
   onCompactNow,
   autocompactValue,
-  autocompactScope,
   onSetAutocompact,
 }: {
   used: number;
@@ -430,7 +498,6 @@ function ContextDropdown({
   autocompactValue: string;
   // Drives the dropdown's own label ("Context per chat"/"Context per project") --
   // per explicit request. Settings > General > Compact's own scope toggle.
-  autocompactScope: "chat" | "project" | "global";
   onSetAutocompact: (value: string) => void;
 }) {
   const { t } = useTranslation();
@@ -487,7 +554,8 @@ function ContextDropdown({
       />
       <BaseDropdownContent side="bottom" align="center" sideOffset={6} className="w-52 min-w-0">
         <BaseDropdownLabel>
-          {autocompactScope === "project" ? t("settings.chat.compactPerProject.title") : autocompactScope === "global" ? t("settings.chat.compactGlobal.title") : t("settings.chat.compactPerChat.title")}
+          {/* Just "Context": the scope (chat, project, global) is a Settings choice, not news here. */}
+          {t("compose.context.title")}
         </BaseDropdownLabel>
         {/* No provider icon/name here any more -- per explicit request ("remove the
             providers at the dropdown as that does not make sense"): the compact
@@ -630,6 +698,10 @@ export function ComposeBox({
   placeholder,
   placeholderCycle,
   initialHeight,
+  showWorkFromFolder,
+  workFromFolderPath,
+  onSelectWorkFromFolder,
+  onOpenApps,
   autoFocus,
   awaitingReply,
   onStop,
@@ -638,12 +710,16 @@ export function ComposeBox({
   contextUsage,
   onOpenSettings,
   chatId,
+  isMultiplayer,
   defaultEffortValue,
+  defaultPermissionValue,
   onPinDefaultModel,
   onCompactNow,
   onSteer,
+  queue,
+  notice,
+  noticeBelow,
   autocompactValue,
-  autocompactScope,
   onSetAutocompact,
 }: {
   value: string;
@@ -660,7 +736,7 @@ export function ComposeBox({
   // dial showed Medium." Reading it here, at the exact moment Send is pressed,
   // makes that whole class of timing bug structurally impossible rather than
   // chasing the specific cause.
-  onSubmit: (images: ImageAttachment[], effort: EffortLevel) => void;
+  onSubmit: (images: ImageAttachment[], effort: EffortLevel, permissionMode: PermissionMode) => void;
   placeholder: string;
   // HomePage-only, per explicit request: additional messages that rotate
   // in after `placeholder` itself (index 0 of the full sequence), using
@@ -672,6 +748,12 @@ export function ComposeBox({
   // New-chat only: gives the centred composer a more generous writing area
   // before it transitions into the standard compact chat composer.
   initialHeight?: boolean;
+  // New-chat only. Exit when HomePage starts handing the composer to ChatPage;
+  // an existing chat never renders this pre-chat action.
+  showWorkFromFolder?: boolean;
+  workFromFolderPath?: string | null;
+  onSelectWorkFromFolder?: () => void;
+  onOpenApps?: () => void;
   autoFocus?: boolean;
   // Chat-only: while true, the send button becomes a stop button.
   awaitingReply?: boolean;
@@ -694,6 +776,9 @@ export function ComposeBox({
   // calls this instead of navigating to a route, same mechanism
   // WelcomePage.tsx's own Initial setup row already uses.
   onOpenSettings?: () => void;
+  // ChatPage's relay status -- shared chats use the per-file and per-day
+  // multiplayer limits shown in the Add panel.
+  isMultiplayer?: boolean;
   // ChatPage-only -- an existing chat's own id. Present, "Set as default"
   // (both the model and effort rows' own three-dot menus) writes THIS
   // chat's own default via the real per-chat endpoint. Absent on HomePage
@@ -710,6 +795,7 @@ export function ComposeBox({
   // per-chat default effort, arriving async over the WS's "chat_defaults"
   // message (ChatPage.tsx), not known at mount either.
   defaultEffortValue?: EffortLevel;
+  defaultPermissionValue?: PermissionMode;
   // HomePage-only -- "Set as default for new chat" on a model/effort row,
   // called instead of writing anywhere directly (there's no chatId yet to
   // write to). HomePage holds the pinned value in a ref and applies it to
@@ -721,20 +807,31 @@ export function ComposeBox({
   // Claude/Antigravity only -- see ChatPage.tsx's own call site comment for
   // the live-tested reasoning behind that split.
   onCompactNow?: () => void;
-  // Codex only, real mid-turn injection (issue #265's own turn/steer) -- per explicit
-  // request ("press enter to send the prompt mid way but keep the send as stop so i can
-  // cancel the prompt as well"): while awaitingReply is true (a turn genuinely still
-  // running, not just "no reply yet"), Enter routes here instead of onSubmit, and the
-  // Stop button itself stays exactly as-is so the whole turn can still be cancelled
-  // outright. Undefined for Claude/Antigravity (no real steer capability), so Enter
-  // during their own awaitingReply window keeps doing nothing, same as before this.
-  onSteer?: (text: string) => void;
+  // Claude and Codex: a message taken into the running turn now (Steer on a
+  // queued message, or Enter mid-turn with queueing off). The Stop button
+  // stays, so the whole turn can still be cancelled. Undefined where the
+  // provider can't steer: messages then always queue.
+  onSteer?: (message: Omit<QueuedMessage, "id">) => void;
+  // ChatPage-only: while a turn is running, Enter queues the message here
+  // (shown above the composer, sent when the turn ends) instead of sending or
+  // steering it unannounced. With queueing turned off, a provider that can
+  // steer (onSteer) steers straight away; one that can't still queues.
+  // ChatPage-only: a strip attached to the top of the composer, above any queued messages
+  // (the 5-hour limit warning).
+  notice?: ReactNode;
+  // HomePage-only: the same below the composer (a new chat's composer sits mid-page), laid over
+  // the Work from folder row, which stays underneath and shows again once it's closed.
+  noticeBelow?: ReactNode;
+  queue?: {
+    items: QueuedMessage[];
+    onAdd: (message: Omit<QueuedMessage, "id">) => void;
+    onRemove: (id: string) => void;
+  };
   // Per-chat compact threshold (ChatPage.tsx owns the real state/persistence --
   // see ContextDropdown's own comment for the full reasoning). HomePage.tsx never
   // renders ContextDropdown at all (contextUsage is always null pre-chat), so
-  // these two are only ever exercised from ChatPage's own call site.
+  // these are only ever exercised from ChatPage's own call site.
   autocompactValue: string;
-  autocompactScope: "chat" | "project" | "global";
   onSetAutocompact: (value: string) => void;
 }) {
   const { t } = useTranslation();
@@ -916,25 +1013,44 @@ export function ComposeBox({
   useEffect(() => {
     void loadModelCatalog();
   }, []);
-  // loadLastPermissionMode() first -- per explicit request ("all these
-  // three should have a last_effort, last_permission, last_context saved
-  // as well for loading purposes"): was a bare hardcoded "manual" with no
-  // memory of what was actually last chosen anywhere in the app.
-  const [mode, setMode] = useState<PermissionModeOption["value"]>(() => loadLastPermissionMode() ?? "manual");
-  // Antigravity's own real-capability set (ANTIGRAVITY_MODES's own comment
-  // has the reasoning) instead of the standard Manual/Ask/Auto once an
-  // Antigravity model is the current pick.
-  const modes = selectedModels[0]?.provider === "Antigravity" ? ANTIGRAVITY_MODES : MODES;
-  // Keeps the persisted mode valid for whichever list is now showing --
-  // "manual"/"ask" mean nothing to Antigravity (no such capability), and
-  // "plan" means nothing to every other provider, so switching models
-  // must not leave the trigger showing a choice that isn't even in its
-  // own dropdown any more.
+  // A fresh composer always starts at the least-privileged mode the selected
+  // provider supports. The backend still stores the exact submitted value
+  // for the current turn, but a future chat must not inherit Full access.
+  // defaultPermissionValue is intentionally the only override: it carries
+  // the exact choice across the centered-composer -> chat-composer handoff.
+  const [mode, setMode] = useState<PermissionModeOption["value"]>(() => {
+    if (defaultPermissionValue && defaultPermissionValue !== "plan") return defaultPermissionValue;
+    return "manual";
+  });
+  // Plan mode (Synara's `+` panel toggle): on top of the permission, for providers that have one.
+  const [planMode, setPlanMode] = useState(() => defaultPermissionValue === "plan");
+  const planSupported = selectedModels[0]?.provider === "Claude" || selectedModels[0]?.provider === "Antigravity";
+  // The exact effective value is passed with the submission below. Permission
+  // is deliberately not restored or persisted merely by mounting/changing the
+  // picker: that could make a later fresh chat inherit Full access.
+  // The same three for every provider; Plan mode lives in the + menu.
+  const modes = MODES;
+  const selectedProvider = selectedModels[0]?.provider;
+  const previousProviderRef = useRef(selectedProvider);
+  useEffect(() => {
+    if (previousProviderRef.current === selectedProvider) return;
+    const previousProvider = previousProviderRef.current;
+    previousProviderRef.current = selectedProvider;
+    if (!selectedProvider) return;
+
+    // Do not overwrite an explicit first-message handoff when its model
+    // resolves just after mount. Real provider changes after that reset to
+    // the safest valid stance every provider now supports: Ask for approval.
+    if (previousProvider === undefined && defaultPermissionValue) return;
+    setMode("manual");
+    setPlanMode(false);
+  }, [defaultPermissionValue, selectedProvider]);
+  // Keeps the selected mode valid for whichever list is now showing. A
+  // provider switch must not leave the trigger showing a choice absent from
+  // that provider's own dropdown.
   useEffect(() => {
     if (modes.some((m) => m.value === mode)) return;
-    const fallback = modes[0].value;
-    setMode(fallback);
-    saveLastPermissionMode(fallback);
+    setMode(modes[0]?.value ?? "manual");
   }, [modes, mode]);
   // Real default now (settings-overlay.tsx's own "Default effort" control,
   // lib/effort.ts's own defaultEffortFor) -- was a bare hardcoded "medium",
@@ -998,6 +1114,26 @@ export function ComposeBox({
   // The text just sent, drawn over the (already cleared) textarea while it
   // fades out, so sending doesn't snap the box empty.
   const [sentGhost, setSentGhost] = useState<{ text: string; key: number } | null>(null);
+  const [queueing, setQueueing] = useQueueing();
+  const { installed: installedSkills } = useSkills();
+  // A command at the start of the draft shows as a chip (icon and name) before the text, the
+  // first line indented past it; the draft itself still starts with the command, as sent.
+  const command = leadingCommand(value, installedSkills.map((skill) => skill.name));
+  const commandRef = useRef<HTMLSpanElement>(null);
+  const [commandWidth, setCommandWidth] = useState(0);
+  // Centred on the textarea's first line, wherever its padding and line height put it.
+  const [commandTop, setCommandTop] = useState(0);
+  useLayoutEffect(() => {
+    setCommandWidth(command ? (commandRef.current?.offsetWidth ?? 0) : 0);
+    const area = textareaRef.current;
+    const chip = commandRef.current;
+    if (!command || !area || !chip) return;
+    const style = getComputedStyle(area);
+    const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.5;
+    setCommandTop(area.offsetTop + parseFloat(style.paddingTop) + (lineHeight - chip.offsetHeight) / 2);
+  }, [command?.prefix, command?.label]);
+  const [skillsOpen, setSkillsOpen] = useState(false);
+  const navigate = useNavigate();
   const fadeOutSent = () => {
     if (value.trim()) setSentGhost((ghost) => ({ text: value, key: (ghost?.key ?? 0) + 1 }));
   };
@@ -1120,13 +1256,24 @@ export function ComposeBox({
   // rows change, so it never flashes on the wrong side.
   const composeRootRef = useRef<HTMLDivElement>(null);
   const tokenMenuRef = useRef<HTMLDivElement>(null);
+  const tokenListViewportRef = useRef<HTMLDivElement>(null);
   const [tokenMenuSide, setTokenMenuSide] = useState<"top" | "bottom">("top");
   // Caps the menu to the space on its chosen side (short windows), so it
   // scrolls instead of running off screen.
   const [tokenMenuMaxHeight, setTokenMenuMaxHeight] = useState<number | undefined>(undefined);
+  const addMenuRef = useRef<HTMLDivElement>(null);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  // Collapsed again each time the + menu opens.
+  useEffect(() => {
+    if (!addMenuOpen) setSkillsOpen(false);
+  }, [addMenuOpen]);
+  const [addMenuSide, setAddMenuSide] = useState<"top" | "bottom">("bottom");
+  const modeMenuRef = useRef<HTMLDivElement>(null);
+  const [modeMenuOpen, setModeMenuOpen] = useState(false);
+  const [modeMenuSide, setModeMenuSide] = useState<"top" | "bottom">("bottom");
 
   const rows =
-    menu === "slash" ? SLASH_ROWS.filter((r) => r.label.slice(1).startsWith(query)) : [];
+    menu === "slash" ? SLASH_ROWS.filter((r) => r.command.slice(1).startsWith(query)) : [];
 
   useEffect(() => {
     setActive(0);
@@ -1142,6 +1289,27 @@ export function ComposeBox({
   // pick() below handles.
   function openFilePicker() {
     fileInputRef.current?.click();
+  }
+
+  // A skill, like Task and Goal, goes in front of what's already written.
+  function insertSkill(name: string) {
+    onChange(withLeadingCommand(value, command, `/skill ${name}`));
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }
+
+  // Task follows the same draft-preserving pattern as Goal: choosing it
+  // turns what is already written into the task command's subject.
+  function insertTask() {
+    onChange(withLeadingCommand(value, command, "/task"));
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }
+
+  // Goal is a native command in the current Codex, Claude Code and
+  // Antigravity CLIs. Preserve an existing draft as its objective, matching
+  // the Add panel's role as a mode applied to what the user is composing.
+  function insertGoal() {
+    onChange(withLeadingCommand(value, command, "/goal"));
+    requestAnimationFrame(() => textareaRef.current?.focus());
   }
 
   // Shared by the file picker's onChange and the composer's own onDrop, below --
@@ -1173,19 +1341,13 @@ export function ComposeBox({
   }
 
   function pick(row: SlashRow) {
-    if (row.key === "clear") {
-      onChange("");
-    } else if (row.kind === "placeholder") {
-      // No real destination yet (see SLASH_ROWS' own comment), but
-      // picking one -- via Enter or a click -- should still do something
-      // visible instead of just closing the menu with nothing to show for
-      // it: inserts the row as text, replacing whatever was typed after
-      // the trigger character. / labels already carry their own leading
-      // "/", so no sigil needs prepending here any more (the @ menu that
-      // used to need one was removed).
-      const start = token ? token.start : value.length;
-      onChange(`${value.slice(0, start)}${row.label} `);
-    }
+    // The menu presents human-readable labels ("Clear", "Share", ...),
+    // while selection inserts the underlying slash command into the draft.
+    // Execution still happens only when the user sends it.
+    // The command leads the message (shown as a chip), whatever was already typed after it.
+    const start = token ? token.start : value.length;
+    const typed = value.slice(0, start);
+    onChange(withLeadingCommand(typed, leadingCommand(typed, installedSkills.map((skill) => skill.name)), row.command));
     setDismissed(true);
     textareaRef.current?.focus();
   }
@@ -1312,8 +1474,11 @@ export function ComposeBox({
       Object.fromEntries(
         providerGroups.map(([provider, models]) => [
           provider,
-          ({ size = 14, className }: IconComponentProps) => (
-            <span className={cn("inline-grid shrink-0 place-items-center", className)} style={{ width: size, height: size }}>
+          // A step above the menu's 14px icon size, scaling with the window like the rows' text
+          // (16px up to ~1000px wide, 18px from ~1300px): provider marks are full artwork, not
+          // line icons, and read small at 14.
+          ({ className }: IconComponentProps) => (
+            <span className={cn("inline-grid size-[clamp(1rem,calc(0.6rem+0.6vw),1.125rem)] shrink-0 place-items-center", className)}>
               <ProviderIcon model={models[0]} className="size-full" />
             </span>
           ),
@@ -1331,11 +1496,62 @@ export function ComposeBox({
     const margin = 12;
     const spaceBelow = window.innerHeight - rect.bottom - margin;
     const spaceAbove = rect.top - margin;
-    // Below when it fits there; otherwise whichever side has more room.
-    const side = spaceBelow >= menuHeight || spaceBelow >= spaceAbove ? "bottom" : "top";
+    // Below whenever there's room for a useful part of it (the hint and a few
+    // commands; the rest scrolls), so a new chat's mid-page composer opens it
+    // downward like its other menus even on a short window. Up only when the
+    // composer is pinned to the bottom of a chat.
+    const side = spaceBelow >= Math.min(menuHeight, 160) ? "bottom" : "top";
     setTokenMenuSide(side);
     setTokenMenuMaxHeight(Math.max(0, Math.floor(side === "bottom" ? spaceBelow : spaceAbove)));
   }, [menu, rows.length]);
+
+  // Arrowing past the visible commands scrolls the list to keep the active row
+  // in view (the viewport only, never the page, unlike scrollIntoView).
+  useEffect(() => {
+    if (!menu) return;
+    const viewport = tokenListViewportRef.current;
+    const row = viewport?.querySelectorAll<HTMLElement>("[data-menu-row]")[active];
+    if (!viewport || !row) return;
+    const top = row.getBoundingClientRect().top - viewport.getBoundingClientRect().top + viewport.scrollTop;
+    const padding = 4;
+    if (top - padding < viewport.scrollTop) viewport.scrollTop = top - padding;
+    else if (top + row.offsetHeight + padding > viewport.scrollTop + viewport.clientHeight) viewport.scrollTop = top + row.offsetHeight + padding - viewport.clientHeight;
+  }, [menu, active]);
+
+  // Synara's Add panel follows the composer: it opens below a mid-page
+  // composer in a new chat, and above a composer pinned near the bottom of an
+  // existing chat. Measure the rendered panel so the choice also accounts for
+  // the optional Plan mode row.
+  useLayoutEffect(() => {
+    if (!addMenuOpen) return;
+    const frame = requestAnimationFrame(() => {
+      const root = composeRootRef.current;
+      const panel = addMenuRef.current;
+      if (!root || !panel) return;
+      const rect = root.getBoundingClientRect();
+      const margin = 12;
+      const spaceBelow = window.innerHeight - rect.bottom - margin;
+      const spaceAbove = rect.top - margin;
+      const panelHeight = panel.scrollHeight;
+      const side = spaceBelow >= panelHeight || spaceBelow >= spaceAbove ? "bottom" : "top";
+      setAddMenuSide(side);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [addMenuOpen, planSupported]);
+
+  useLayoutEffect(() => {
+    if (!modeMenuOpen) return;
+    const root = composeRootRef.current;
+    const panel = modeMenuRef.current;
+    if (!root || !panel) return;
+
+    const rect = root.getBoundingClientRect();
+    const margin = 12;
+    const spaceBelow = window.innerHeight - rect.bottom - margin;
+    const spaceAbove = rect.top - margin;
+    const panelHeight = panel.scrollHeight;
+    setModeMenuSide(spaceBelow >= panelHeight || spaceBelow >= spaceAbove ? "bottom" : "top");
+  }, [modeMenuOpen, modes.length]);
 
   return (
     // @container: its own width, not the host page's -- ChatPage doesn't
@@ -1351,7 +1567,9 @@ export function ComposeBox({
           ref={tokenMenuRef}
           style={{ maxHeight: tokenMenuMaxHeight }}
           className={cn(
-            "absolute inset-x-0 z-20 overflow-y-auto rounded-2xl border border-border bg-surface shadow-sm",
+            // Capped to the room on its side: only the command list shrinks and
+            // scrolls, so the search hint and the key hints always show.
+            "absolute inset-x-0 z-20 flex flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-sm",
             tokenMenuSide === "bottom" ? "top-full mt-1" : "bottom-full mb-1",
           )}
         >
@@ -1364,57 +1582,52 @@ export function ComposeBox({
               was stealing keystrokes away from the textarea entirely --
               Backspace/Escape stopped reaching it the moment this menu
               opened. */}
-          {/* Plain overflow-y-auto, not ScrollArea -- confirmed directly
-              as a real bug ("the scroll inside the drawer does not
-              work"): ScrollArea's Viewport sizes itself at height:100% of
-              its Root, which here only ever got a max-height (no explicit
-              height), and a percentage height can't resolve against an
-              auto-height parent capped only by max-height -- the exact
-              same class of ScrollArea layout bug sidebar-nav.tsx's own
-              recents list already hit and reverted for (that div's own
-              comment above has the fuller history). p-1, on this wrapper
-              now, not the outer container -- max-h-[224px] + overflow-y-
-              auto caps the menu to a scrollable window instead of growing
-              indefinitely as SLASH_ROWS grows, and keeping the
-              outer container itself unpadded is what lets the guide
-              text's own border-t below span the box's full width edge-to-
-              edge, same as top-bar.tsx's search dropdown footer, instead
-              of stopping short at this padding's own inset. */}
-          <div className="max-h-[224px] overflow-y-auto p-1">
-            <GlideMenu rowSelector="[data-menu-row]" className="flex flex-col gap-px">
-              {rows.map((row, i) => (
-                <button
-                  key={row.key}
-                  type="button"
-                  data-menu-row
-                  onMouseDown={(event) => event.preventDefault()}
-                  onMouseEnter={() => setActive(i)}
-                  onClick={() => pick(row)}
-                  className={cn(
-                    "relative z-10 flex h-8 w-full items-center gap-2 rounded-[7px] px-2 text-left outline-none",
-                    i === active && "bg-hover-2/50"
-                  )}
-                >
-                  {row.icon && <span className="flex size-5 shrink-0 items-center justify-center text-ink-2">{row.icon}</span>}
-                  {/* font-normal/text-ink-2, not font-medium/text-ink -- matches
-                      the search dropdown's own row text exactly (top-bar.tsx,
-                      TopBarSearch's results.map), per explicit request. */}
-                  <span className="shrink-0 truncate text-[12px] font-normal text-ink-2">{row.label}</span>
-                  <span className="min-w-0 flex-1 truncate text-[12px] text-ink-3">{row.desc}</span>
-                </button>
-              ))}
-              {rows.length === 0 && (
-                <div className="flex h-8 items-center px-2 text-[12px] text-ink-3">No matches for "{query}"</div>
-              )}
-            </GlideMenu>
-          </div>
-          {/* Moved below the rows, not above -- matches the search
-              dropdown's own footer-hint placement (top-bar.tsx) instead
-              of this menu being the only one with its guide text at the
-              top. font-normal/text-ink-3/50, not the plain text-ink-3 this
-              had -- matches that dropdown's own "Press Escape to close"
-              hint's exact color/weight, per explicit request. */}
-          <div className="border-t border-border px-3 py-2 text-[11px] font-normal text-ink-3/50">Type to search commands</div>
+          {/* Search guidance stays above the results; keyboard commands stay
+              in the footer below, matching the Quick actions menu's visual
+              order without introducing a second text field while the
+              composer itself already owns the query. */}
+          <div className="shrink-0 border-b border-border px-3 py-2 text-[11px] font-normal text-ink-3/50">{t("compose.menu.searchCommands")}</div>
+          {/* ScrollArea, like Quick actions (ui/command-menu.tsx), for the same thin
+              scrollbar. A flex column with a min-h-0 viewport, not the viewport's
+              own height:100%, which can't resolve under a max-height alone (why
+              this once fell back to native overflow). Capped at 224px and
+              shrinking further when the menu is capped to the room on its side. */}
+          <ScrollArea
+            className="flex max-h-[224px] min-h-0 flex-col"
+            viewportClassName="min-h-0 flex-1 [&>div[style]]:!block [&>div[style]]:!min-w-0"
+            viewportRef={tokenListViewportRef}
+          >
+            <div className="p-1">
+              <GlideMenu rowSelector="[data-menu-row]" className="flex flex-col gap-px">
+                {rows.map((row, i) => (
+                  <button
+                    key={row.key}
+                    type="button"
+                    data-menu-row
+                    onMouseDown={(event) => event.preventDefault()}
+                    onMouseEnter={() => setActive(i)}
+                    onClick={() => pick(row)}
+                    className={cn(
+                      "relative z-10 flex h-8 w-full items-center gap-2 rounded-[7px] px-2 text-left outline-none",
+                      i === active && "bg-hover-2/50"
+                    )}
+                  >
+                    {/* Icon and title turn active with the row (hover or arrow keys). */}
+                    {row.icon && <span className={cn("flex size-5 shrink-0 items-center justify-center transition-colors", i === active ? "text-foreground" : "text-ink-2")}>{row.icon}</span>}
+                    {/* font-normal/text-ink-2, not font-medium/text-ink -- matches
+                        the search dropdown's own row text exactly (top-bar.tsx,
+                        TopBarSearch's results.map), per explicit request. */}
+                    <span className={cn("shrink-0 truncate text-[12px] font-normal transition-colors", i === active ? "text-foreground" : "text-ink-2")}>{t(row.labelKey)}</span>
+                    <span className="min-w-0 flex-1 truncate text-[12px] text-ink-3">{row.descKey ? t(row.descKey) : row.desc}</span>
+                  </button>
+                ))}
+                {rows.length === 0 && (
+                  <div className="flex h-8 items-center px-2 text-[12px] text-ink-3">No matches for "{query}"</div>
+                )}
+              </GlideMenu>
+            </div>
+          </ScrollArea>
+          <ComposerMenuKeyboardHints />
         </div>
       )}
 
@@ -1429,26 +1642,9 @@ export function ComposeBox({
           center, which is what made the placeholder/mic/send read as "not
           centered" even though the row's own internal alignment (items-
           center, below) was already correct. */}
-      {/* rounded-[var(--row-radius)] now, no @container escalation --
-          went through a few wrong turns first: rounded-2xl (itself
-          replacing the old mobile-first ascending tiers rounded-2xl ->
-          @[280px]:rounded-3xl -> @[420px]:rounded-[24px]), then rounded-xl
-          at the base tier only with the escalating
-          @[420px]:rounded-3xl/@[640px]:rounded-4xl tiers still in place
-          (PAGE_CONTENT_WIDTH is 800px, comfortably past both breakpoints,
-          so the box's real everyday rendered width always landed on
-          rounded-3xl/rounded-4xl regardless of what the base tier said --
-          confirmed directly as having no real visible effect), then a
-          flat literal rounded-[8px] once the escalation was dropped
-          (matching the sidebar's own row radius exactly instead of
-          --radius-xl's close-but-not-equal 8.4px). --row-radius
-          (index.css's :root) is the real fix: a single shared, viewport-
-          responsive value both this box and every sidebar row
-          (sidebar-nav.tsx) read, per explicit request ("setup a dynamic
-          value so it matches... depending on the size of the screen").
-          Neither element can drift from the other any more, and both now
-          actually grow together on a wider screen instead of staying
-          flat. */}
+      {/* Both layers share the 24px shell radius: the composer keeps its
+          rounded lower edge in front of the folder strip, matching the
+          new-chat reference even after the strip fades away. */}
       {/* transition-[padding]: the px-2/@[420px]:px-3/py-2/@[420px]:py-3
           tiers above are container-query breakpoints, so they flip
           *instantly* the moment the box's own width crosses one -- with no
@@ -1465,14 +1661,6 @@ export function ComposeBox({
           shade) -- per explicit request, this box now matches the main
           content area's own background/border exactly in both themes,
           not just light mode. */}
-      {/* --row-radius (index.css's :root) is a real viewport-media-query
-          value, not a @container one -- the sidebar's own width barely
-          changes with the window (it's a fixed rail), so a shared
-          *screen*-size signal is what actually keeps this box and every
-          sidebar row moving together, unlike each reading its own
-          independent element width the way the old @container tiers
-          did. See that variable's own comment (index.css) for the exact
-          breakpoints. */}
       {/* Hidden -- the "+" button below (openFilePicker) is the real trigger, same
           pattern as a styled upload control anywhere: the native input itself is
           never meant to be seen. accept="image/*": per explicit request, this pass
@@ -1489,6 +1677,29 @@ export function ComposeBox({
           event.target.value = "";
         }}
       />
+      {notice}
+      {queue && (
+        <QueuedMessages
+          items={queue.items}
+          onSteer={
+            onSteer
+              ? (item) => {
+                  queue.onRemove(item.id);
+                  onSteer(item);
+                }
+              : undefined
+          }
+          onRemove={queue.onRemove}
+          // Back into the composer (replacing what's there), out of the queue.
+          onEdit={(item) => {
+            queue.onRemove(item.id);
+            onChange(item.text);
+            setImages(item.images);
+            textareaRef.current?.focus();
+          }}
+          onTurnOffQueueing={onSteer ? () => setQueueing(false) : undefined}
+        />
+      )}
       {/* onDragOver/onDrop -- per explicit request, dropping an image anywhere on
           the composer attaches it, not just the file-picker button. dragActive
           only drives the border below; it's not itself a real attachment. */}
@@ -1507,8 +1718,8 @@ export function ComposeBox({
           void addImageFiles(event.dataTransfer.files);
         }}
         className={cn(
-          "flex flex-col rounded-[calc(var(--radius)*2)] border border-border bg-background px-2 pt-2 pb-[7px] transition-[min-height,padding,border-color] duration-200 [contain:layout_style] @[420px]:px-3 @[420px]:pt-3 @[420px]:pb-1.5",
-          initialHeight && "min-h-32 justify-between",
+          "relative z-10 flex flex-col rounded-[var(--compose-shell-radius)] border border-border bg-background px-2 pt-2 pb-[7px] transition-[min-height,padding,border-color] duration-200 [contain:layout_style] @[420px]:px-3 @[420px]:pt-3 @[420px]:pb-1.5",
+          initialHeight && "min-h-[120px] justify-between",
           dragActive && "border-ring",
           // border-focus-accent -- matches the sidebar/inbox search inputs'
           // own focus-visible:border-focus-accent exactly (sidebar-nav.tsx's
@@ -1588,16 +1799,28 @@ export function ComposeBox({
               <AnimatedPlaceholder messages={[placeholder, ...placeholderCycle]} />
             </div>
           )}
+        {command && (
+          <span ref={commandRef} style={{ top: commandTop }} className="pointer-events-none absolute left-1 z-[1] flex">
+            <CommandChip icon={command.icon} label={command.labelKey ? t(command.labelKey) : command.label} />
+          </span>
+        )}
         <Textarea
           ref={textareaRef}
-          value={value}
+          value={command ? value.slice(command.prefix.length) : value}
+          style={commandWidth ? { textIndent: commandWidth + 6 } : undefined}
           onChange={(event) => {
-            onChange(event.target.value);
+            onChange((command?.prefix ?? "") + event.target.value);
             setDismissed(false);
           }}
           onFocus={() => setTextareaFocused(true)}
           onBlur={() => setTextareaFocused(false)}
           onKeyDown={(event) => {
+            // Backspace at the very start removes the command chip.
+            if (command && event.key === "Backspace" && event.currentTarget.selectionStart === 0 && event.currentTarget.selectionEnd === 0) {
+              event.preventDefault();
+              onChange(value.slice(command.prefix.length));
+              return;
+            }
             if (menu && rows.length > 0) {
               if (event.key === "ArrowDown" || event.key === "ArrowUp") {
                 event.preventDefault();
@@ -1632,9 +1855,21 @@ export function ComposeBox({
             if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault();
               if (!value.trim()) return;
-              if (awaitingReply && onSteer) {
+              // Steering carries text only, so a message with images waits its turn.
+              if (awaitingReply && queue && (queueing || !onSteer || images.length > 0)) {
+                if (selectedModels.length === 0) {
+                  triggerModelShake();
+                  return;
+                }
                 fadeOutSent();
-                onSteer(value);
+                queue.onAdd({ text: value.trim(), images, effort, mode: planMode && planSupported ? "plan" : mode });
+                onChange("");
+                setImages([]);
+                return;
+              }
+              if (awaitingReply && onSteer && images.length === 0) {
+                fadeOutSent();
+                onSteer({ text: value, images, effort, mode: planMode && planSupported ? "plan" : mode });
                 onChange("");
                 return;
               }
@@ -1643,7 +1878,7 @@ export function ComposeBox({
                 return;
               }
               fadeOutSent();
-              onSubmit(images, effort);
+              onSubmit(images, effort, planMode && planSupported ? "plan" : mode);
               setImages([]);
             }
           }}
@@ -1714,7 +1949,13 @@ export function ComposeBox({
           centred, but the filled send circle and the bottom-heavy mic on the
           right make + and Model read as sitting higher. */}
       <div className="flex translate-y-px items-center gap-1">
-        <BaseDropdownMenu size="compact">
+        <BaseDropdownMenu
+          size="compact"
+          onOpenChange={(open) => {
+            setAddMenuOpen(open);
+            if (open) setAddMenuSide("bottom");
+          }}
+        >
           <BaseDropdownTrigger
             render={
               <Button
@@ -1737,21 +1978,281 @@ export function ComposeBox({
               </Button>
             }
           />
-          <BaseDropdownContent side="bottom" align="start" sideOffset={6} className="w-40 min-w-0">
-            <BaseDropdownLabel>{t("common.add")}</BaseDropdownLabel>
-            <DropdownSubItem className="text-[12px] whitespace-nowrap" onClick={openFilePicker}>
-              <AttachmentIcon className="mr-2 inline size-3.5 shrink-0 align-[-3px]" />
-              {t("compose.files")}
-            </DropdownSubItem>
-            <DropdownSubItem className="text-[12px] whitespace-nowrap" disabled>
-              <SkillIcon className="mr-2 inline size-3.5 shrink-0 align-[-3px]" />
-              {t("compose.skills")}
-              <span className="ml-2 shrink-0 text-[10px] font-normal text-muted-foreground/60">
-                Coming Soon
-              </span>
-            </DropdownSubItem>
+          {/* Synara's `+` panel: one "Add" list that opens toward the side with
+              room -- files, then plan mode as an on/off row with its state
+              beside it (ComposerExtrasPanel.tsx). */}
+          <BaseDropdownContent
+            ref={addMenuRef}
+            side={addMenuSide}
+            align="start"
+            sideOffset={4}
+            anchor={composeRootRef}
+            collisionAvoidance={{ side: "none", align: "none" }}
+            className="w-[var(--anchor-width)] min-w-0 !overflow-visible !border-0 !bg-transparent !shadow-none p-0"
+          >
+            <div className="w-full overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+              <BaseDropdownLabel>{t("common.add")}</BaseDropdownLabel>
+              <DropdownSubItem className="h-8 items-center gap-2.5 text-[12px] text-ink-2 transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground" onClick={openFilePicker}>
+                <AttachmentIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+                <span className="flex min-w-0 flex-1 items-baseline gap-3">
+                  <span className="shrink-0">{t("compose.files")}</span>
+                  <span className="min-w-0 truncate text-[12px] text-ink-3">
+                    {t(isMultiplayer ? "compose.filesMultiplayerDescription" : "compose.filesDescription")}
+                  </span>
+                </span>
+              </DropdownSubItem>
+              {/* Skills opens in place (the panel is as wide as the composer, so a side
+                  submenu has nowhere to go): the installed ones to use in this message,
+                  then the way to Settings > Skills. */}
+              <DropdownSubItem closeOnClick={false} aria-expanded={skillsOpen} className="flex h-8 items-center gap-2.5 text-[12px] text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground" onClick={() => setSkillsOpen((open) => !open)}>
+                <SkillIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+                <span className="flex min-w-0 flex-1 items-baseline gap-3">
+                  <span className="shrink-0">{t("compose.skills")}</span>
+                  <span className="min-w-0 truncate text-[12px] text-ink-3">{t("compose.skillsDescription")}</span>
+                </span>
+                <ChevronDownIcon aria-hidden="true" className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform duration-150", skillsOpen && "rotate-180")} />
+              </DropdownSubItem>
+              {/* Slides open under the row (height and fade), not a snap. */}
+              <AnimatePresence initial={false}>
+              {skillsOpen && (
+                <motion.div
+                  key="skills"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1, transition: { duration: 0.22, ease: [0.22, 1, 0.36, 1] } }}
+                  exit={{ height: 0, opacity: 0, transition: { duration: 0.16, ease: [0.4, 0, 1, 1] } }}
+                  className="overflow-hidden"
+                >
+                  {installedSkills.length === 0 ? (
+                    <div className="flex h-8 items-center pl-[34px] text-[12px] text-ink-3">{t("compose.skills.none")}</div>
+                  ) : (
+                    installedSkills.map((skill) => (
+                      <DropdownSubItem key={skill.id} className="flex h-8 items-center gap-2.5 text-[12px] text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground pl-[34px]" onClick={() => insertSkill(skill.name)}>
+                        <span className="truncate">{skill.name}</span>
+                      </DropdownSubItem>
+                    ))
+                  )}
+                  <DropdownSubItem className="flex h-8 items-center gap-2.5 text-[12px] text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground pl-[34px]" onClick={() => navigate("/settings/skills")}>
+                    {t("compose.skills.browse")}
+                  </DropdownSubItem>
+                </motion.div>
+              )}
+              </AnimatePresence>
+              <DropdownSubItem className="h-8 items-center gap-2.5 text-[12px] text-ink-2 transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground" onClick={insertTask}>
+                <TaskIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+                <span className="flex min-w-0 flex-1 items-baseline gap-3">
+                  <span className="shrink-0">{t("compose.command.task")}</span>
+                  <span className="min-w-0 truncate text-[12px] text-ink-3">{t("compose.taskDescription")}</span>
+                </span>
+              </DropdownSubItem>
+              <DropdownSubItem className="h-8 items-center gap-2.5 text-[12px] text-ink-2 transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground" onClick={insertGoal}>
+                <Target04 aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+                <span className="flex min-w-0 flex-1 items-baseline gap-3">
+                  <span className="shrink-0">{t("compose.goal")}</span>
+                  <span className="min-w-0 truncate text-[12px] text-ink-3">{t("compose.goalDescription")}</span>
+                </span>
+              </DropdownSubItem>
+              {planSupported && (
+                <DropdownSubItem className="flex h-8 items-center gap-2.5 text-[12px] text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground" onClick={() => setPlanMode((on) => !on)}>
+                  <ClipboardCheck aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+                  <span className="flex min-w-0 flex-1 items-baseline gap-3">
+                    <span className="shrink-0">{t("compose.planMode")}</span>
+                    <span className="min-w-0 truncate text-[12px] text-ink-3">{planMode ? t("compose.planModeOff") : t("compose.planModeOn")}</span>
+                  </span>
+                  {planMode && <CheckIcon aria-hidden="true" className="size-3.5 shrink-0 text-foreground/70" />}
+                </DropdownSubItem>
+              )}
+              <ComposerMenuKeyboardHints />
+            </div>
           </BaseDropdownContent>
         </BaseDropdownMenu>
+        {/* Manual / Plan / Auto -- how the agent asks before acting (in the leading group, where the model
+            picker was, swapped back per explicit request "swap permissions to where model is at")
+            ("type of access for the AI", matching Synara's own
+            RuntimeUsageControls: approval-required/auto/full-access, the
+            same underlying concept). In the trailing group, next to Effort
+            -- swapped with the model selector's own old spot here per
+            explicit request ("Switch the buttons location Permission
+            should go where models are and models should go where
+            permission are"). Only rendered
+            once a model is actually selected (selectedModels.length > 0)
+            -- per explicit request, since which stances even exist
+            depends on the provider (e.g. GitHub Copilot has its own "Ask"
+            stance, not necessarily this same three-item set), so there's
+            nothing real to offer here until a specific model -- and so a
+            specific provider -- has been picked. Same ghost-trigger
+            treatment as the model picker (h-[28px], same text size),
+            single-select RadioGroup same as that menu, no submenu needed
+            since there's no provider-style grouping here. Defaults to
+            "manual" (state above) -- the safest stance, so a session
+            opens asking before every action rather than something more
+            permissive. */}
+        {hasModel && (
+        <div className={`${modeFade ? "transition-opacity duration-300" : ""} ${modeVisible ? "opacity-100" : "opacity-0"}`}>
+        {/* size="compact" -- matches the app's own 28px row height
+            everywhere else (BaseMenuItem's own useSize() would otherwise
+            default to the reference's 36px "default" step). */}
+        <BaseDropdownMenu
+          size="compact"
+          onOpenChange={(nowOpen) => {
+            setModeMenuOpen(nowOpen);
+            if (nowOpen) setModeMenuSide("bottom");
+            modeAnchor.freeze(nowOpen);
+            if (!nowOpen) {
+              const button = modeTriggerRef.current;
+              if (!button) return;
+              const reblur = () => button.blur();
+              button.addEventListener("focus", reblur, { once: true });
+              setTimeout(() => button.removeEventListener("focus", reblur), 1000);
+            }
+          }}
+        >
+          <BaseDropdownTrigger
+            render={
+              <button
+                type="button"
+                ref={modeTriggerRef}
+                className={cn("inline-flex h-[var(--compose-tool-h)] shrink-0 flex-row flex-nowrap items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1.5 text-[length:var(--compose-tool-text)] leading-4 font-normal text-foreground outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]", PRESS_EFFECT)}
+              >
+                {(() => {
+                  // Synara's trigger: the permission's glyph and name; plan mode shows as Plan mode.
+                  const shown = planMode && planSupported ? "plan" : mode;
+                  const Icon = PERMISSION_ICONS[shown] ?? Hand;
+                  const found = modes.find((m) => m.value === shown);
+                  return (
+                    <>
+                      <Icon aria-hidden="true" className={cn("size-3.5 shrink-0", shown === "auto" && "text-orange-500", shown === "ask" && "text-[var(--send-button-bg)]")} />
+                      <SwapLabel className={shown === "auto" ? "text-orange-500" : shown === "ask" ? "text-[var(--send-button-bg)]" : undefined} swapKey={shown}>{shown === "plan" ? t("compose.planMode") : found ? t(found.labelKey) : null}</SwapLabel>
+                    </>
+                  );
+                })()}
+                <ChevronDownIcon className={cn("size-[var(--compose-tool-icon)] shrink-0", !planMode && mode === "auto" && "text-orange-500", !planMode && mode === "ask" && "text-[var(--send-button-bg)]")} />
+              </button>
+            }
+          />
+          {/* DropdownSubItem, not BaseMenuItem -- per explicit request ("do
+              a quick description like Synara's one does but without the
+              icon"), each row needs a second, smaller description line
+              under its label (Synara's own RuntimeModeMenuItem,
+              BranchToolbar.tsx: icon + stacked label/description grid --
+              same stacked label/description here, just without the icon
+              column, per "without the icon"), which BaseMenuItem's own
+              fixed single-line layout can't fit. Manual checkmark, not a
+              real radio role -- same reasoning as the model/effort rows'
+              own comments. No hardcoded border/shadow-sm/ring-0 --
+              BaseDropdownContent's own Elevated surface supplies a real
+              nesting-aware background/shadow. */}
+          <BaseDropdownContent
+            ref={modeMenuRef}
+            side={modeMenuSide}
+            align="start"
+            sideOffset={8}
+            anchor={modeAnchor.anchor}
+            className="w-72 max-w-[calc(100vw-2rem)] min-w-0"
+          >
+            {/* "Permission" describer -- matching the Provider/Model/Effort
+                describer pattern elsewhere in this toolbar. Claude Code's
+                own CLI calls this exact concept "permission mode"
+                (--permission-mode), the primary provider here, so that term
+                over Synara's own "runtime mode" naming. Kept, though Synara's has none. */}
+            <BaseDropdownLabel>{t("compose.permission.title")}</BaseDropdownLabel>
+            {/* Synara's rows: the glyph in its own column, the name over a one-line description;
+                the current one on the active background (not a check), Full access in the
+                warning colour. */}
+            {modes.map((m) => {
+              const Icon = PERMISSION_ICONS[m.value];
+              const active = m.value === "plan" ? planMode : !planMode && m.value === mode;
+              return (
+                <DropdownSubItem
+                  key={m.value}
+                  className={cn(
+                    "grid h-auto grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-x-3 py-2 pr-2.5 pl-2.5 text-[12px]",
+                    active && "bg-hover-2",
+                    m.value === "auto" && "text-orange-500",
+                    m.value === "ask" && "text-[var(--send-button-bg)]"
+                  )}
+                  onClick={() => {
+                    if (m.value === "plan") {
+                      setPlanMode(true);
+                    } else {
+                      setPlanMode(false);
+                      setMode(m.value);
+                    }
+                  }}
+                >
+                  <span className="flex h-5 items-center justify-center">
+                    <Icon aria-hidden="true" className="size-4 shrink-0" />
+                  </span>
+                  <span className="flex min-w-0 flex-col gap-0.5">
+                    <span className="font-medium">{t(m.labelKey)}</span>
+                    <span className={cn("text-[11px] leading-snug font-normal whitespace-normal", m.value === "auto" || m.value === "ask" ? "text-current" : "text-muted-foreground")}>{t(m.descriptionKey)}</span>
+                  </span>
+                </DropdownSubItem>
+              );
+            })}
+          </BaseDropdownContent>
+        </BaseDropdownMenu>
+        </div>
+        )}
+      </div>
+      <div className="mr-1 flex items-center gap-1">
+        {/* Effort -- now its own standalone trigger+dropdown next to the
+            model selector, matching Synara's own split layout (a real
+            reference app cloned for comparison: ProviderModelPicker +
+            TraitsPicker side by side for a fresh draft thread,
+            apps/web/src/components/ChatView.tsx), per explicit request
+            ("model selector plus the dropdown... effort, mic and send" --
+            effort called out as its own step, and a follow-up choice
+            confirming a separate button over keeping it nested in the
+            model dropdown). Unlike the access-mode picker in the leading
+            group, NOT gated on hasModel -- EFFORT_LEVELS is a fixed set
+            regardless of provider (unlike the access-mode picker's own
+            provider-dependent stance set), and gating this on hasModel
+            made it vanish entirely once the compose box stopped
+            pre-selecting a default model, confirmed directly as a real
+            regression ("Effort is missing from the tool row"). */}
+        {/* Hidden for a model whose CLI lists no effort setting (e.g. Haiku). */}
+        {modelEfforts?.length !== 0 && (
+        <BaseDropdownMenu
+          size="compact"
+          onOpenChange={(nowOpen) => {
+            effortAnchor.freeze(nowOpen);
+            if (!nowOpen) {
+              const button = effortTriggerRef.current;
+              if (!button) return;
+              const reblur = () => button.blur();
+              button.addEventListener("focus", reblur, { once: true });
+              setTimeout(() => button.removeEventListener("focus", reblur), 1000);
+            }
+          }}
+        >
+          <BaseDropdownTrigger
+            render={
+              <button
+                type="button"
+                ref={effortTriggerRef}
+                className={cn("inline-flex h-[var(--compose-tool-h)] shrink-0 flex-row flex-nowrap items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1.5 text-[length:var(--compose-tool-text)] leading-4 font-normal text-foreground outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]", PRESS_EFFECT)}
+              >
+                {/* Shows the current choice (e.g. "Low"), not a static
+                    "Effort" label -- per explicit request ("it should
+                    update from effort to the choice we did"). */}
+                <SwapLabel swapKey={effort}>{effortLabel(effort)}</SwapLabel>
+                <ChevronDownIcon className="size-[var(--compose-tool-icon)] shrink-0" />
+              </button>
+            }
+          />
+          <BaseDropdownContent side="bottom" align="center" sideOffset={6} anchor={effortAnchor.anchor} className="w-56 min-w-0 p-3">
+            <EffortSliderPanel
+              levels={modelEfforts}
+              effort={effort}
+              onChange={(level) => {
+                effortTouchedRef.current = true;
+                setEffort(level);
+                saveLastEffort(level);
+              }}
+            />
+          </BaseDropdownContent>
+        </BaseDropdownMenu>
+        )}
         <BaseDropdownMenu
           size="compact"
           onOpenChange={(nowOpen) => {
@@ -1793,7 +2294,7 @@ export function ComposeBox({
                   the new icon and name fade in. */}
               <SwapLabel swapKey={selectedModels.map((m) => m.value).join(",")}>
                 <span className="inline-flex w-max items-center gap-1">
-                  {selectedModels.length === 1 && <ProviderIcon model={selectedModels[0]} className="size-[var(--compose-tool-icon)] shrink-0" />}
+                  {selectedModels.length === 1 && <ProviderIcon model={selectedModels[0]} className="size-[var(--compose-provider-icon)] shrink-0" />}
                   <span className="max-w-[110px] truncate whitespace-nowrap">{modelSelectionLabel(selectedModels)}</span>
                 </span>
               </SwapLabel>
@@ -1899,7 +2400,6 @@ export function ComposeBox({
                           isSelected && "bg-hover-2"
                         )}
                         onClick={() => selectModel(m)}
-                        title={m.description}
                       >
                         {modelDisplayName(m)}
                         {/* Set as default -- per explicit request ("the three
@@ -1993,176 +2493,8 @@ export function ComposeBox({
             modelCount={selectedModels.length}
             onCompactNow={onCompactNow}
             autocompactValue={autocompactValue}
-            autocompactScope={autocompactScope}
             onSetAutocompact={onSetAutocompact}
           />
-        )}
-      </div>
-      <div className="mr-1 flex items-center gap-1">
-        {/* Effort -- now its own standalone trigger+dropdown next to the
-            model selector, matching Synara's own split layout (a real
-            reference app cloned for comparison: ProviderModelPicker +
-            TraitsPicker side by side for a fresh draft thread,
-            apps/web/src/components/ChatView.tsx), per explicit request
-            ("model selector plus the dropdown... effort, mic and send" --
-            effort called out as its own step, and a follow-up choice
-            confirming a separate button over keeping it nested in the
-            model dropdown). Unlike the access-mode picker in the leading
-            group, NOT gated on hasModel -- EFFORT_LEVELS is a fixed set
-            regardless of provider (unlike the access-mode picker's own
-            provider-dependent stance set), and gating this on hasModel
-            made it vanish entirely once the compose box stopped
-            pre-selecting a default model, confirmed directly as a real
-            regression ("Effort is missing from the tool row"). */}
-        {/* Hidden for a model whose CLI lists no effort setting (e.g. Haiku). */}
-        {modelEfforts?.length !== 0 && (
-        <BaseDropdownMenu
-          size="compact"
-          onOpenChange={(nowOpen) => {
-            effortAnchor.freeze(nowOpen);
-            if (!nowOpen) {
-              const button = effortTriggerRef.current;
-              if (!button) return;
-              const reblur = () => button.blur();
-              button.addEventListener("focus", reblur, { once: true });
-              setTimeout(() => button.removeEventListener("focus", reblur), 1000);
-            }
-          }}
-        >
-          <BaseDropdownTrigger
-            render={
-              <button
-                type="button"
-                ref={effortTriggerRef}
-                className={cn("inline-flex h-[var(--compose-tool-h)] shrink-0 flex-row flex-nowrap items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1.5 text-[length:var(--compose-tool-text)] leading-4 font-normal text-foreground outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]", PRESS_EFFECT)}
-              >
-                {/* Shows the current choice (e.g. "Low"), not a static
-                    "Effort" label -- per explicit request ("it should
-                    update from effort to the choice we did"). */}
-                <SwapLabel swapKey={effort}>{effortLabel(effort)}</SwapLabel>
-                <ChevronDownIcon className="size-[var(--compose-tool-icon)] shrink-0" />
-              </button>
-            }
-          />
-          <BaseDropdownContent side="bottom" align="center" sideOffset={6} anchor={effortAnchor.anchor} className="w-56 min-w-0 p-3">
-            <EffortSliderPanel
-              levels={modelEfforts}
-              effort={effort}
-              onChange={(level) => {
-                effortTouchedRef.current = true;
-                setEffort(level);
-                saveLastEffort(level);
-              }}
-            />
-          </BaseDropdownContent>
-        </BaseDropdownMenu>
-        )}
-        {/* Manual / Plan / Auto -- how the agent asks before acting
-            ("type of access for the AI", matching Synara's own
-            RuntimeUsageControls: approval-required/auto/full-access, the
-            same underlying concept). In the trailing group, next to Effort
-            -- swapped with the model selector's own old spot here per
-            explicit request ("Switch the buttons location Permission
-            should go where models are and models should go where
-            permission are"). Only rendered
-            once a model is actually selected (selectedModels.length > 0)
-            -- per explicit request, since which stances even exist
-            depends on the provider (e.g. GitHub Copilot has its own "Ask"
-            stance, not necessarily this same three-item set), so there's
-            nothing real to offer here until a specific model -- and so a
-            specific provider -- has been picked. Same ghost-trigger
-            treatment as the model picker (h-[28px], same text size),
-            single-select RadioGroup same as that menu, no submenu needed
-            since there's no provider-style grouping here. Defaults to
-            "manual" (state above) -- the safest stance, so a session
-            opens asking before every action rather than something more
-            permissive. */}
-        {hasModel && (
-        <div className={`${modeFade ? "transition-opacity duration-300" : ""} ${modeVisible ? "opacity-100" : "opacity-0"}`}>
-        {/* size="compact" -- matches the app's own 28px row height
-            everywhere else (BaseMenuItem's own useSize() would otherwise
-            default to the reference's 36px "default" step). */}
-        <BaseDropdownMenu
-          size="compact"
-          onOpenChange={(nowOpen) => {
-            modeAnchor.freeze(nowOpen);
-            if (!nowOpen) {
-              const button = modeTriggerRef.current;
-              if (!button) return;
-              const reblur = () => button.blur();
-              button.addEventListener("focus", reblur, { once: true });
-              setTimeout(() => button.removeEventListener("focus", reblur), 1000);
-            }
-          }}
-        >
-          <BaseDropdownTrigger
-            render={
-              <button
-                type="button"
-                ref={modeTriggerRef}
-                className={cn("inline-flex h-[var(--compose-tool-h)] shrink-0 flex-row flex-nowrap items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1.5 text-[length:var(--compose-tool-text)] leading-4 font-normal text-foreground outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]", PRESS_EFFECT)}
-              >
-                <SwapLabel swapKey={mode}>
-                  {(() => {
-                    const found = modes.find((m) => m.value === mode);
-                    return found ? t(found.labelKey) : null;
-                  })()}
-                </SwapLabel>
-                <ChevronDownIcon className="size-[var(--compose-tool-icon)] shrink-0" />
-              </button>
-            }
-          />
-          {/* DropdownSubItem, not BaseMenuItem -- per explicit request ("do
-              a quick description like Synara's one does but without the
-              icon"), each row needs a second, smaller description line
-              under its label (Synara's own RuntimeModeMenuItem,
-              BranchToolbar.tsx: icon + stacked label/description grid --
-              same stacked label/description here, just without the icon
-              column, per "without the icon"), which BaseMenuItem's own
-              fixed single-line layout can't fit. Manual checkmark, not a
-              real radio role -- same reasoning as the model/effort rows'
-              own comments. No hardcoded border/shadow-sm/ring-0 --
-              BaseDropdownContent's own Elevated surface supplies a real
-              nesting-aware background/shadow. */}
-          <BaseDropdownContent
-            side="bottom"
-            align="start"
-            sideOffset={6}
-            anchor={modeAnchor.anchor}
-            className="w-40 min-w-0"
-          >
-            {/* "Permission" describer -- matching the Provider/Model/Effort
-                describer pattern elsewhere in this toolbar. Claude Code's
-                own CLI calls this exact concept "permission mode"
-                (--permission-mode), the primary provider here, so that term
-                over Synara's own "runtime mode" naming. */}
-            <BaseDropdownLabel>{t("compose.permission.title")}</BaseDropdownLabel>
-            {modes.map((m) => (
-              <DropdownSubItem
-                key={m.value}
-                // bg-hover-2/50 when selected, not a trailing checkmark --
-                // per explicit request ("the models and permissions still
-                // have the icon for check but should have the bg active
-                // like effort"), matching Provider/Model/Effort's own
-                // isSelected treatment above.
-                className={cn(
-                  "h-auto flex-col items-start gap-0.5 py-1.5 pr-2.5 pl-2.5 text-[12px]",
-                  m.value === mode && "bg-hover-2"
-                )}
-                onClick={() => {
-                  setMode(m.value);
-                  saveLastPermissionMode(m.value);
-                }}
-              >
-                <span className="flex w-full items-center justify-between gap-2">
-                  <span>{t(m.labelKey)}</span>
-                </span>
-                <span className="text-[11px] font-normal text-muted-foreground">{t(m.descriptionKey)}</span>
-              </DropdownSubItem>
-            ))}
-          </BaseDropdownContent>
-        </BaseDropdownMenu>
-        </div>
         )}
         <Button
           size="icon"
@@ -2196,7 +2528,7 @@ export function ComposeBox({
                 return;
               }
               fadeOutSent();
-              onSubmit(images, effort);
+              onSubmit(images, effort, planMode && planSupported ? "plan" : mode);
               setImages([]);
             }}
             aria-label={t("compose.send")}
@@ -2217,6 +2549,35 @@ export function ComposeBox({
       </div>
     </div>
     </div>
+    <AnimatePresence initial={false}>
+      {showWorkFromFolder && (
+        <motion.div
+          key="work-from-folder"
+          exit={{ opacity: 0, transition: spring.moderate.exit }}
+          className="relative -mt-[var(--compose-shell-radius)] rounded-b-[var(--compose-shell-radius)] border border-t-0 border-border bg-[var(--redesign-compose-extension-surface)] px-4 pt-[calc(var(--compose-shell-radius)+0.25rem)] pb-1"
+        >
+          <div className="flex min-h-7 items-center justify-between gap-3 px-1 text-[11px] text-foreground/75">
+            <button type="button" aria-label={t("compose.workFromFolder")} onClick={onSelectWorkFromFolder} className="-ml-1 flex h-6 min-w-0 items-center gap-1 rounded-[calc(24px*8/27)] px-1 text-left transition-colors hover:bg-hover-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/10">
+              <img src={styledFolderIcon} alt="" aria-hidden="true" className="size-3.5 shrink-0 object-contain" />
+              <span className="@max-[300px]:hidden truncate">{workFromFolderPath ? workFromFolderPath.split(/[\\/]/).filter(Boolean).pop() : t("compose.workFromFolder")}</span>
+            </button>
+            <button type="button" aria-label={t("compose.connectApps")} onClick={onOpenApps} className="-mr-1 flex min-h-7 shrink-0 items-center gap-2 rounded-[calc(28px*8/27)] px-1 text-right focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <span className="@max-[420px]:hidden">{t("compose.connectApps")}</span>
+              <span className={appIconTileClass}>
+                <img src="/icons/providers/github.svg" alt="" aria-hidden="true" className="size-3.5 object-contain dark:invert" />
+              </span>
+              {(["drive", "docs", "sheets"] as const).map((app) => (
+                <span key={app} aria-label={`Google ${app[0].toUpperCase()}${app.slice(1)} — ${t("settings.apps.comingSoon")}`} className={appIconTileClass}>
+                  <img src={`/icons/google-${app}.svg`} alt="" aria-hidden="true" className="size-[18px] object-contain" />
+                </span>
+              ))}
+            </button>
+          </div>
+          {/* The limit warning, laid over this row (which stays underneath). */}
+          {noticeBelow}
+        </motion.div>
+      )}
+    </AnimatePresence>
     </div>
   );
 }
@@ -2247,7 +2608,7 @@ function useFrozenAnchor(triggerRef: React.RefObject<HTMLElement | null>) {
  *  never slides over text), and the new label enters from below. The width
  *  only animates during a swap: any other size change (an icon loading, the
  *  first render) just fits, so the toolbar never drifts on its own. */
-function SwapLabel({ swapKey, children }: { swapKey: string; children: ReactNode }) {
+function SwapLabel({ swapKey, children, className }: { swapKey: string; children: ReactNode; className?: string }) {
   const [shown, setShown] = useState({ key: swapKey, children });
   const [phase, setPhase] = useState<"rest" | "exit" | "enter-start">("rest");
   // null: fits its content (no animation). A number: pinned for a swap.
@@ -2311,7 +2672,7 @@ function SwapLabel({ swapKey, children }: { swapKey: string; children: ReactNode
   return (
     <span
       ref={outerRef}
-      className={cn("inline-flex min-w-0 overflow-hidden", width !== null && "transition-[width] ease-out motion-reduce:transition-none")}
+      className={cn("inline-flex min-w-0 overflow-hidden", className, width !== null && "transition-[width] ease-out motion-reduce:transition-none")}
       style={width === null ? undefined : { width, transitionDuration: `${SWAP_WIDTH_MS}ms` }}
     >
       <span ref={innerRef} className={cn("t-text-swap inline-flex w-max shrink-0 items-center", phase !== "rest" && `is-${phase}`)}>

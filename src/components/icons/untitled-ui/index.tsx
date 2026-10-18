@@ -1,5 +1,7 @@
 import {
   ArrowCircleBrokenLeft,
+  LayersThree01,
+  ArrowSquareUp,
   ChevronDown,
   ChevronRight,
   ChevronLeft,
@@ -90,6 +92,7 @@ import {
 // strokeWidth (SVGProps<SVGSVGElement>) with no adapter needed.
 export {
   ArrowCircleBrokenLeft as ArrowCircleBrokenLeftIcon,
+  ArrowSquareUp as ArrowSquareUpIcon,
   ChevronDown as ChevronDownIcon,
   ChevronRight as ChevronRightIcon,
   // sidebar-nav.tsx's own Tauri-only back/forward navigation arrows.
@@ -163,6 +166,8 @@ export {
   FolderPlus as FolderPlusIcon,
   // Each individual project row (Projects list).
   Folder as FolderIcon,
+  // Workspaces as a kind (Settings > Archived > Workspaces).
+  LayersThree01 as WorkspacesIcon,
   // Connect-apps brand marks -- Untitled UI is a generic UI icon set with
   // no logo marks (unlike Hugeicons, which shipped real Dropbox/GitHub/
   // Google Drive glyphs), so these fall back to the closest generic

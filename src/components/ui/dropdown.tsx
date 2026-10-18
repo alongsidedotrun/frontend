@@ -930,6 +930,20 @@ function DropdownSubMenuItem({
     return () => clearTimeout(id);
   }, [open]);
 
+  // Stays on the right whenever it fits there. The default flip check measured the popup at its
+  // max-w-full width (wider than it shows) and sent it left with room to spare; this compares the
+  // popup's real width with the real space right of its row, and lets it flip only when it doesn't.
+  const popupRef = useRef<HTMLDivElement>(null);
+  const [fitsRight, setFitsRight] = useState(false);
+  useLayoutEffect(() => {
+    if (!open) return;
+    const row = internalRef.current?.getBoundingClientRect();
+    const width = popupRef.current?.scrollWidth;
+    if (!row || !width) return;
+    // 10px side offset, 8px from the window's edge.
+    setFitsRight(window.innerWidth - row.right - 10 - 8 >= width);
+  });
+
   const isActive = activeIndex === index;
   const highlighted = isActive || open || checked;
 
@@ -985,7 +999,7 @@ function DropdownSubMenuItem({
             {/* sideOffset 10: the trigger row sits 4px inside its panel (3px
                 padding + 1px border), so this leaves a 6px gap between the
                 two panels, the same gap a menu leaves below its trigger. */}
-            <Menu.Positioner side="right" align="start" sideOffset={10} className="outline-none" style={{ zIndex }}>
+            <Menu.Positioner side="right" align="start" sideOffset={10} collisionAvoidance={fitsRight ? { side: "none", align: "shift" } : undefined} className="outline-none" style={{ zIndex }}>
               <motion.div
                 initial={{ opacity: 0, scale: 0.96 }}
                 animate={{ opacity: 1, scale: 1, transition: spring.fast }}
@@ -998,6 +1012,7 @@ function DropdownSubMenuItem({
                     row corner), matching the redesign menus; separators bleed
                     back out so they still run edge to edge. */}
                 <Menu.Popup
+                  ref={popupRef}
                   render={<Elevated offset={1} shadowLevel={3} />}
                   className={cn(`flex flex-col min-w-40 max-w-full max-h-[min(480px,var(--available-height))] overflow-y-auto overflow-x-hidden ${DROPDOWN_PANEL_RADIUS} !bg-[var(--redesign-sidebar-overlay-surface)] border border-[var(--redesign-sidebar-elevated-border)] !shadow-[var(--redesign-sidebar-elevated-shadow)] p-[3px] [&_[role=separator]]:-mx-[3px] outline-none`, popupClassName)}
                 >

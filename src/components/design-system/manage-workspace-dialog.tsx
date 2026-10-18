@@ -1,11 +1,7 @@
 import { useEffect, useId, useState } from "react";
-import { Trans, useTranslation } from "react-i18next";
-import { workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
-import { WorkspaceFields, type WorkspaceFieldValues } from "@/components/design-system/workspace-fields";
-import { WorkspacePreview } from "@/components/design-system/create-workspace-dialog";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { useTranslation } from "react-i18next";
+import { ArchiveWorkspaceItem, WorkspaceFields, WorkspaceTileMenu, WorkspaceTilePreview, type WorkspaceFieldValues } from "@/components/design-system/workspace-fields";
+import { ShellDialog, ShellDialogActions } from "@/components/design-system/shell-dialog";
 
 export type ManagedWorkspace = {
   id: string;
@@ -16,7 +12,8 @@ export type ManagedWorkspace = {
   color?: number | null;
 };
 
-// Only the fields that changed; null clears one.
+export type ManagedProject = { id: string; name: string; workspace_id?: string | null };
+
 export type WorkspaceChange = {
   name?: string;
   logo?: string | null;
@@ -28,16 +25,14 @@ type ManageWorkspaceDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   workspace: ManagedWorkspace;
-  /** Saves the changes; resolves once saved (the dialog then closes). */
   onSave: (change: WorkspaceChange) => Promise<void> | void;
-  /** Deletes the workspace; resolves once deleted (the dialog then closes). */
-  onDelete: () => Promise<void> | void;
-  /** Whether another workspace exists: the last one can't be deleted. */
-  canDelete?: boolean;
+  onArchive: () => Promise<void> | void;
+  canArchive?: boolean;
+  projects?: ManagedProject[];
+  workspaces?: ManagedWorkspace[];
+  onMoveProject?: (projectId: string, workspaceId: string) => Promise<void> | void;
   saving?: boolean;
-  /** A save or delete error, shown by the button that caused it. */
   error?: string | null;
-  /** A problem with the name (e.g. taken), shown under the Name field. */
   nameError?: string | null;
 };
 
@@ -45,28 +40,17 @@ function valuesOf(workspace: ManagedWorkspace): WorkspaceFieldValues {
   return { name: workspace.name, description: workspace.description ?? "", logo: workspace.logo ?? null, colorIndex: workspace.color ?? null };
 }
 
-/**
- * Two-pane dialog for the current workspace, laid out like Create workspace:
- * its logo or letter tile, name and description on the left with a live
- * sidebar preview on the right, and deleting it at the bottom. Every
- * workspace, Personal included, works the same way; only the last one can't
- * be deleted.
- */
-export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, onDelete, canDelete = false, saving = false, error, nameError }: ManageWorkspaceDialogProps) {
+export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, onArchive, canArchive = false, projects = [], workspaces = [], onMoveProject, saving = false, error, nameError }: ManageWorkspaceDialogProps) {
   const { t } = useTranslation();
   const [values, setValues] = useState<WorkspaceFieldValues>(() => valuesOf(workspace));
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [confirmName, setConfirmName] = useState("");
-  const confirmId = useId();
+  const [confirmingArchive, setConfirmingArchive] = useState(false);
+  const formId = useId();
 
-  // Each opening starts from the workspace as saved.
   useEffect(() => {
     if (!open) return;
     setValues(valuesOf(workspace));
-    setConfirmingDelete(false);
-    setConfirmName("");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, workspace.id]);
+    setConfirmingArchive(false);
+  }, [open, workspace]);
 
   const saved = valuesOf(workspace);
   const trimmedName = values.name.trim();
@@ -77,104 +61,55 @@ export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, o
   if (description !== saved.description.trim()) change.description = description || null;
   if (values.colorIndex !== saved.colorIndex) change.color = values.colorIndex;
   const changed = Object.keys(change).length > 0;
-
-  const previewName = trimmedName || workspace.name;
+  const previewValues = { ...values, name: trimmedName || workspace.name };
+  const workspaceProjects = projects.filter((project) => project.workspace_id === workspace.id);
+  const destinations = workspaces.filter((item) => item.id !== workspace.id);
 
   return (
-    // !z-[120]: above the app top bar (z-[110]), like the other shell dialogs.
-    <Dialog open={open} onOpenChange={onOpenChange} backdropClassName="!z-[120]">
-      <DialogContent size="xl" motion="gentle" className="!z-[120] max-h-[calc(100dvh-2rem)] max-w-[min(760px,calc(100vw-2rem))] overflow-hidden p-0">
-        <div className="grid min-h-[420px] grid-cols-1 sm:grid-cols-2">
-          <div className="flex max-h-[calc(100dvh-2rem)] flex-col gap-6 overflow-y-auto bg-[var(--redesign-primary-surface)] p-8">
-            <div className="flex flex-col gap-1">
-              <DialogTitle className="text-[18px] font-medium text-foreground">{t("workspace.manage")}</DialogTitle>
-              <DialogDescription className="text-[12px] text-muted-foreground">
-                {t("workspace.manage.description")}
-              </DialogDescription>
+    <ShellDialog
+      centered
+      open={open}
+      onOpenChange={onOpenChange}
+      icon={confirmingArchive ? <WorkspaceTilePreview values={previewValues} /> : (
+        <WorkspaceTileMenu
+          values={previewValues}
+          onChange={(next) => setValues({ ...next, name: values.name })}
+          extra={<ArchiveWorkspaceItem label={t("common.archive")} disabled={!canArchive} title={canArchive ? undefined : t("workspace.delete.onlyWorkspace")} onSelect={() => setConfirmingArchive(true)} />}
+        />
+      )}
+      title={confirmingArchive ? t("archive.workspace.title") : t("workspace.manage")}
+      description={confirmingArchive ? t("archive.workspace.description") : t("workspace.manage.description")}
+      actions={confirmingArchive ? (
+        <ShellDialogActions cancelLabel={t("common.cancel")} onCancel={() => setConfirmingArchive(false)} primary={{ label: t("common.archive"), type: "submit", form: formId, disabled: saving }} />
+      ) : (
+        <ShellDialogActions cancelLabel={t("common.cancel")} onCancel={() => onOpenChange(false)} primary={{ label: t("workspace.manage.save"), type: "submit", form: formId, disabled: !changed || !trimmedName || saving, loading: saving }} />
+      )}
+    >
+      {confirmingArchive ? (
+        <form id={formId} className="flex flex-col gap-2" onSubmit={(event) => { event.preventDefault(); if (!saving) void onArchive(); }}>
+          <p className="px-1 text-[12px] text-muted-foreground">{t("archive.workspace.projectsHint")}</p>
+          {error && <p className="px-1 text-[12px] text-destructive">{error}</p>}
+        </form>
+      ) : (
+        <form id={formId} className="flex flex-col gap-3" onSubmit={(event) => { event.preventDefault(); if (changed && trimmedName && !saving) void onSave(change); }}>
+          <WorkspaceFields values={values} onChange={setValues} nameError={nameError} />
+          {workspaceProjects.length > 0 && destinations.length > 0 && (
+            <div className="flex flex-col gap-2 pt-1">
+              <p className="px-1 text-[12px] font-medium text-foreground">{t("archive.workspace.moveProjects")}</p>
+              {workspaceProjects.map((project) => (
+                <label key={project.id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2 text-[12px]">
+                  <span className="truncate">{project.name}</span>
+                  <select className="max-w-40 rounded-md border border-border bg-background px-2 py-1" defaultValue="" onChange={(event) => { if (event.target.value) void onMoveProject?.(project.id, event.target.value); }}>
+                    <option value="" disabled>{t("archive.workspace.moveTo")}</option>
+                    {destinations.map((destination) => <option key={destination.id} value={destination.id}>{destination.name}</option>)}
+                  </select>
+                </label>
+              ))}
             </div>
-
-            <>
-                <form
-                  className="flex flex-col gap-6"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (changed && trimmedName && !saving) void onSave(change);
-                  }}
-                >
-                  <WorkspaceFields values={values} onChange={setValues} nameError={nameError} />
-                  {error && !confirmingDelete && <p className="text-[12px] text-destructive">{error}</p>}
-                  <div className="flex items-center gap-2">
-                    <Button type="button" variant="tertiary" onClick={() => onOpenChange(false)}>
-                      {t("common.cancel")}
-                    </Button>
-                    <Button type="submit" variant="primary" className="flex-1" disabled={!changed || !trimmedName || saving}>
-                      {t("workspace.manage.save")}
-                    </Button>
-                  </div>
-                </form>
-
-                <section className="flex flex-col gap-2 border-t border-[var(--redesign-sidebar-border)] pt-5">
-                  <span className="text-[13px] font-medium text-foreground">{t("workspace.delete.title")}</span>
-                  <span className="text-[12px] text-muted-foreground">
-                    {canDelete ? t("workspace.delete.description") : t("workspace.delete.onlyWorkspace")}
-                  </span>
-                  {!canDelete ? null : confirmingDelete ? (
-                    <form
-                      className="flex flex-col gap-2 pt-1"
-                      onSubmit={(event) => {
-                        event.preventDefault();
-                        if (confirmName.trim() === workspace.name && !saving) void onDelete();
-                      }}
-                    >
-                      <label htmlFor={confirmId} className="text-[12px] text-muted-foreground">
-                        <Trans
-                          i18nKey="workspace.delete.confirm"
-                          values={{ name: workspace.name }}
-                          components={[<span className="font-medium text-foreground" key="0" />]}
-                        />
-                      </label>
-                      <Input
-                        id={confirmId}
-                        autoFocus
-                        value={confirmName}
-                        onChange={(event) => setConfirmName(event.target.value)}
-                        autoComplete="off"
-                        className="h-8 border-[var(--redesign-sidebar-border)] bg-background text-[13px]"
-                      />
-                      {error && <p className="text-[12px] text-destructive">{error}</p>}
-                      <div className="flex items-center gap-2">
-                        <Button type="button" variant="tertiary" size="compact" onClick={() => { setConfirmingDelete(false); setConfirmName(""); }}>
-                          {t("workspace.delete.keep")}
-                        </Button>
-                        <Button
-                          type="submit"
-                          variant="tertiary"
-                          size="compact"
-                          disabled={confirmName.trim() !== workspace.name || saving}
-                          className="text-destructive"
-                        >
-                          {t("workspace.delete.title")}
-                        </Button>
-                      </div>
-                    </form>
-                  ) : (
-                    <div className="pt-1">
-                      <Button type="button" variant="tertiary" size="compact" className="text-destructive" onClick={() => setConfirmingDelete(true)}>
-                        {t("workspace.delete.start")}
-                      </Button>
-                    </div>
-                  )}
-                </section>
-            </>
-          </div>
-
-          <WorkspacePreview
-            name={previewName}
-            logo={values.logo}
-            monogram={workspaceMonogram(previewName, values.colorIndex)}
-          />
-        </div>
-      </DialogContent>
-    </Dialog>
+          )}
+          {error && <p className="px-1 text-[12px] text-destructive">{error}</p>}
+        </form>
+      )}
+    </ShellDialog>
   );
 }
