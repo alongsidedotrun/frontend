@@ -89,7 +89,8 @@ export function ShellDialog({
           className={cn(PANE_DIALOG_MAX_HEIGHT, "overflow-y-auto bg-[#FAFAFA] dark:bg-[var(--redesign-primary-surface)]")}
         >
         <div ref={contentRef} className="flex flex-col gap-3 px-[max(2.5rem,15%)] py-20">
-          {top}
+          {/* The header below is pulled up 24px (-top-6); this keeps it clear of the tabs. */}
+          {top && <div className="mb-6 flex flex-col">{top}</div>}
           {centered ? (
             // One step out, then the next in: a fade, while the dialog eases to the new height.
             <AnimatePresence mode="wait" initial={false}>

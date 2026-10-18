@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowUpRight, Check, File02, FilterLines, Plus, SearchMd, Stars02, SwitchVertical01 } from "@untitledui/icons";
+import { Check, File02, FilterLines, Plus, SearchMd, Stars02, SwitchVertical01 } from "@untitledui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
@@ -8,8 +8,9 @@ import { DropdownMenu, DropdownTrigger, DropdownContent } from "@/components/ui/
 import { MenuItem } from "@/components/ui/menu-item";
 import { ShapeProvider } from "@/lib/shape-context";
 import { ShellDialog, ShellDialogActions, ShellField, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
-import { readSkillFile, SKILL_CATALOG, SKILLS_SH, skillsShSearchUrl, useSkills, type Skill, type SkillGroup, type SkillPublisher } from "@/lib/skills";
+import { readSkillFile, SKILL_CATALOG, useSkills, type Skill, type SkillGroup, type SkillPublisher } from "@/lib/skills";
 import { cn } from "@/lib/utils";
+import { SkillsBrowserDialog } from "@/components/skills-browser-dialog";
 
 const GROUPS: readonly SkillGroup[] = ["recommended", "new", "popular"];
 // Same pill segmented control as Invite members.
@@ -29,6 +30,7 @@ export function SkillsSection() {
   // Add skill: pick a Markdown file, then name and describe it in the dialog.
   const fileRef = useRef<HTMLInputElement>(null);
   const [fileError, setFileError] = useState(false);
+  const [browsing, setBrowsing] = useState(false);
   const [draft, setDraft] = useState<{ fileName: string; name: string; description: string; instructions: string } | null>(null);
 
   const pool = tab === "installed" ? skills.installed : SKILL_CATALOG;
@@ -80,10 +82,8 @@ export function SkillsSection() {
             }}
           />
           <Button size="compact" variant="tertiary" leadingIcon={Plus} onClick={() => fileRef.current?.click()}>{t("skills.add")}</Button>
-          {/* skills.sh, searching for whatever is typed here. */}
-          <Button size="compact" variant="primary" trailingIcon={ArrowUpRight} asChild>
-            <a href={needle ? skillsShSearchUrl(query.trim()) : SKILLS_SH} target="_blank" rel="noreferrer">{t("skills.empty.browse")}</a>
-          </Button>
+          {/* skills.sh, starting from whatever is typed here. */}
+          <Button size="compact" variant="primary" leadingIcon={SearchMd} onClick={() => setBrowsing(true)}>{t("skills.empty.browse")}</Button>
         </div>
       </div>
 
@@ -137,18 +137,14 @@ export function SkillsSection() {
       ) : (
         <div className="mt-8 flex flex-col items-center gap-3 rounded-xl border border-border bg-card px-4 py-10 text-center text-[length:var(--redesign-chat-text)] text-muted-foreground">
           {needle || publisher ? t("skills.empty.search") : t("skills.empty.installed")}
-          {needle && <SkillsShLink href={skillsShSearchUrl(query.trim())}>{t("skills.searchSkillsSh", { query: query.trim() })}</SkillsShLink>}
+          {needle && <Button size="compact" variant="tertiary" leadingIcon={SearchMd} onClick={() => setBrowsing(true)}>{t("skills.browse.placeholder")}</Button>}
           {tab === "installed" && !needle && !publisher && (
             <Button size="compact" variant="tertiary" onClick={() => setTab("discover")}>{t("skills.empty.browse")}</Button>
           )}
         </div>
       )}
 
-      {tab === "discover" && flat.length > 0 && (
-        <p className="mt-6 text-center text-[length:var(--redesign-chat-meta)] text-muted-foreground">
-          <SkillsShLink href={needle ? skillsShSearchUrl(query.trim()) : SKILLS_SH}>{needle ? t("skills.searchSkillsSh", { query: query.trim() }) : t("skills.browseMore")}</SkillsShLink>
-        </p>
-      )}
+      <SkillsBrowserDialog open={browsing} onOpenChange={setBrowsing} initialQuery={query.trim()} />
 
       <AddSkillDialog
         draft={draft}
@@ -156,15 +152,6 @@ export function SkillsSection() {
         onAdd={(skill) => { skills.addCustom(skill); setDraft(null); setTab("installed"); }}
       />
     </div>
-  );
-}
-
-function SkillsShLink({ href, children }: { href: string; children: React.ReactNode }) {
-  return (
-    <a href={href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-foreground underline-offset-2 hover:underline">
-      {children}
-      <ArrowUpRight aria-hidden="true" className="size-3" />
-    </a>
   );
 }
 
