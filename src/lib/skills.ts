@@ -25,10 +25,9 @@ export interface Skill {
   instructions?: string;
 }
 
-// skills.sh, Vercel's open directory of agent skills. Its API needs a Vercel
-// OIDC token (server-side, on Vercel only), so for now the app links to it.
+// skills.sh, Vercel's open directory of agent skills. Browse skills searches it
+// through the backend (skills_sh.rs); its pages are linked from results.
 export const SKILLS_SH = "https://www.skills.sh";
-export const skillsShSearchUrl = (query: string) => `${SKILLS_SH}/search?q=${encodeURIComponent(query)}`;
 
 
 const ALONGSIDE: SkillPublisher = { name: "Alongside", icon: "/favicon.svg" };
@@ -99,9 +98,11 @@ export function useSkills() {
       const now = read();
       write({ installed: now.installed.filter((item) => item !== id), custom: now.custom.filter((skill) => skill.id !== id) });
     },
-    addCustom: (skill: { name: string; description: string; instructions: string }) => {
+    /** Your own skill, or one from skills.sh (its own id and publisher; added once). */
+    addCustom: (skill: { name: string; description: string; instructions: string; id?: string; publisher?: SkillPublisher }) => {
       const now = read();
-      write({ ...now, custom: [...now.custom, { ...skill, id: `custom-${crypto.randomUUID()}`, publisher: YOU }] });
+      if (skill.id && now.custom.some((item) => item.id === skill.id)) return;
+      write({ ...now, custom: [...now.custom, { ...skill, id: skill.id ?? `custom-${crypto.randomUUID()}`, publisher: skill.publisher ?? YOU }] });
     },
   };
 }
