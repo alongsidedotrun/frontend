@@ -1895,6 +1895,15 @@ export const translations = {
   "compose.command.task": {
     en: "Task", "pt-BR": "Tarefa", es: "Tarea", fr: "Tâche", de: "Aufgabe", zh: "任务", ja: "タスク",
   },
+  "compose.taskDescription": {
+    en: "Turn this into a task list",
+    "pt-BR": "Transforme isto em uma lista de tarefas",
+    es: "Convierte esto en una lista de tareas",
+    fr: "Transformez ceci en liste de tâches",
+    de: "In eine Aufgabenliste umwandeln",
+    zh: "将其转换为任务列表",
+    ja: "タスクリストに変換します",
+  },
   "compose.command.docs": {
     en: "Docs", "pt-BR": "Documentos", es: "Documentos", fr: "Documents", de: "Dokumente", zh: "文档", ja: "ドキュメント",
   },

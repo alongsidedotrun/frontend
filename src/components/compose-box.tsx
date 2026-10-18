@@ -241,7 +241,7 @@ const SLASH_ROWS: SlashRow[] = [
   { key: "goal", command: "/goal", labelKey: "compose.goal", desc: "Set a goal to keep pursuing", descKey: "compose.goalDescription", icon: <Target04 className="size-4" /> },
   { key: "compare", command: "/compare", labelKey: "compose.command.compare", desc: "Compare two things", icon: <CompareIcon className="size-4" /> },
   { key: "summarize", command: "/summarize", labelKey: "compose.command.summarize", desc: "Summarize this chat", icon: <SummarizeIcon className="size-4" /> },
-  { key: "task", command: "/task", labelKey: "compose.command.task", desc: "Turn this into a task list", icon: <TaskIcon className="size-4" /> },
+  { key: "task", command: "/task", labelKey: "compose.command.task", desc: "Turn this into a task list", descKey: "compose.taskDescription", icon: <TaskIcon className="size-4" /> },
   { key: "docs", command: "/docs", labelKey: "compose.command.docs", desc: "Draft a new document", icon: <DocIcon className="size-4" /> },
 ];
 
@@ -1198,6 +1198,14 @@ export function ComposeBox({
     fileInputRef.current?.click();
   }
 
+  // Task follows the same draft-preserving pattern as Goal: choosing it
+  // turns what is already written into the task command's subject.
+  function insertTask() {
+    const objective = value.trim();
+    onChange(objective ? `/task ${objective}` : "/task ");
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }
+
   // Goal is a native command in the current Codex, Claude Code and
   // Antigravity CLIs. Preserve an existing draft as its objective, matching
   // the Add panel's role as a mode applied to what the user is composing.
@@ -1834,6 +1842,13 @@ export function ComposeBox({
               <DropdownSubItem className="flex h-8 items-center gap-2.5 text-[12px] text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground">
                 <SkillIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="flex-1">{t("compose.skills")}</span>
+              </DropdownSubItem>
+              <DropdownSubItem className="h-8 items-center gap-2.5 text-[12px] text-ink-2 transition-colors data-[highlighted]:text-foreground" onClick={insertTask}>
+                <TaskIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+                <span className="flex min-w-0 flex-1 items-baseline gap-3">
+                  <span className="shrink-0">{t("compose.command.task")}</span>
+                  <span className="min-w-0 truncate text-[12px] text-ink-3">{t("compose.taskDescription")}</span>
+                </span>
               </DropdownSubItem>
               <DropdownSubItem className="h-8 items-center gap-2.5 text-[12px] text-ink-2 transition-colors data-[highlighted]:text-foreground" onClick={insertGoal}>
                 <Target04 aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
