@@ -1825,15 +1825,15 @@ export function ComposeBox({
             side={addMenuSide}
             align="start"
             sideOffset={8}
-            className="w-72 min-w-0 !overflow-visible !border-0 !bg-transparent !shadow-none p-0"
+            className="w-[min(28rem,calc(100vw-1.5rem))] min-w-0 !overflow-visible !border-0 !bg-transparent !shadow-none p-0"
           >
             <div className="overflow-hidden rounded-xl border border-[var(--redesign-sidebar-elevated-border)] bg-[var(--redesign-sidebar-overlay-surface)] shadow-[var(--redesign-sidebar-elevated-shadow)]">
               <BaseDropdownLabel>{t("common.add")}</BaseDropdownLabel>
-              <DropdownSubItem className="!h-auto items-start gap-2.5 py-1.5 text-[12px]" onClick={openFilePicker}>
-                <AttachmentIcon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-                <span className="min-w-0 flex-1">
-                  <span className="block">{t("compose.files")}</span>
-                  <span className="mt-0.5 block whitespace-normal text-[11px] leading-4 text-muted-foreground">
+              <DropdownSubItem className="!h-auto items-center gap-2.5 py-1.5 text-[12px]" onClick={openFilePicker}>
+                <AttachmentIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+                <span className="flex min-w-0 flex-1 items-baseline gap-3">
+                  <span className="shrink-0">{t("compose.files")}</span>
+                  <span className="min-w-0 whitespace-normal text-[11px] leading-4 text-muted-foreground">
                     {t(isMultiplayer ? "compose.filesMultiplayerDescription" : "compose.filesDescription")}
                   </span>
                 </span>
@@ -1842,18 +1842,20 @@ export function ComposeBox({
                 <SkillIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="flex-1">{t("compose.skills")}</span>
               </DropdownSubItem>
-              <DropdownSubItem className="!h-auto items-start gap-2.5 py-1.5 text-[12px]" onClick={insertGoal}>
-                <Target04 aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-                <span className="min-w-0 flex-1">
-                  <span className="block">{t("compose.goal")}</span>
-                  <span className="mt-0.5 block whitespace-normal text-[11px] leading-4 text-muted-foreground">{t("compose.goalDescription")}</span>
+              <DropdownSubItem className="!h-auto items-center gap-2.5 py-1.5 text-[12px]" onClick={insertGoal}>
+                <Target04 aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+                <span className="flex min-w-0 flex-1 items-baseline gap-3">
+                  <span className="shrink-0">{t("compose.goal")}</span>
+                  <span className="min-w-0 whitespace-normal text-[11px] leading-4 text-muted-foreground">{t("compose.goalDescription")}</span>
                 </span>
               </DropdownSubItem>
               {planSupported && (
                 <DropdownSubItem className="flex items-center gap-2.5 text-[12px] whitespace-nowrap" onClick={() => setPlanMode((on) => !on)}>
                   <ClipboardCheck aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-                  <span>{t("compose.planMode")}</span>
-                  <span className="flex-1 truncate text-muted-foreground/70">{planMode ? t("compose.planModeOff") : t("compose.planModeOn")}</span>
+                  <span className="flex min-w-0 flex-1 items-baseline gap-3">
+                    <span className="shrink-0">{t("compose.planMode")}</span>
+                    <span className="min-w-0 truncate text-[11px] leading-4 text-muted-foreground/70">{planMode ? t("compose.planModeOff") : t("compose.planModeOn")}</span>
+                  </span>
                   {planMode && <CheckIcon aria-hidden="true" className="size-3.5 shrink-0 text-foreground/70" />}
                 </DropdownSubItem>
               )}
