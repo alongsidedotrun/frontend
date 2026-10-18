@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, File02, FilterLines, Plus, SearchMd, Stars02, SwitchVertical01 } from "@untitledui/icons";
+import { ArrowUpRight, Check, File02, FilterLines, Plus, SearchMd, Stars02, SwitchVertical01 } from "@untitledui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
@@ -9,15 +9,14 @@ import { MenuItem } from "@/components/ui/menu-item";
 import { ShapeProvider } from "@/lib/shape-context";
 import { ShellDialog, ShellDialogActions, ShellField, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
 import { readSkillFile, SKILLS_SH, useSkills, type Skill } from "@/lib/skills";
-import { compactCount, installedIdFor, loadSkillsShList, searchSkillsSh, skillOwner, useAddRemoteSkill, type RemoteSkill, type SkillsShView } from "@/lib/skills-sh";
+import { compactCount, installedIdFor, loadSkillsShList, loadSkillsShOfficial, searchSkillsSh, skillOwner, useAddRemoteSkill, type OfficialCompany, type RemoteSkill, type SkillsShView } from "@/lib/skills-sh";
 import { cn } from "@/lib/utils";
-import { SkillsBrowserDialog } from "@/components/skills-browser-dialog";
 
-// Discover's sections, from skills.sh's own lists, and how many cards each shows.
-const SECTIONS: readonly { view: SkillsShView; titleKey: string }[] = [
-  { view: "trending", titleKey: "skills.view.trending" },
-  { view: "hot", titleKey: "skills.view.hot" },
-  { view: "all-time", titleKey: "skills.group.popular" },
+// Discover's sections after Official, from skills.sh's own lists (and its pages, for See all).
+const SECTIONS: readonly { view: SkillsShView; titleKey: string; page: string }[] = [
+  { view: "all-time", titleKey: "skills.group.popular", page: "" },
+  { view: "hot", titleKey: "skills.view.hot", page: "hot" },
+  { view: "trending", titleKey: "skills.view.trending", page: "trending" },
 ];
 const SECTION_SIZE = 6;
 // Same pill segmented control as Invite members.
@@ -33,9 +32,9 @@ function sortSkills<T extends { name: string; installs?: number }>(skills: reado
 }
 
 /**
- * Settings > Skills. Discover is skills.sh (its Trending, Hot and All time
- * lists, and its search); Installed is what you've added. Browse skills opens
- * the full lists; Add skill takes your own .md file.
+ * Settings > Skills. Discover is skills.sh: its official companies, then its
+ * Most installed, Hot and Trending lists, or its search; Installed is what
+ * you've added. Browse more opens skills.sh; Add skill takes your own .md file.
  */
 export function SkillsSection() {
   const { t } = useTranslation();
@@ -47,13 +46,14 @@ export function SkillsSection() {
   const [sort, setSort] = useState<Sort>("featured");
   const [lists, setLists] = useState<Record<SkillsShView, Loaded<RemoteSkill[]>>>({ trending: "loading", hot: "loading", "all-time": "loading" });
   const [results, setResults] = useState<Loaded<RemoteSkill[]> | null>(null);
+  const [official, setOfficial] = useState<Loaded<OfficialCompany[]>>("loading");
   // Add skill: pick a Markdown file, then name and describe it in the dialog.
   const fileRef = useRef<HTMLInputElement>(null);
   const [fileError, setFileError] = useState(false);
-  const [browsing, setBrowsing] = useState<{ view: SkillsShView; query: string } | null>(null);
   const [draft, setDraft] = useState<{ fileName: string; name: string; description: string; instructions: string } | null>(null);
 
   useEffect(() => {
+    void loadSkillsShOfficial().then(setOfficial).catch(() => setOfficial("error"));
     for (const { view } of SECTIONS) {
       void loadSkillsShList(view)
         .then((list) => setLists((current) => ({ ...current, [view]: list })))
@@ -123,8 +123,11 @@ export function SkillsSection() {
               void file.text().then((text) => setDraft({ fileName: file.name, ...readSkillFile(text, file.name) }));
             }}
           />
-          <Button size="compact" variant="tertiary" leadingIcon={Plus} onClick={() => fileRef.current?.click()}>{t("skills.add")}</Button>
-          <Button size="compact" variant="primary" leadingIcon={SearchMd} onClick={() => setBrowsing({ view: "all-time", query: needle })}>{t("skills.empty.browse")}</Button>
+          {/* skills.sh itself, searching for whatever is typed here. */}
+          <Button size="compact" variant="tertiary" trailingIcon={ArrowUpRight} asChild>
+            <a href={needle.length >= 2 ? `${SKILLS_SH}/search?q=${encodeURIComponent(needle)}` : SKILLS_SH} target="_blank" rel="noreferrer">{t("skills.browseMore")}</a>
+          </Button>
+          <Button size="compact" variant="primary" leadingIcon={Plus} onClick={() => fileRef.current?.click()}>{t("skills.add")}</Button>
         </div>
       </div>
 
@@ -199,31 +202,45 @@ export function SkillsSection() {
           )}
         </section>
       ) : (
-        SECTIONS.map(({ view, titleKey }) => {
+        <>
+        <section className="mt-8">
+          <SectionHeader title={t("skills.official")} page="official" />
+          {official === "loading" ? (
+            <SkillGrid>{Array.from({ length: 3 }, (_, i) => <CardPlaceholder key={i} />)}</SkillGrid>
+          ) : official === "error" ? (
+            <EmptyState>{t("skills.browse.error")}</EmptyState>
+          ) : (
+            <SkillGrid>
+              {official.map((company) => (
+                <OfficialCompanyCard
+                  key={company.owner}
+                  company={company}
+                  isAdded={(skill) => skills.isInstalled(installedIdFor(skill))}
+                  state={addRemote.state}
+                  onAdd={(skill) => void addRemote.add(skill)}
+                  onRemove={(skill) => skills.remove(installedIdFor(skill))}
+                />
+              ))}
+            </SkillGrid>
+          )}
+        </section>
+        {SECTIONS.map(({ view, titleKey, page }) => {
           const list = lists[view];
           return (
             <section key={view} className="mt-8">
-              <div className="mb-2.5 flex items-center justify-between">
-                <h3 className="text-[length:var(--redesign-font-size-compact)] text-muted-foreground">{t(titleKey)}</h3>
-                {Array.isArray(list) && (
-                  <button type="button" onClick={() => setBrowsing({ view, query: "" })} className="text-[length:var(--redesign-font-size-compact)] text-muted-foreground transition-colors hover:text-foreground">
-                    {t("skills.seeAll")}
-                  </button>
-                )}
-              </div>
+              <SectionHeader title={t(titleKey)} page={page} />
               {list === "loading" ? (
                 <SkillGrid>{Array.from({ length: 3 }, (_, i) => <CardPlaceholder key={i} />)}</SkillGrid>
               ) : list === "error" ? (
                 <EmptyState>{t("skills.browse.error")}</EmptyState>
               ) : (
-                <SkillGrid>{sortSkills(list.filter(keep).slice(0, officialOnly ? undefined : 60), sort).slice(0, SECTION_SIZE).map(remoteCard)}</SkillGrid>
+                <SkillGrid>{sortSkills(list.filter(keep), sort).slice(0, SECTION_SIZE).map(remoteCard)}</SkillGrid>
               )}
             </section>
           );
-        })
+        })}
+        </>
       )}
-
-      <SkillsBrowserDialog open={browsing !== null} onOpenChange={(open) => { if (!open) setBrowsing(null); }} initialView={browsing?.view ?? "all-time"} initialQuery={browsing?.query ?? ""} />
 
       <AddSkillDialog
         draft={draft}
@@ -231,6 +248,63 @@ export function SkillsSection() {
         onAdd={(skill) => { skills.addCustom(skill); setDraft(null); setTab("installed"); }}
       />
     </div>
+  );
+}
+
+/** A section's title, and See all: its page on skills.sh. */
+function SectionHeader({ title, page }: { title: string; page: string }) {
+  const { t } = useTranslation();
+  return (
+    <div className="mb-2.5 flex items-center justify-between">
+      <h3 className="text-[length:var(--redesign-font-size-compact)] text-muted-foreground">{title}</h3>
+      <a href={`${SKILLS_SH}/${page}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 text-[length:var(--redesign-font-size-compact)] text-muted-foreground transition-colors hover:text-foreground">
+        {t("skills.seeAll")}
+        <ArrowUpRight aria-hidden="true" className="size-3" />
+      </a>
+    </div>
+  );
+}
+
+/** An official company: its avatar and name, its main repo, and that repo's top three skills, each addable. */
+function OfficialCompanyCard({
+  company,
+  isAdded,
+  state,
+  onAdd,
+  onRemove,
+}: {
+  company: OfficialCompany;
+  isAdded: (skill: RemoteSkill) => boolean;
+  state: Record<string, "adding" | "error">;
+  onAdd: (skill: RemoteSkill) => void;
+  onRemove: (skill: RemoteSkill) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <article className={CARD}>
+      <div className="flex items-center gap-2">
+        <OwnerMark source={company.repo} size="md" />
+        <a href={`${SKILLS_SH}/${company.owner}`} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-[length:var(--redesign-chat-text)] font-medium text-foreground hover:underline">
+          {company.owner}
+        </a>
+        <span className="shrink-0 text-[length:var(--redesign-chat-meta)] text-muted-foreground">{t("skills.browse.installs", { formatted: compactCount(company.totalInstalls) })}</span>
+      </div>
+      <a href={`${SKILLS_SH}/${company.repo}`} target="_blank" rel="noreferrer" className="mt-1 truncate text-[length:var(--redesign-chat-meta)] text-muted-foreground hover:underline">
+        {company.repo}
+      </a>
+      <ul className="mt-2 flex flex-col gap-1">
+        {company.skills.map((skill) => (
+          <li key={skill.id} className="flex items-center gap-2">
+            <Stars02 aria-hidden="true" className="size-3 shrink-0 text-muted-foreground" />
+            <a href={`${SKILLS_SH}/${skill.id}`} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-[length:var(--redesign-chat-meta)] text-foreground hover:underline">
+              {skill.name}
+            </a>
+            <span className="shrink-0 text-[length:var(--redesign-chat-meta)] text-muted-foreground">{compactCount(skill.installs)}</span>
+            <AddToggle name={skill.name} added={isAdded(skill)} busy={state[skill.id] === "adding"} failed={state[skill.id] === "error"} onAdd={() => onAdd(skill)} onRemove={() => onRemove(skill)} />
+          </li>
+        ))}
+      </ul>
+    </article>
   );
 }
 
@@ -321,17 +395,26 @@ function InstalledSkillCard({ skill, onRemove }: { skill: Skill; onRemove: () =>
   );
 }
 
-/** A skills.sh owner's GitHub avatar (owner/repo sources), or their first letter. */
-function OwnerMark({ source }: { source: string }) {
+/** A skills.sh owner's GitHub avatar (owner/repo sources), or their first letter. Loaded lazily. */
+function OwnerMark({ source, size = "sm" }: { source: string; size?: "sm" | "md" }) {
   const [failed, setFailed] = useState(false);
   const owner = skillOwner({ source });
-  if (!source.includes("/") || failed) return <LetterMark name={owner} />;
-  return <img src={`https://github.com/${encodeURIComponent(owner)}.png?size=40`} alt="" aria-hidden="true" onError={() => setFailed(true)} className="size-3.5 shrink-0 rounded-[3px] object-cover" />;
+  if (!source.includes("/") || failed) return <LetterMark name={owner} size={size} />;
+  return (
+    <img
+      src={`https://github.com/${encodeURIComponent(owner)}.png?size=${size === "md" ? 64 : 40}`}
+      alt=""
+      aria-hidden="true"
+      loading="lazy"
+      onError={() => setFailed(true)}
+      className={cn("shrink-0 object-cover", size === "md" ? "size-5 rounded-[5px]" : "size-3.5 rounded-[3px]")}
+    />
+  );
 }
 
-function LetterMark({ name }: { name: string }) {
+function LetterMark({ name, size = "sm" }: { name: string; size?: "sm" | "md" }) {
   return (
-    <span aria-hidden="true" className="grid size-3.5 shrink-0 place-items-center rounded-[3px] bg-muted text-[9px] font-medium text-foreground">
+    <span aria-hidden="true" className={cn("grid shrink-0 place-items-center bg-muted font-medium text-foreground", size === "md" ? "size-5 rounded-[5px] text-[11px]" : "size-3.5 rounded-[3px] text-[9px]")}>
       {name.charAt(0).toUpperCase()}
     </span>
   );
