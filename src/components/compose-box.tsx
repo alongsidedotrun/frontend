@@ -133,7 +133,7 @@ const NO_HOVER_SURFACE = "[&>span:first-child]:hidden [&_svg]:!stroke-[1.5]";
 function ComposerMenuKeyboardHints() {
   const { t } = useTranslation();
   return (
-    <div className="flex h-9 items-center justify-between border-t border-border px-3 text-[11px] font-normal text-ink-3">
+    <div className="flex h-9 shrink-0 items-center justify-between border-t border-border px-3 text-[11px] font-normal text-ink-3">
       <div className="flex items-center gap-4">
         <span className="flex items-center gap-1.5">
           <span>{t("compose.menu.select")}</span>
@@ -1486,7 +1486,9 @@ export function ComposeBox({
           ref={tokenMenuRef}
           style={{ maxHeight: tokenMenuMaxHeight }}
           className={cn(
-            "absolute inset-x-0 z-20 overflow-y-auto rounded-2xl border border-border bg-surface shadow-sm",
+            // Capped to the room on its side: only the command list shrinks and
+            // scrolls, so the search hint and the key hints always show.
+            "absolute inset-x-0 z-20 flex flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-sm",
             tokenMenuSide === "bottom" ? "top-full mt-1" : "bottom-full mb-1",
           )}
         >
@@ -1503,7 +1505,7 @@ export function ComposeBox({
               in the footer below, matching the Quick actions menu's visual
               order without introducing a second text field while the
               composer itself already owns the query. */}
-          <div className="border-b border-border px-3 py-2 text-[11px] font-normal text-ink-3/50">{t("compose.menu.searchCommands")}</div>
+          <div className="shrink-0 border-b border-border px-3 py-2 text-[11px] font-normal text-ink-3/50">{t("compose.menu.searchCommands")}</div>
           {/* Plain overflow-y-auto, not ScrollArea -- confirmed directly
               as a real bug ("the scroll inside the drawer does not
               work"): ScrollArea's Viewport sizes itself at height:100% of
@@ -1520,7 +1522,7 @@ export function ComposeBox({
               text's own border-t below span the box's full width edge-to-
               edge, same as top-bar.tsx's search dropdown footer, instead
               of stopping short at this padding's own inset. */}
-          <div className="max-h-[224px] overflow-y-auto p-1">
+          <div className="max-h-[224px] min-h-0 overflow-y-auto p-1">
             <GlideMenu rowSelector="[data-menu-row]" className="flex flex-col gap-px">
               {rows.map((row, i) => (
                 <button
