@@ -9,6 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { DropdownActionRow, DropdownActionSection, type DropdownAction } from "@/components/design-system/dropdown-action-list";
 import { RedesignDropdownContent, RedesignDropdownSeparator } from "@/components/design-system/redesign-dropdown";
+import { ProgressRing } from "@/components/design-system/task-progress";
 
 export type GettingStartedStep = {
   id: string;
@@ -30,39 +31,6 @@ type GettingStartedSummaryProps = {
   /** Once every step is done, the count becomes an X that calls this. */
   onDismiss?: () => void;
 };
-
-function SetupProgressRing({ completedSteps, totalSteps }: { completedSteps: number; totalSteps: number }) {
-  const progress = totalSteps ? Math.min(Math.max(completedSteps / totalSteps, 0), 1) : 0;
-  // A track circle with the blue progress arc drawn over it from the top,
-  // its ends rounded (stroke-linecap round). Drawn in a 16-unit box: 3-unit
-  // stroke on a radius-6.5 circle, the same weight the ring had before.
-  const radius = 6.5;
-  const circumference = 2 * Math.PI * radius;
-  // Inline, so the sidebar's 1px icon-stroke rule (index.css, data-icon-stroke)
-  // doesn't thin the ring or measure its dash in screen pixels.
-  const stroke = (color: string) => ({ stroke: color, strokeWidth: 3, vectorEffect: "none" as const });
-  return (
-    <svg
-      key={`${completedSteps}-${totalSteps}`}
-      aria-hidden="true"
-      viewBox="0 0 16 16"
-      className="size-[var(--redesign-sidebar-footer-progress-size)] shrink-0 -rotate-90 animate-[redesign-progress-ring_400ms_ease-out]"
-    >
-      <circle cx="8" cy="8" r={radius} fill="none" style={stroke("var(--redesign-progress-track)")} />
-      {progress > 0 && (
-        <circle
-          cx="8"
-          cy="8"
-          r={radius}
-          fill="none"
-          strokeLinecap="round"
-          strokeDasharray={`${progress * circumference} ${circumference}`}
-          style={stroke("var(--focus-accent)")}
-        />
-      )}
-    </svg>
-  );
-}
 
 /** Collapsible setup summary for any sidebar surface. */
 export function GettingStartedSummary({
@@ -122,7 +90,7 @@ export function GettingStartedSummary({
             <Check aria-hidden="true" strokeWidth={3} style={{ vectorEffect: "none" }} className="size-[65%]" />
           </span>
         ) : (
-          <SetupProgressRing completedSteps={completedSteps} totalSteps={steps.length} />
+          <ProgressRing completedSteps={completedSteps} totalSteps={steps.length} />
         )}
         <span className="min-w-0 flex-1 truncate text-left font-medium">{label}</span>
         {/* Room for the X (a sibling, as buttons can't nest) once all done. */}

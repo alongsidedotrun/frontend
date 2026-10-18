@@ -268,6 +268,7 @@ const SLASH_ROWS: SlashRow[] = [
   { key: "compare", command: "/compare", labelKey: "compose.command.compare", desc: "Compare two things", icon: <CompareIcon className="size-4" /> },
   { key: "summarize", command: "/summarize", labelKey: "compose.command.summarize", desc: "Summarize this chat", icon: <SummarizeIcon className="size-4" /> },
   { key: "task", command: "/task", labelKey: "compose.command.task", desc: "Turn this into a task list", descKey: "compose.taskDescription", icon: <TaskIcon className="size-4" /> },
+  { key: "subtask", command: "/subtask", labelKey: "compose.command.subtask", desc: "Add a subtask to the active task", descKey: "compose.subtaskDescription", icon: <TaskIcon className="size-4" /> },
   { key: "docs", command: "/docs", labelKey: "compose.command.docs", desc: "Draft a new document", icon: <DocIcon className="size-4" /> },
 ];
 
