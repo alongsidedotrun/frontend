@@ -242,6 +242,7 @@
   /* Quick actions field and Getting Started panel: pure white on the
      #FAFAFA light sidebar, per request. Dark mode keeps their old look. */
   --redesign-quick-actions-surface: #FFFFFF;
+  --redesign-compose-extension-surface: var(--redesign-quick-actions-surface);
   --redesign-getting-started-surface: #FFFFFF;
   --redesign-overlay-border: #EBEBEB;
   --redesign-progress-track: color-mix(in srgb, var(--focus-accent) 30%, transparent);
@@ -312,6 +313,7 @@
      provide separation without introducing a second resting surface. */
   --redesign-quick-actions-surface: var(--redesign-sidebar-surface);
   --redesign-getting-started-surface: var(--redesign-sidebar-overlay-surface);
+  --redesign-compose-extension-surface: var(--redesign-getting-started-surface);
   /* Inactive accent (Getting Started ring, inactive send) in dark mode:
      the accent lightened toward white first, so it reads as a pale blue on
      the dark surface instead of a murky dark blue. */
