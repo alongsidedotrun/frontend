@@ -120,6 +120,8 @@ export default defineConfig({
       "/library/files": backend,
       "/files": backend,
       "/integrations": backend,
+      // Settings > Skills: skills.sh lists, search and SKILL.md (backend skills_sh.rs).
+      "/skills-sh": backend,
       "/permission-rules": backend,
     },
   },
