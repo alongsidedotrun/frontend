@@ -2993,22 +2993,25 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               void sendMessage("/compact");
             }
           }}
-          // Codex only (compose-box.tsx's own onSteer comment has the full reasoning) --
-          // real mid-turn injection via turn/steer, per explicit request ("press enter to
-          // send the prompt mid way but keep the send as stop"). undefined for
-          // Claude/Antigravity, so Enter during their own awaitingReply window keeps
-          // doing nothing, unchanged from before this existed.
+          // Claude and Codex take a message into the running turn (backend harness.rs's
+          // supports_steer). One that can't land -- no turn live any more, or a failed
+          // write -- goes back to the front of the queue rather than vanishing.
           onSteer={
-            modelRef.current.provider === "Codex"
-              ? (text: string) => {
-                  const trimmed = text.trim();
+            modelRef.current.provider === "Codex" || modelRef.current.provider === "Claude"
+              ? (message) => {
+                  const trimmed = message.text.trim();
                   if (!trimmed || !sessionId) return;
                   if (/^\/subtask(?:\s|$)/i.test(trimmed)) addTaskSubtask(trimmed, "pickedUp");
+                  const requeue = () => setQueuedMessages((queued) => [{ ...message, text: trimmed, id: crypto.randomUUID() }, ...queued]);
                   void fetch(`/sessions/${sessionId}/steer`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ text: trimmed, sender_name: getUserDisplayName() }),
-                  });
+                  })
+                    .then((response) => {
+                      if (!response.ok) requeue();
+                    })
+                    .catch(requeue);
                 }
               : undefined
           }
