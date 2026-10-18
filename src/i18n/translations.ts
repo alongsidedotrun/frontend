@@ -1902,6 +1902,8 @@ export const translations = {
   "skills.official": { en: "Official", "pt-BR": "Oficial", es: "Oficial", fr: "Officielle", de: "Offiziell", zh: "官方", ja: "公式" },
   "skills.addFailed": { en: "Couldn't add this skill", "pt-BR": "Não foi possível adicionar esta habilidade", es: "No se pudo añadir esta habilidad", fr: "Impossible d'ajouter cette compétence", de: "Skill konnte nicht hinzugefügt werden", zh: "无法添加此技能", ja: "このスキルを追加できませんでした" },
   "skills.browseMore": { en: "Browse more", "pt-BR": "Ver mais", es: "Ver más", fr: "Voir plus", de: "Mehr entdecken", zh: "浏览更多", ja: "もっと見る" },
+  "limits.warning": { en: "You're getting close to your {{provider}} 5-hour limit: {{percent}}% used", "pt-BR": "Você está perto do limite de 5 horas do {{provider}}: {{percent}}% usado", es: "Te estás acercando al límite de 5 horas de {{provider}}: {{percent}} % usado", fr: "Vous approchez de la limite de 5 heures de {{provider}} : {{percent}} % utilisés", de: "Du näherst dich dem 5-Stunden-Limit von {{provider}}: {{percent}} % verbraucht", zh: "你即将达到 {{provider}} 的 5 小时限额：已用 {{percent}}%", ja: "{{provider}} の5時間制限に近づいています：{{percent}}% 使用済み" },
+  "limits.resetsAt": { en: "resets at {{time}}", "pt-BR": "renova às {{time}}", es: "se restablece a las {{time}}", fr: "réinitialisation à {{time}}", de: "wird um {{time}} zurückgesetzt", zh: "{{time}} 重置", ja: "{{time}} にリセット" },
   "compose.skills": {
     en: "Skills",
     "pt-BR": "Habilidades",
