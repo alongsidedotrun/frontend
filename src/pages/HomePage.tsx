@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useOutletContext } from "react-router-dom";
 import { QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
+import { useLimitWarning } from "@/components/limit-warning";
 import { ComposeBox, toImageInputs, type ImageAttachment } from "@/components/compose-box";
 import { type EffortLevel } from "@/lib/effort";
 import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
@@ -69,6 +70,9 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
   // ("Select model") until defaultModel (below) resolves, at which point
   // ComposeBox's own defaultModelValue re-sync effect picks it up.
   const selectedModelsRef = useRef<typeof QUICK_CHAT_MODELS>([]);
+  // The selected model's provider, for the 5-hour limit warning on top of the composer.
+  const [modelProvider, setModelProvider] = useState<string | null>(null);
+  const limitWarning = useLimitWarning(modelProvider);
   // ComposeBox's own "Set as default for new chat" (compose-box.tsx's own
   // onPinDefaultModel/onPinDefaultEffort props) -- there's no chat yet for
   // that to write a real per-chat default to, so it lands here instead,
@@ -335,7 +339,9 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
           ]}
           onModelsChange={(models) => {
             selectedModelsRef.current = models;
+            setModelProvider(models[0]?.provider ?? null);
           }}
+          notice={limitWarning.notice}
         />
         </div>
       </div>

@@ -55,8 +55,7 @@ type SharedFile = { file_id: string; name: string; media_type: string; size: num
 const PROVIDER_NAMES: Record<string, string> = { claude: "Claude", codex: "Codex", antigravity: "Antigravity" };
 import { lastUsedReady, loadLastContext, loadLastModel, saveLastContext, saveLastModel, type PermissionMode } from "@/lib/last-used";
 import type { QueuedMessage } from "@/lib/message-queue";
-import { dismissWarning, isWarningDismissed, readingFromEvent, readingFromUsage, warningLevel, type LimitReading } from "@/lib/limit-warning";
-import { LimitWarningStrip } from "@/components/limit-warning";
+import { useLimitWarning } from "@/components/limit-warning";
 import { StreamingText } from "@/components/streaming-text";
 import { ThinkingState } from "@/components/thinking-state";
 import { ThinkingReasoning } from "@/components/thinking-reasoning";
@@ -599,9 +598,9 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // Messages written while a turn runs (compose-box.tsx's queue prop), sent one per turn
   // as each ends. queueSending: one has gone out and its turn hasn't started yet.
   const [queuedMessages, setQueuedMessages] = useState<QueuedMessage[]>([]);
-  // The provider's latest 5-hour usage reading, for the limit warning above the composer.
-  const [limitReading, setLimitReading] = useState<LimitReading | null>(null);
-  const [limitDismissals, setLimitDismissals] = useState(0);
+  // The chat's provider, for the 5-hour limit warning above the composer.
+  const [modelProvider, setModelProvider] = useState<string | null>(null);
+  const limitWarning = useLimitWarning(modelProvider);
   const [queueSending, setQueueSending] = useState(false);
   // "reasoning" added per explicit request ("add the effects like Claude, Codex and
   // others do") -- real signal, not fabricated: a claude_agent_sdk_rs ContentBlock of
@@ -1136,11 +1135,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       const type = event.type as string;
 
       // Live only (never stored): the provider's own usage after a turn (backend lib.rs limit_usage_event).
-      if (type === "limit_usage") {
-        const reading = readingFromEvent(event);
-        if (reading) setLimitReading(reading);
-        return;
-      }
+      if (limitWarningRef.current(event)) return;
 
       if (typeof event.event_id === "number") {
         if (event.event_id <= lastEventIdRef.current) return;
@@ -2386,29 +2381,9 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     return sendMessage(trimmed, images, effort, editEventId, permissionMode);
   }
 
-  // A chat that's opened already knows how close its provider's 5-hour window is (the same
-  // check Settings > Provider usage makes), before any turn reports it.
-  useEffect(() => {
-    setLimitReading(null);
-    const provider = modelRef.current?.provider === "Codex" ? "codex" : modelRef.current?.provider === "Claude" ? "claude" : null;
-    if (!sessionId || !provider) return;
-    let cancelled = false;
-    void fetch(`/provider-usage/${provider}`)
-      .then((response) => (response.ok ? response.json() : null))
-      .then((snapshot) => {
-        const reading = snapshot ? readingFromUsage(provider, snapshot) : null;
-        if (!cancelled && reading) setLimitReading((current) => current ?? reading);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [sessionId, defaultModelValue]);
-
-  const limitLevel = limitReading ? warningLevel(limitReading.usedPercent) : null;
-  // limitDismissals re-reads the dismissed list after X.
-  void limitDismissals;
-  const shownLimitReading = limitReading && limitLevel !== null && !isWarningDismissed(limitReading, limitLevel) ? limitReading : null;
+  // handleEvent is set up once per chat, so it reaches the warning through a ref.
+  const limitWarningRef = useRef(limitWarning.onEvent);
+  limitWarningRef.current = limitWarning.onEvent;
 
   // The queue belongs to this chat only.
   useEffect(() => {
@@ -2961,15 +2936,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           // separate role driving the "Waiting"/"Thinking" shimmer above.
           awaitingReply={turnInProgress}
           onStop={stopTurn}
-          notice={
-            <LimitWarningStrip
-              reading={shownLimitReading}
-              onDismiss={() => {
-                if (limitReading && limitLevel !== null) dismissWarning(limitReading, limitLevel);
-                setLimitDismissals((count) => count + 1);
-              }}
-            />
-          }
+          notice={limitWarning.notice}
           queue={{
             items: queuedMessages,
             onAdd: (message) => {
@@ -3067,6 +3034,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             // future agent replies -- always the first selected model, since
             // that's the one the session actually runs on.
             modelRef.current = models[0];
+            setModelProvider(models[0]?.provider ?? null);
             saveLastModel(models[0].value);
           }}
         />

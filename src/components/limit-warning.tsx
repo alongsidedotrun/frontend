@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "motion/react";
 import { AlertTriangle } from "@untitledui/icons";
@@ -5,7 +6,7 @@ import { XIcon } from "@/components/icons/untitled-ui";
 import { spring } from "@/lib/springs";
 import { cn } from "@/lib/utils";
 import { PROVIDER_DISPLAY } from "@/lib/quick-chat-models";
-import type { LimitReading } from "@/lib/limit-warning";
+import { dismissWarning, isWarningDismissed, readingFromEvent, readingFromUsage, warningLevel, type LimitReading } from "@/lib/limit-warning";
 
 /**
  * The yellow strip on top of the composer when a provider's 5-hour window is
@@ -45,4 +46,54 @@ export function LimitWarningStrip({ reading, onDismiss }: { reading: LimitReadin
       )}
     </AnimatePresence>
   );
+}
+
+/**
+ * The 5-hour limit warning for a composer: the provider's usage, checked when
+ * the provider changes (the same check Settings > Provider usage makes) and
+ * updated by each turn's live `limit_usage` event (pass it to `onEvent`).
+ * Returns the strip to put on top of the composer (ComposeBox's `notice`).
+ * `provider` is the selected model's provider ("Claude", "Codex"; others
+ * report no limits).
+ */
+export function useLimitWarning(provider: string | null | undefined) {
+  const id = provider === "Claude" ? "claude" : provider === "Codex" ? "codex" : null;
+  const [reading, setReading] = useState<LimitReading | null>(null);
+  const [, setDismissals] = useState(0);
+
+  useEffect(() => {
+    setReading(null);
+    if (!id) return;
+    let cancelled = false;
+    void fetch(`/provider-usage/${id}`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((snapshot) => {
+        const found = snapshot ? readingFromUsage(id, snapshot) : null;
+        if (!cancelled && found) setReading((current) => current ?? found);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  const level = reading ? warningLevel(reading.usedPercent) : null;
+  const shown = reading && reading.provider === id && level !== null && !isWarningDismissed(reading, level) ? reading : null;
+  const notice = (
+    <LimitWarningStrip
+      reading={shown}
+      onDismiss={() => {
+        if (reading && level !== null) dismissWarning(reading, level);
+        setDismissals((count) => count + 1);
+      }}
+    />
+  );
+  /** A chat event; true when it was a limit reading (live only, nothing else to do with it). */
+  const onEvent = (event: Record<string, unknown>) => {
+    if (event.type !== "limit_usage") return false;
+    const found = readingFromEvent(event);
+    if (found) setReading(found);
+    return true;
+  };
+  return { notice, onEvent };
 }
