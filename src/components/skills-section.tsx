@@ -155,10 +155,10 @@ export function SkillsSection() {
           </div>
           {tab === "discover" && (
             <DropdownMenu size="compact">
-              <DropdownTrigger render={<Button size="compact" variant="tertiary" leadingIcon={FilterLines} active={officialOnly}>{officialOnly ? t("skills.filter.official") : t("skills.filter")}</Button>} />
+              <DropdownTrigger render={<Button size="compact" variant="tertiary" leadingIcon={FilterLines} active={officialOnly}>{officialOnly ? t("skills.official") : t("skills.filter")}</Button>} />
               <DropdownContent align="end" className="w-44 min-w-0">
                 <MenuItem index={0} label={t("skills.filter.everything")} checked={!officialOnly} onSelect={() => setOfficialOnly(false)} />
-                <MenuItem index={1} label={t("skills.filter.official")} checked={officialOnly} onSelect={() => setOfficialOnly(true)} />
+                <MenuItem index={1} label={t("skills.official")} checked={officialOnly} onSelect={() => setOfficialOnly(true)} />
               </DropdownContent>
             </DropdownMenu>
           )}

@@ -1899,7 +1899,6 @@ export const translations = {
   "skills.view.hot": { en: "Hot", "pt-BR": "Mais quentes", es: "Populares ahora", fr: "Du moment", de: "Angesagt", zh: "热门", ja: "話題" },
   "skills.seeAll": { en: "See all", "pt-BR": "Ver todas", es: "Ver todas", fr: "Tout voir", de: "Alle ansehen", zh: "查看全部", ja: "すべて表示" },
   "skills.filter.everything": { en: "All skills", "pt-BR": "Todas as habilidades", es: "Todas las habilidades", fr: "Toutes les compétences", de: "Alle Skills", zh: "全部技能", ja: "すべてのスキル" },
-  "skills.filter.official": { en: "Official only", "pt-BR": "Somente oficiais", es: "Solo oficiales", fr: "Officielles uniquement", de: "Nur offizielle", zh: "仅官方", ja: "公式のみ" },
   "skills.official": { en: "Official", "pt-BR": "Oficial", es: "Oficial", fr: "Officielle", de: "Offiziell", zh: "官方", ja: "公式" },
   "skills.addFailed": { en: "Couldn't add this skill", "pt-BR": "Não foi possível adicionar esta habilidade", es: "No se pudo añadir esta habilidad", fr: "Impossible d'ajouter cette compétence", de: "Skill konnte nicht hinzugefügt werden", zh: "无法添加此技能", ja: "このスキルを追加できませんでした" },
   "skills.browseMore": { en: "Browse more", "pt-BR": "Ver mais", es: "Ver más", fr: "Voir plus", de: "Mehr entdecken", zh: "浏览更多", ja: "もっと見る" },
