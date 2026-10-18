@@ -54,6 +54,7 @@ type SharedFile = { file_id: string; name: string; media_type: string; size: num
 // Provider brand names, as another participant's run reports which one it ran on (#462). Not translated.
 const PROVIDER_NAMES: Record<string, string> = { claude: "Claude", codex: "Codex", antigravity: "Antigravity" };
 import { lastUsedReady, loadLastContext, loadLastModel, saveLastContext, saveLastModel, type PermissionMode } from "@/lib/last-used";
+import type { QueuedMessage } from "@/lib/message-queue";
 import { StreamingText } from "@/components/streaming-text";
 import { ThinkingState } from "@/components/thinking-state";
 import { ThinkingReasoning } from "@/components/thinking-reasoning";
@@ -593,6 +594,10 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // replaced: the old state cleared the instant ANY renderable content arrived,
   // vanishing the compose box's Stop button mid-turn on longer, multi-step runs).
   const [turnInProgress, setTurnInProgress] = useState(false);
+  // Messages written while a turn runs (compose-box.tsx's queue prop), sent one per turn
+  // as each ends. queueSending: one has gone out and its turn hasn't started yet.
+  const [queuedMessages, setQueuedMessages] = useState<QueuedMessage[]>([]);
+  const [queueSending, setQueueSending] = useState(false);
   // "reasoning" added per explicit request ("add the effects like Claude, Codex and
   // others do") -- real signal, not fabricated: a claude_agent_sdk_rs ContentBlock of
   // type "thinking" means the CLI's own extended-thinking output has started, arriving
@@ -2228,13 +2233,13 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     effort: EffortLevel = sentEffortRef.current,
     editFromEventId?: number,
     permissionMode?: PermissionMode
-  ) {
+  ): Promise<boolean> {
     const trimmed = text.trim();
-    if (!trimmed || !sessionId) return;
+    if (!trimmed || !sessionId) return false;
     // /share opens the Share dialog (#213) rather than being sent as a message.
     if (trimmed === "/share" && images.length === 0) {
       openShareDialog(sessionId);
-      return;
+      return false;
     }
 
     // No local sentEffortRef write here any more -- that was the actual bug
@@ -2310,15 +2315,23 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         failed: { errorText: sharedChat ? sharedSendError(res.status) ?? i18n.t("chat.errors.sendFailed", { status: res.status }) : i18n.t("chat.errors.sendFailed", { status: res.status }), images, effort },
       });
     }
+    // Whether an agent turn starts now (the message queue waits for it): not for Just chat.
+    return res.ok && !(sharedChat && (justChat || commenterChat));
   }
 
   function handleSend(images: ImageAttachment[], effort: EffortLevel, permissionMode: PermissionMode) {
     const trimmed = prompt.trim();
     if (!trimmed) return;
-    if (/^\/subtask(?:\s|$)/i.test(trimmed)) addTaskSubtask(trimmed);
     setPrompt("");
+    void submitPrompt(trimmed, images, effort, permissionMode, true);
+  }
+
+  // A composed message on its way out, typed now or drained from the queue. A queued one
+  // never picks up an edit started since (allowEdit). Resolves to whether a turn starts.
+  async function submitPrompt(trimmed: string, images: ImageAttachment[], effort: EffortLevel, permissionMode: PermissionMode, allowEdit: boolean): Promise<boolean> {
+    if (/^\/subtask(?:\s|$)/i.test(trimmed)) addTaskSubtask(trimmed);
     if (trimmed === "/summarize") {
-      if (!sessionId) return;
+      if (!sessionId) return false;
       void fetch(`/sessions/${sessionId}/summarize`, { method: "POST" })
         .then(async (response) => {
           const body = await response.json().catch(() => ({}));
@@ -2330,7 +2343,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           });
         })
         .catch(() => pushRow({ kind: "command", id: nextRowId(), text: "Unable to summarize this chat.", time: messageTime() }));
-      return;
+      return false;
     }
     // Real branching only happens now, right as the edited text actually
     // goes out -- not the moment Edit was clicked (pendingEditEventId's
@@ -2338,8 +2351,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     // edit_from_event_id is what tells the backend to branch
     // (db::create_edit_branch) instead of just appending. A plain send
     // (no pending edit) passes undefined, same as it always has.
-    const editEventId = pendingEditEventId ?? undefined;
-    setPendingEditEventId(null);
+    const editEventId = allowEdit ? pendingEditEventId ?? undefined : undefined;
+    if (allowEdit) setPendingEditEventId(null);
     // Real bug, confirmed directly ("instead of replacing the current
     // message, it sent as a new message and i had to refresh to look
     // like it replaced the current one"): the backend genuinely does
@@ -2358,8 +2371,31 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         return index === -1 ? prev : prev.slice(0, index);
       });
     }
-    void sendMessage(trimmed, images, effort, editEventId, permissionMode);
+    return sendMessage(trimmed, images, effort, editEventId, permissionMode);
   }
+
+  // The queue belongs to this chat only.
+  useEffect(() => {
+    setQueuedMessages([]);
+    setQueueSending(false);
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (turnInProgress) setQueueSending(false);
+  }, [turnInProgress]);
+
+  // Once the turn ends, the next queued message goes out, and waits for its own turn to
+  // start before another can follow (or goes straight on when none will, e.g. Just chat).
+  useEffect(() => {
+    if (turnInProgress || queueSending || queuedMessages.length === 0) return;
+    const [next, ...rest] = queuedMessages;
+    setQueuedMessages(rest);
+    setQueueSending(true);
+    void submitPrompt(next.text, next.images, next.effort, next.mode, false).then((started) => {
+      if (!started) setQueueSending(false);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- submitPrompt is recreated every render
+  }, [turnInProgress, queueSending, queuedMessages]);
 
   async function stopTurn() {
     if (!sessionId) return;
@@ -2889,6 +2925,18 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           // separate role driving the "Waiting"/"Thinking" shimmer above.
           awaitingReply={turnInProgress}
           onStop={stopTurn}
+          queue={{
+            items: queuedMessages,
+            onAdd: (message) => {
+              // Mid-edit, the edit goes out now: it rewrites history, so it can't wait in line.
+              if (pendingEditEventId !== null) {
+                void submitPrompt(message.text, message.images, message.effort, message.mode, true);
+                return;
+              }
+              setQueuedMessages((queued) => [...queued, { ...message, id: crypto.randomUUID() }]);
+            },
+            onRemove: (id) => setQueuedMessages((queued) => queued.filter((item) => item.id !== id)),
+          }}
           defaultModelValue={defaultModelValue}
           defaultEffortValue={defaultEffortValue}
           defaultPermissionValue={handoffPermissionMode}

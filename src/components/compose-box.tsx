@@ -24,6 +24,8 @@ import { spring } from "@/lib/springs";
 import { DropdownMenu as BaseDropdownMenu, DropdownTrigger as BaseDropdownTrigger, DropdownContent as BaseDropdownContent, DropdownLabel as BaseDropdownLabel, DropdownSubItem, DropdownSubMenuItem, DropdownSeparator, DropdownRowActionMenu, DropdownRowActionItem } from "@/components/ui/dropdown";
 import { MenuItem as BaseMenuItem } from "@/components/ui/menu-item";
 import { Textarea } from "@/components/ui/textarea";
+import { QueuedMessages } from "@/components/queued-messages";
+import { useQueueing, type QueuedMessage } from "@/lib/message-queue";
 import GlideMenu from "@/components/primitives/glide-menu";
 import {
   ArrowUpIcon,
@@ -686,6 +688,7 @@ export function ComposeBox({
   onPinDefaultModel,
   onCompactNow,
   onSteer,
+  queue,
   autocompactValue,
   autocompactScope,
   onSetAutocompact,
@@ -783,6 +786,15 @@ export function ComposeBox({
   // outright. Undefined for Claude/Antigravity (no real steer capability), so Enter
   // during their own awaitingReply window keeps doing nothing, same as before this.
   onSteer?: (text: string) => void;
+  // ChatPage-only: while a turn is running, Enter queues the message here
+  // (shown above the composer, sent when the turn ends) instead of sending or
+  // steering it unannounced. With queueing turned off, a provider that can
+  // steer (onSteer) steers straight away; one that can't still queues.
+  queue?: {
+    items: QueuedMessage[];
+    onAdd: (message: Omit<QueuedMessage, "id">) => void;
+    onRemove: (id: string) => void;
+  };
   // Per-chat compact threshold (ChatPage.tsx owns the real state/persistence --
   // see ContextDropdown's own comment for the full reasoning). HomePage.tsx never
   // renders ContextDropdown at all (contextUsage is always null pre-chat), so
@@ -1073,6 +1085,7 @@ export function ComposeBox({
   // The text just sent, drawn over the (already cleared) textarea while it
   // fades out, so sending doesn't snap the box empty.
   const [sentGhost, setSentGhost] = useState<{ text: string; key: number } | null>(null);
+  const [queueing, setQueueing] = useQueueing();
   const fadeOutSent = () => {
     if (value.trim()) setSentGhost((ghost) => ({ text: value, key: (ghost?.key ?? 0) + 1 }));
   };
@@ -1588,6 +1601,28 @@ export function ComposeBox({
           event.target.value = "";
         }}
       />
+      {queue && (
+        <QueuedMessages
+          items={queue.items}
+          onSteer={
+            onSteer
+              ? (item) => {
+                  onSteer(item.text);
+                  queue.onRemove(item.id);
+                }
+              : undefined
+          }
+          onRemove={queue.onRemove}
+          // Back into the composer (replacing what's there), out of the queue.
+          onEdit={(item) => {
+            queue.onRemove(item.id);
+            onChange(item.text);
+            setImages(item.images);
+            textareaRef.current?.focus();
+          }}
+          onTurnOffQueueing={onSteer ? () => setQueueing(false) : undefined}
+        />
+      )}
       {/* onDragOver/onDrop -- per explicit request, dropping an image anywhere on
           the composer attaches it, not just the file-picker button. dragActive
           only drives the border below; it's not itself a real attachment. */}
@@ -1731,6 +1766,17 @@ export function ComposeBox({
             if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault();
               if (!value.trim()) return;
+              if (awaitingReply && queue && (queueing || !onSteer)) {
+                if (selectedModels.length === 0) {
+                  triggerModelShake();
+                  return;
+                }
+                fadeOutSent();
+                queue.onAdd({ text: value.trim(), images, effort, mode: planMode && planSupported ? "plan" : mode });
+                onChange("");
+                setImages([]);
+                return;
+              }
               if (awaitingReply && onSteer) {
                 fadeOutSent();
                 onSteer(value);

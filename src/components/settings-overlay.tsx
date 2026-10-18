@@ -33,6 +33,7 @@ import { MenuItem as BaseMenuItem } from "@/components/ui/menu-item";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
 import { Switch } from "@/components/ui/switch";
+import { useQueueing } from "@/lib/message-queue";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ShellField } from "@/components/design-system/shell-dialog";
 import {
@@ -2090,12 +2091,16 @@ function ChatSection() {
   // we did for Provider usage"): it's a stat about chats, not a general
   // app preference.
   const { usage, error: usageError } = useUsageStats();
+  const [queueing, setQueueing] = useQueueing();
 
   return (
     <div className="flex flex-col">
       <SettingsSection title={t("settings.chat.title")}>
         <DefaultModelRow />
         <DefaultEffortRow />
+        <SettingsRow id="setting-queue-messages" title={t("settings.chat.queueMessages.title")} description={t("settings.chat.queueMessages.description")}>
+          <Switch checked={queueing} onToggle={() => setQueueing(!queueing)} aria-label={t("settings.chat.queueMessages.title")} />
+        </SettingsRow>
       </SettingsSection>
 
       <SettingsSection title={t("settings.chat.compact.title")}>
