@@ -106,6 +106,8 @@ export type ProviderUsageSnapshot = {
   limits: ProviderUsageLimit[];
   usage_lines: ProviderUsageLine[];
   detail?: string;
+  /** A saved reading (from the provider's last turn) rather than a live check: when it was taken. */
+  as_of?: string;
 };
 
 // One request per provider, in parallel, not one hook call per row (rows
