@@ -108,5 +108,7 @@ export function useLimitWarning(provider: string | null | undefined, placement: 
     if (found) setReading(found);
     return true;
   };
-  return { notice, onEvent };
+  /** Whether the strip is showing (not below the levels, closed, or for another provider). */
+  const active = shown !== null;
+  return { notice, onEvent, active };
 }

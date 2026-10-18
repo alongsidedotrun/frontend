@@ -342,7 +342,7 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
             selectedModelsRef.current = models;
             setModelProvider(models[0]?.provider ?? null);
           }}
-          noticeBelow={limitWarning.notice}
+          noticeBelow={limitWarning.active ? limitWarning.notice : undefined}
         />
         </div>
       </div>
