@@ -2488,8 +2488,19 @@ export function ComposeBox({
       </div>
     </div>
     </div>
-    <AnimatePresence initial={false}>
-      {showWorkFromFolder && !noticeBelow && (
+    {/* The limit warning (noticeBelow) and the Work from folder row share this slot: one fades
+        out before the other fades in. */}
+    <AnimatePresence initial={false} mode="wait">
+      {noticeBelow ? (
+        <motion.div
+          key="notice-below"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1, transition: { duration: 0.2, ease: "easeInOut" } }}
+          exit={{ opacity: 0, transition: { duration: 0.15, ease: "easeInOut" } }}
+        >
+          {noticeBelow}
+        </motion.div>
+      ) : showWorkFromFolder && (
         <motion.div
           key="work-from-folder"
           // Fades back in when the limit warning that took its place is closed.
@@ -2518,7 +2529,6 @@ export function ComposeBox({
         </motion.div>
       )}
     </AnimatePresence>
-    {noticeBelow}
     </div>
   );
 }

@@ -22,9 +22,11 @@ export function LimitWarningStrip({ reading, onDismiss, placement = "top" }: { r
         <motion.div
           key="limit-warning"
           role="status"
-          initial={{ opacity: 0, height: 0 }}
+          // On top of a chat's composer it opens and closes; below a new chat's it fades in the
+          // Work from folder row's place (ComposeBox crossfades that slot), so the composer stays put.
+          initial={placement === "top" ? { opacity: 0, height: 0 } : { opacity: 0 }}
           animate={{ opacity: 1, height: "auto", transition: spring.moderate }}
-          exit={{ opacity: 0, height: 0, transition: spring.moderate.exit }}
+          exit={placement === "top" ? { opacity: 0, height: 0, transition: spring.moderate.exit } : { opacity: 0, transition: spring.moderate.exit }}
           className={cn(
             "relative overflow-hidden border border-amber-300/70 bg-amber-50 text-amber-900 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-200",
             // Tucked under the composer's edge: above it in a chat, below it (and its Work from
@@ -49,7 +51,7 @@ export function LimitWarningStrip({ reading, onDismiss, placement = "top" }: { r
               type="button"
               aria-label={t("common.close")}
               onClick={onDismiss}
-              className={cn("-mr-1.5 grid size-6 shrink-0 place-items-center rounded-[calc(24px*8/27)] transition-colors hover:bg-amber-900/10 dark:hover:bg-amber-200/10")}
+              className="-mr-1.5 grid size-6 shrink-0 place-items-center transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <XIcon aria-hidden="true" className="size-3.5" />
             </button>
