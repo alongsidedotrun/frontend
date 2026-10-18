@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useSkills } from "@/lib/skills";
 
-// skills.sh data for Settings > Skills (Discover) and Browse skills, through the
-// backend's /skills-sh routes (backend/src/skills_sh.rs): its ranked lists,
-// search, and a skill's SKILL.md when it's added.
+// skills.sh data for Settings > Skills' Discover, through the backend's
+// /skills-sh routes (backend/src/skills_sh.rs): its official companies, its
+// ranked lists, search, and a skill's SKILL.md when it's added.
 
 export type SkillsShView = "all-time" | "trending" | "hot";
 
@@ -48,19 +48,57 @@ async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
   return (await response.json()) as T;
 }
 
-// The lists change slowly (the backend caches them for ten minutes too), so a
-// view is fetched once per app session and shared by the page and the dialog.
+// The lists change slowly (the backend caches them for ten minutes too), so
+// each is fetched once per app session. Only the top of each is asked for:
+// enough to fill a section after the Official only filter.
+const LIST_SIZE = 60;
 const lists = new Map<SkillsShView, Promise<RemoteSkill[]>>();
 
 export function loadSkillsShList(view: SkillsShView): Promise<RemoteSkill[]> {
   let list = lists.get(view);
   if (!list) {
-    list = getJson<Wire[]>(`/skills-sh/leaderboard?view=${view}`).then((skills) => skills.map(fromWire));
+    list = getJson<Wire[]>(`/skills-sh/leaderboard?view=${view}&limit=${LIST_SIZE}`).then((skills) => skills.map(fromWire));
     // A failure isn't kept: the next open tries again.
     list.catch(() => lists.delete(view));
     lists.set(view, list);
   }
   return list;
+}
+
+/** An official company on skills.sh: its main repo and that repo's top skills. */
+export interface OfficialCompany {
+  owner: string;
+  totalInstalls: number;
+  repo: string;
+  skills: RemoteSkill[];
+}
+
+type OfficialWire = { owner: string; total_installs: number; repo: string; skills: { name: string; installs: number }[] };
+
+let official: Promise<OfficialCompany[]> | null = null;
+
+export function loadSkillsShOfficial(): Promise<OfficialCompany[]> {
+  if (!official) {
+    official = getJson<OfficialWire[]>("/skills-sh/official?limit=6").then((owners) =>
+      owners.map((owner) => ({
+        owner: owner.owner,
+        totalInstalls: owner.total_installs,
+        repo: owner.repo,
+        skills: owner.skills.map((skill) => ({
+          id: `${owner.repo}/${skill.name}`,
+          source: owner.repo,
+          skillId: skill.name,
+          name: skill.name,
+          installs: skill.installs,
+          isOfficial: true,
+        })),
+      })),
+    );
+    official.catch(() => {
+      official = null;
+    });
+  }
+  return official;
 }
 
 /** skills.sh search; it needs at least two characters. */
