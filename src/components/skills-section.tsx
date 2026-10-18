@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowUpRight, Check, File02, FilterLines, Loading02, Plus, SearchMd, Stars02, SwitchVertical01 } from "@untitledui/icons";
+import { ArrowUpRight, Check, File02, FilterLines, Plus, SearchMd, Stars02, SwitchVertical01 } from "@untitledui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
@@ -170,11 +170,14 @@ export function SkillsSection() {
         </ShapeProvider>
         <div className="flex min-w-0 items-center gap-2">
           <div className="relative w-48 min-w-0">
-            {searching ? (
-              <Loading02 aria-hidden="true" className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 animate-spin text-muted-foreground" />
-            ) : (
-              <SearchMd aria-hidden="true" className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-            )}
+            {/* Fades out while a search is on its way, back in when it lands. */}
+            <SearchMd
+              aria-hidden="true"
+              className={cn(
+                "pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground transition-opacity duration-200 ease-in-out motion-reduce:transition-none",
+                searching && "opacity-0",
+              )}
+            />
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
