@@ -123,6 +123,8 @@ const COMPOSE_TOOL_VARS = {
   "--compose-tool-text": "clamp(11px, calc(10px + 0.25cqw), 12px)",
   "--compose-tool-icon": "round(clamp(12px, calc(10px + 0.5cqw), 14px), 2px)",
   "--compose-plus-icon": "round(clamp(14px, calc(12px + 0.5cqw), 16px), 2px)",
+  // Provider marks are full artwork, not line icons: the + and mic's size reads like their 12-14.
+  "--compose-provider-icon": "round(clamp(14px, calc(12px + 0.5cqw), 16px), 2px)",
   "--compose-action-size": "round(clamp(20px, calc(16px + 1cqw), 24px), 2px)",
   "--compose-mic-icon": "round(clamp(14px, calc(12px + 0.5cqw), 16px), 2px)",
   "--compose-send-icon": "round(clamp(10px, calc(8px + 0.5cqw), 12px), 2px)",
@@ -2235,7 +2237,7 @@ export function ComposeBox({
                   the new icon and name fade in. */}
               <SwapLabel swapKey={selectedModels.map((m) => m.value).join(",")}>
                 <span className="inline-flex w-max items-center gap-1">
-                  {selectedModels.length === 1 && <ProviderIcon model={selectedModels[0]} className="size-[var(--compose-tool-icon)] shrink-0" />}
+                  {selectedModels.length === 1 && <ProviderIcon model={selectedModels[0]} className="size-[var(--compose-provider-icon)] shrink-0" />}
                   <span className="max-w-[110px] truncate whitespace-nowrap">{modelSelectionLabel(selectedModels)}</span>
                 </span>
               </SwapLabel>
