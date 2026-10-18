@@ -2944,7 +2944,6 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           chatId={sessionId}
           contextUsage={contextUsage}
           autocompactValue={autocompactValue}
-          autocompactScope={autocompactScope}
           onSetAutocompact={(value) => {
             setAutocompactValue(value);
             const parsed = Number(value);

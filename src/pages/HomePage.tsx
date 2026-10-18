@@ -318,7 +318,6 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
           // values just to satisfy ComposeBox's required prop types rather than
           // making them optional there for the sake of this one non-using caller.
           autocompactValue="500000"
-          autocompactScope="chat"
           onSetAutocompact={() => {}}
           defaultModelValue={defaultModel}
           onOpenSettings={() => openSettings("provider")}
