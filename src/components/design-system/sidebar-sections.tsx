@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown";
 import { MenuItem } from "@/components/ui/menu-item";
 import { MoreTrigger } from "@/components/ui/more-trigger";
+import { SlidingText } from "@/components/ui/sliding-text";
 
 /** A row's "..." menu: actions, a nested list (e.g. Add to project), dividers,
  *  and "rename", which edits the row's label in place (then onRename). */
@@ -262,6 +263,7 @@ function SidebarRow({
         onClick={onSelect}
         aria-current={active ? "page" : undefined}
         aria-expanded={expanded}
+        data-slide-trigger
         className={cn(
           "group/row-button",
           rowClass,
@@ -271,7 +273,8 @@ function SidebarRow({
       >
         {Icon && <Icon aria-hidden="true" strokeWidth={2} className="size-[var(--redesign-quick-actions-icon-size)] shrink-0" />}
         {bullet}
-        <span className={cn("truncate", menuBeforeChevron && "pr-6")}>{item.label}</span>
+        {/* Too long to fit, it slides left on hover to show the rest (like Codex). */}
+        <SlidingText text={item.label} className={cn(menuBeforeChevron && "mr-6")} />
         {chevron}
       </button>
       {item.menu && (
