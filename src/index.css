@@ -1451,6 +1451,88 @@
   .t-text-swap { transition: none !important; }
 }
 
+/* Transitions.dev — Skeleton loader and reveal */
+/*
+  Usage (src/components/ui/skeleton-reveal.tsx drives it):
+    <div class="t-skel" data-state="loading">
+      <div class="t-skel-skeleton is-pulsing">…</div>
+      <div class="t-skel-content">…</div>
+    </div>
+
+  State:
+    - The skeleton pulses (.is-pulsing) while loading; .is-looping
+      repeats the pulse until the data arrives (the recipe's own
+      --pulse-count is for a known delay).
+    - When data arrives, .is-revealed on .t-skel: the skeleton
+      fades out + blurs and the content fades in + un-blurs over
+      --reveal-dur.
+
+  Adapted from the recipe: the two layers share one grid cell
+  instead of being absolutely positioned, so the wrap keeps the
+  content's own height (a section of cards has none to give an
+  absolute layer). Used by Settings > Skills while skills.sh loads.
+*/
+:root {
+  --pulse-dur: 1000ms;
+  --pulse-count: 1;
+  --pulse-min: 0.5;
+  --reveal-dur: 400ms;
+  --reveal-blur: 2px;
+  --reveal-ease: ease-in-out;
+}
+
+.t-skel { display: grid; }
+.t-skel-skeleton,
+.t-skel-content {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+
+.t-skel-skeleton {
+  z-index: 1;
+  opacity: 1;
+  filter: blur(0);
+  transition:
+    opacity var(--reveal-dur) var(--reveal-ease),
+    filter  var(--reveal-dur) var(--reveal-ease);
+}
+.t-skel-content {
+  z-index: 2;
+  opacity: 0;
+  filter: blur(var(--reveal-blur));
+  transition:
+    opacity var(--reveal-dur) var(--reveal-ease),
+    filter  var(--reveal-dur) var(--reveal-ease);
+}
+.t-skel.is-revealed .t-skel-skeleton {
+  opacity: 0;
+  filter: blur(var(--reveal-blur));
+}
+.t-skel.is-revealed .t-skel-content {
+  opacity: 1;
+  filter: blur(0);
+}
+
+/* Pulse on the skeleton's children, so its own opacity / filter
+   stay free for the cross-fade above. */
+.t-skel-skeleton.is-pulsing > * {
+  animation: t-skel-pulse var(--pulse-dur) ease-in-out var(--pulse-count);
+}
+.t-skel-skeleton.is-pulsing.is-looping > * {
+  animation-iteration-count: infinite;
+}
+@keyframes t-skel-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: var(--pulse-min); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-skel-skeleton, .t-skel-content {
+    transition: none !important;
+  }
+  .t-skel-skeleton.is-pulsing > * { animation: none !important; }
+}
+
 /* Transitions.dev — Error state shake */
 /*
   Usage:
