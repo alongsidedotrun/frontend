@@ -1,33 +1,84 @@
 # Frontend style guide
 
-Narrow, cross-cutting frontend decisions that don't belong in `project/architecture/HLD.md`/`LLD.md` (both explicitly scope frontend design out, see `LLD.md`'s Scope section) and aren't architectural enough to need an ADR. Moved here from `project/architecture/adr/0010-frontend-colour-palette.md` on 2026-08-20, once the project stopped writing new ADRs (that folder has since been folded into `HLD.md`/`LLD.md` and removed entirely); content unchanged from that ADR, just reframed as living reference documentation instead of a decision record.
+Narrow, cross-cutting frontend decisions that don't belong in `project/architecture/HLD.md`/`LLD.md` (both explicitly scope frontend design out, see `LLD.md`'s Scope section) and aren't architectural enough to need an ADR. It started as `project/architecture/adr/0010-frontend-colour-palette.md` (moved here on 2026-08-20); the colour palette was rewritten on 2026-10-18 to match the redesign's tokens in `src/index.css`.
 
 ## Colour palette
 
-**Rule: every colour that appears more than once, or that represents a distinct semantic surface, is a named token in `tailwind.config.js`'s `theme.extend.colors`, used via Tailwind utility classes (`bg-porch-bg`, `text-porch-muted`) rather than raw hex in markup.** This exists because a light theme cannot be built against an undocumented, partially-tokenised palette: only named Tailwind classes can realistically be swapped per theme, not one-off `bg-[#131313]`-style literals scattered through markup. There was previously ambiguity between two separate border tokens (`porch-input-border` and `porch-border`) with no documented rule for which to use where; that was resolved by consolidating to the single `porch-border` token below before light values were added, rather than carrying the ambiguity into a second theme.
+**Rule: colours are CSS custom properties in `src/index.css`, used through Tailwind utilities, not raw hex in markup.** Light values sit on `:root`, dark values on `.dark` (a class on `<html>`, set by `src/hooks/use-theme.tsx` from Settings → Appearance or the system). `@theme inline` in the same file maps them to utilities: `bg-background`, `text-muted-foreground`, `border-border`, `text-ink-2` and so on. The only literal colours in components are the brand, palette and third-party values listed at the end of this section. Values written as `oklch(...)` in the CSS are shown here as their hex equivalents.
 
-| Token | Dark | Light | Used for |
+### Base
+
+| Token | Utility | Light | Dark | Used for |
+|---|---|---|---|---|
+| `--background` | `bg-background` | `#FFFFFF` | `#1A1A1A` | Main content and chat; the page itself. |
+| `--foreground` (`ink`) | `text-foreground`, `text-ink` | `#3D3D3D` | `#FCFCFC` | Primary text; icons when hovered or active. |
+| `--muted-foreground` | `text-muted-foreground` | `#8A8A8A` | `#818181` | Secondary text: descriptions, labels, timestamps, icons at rest. |
+| `ink-2` | `text-ink-2` | muted 80% into background | same mix | Menu and composer rows at rest. |
+| `ink-3` | `text-ink-3` | muted 50% into background | same mix | Placeholders, hints, row descriptions. |
+| `--border` | `border-border` | `#EBEBEB` | `rgb(252 252 252 / 7%)` | Every border and divider: fields, cards, dropdowns, the composer. |
+| `--card` | `bg-card` | `#FFFFFF` | `#1A1A1A` | Cards on a page (Archived rows, skill cards). |
+| `--accent` / `--muted` | `bg-accent`, `bg-muted` | `rgb(0 0 0 / 4%)` | `rgb(255 255 255 / 4%)` | Quiet fills: the active sidebar row, chips, the open chat. |
+| `--hover` | `bg-hover` | `rgb(0 0 0 / 4%)` | `rgb(255 255 255 / 6%)` | Hover fill on buttons and rows. |
+| `--active` | `bg-active` | `rgb(0 0 0 / 7%)` | `rgb(255 255 255 / 10%)` | Pressed fill. |
+| `--selected` | `bg-selected` | `#D4D4D4` | `#525252` | A selected item that must read as chosen, not hovered. |
+| `--input` | `bg-input` | `#E5E5E5` | `#1B1B1B` | Base input fill (shadcn inputs). |
+
+### Surfaces
+
+| Token | Light | Dark | Used for |
 |---|---|---|---|
-| `porch-bg` | `#20201F` | `#FAF9F5` | Page/app background; sidebar and main content area both sit on this. |
-| `porch-card` | `#131313` | `#131313` (unchanged) | Panel-level surfaces only: the auth page's left panel, the Settings modal's own outer background. Deliberately stays dark in both themes rather than flipping with the page background. **No longer used for `.field-input`/`.plain-btn`** (see 2026-08-03 note below) — those are controls placed inside such panels, not panels themselves. |
-| `porch-input` | `#262626` | `#F3F1ED` | The compose box (message input) background, human chat-message bubbles, and (as of 2026-08-03) `.field-input`/`.plain-btn` — anything interactive/conversational rather than a static panel. |
-| `porch-border` | `#3A3A3A` | `#E4E4E7` | The one border/stroke colour, used everywhere a visible border or ring appears: the compose box, `+`/filter icon buttons, the sidebar's right edge, dropdown-panel borders, hovercards, the Settings modal, form fields (`.field-input`), `.plain-btn`. Previously split across two tokens (`porch-input-border` / `porch-border`); consolidated to one, see above. Dark value raised from the original `#27272A` after it read as almost invisible against `porch-input`'s `#262626` background (the compose box border specifically). Also now doubles as `.plain-btn`'s hover colour. Deliberately **not** used on chat-message bubbles: bubbles are background-only (see below) so borders stay reserved for elements that need to stand out more. |
-| `porch-text` | `#F1EFE8` | `#20201F` | Primary text colour; also the avatar's fill (a filled circle). |
-| `porch-muted` | `#A1A1AA` | `#73726C` | Secondary/muted text and icon colour: placeholder text, sidebar icons at rest, timestamps, disclaimer text. Nearly every icon in the app is `porch-muted` at rest and brightens to `porch-text` on hover. |
-| `porch-btn` | `#333333` | `#333333` (unchanged) | The one solid accent-ish button fill in the app (e.g. the Settings modal's Save button). |
-| `porch-btn-hover` | `#444444` | `#444444` (unchanged) | Hover state for `porch-btn`. |
+| `--sidebar`, `--redesign-sidebar-surface` | `#FAFAFA` | `#1A1A1A` (background) | The sidebar, and Settings' sidebar. |
+| `--redesign-sidebar-border` | `#EBEBEB` | `#232323` | The sidebar's edge and the top bar's divider. |
+| `--redesign-overlay-border` | `#EBEBEB` | `#282828` | Borders of things floating over the sidebar. |
+| `--redesign-sidebar-overlay-surface` | `#F8F8F8` | `#212121` | Menus and popovers opened from the sidebar. |
+| `--redesign-quick-actions-surface` | `#FFFFFF` | `#1A1A1A` (sidebar) | Quick actions in the sidebar. |
+| `--redesign-getting-started-surface` | `#FFFFFF` | `#212121` | The Getting started card. |
+| `--redesign-compose-extension-surface` | `#FFFFFF` | `#212121` | Strips attached to the composer: Work from folder, queued messages. |
+| Shell dialog surface | `#FAFAFA` | `#1A1A1A` (background) | Invite members, Sign in, New workspace and project, Add and Browse skills (`ShellDialog`). |
+| Shell fields and cards (`SHELL_SURFACE`) | `#FFFFFF` + `--redesign-sidebar-border` | `#1A1A1A` + same border | Fields, role lists and result lists inside a shell dialog. |
+| `--surface-1` … `--surface-8` | `#FAFAFA`, `#FCFCFC`, then `#FFFFFF` | `#171717` up to `#484848` (+7 per step) | Elevation ladder for nested surfaces (menus inside menus). |
 
-**`porch-card`, `porch-btn`, and `porch-btn-hover` are theme-invariant by design**, not oversights: the same hex value is correct in both the Dark and Light columns above. Anyone extending this table should preserve that rather than assume every token must differ per theme. That said, the "theme-invariant by design" call is scoped to `porch-card` itself (still correct for panel-level surfaces like the Settings modal's own background); it does not extend to form controls placed inside those panels (see the `porch-card`/`porch-input` note above).
+### Actions
 
-Not yet promoted to tokens, and out of scope for theming regardless:
+| Role | Light | Dark | Where |
+|---|---|---|---|
+| **Primary** | `#000000` fill, white text; hover `#262626`, press `#404040` | `#FFFFFF` fill, black text; hover `#E5E5E5`, press `#D4D4D4` | The main action in a shell dialog (Invite, Create, Add skill), `ShellDialogActions`. The `primary` button variant uses the foreground colour the same way (Browse skills). |
+| **Secondary** | transparent, 1px `--border` ring; hover `--hover`, press `--active` | same with the dark tokens | `tertiary` button variant: Add skill, Restore, Filter, Sort. In shell dialogs, Cancel is the same on a white fill. |
+| **Accent (send)** | `--send-button-bg` = `--focus-accent` `#0169CC`; hover 25% black, press 40% black | same | The send button, the Ask for approval permission, the Getting started ring, focused composer and search borders (`border-focus-accent`). |
+| Focus ring | `--focus-ring` `#6B97FF` | same | Keyboard focus outlines. |
+| **Destructive** | `--destructive` `#E7000B`; hover 12% black, press 25% black | `#FF6467` | Delete permanently, Delete workspace, errors. A red button is the accent button with its `--send-button-bg*` variables set to destructive (`DESTRUCTIVE_BUTTON` in settings, `primary.destructive` in `ShellDialogActions`); the `destructive` button variant is an alias for primary, not red. |
+| Destructive background | `--destructive-light` `#FEF2F2` | `#450A0A` | Error banners and danger fills. |
+| Full access | Tailwind `orange-500` `#F97316` | same | The Full access permission's label and icon. |
+| Success | `--redesign-success` `#3E9B6A` | same | Getting started, all done. |
 
-- `#000AC2` — the old logo mark's brand colour; superseded by the new pixel-grid mark, which is fully self-contained (its own fixed `#323232`/`#41403E`/`#FAF9F5` fill colours baked into the SVG) rather than theming via this token system. The mark is now a single asset used for both themes (`frontend/logo.svg` and `frontend/logo-light.svg` are identical copies), deliberately a fixed badge like Slack's or Discord's icon, not a blend-with-the-sidebar mark, so it no longer needs separate Light/Dark variants at all. Master source files live in `frontend/assets/source/Porch {16,32,48,64,128,180,256,512,1024}px.svg`.
-- Google's own "G" logo colours (`#FFC107`, `#FF3D00`, `#4CAF50`, `#1976D2`) — must never be re-themed, they belong to Google.
+### Brand
 
-## Open items
+- **Alongside mark:** three overlapping circles, `#CFCFCF`, `#E8E8E8` and `#FFFFFF`, on a top-to-bottom gradient from `#2B83FF` to `#056DFF`.
+- **`public/favicon.svg`** is the finished app icon: the mark on a rounded tile with a `#005BD8` outline and a `#69A7FF` highlight along the top. It's the browser tab icon and the Alongside workspace's stored logo.
+- **Inside the app** the mark is drawn flat (`public/alongside-mark.svg`, and inline in `WorkspaceBrandIcon`), because the workspace tile rounds a logo itself. Only default tiles (a letter, or the default mark) get the tile's hairline edge; logos don't.
 
-- **Theme-switching mechanism is still undesigned.** Whether this becomes a `data-theme` attribute swapping CSS custom properties, a second compiled stylesheet, or something else, is open implementation work for whoever picks up the Settings toggle. This document only fixes the values each mechanism would need to swap between.
-- **One hardcoded value still needs to be kept in sync by hand.** `.btn-shadcn-outline` (the auth page's "Continue with Google" button) uses `box-shadow: 0 0 0 1px #3A3A3A` instead of a real `border`, specifically so the ring renders outside the box-sizing border-box rather than shrinking the button's interior relative to its borderless "Continue with email" sibling. The value is meant to match `porch-border`'s dark value but is written as a raw hex literal, since Tailwind's `shadow-[...]` arbitrary syntax doesn't cleanly reference a theme colour by name; it already drifted out of sync once when `porch-border` was retuned from `#27272A` and had to be updated by hand to match. Should eventually be reconciled (e.g. via a CSS custom property) so this doesn't require remembering to update it every time `porch-border` changes.
+### Workspace tiles
+
+A workspace without a logo shows its first letter on a palette colour (`WORKSPACE_PALETTE` in `src/lib/identity-palette.ts`), picked in New/Manage workspace or derived from its name:
+
+| Name | Tile | Letter |
+|---|---|---|
+| Grey | `#E9E9EB` | `#5F6168` |
+| Red | `#FADDDB` | `#C2413B` |
+| Orange | `#FDE3CF` | `#C8601A` |
+| Yellow | `#FCEACB` | `#AD7A16` |
+| Green | `#DCEEE1` | `#3E8B67` |
+| Blue | `#DAE8FB` | `#3D6FB4` |
+| Purple | `#E7DEF5` | `#7C5CB8` |
+| Pink | `#FBE0E6` | `#BF5170` |
+| White | `#FFFFFF` | `#1F1F1F` |
+| Black | `#141414` | `#FFFFFF` |
+
+People's avatars use the first six of the same family (`IDENTITY_PALETTE`).
+
+### Not ours
+
+Provider and app logos (Claude, OpenAI, Gemini, GitHub, Google, Mistral, Perplexity and others under `public/icons/`) and Google's own "G" colours keep their makers' colours and are never re-themed; the only change allowed is inverting a black mark in dark mode (`invertInDark`).
 
 ## UI text / i18n (issue #307)
 
