@@ -91,7 +91,7 @@ export function SkillsSection() {
         <div className="flex min-w-0 items-center gap-2">
           <div className="relative w-48 min-w-0">
             <SearchMd aria-hidden="true" className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("skills.search")} aria-label={t("skills.search")} className="h-7 border border-border pl-8 text-[12px] shadow-none dark:border-border" />
+            <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("skills.search")} aria-label={t("skills.search")} className="h-7 border border-border pl-8 text-[length:var(--redesign-chat-meta)] shadow-none dark:border-border" />
           </div>
           <DropdownMenu size="compact">
             <DropdownTrigger render={<Button size="compact" variant="tertiary" leadingIcon={FilterLines} active={publisher !== null}>{publisher ?? t("skills.filter")}</Button>} />
@@ -115,17 +115,17 @@ export function SkillsSection() {
       {grouped ? (
         GROUPS.map((group) => (
           <section key={group} className="mt-8">
-            <h3 className="mb-3 text-[13px] text-muted-foreground">{t(`skills.group.${group}`)}</h3>
+            <h3 className="mb-2.5 text-[length:var(--redesign-font-size-compact)] text-muted-foreground">{t(`skills.group.${group}`)}</h3>
             <SkillGrid>{flat.filter((skill) => skill.group === group).map(card)}</SkillGrid>
           </section>
         ))
       ) : flat.length > 0 ? (
         <section className="mt-8">
-          {tab === "discover" && <h3 className="mb-3 text-[13px] text-muted-foreground">{t("skills.results")}</h3>}
+          {tab === "discover" && <h3 className="mb-2.5 text-[length:var(--redesign-font-size-compact)] text-muted-foreground">{t("skills.results")}</h3>}
           <SkillGrid>{flat.map(card)}</SkillGrid>
         </section>
       ) : (
-        <div className="mt-8 flex flex-col items-center gap-3 rounded-xl border border-border bg-card px-4 py-10 text-center text-[13px] text-muted-foreground">
+        <div className="mt-8 flex flex-col items-center gap-3 rounded-xl border border-border bg-card px-4 py-10 text-center text-[length:var(--redesign-chat-text)] text-muted-foreground">
           {needle || publisher ? t("skills.empty.search") : t("skills.empty.installed")}
           {tab === "installed" && !needle && !publisher && (
             <Button size="compact" variant="tertiary" onClick={() => setTab("discover")}>{t("skills.empty.browse")}</Button>
@@ -146,10 +146,10 @@ function SkillGrid({ children }: { children: React.ReactNode }) {
 function SkillCard({ skill, installed, onInstall, onRemove }: { skill: Skill; installed: boolean; onInstall: () => void; onRemove: () => void }) {
   const { t } = useTranslation();
   return (
-    <article className="flex min-h-[148px] flex-col rounded-xl border border-border bg-card p-4">
+    <article className="flex min-h-[124px] flex-col rounded-xl border border-border bg-card p-3.5">
       <div className="flex items-center gap-2">
-        <Stars02 aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-        <h4 className="min-w-0 flex-1 truncate text-[14px] font-medium text-foreground">{skill.name}</h4>
+        <Stars02 aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+        <h4 className="min-w-0 flex-1 truncate text-[length:var(--redesign-chat-text)] font-medium text-foreground">{skill.name}</h4>
         {/* + installs; once installed it's a check, which removes it again. */}
         <button
           type="button"
@@ -157,16 +157,16 @@ function SkillCard({ skill, installed, onInstall, onRemove }: { skill: Skill; in
           title={t(installed ? "skills.remove" : "skills.install", { name: skill.name })}
           onClick={installed ? onRemove : onInstall}
           className={cn(
-            "grid size-7 shrink-0 place-items-center border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "grid size-6 shrink-0 place-items-center border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             SHELL_RADIUS,
             installed ? "border-transparent bg-foreground text-background hover:opacity-85" : "border-border text-muted-foreground hover:bg-hover hover:text-foreground",
           )}
         >
-          {installed ? <Check aria-hidden="true" className="size-3.5" /> : <Plus aria-hidden="true" className="size-3.5" />}
+          {installed ? <Check aria-hidden="true" className="size-3" /> : <Plus aria-hidden="true" className="size-3" />}
         </button>
       </div>
-      <p className="mt-2 line-clamp-2 text-[13px] leading-[1.5] text-muted-foreground">{skill.description}</p>
-      <div className="mt-auto flex items-center gap-1.5 pt-3 text-[12px]">
+      <p className="mt-1.5 line-clamp-2 text-[length:var(--redesign-chat-meta)] leading-[1.5] text-muted-foreground">{skill.description}</p>
+      <div className="mt-auto flex items-center gap-1.5 pt-2.5 text-[length:var(--redesign-chat-meta)]">
         <span className="text-muted-foreground">{t("skills.by")}</span>
         <PublisherMark publisher={skill.publisher} />
         <span className="truncate text-foreground">{skill.publisher.name}</span>
