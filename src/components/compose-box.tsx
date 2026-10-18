@@ -27,6 +27,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { QueuedMessages } from "@/components/queued-messages";
 import { useQueueing, type QueuedMessage } from "@/lib/message-queue";
+import { useSkills } from "@/lib/skills";
+import { useNavigate } from "react-router-dom";
 import GlideMenu from "@/components/primitives/glide-menu";
 import {
   ArrowUpIcon,
@@ -1081,6 +1083,9 @@ export function ComposeBox({
   // fades out, so sending doesn't snap the box empty.
   const [sentGhost, setSentGhost] = useState<{ text: string; key: number } | null>(null);
   const [queueing, setQueueing] = useQueueing();
+  const { installed: installedSkills } = useSkills();
+  const [skillsOpen, setSkillsOpen] = useState(false);
+  const navigate = useNavigate();
   const fadeOutSent = () => {
     if (value.trim()) setSentGhost((ghost) => ({ text: value, key: (ghost?.key ?? 0) + 1 }));
   };
@@ -1210,6 +1215,10 @@ export function ComposeBox({
   const [tokenMenuMaxHeight, setTokenMenuMaxHeight] = useState<number | undefined>(undefined);
   const addMenuRef = useRef<HTMLDivElement>(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
+  // Collapsed again each time the + menu opens.
+  useEffect(() => {
+    if (!addMenuOpen) setSkillsOpen(false);
+  }, [addMenuOpen]);
   const [addMenuSide, setAddMenuSide] = useState<"top" | "bottom">("bottom");
   const modeMenuRef = useRef<HTMLDivElement>(null);
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
@@ -1232,6 +1241,13 @@ export function ComposeBox({
   // pick() below handles.
   function openFilePicker() {
     fileInputRef.current?.click();
+  }
+
+  // A skill, like Task and Goal, goes in front of what's already written.
+  function insertSkill(name: string) {
+    const draft = value.trim();
+    onChange(draft ? `/skill ${name} ${draft}` : `/skill ${name} `);
+    requestAnimationFrame(() => textareaRef.current?.focus());
   }
 
   // Task follows the same draft-preserving pattern as Goal: choosing it
@@ -1922,13 +1938,33 @@ export function ComposeBox({
                   </span>
                 </span>
               </DropdownSubItem>
-              <DropdownSubItem className="flex h-8 items-center gap-2.5 text-[12px] text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground">
+              {/* Skills opens in place (the panel is as wide as the composer, so a side
+                  submenu has nowhere to go): the installed ones to use in this message,
+                  then the way to Settings > Skills. */}
+              <DropdownSubItem closeOnClick={false} aria-expanded={skillsOpen} className="flex h-8 items-center gap-2.5 text-[12px] text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground" onClick={() => setSkillsOpen((open) => !open)}>
                 <SkillIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="flex min-w-0 flex-1 items-baseline gap-3">
                   <span className="shrink-0">{t("compose.skills")}</span>
                   <span className="min-w-0 truncate text-[12px] text-ink-3">{t("compose.skillsDescription")}</span>
                 </span>
+                <ChevronDownIcon aria-hidden="true" className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform duration-150", skillsOpen && "rotate-180")} />
               </DropdownSubItem>
+              {skillsOpen && (
+                <>
+                  {installedSkills.length === 0 ? (
+                    <div className="flex h-8 items-center pl-[34px] text-[12px] text-ink-3">{t("compose.skills.none")}</div>
+                  ) : (
+                    installedSkills.map((skill) => (
+                      <DropdownSubItem key={skill.id} className="flex h-8 items-center gap-2.5 text-[12px] text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground pl-[34px]" onClick={() => insertSkill(skill.name)}>
+                        <span className="truncate">{skill.name}</span>
+                      </DropdownSubItem>
+                    ))
+                  )}
+                  <DropdownSubItem className="flex h-8 items-center gap-2.5 text-[12px] text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground pl-[34px]" onClick={() => navigate("/settings/skills")}>
+                    {t("compose.skills.browse")}
+                  </DropdownSubItem>
+                </>
+              )}
               <DropdownSubItem className="h-8 items-center gap-2.5 text-[12px] text-ink-2 transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground" onClick={insertTask}>
                 <TaskIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="flex min-w-0 flex-1 items-baseline gap-3">
