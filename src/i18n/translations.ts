@@ -2288,6 +2288,15 @@ export const translations = {
     zh: "在 {{threshold}} 时压缩",
     ja: "{{threshold}} でコンパクト化",
   },
+  "compose.context.title": {
+    en: "Context",
+    "pt-BR": "Contexto",
+    es: "Contexto",
+    fr: "Contexte",
+    de: "Kontext",
+    zh: "上下文",
+    ja: "コンテキスト",
+  },
   "compose.context.ariaLabel": {
     en: "Context: {{used}} tokens used",
     "pt-BR": "Contexto: {{used}} tokens usados",

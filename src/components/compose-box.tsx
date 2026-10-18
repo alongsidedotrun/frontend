@@ -456,7 +456,6 @@ function ContextDropdown({
   modelCount,
   onCompactNow,
   autocompactValue,
-  autocompactScope,
   onSetAutocompact,
 }: {
   used: number;
@@ -470,7 +469,6 @@ function ContextDropdown({
   autocompactValue: string;
   // Drives the dropdown's own label ("Context per chat"/"Context per project") --
   // per explicit request. Settings > General > Compact's own scope toggle.
-  autocompactScope: "chat" | "project" | "global";
   onSetAutocompact: (value: string) => void;
 }) {
   const { t } = useTranslation();
@@ -527,7 +525,8 @@ function ContextDropdown({
       />
       <BaseDropdownContent side="bottom" align="center" sideOffset={6} className="w-52 min-w-0">
         <BaseDropdownLabel>
-          {autocompactScope === "project" ? t("settings.chat.compactPerProject.title") : autocompactScope === "global" ? t("settings.chat.compactGlobal.title") : t("settings.chat.compactPerChat.title")}
+          {/* Just "Context": the scope (chat, project, global) is a Settings choice, not news here. */}
+          {t("compose.context.title")}
         </BaseDropdownLabel>
         {/* No provider icon/name here any more -- per explicit request ("remove the
             providers at the dropdown as that does not make sense"): the compact
@@ -690,7 +689,6 @@ export function ComposeBox({
   onSteer,
   queue,
   autocompactValue,
-  autocompactScope,
   onSetAutocompact,
 }: {
   value: string;
@@ -795,9 +793,8 @@ export function ComposeBox({
   // Per-chat compact threshold (ChatPage.tsx owns the real state/persistence --
   // see ContextDropdown's own comment for the full reasoning). HomePage.tsx never
   // renders ContextDropdown at all (contextUsage is always null pre-chat), so
-  // these two are only ever exercised from ChatPage's own call site.
+  // these are only ever exercised from ChatPage's own call site.
   autocompactValue: string;
-  autocompactScope: "chat" | "project" | "global";
   onSetAutocompact: (value: string) => void;
 }) {
   const { t } = useTranslation();
@@ -2373,7 +2370,6 @@ export function ComposeBox({
             modelCount={selectedModels.length}
             onCompactNow={onCompactNow}
             autocompactValue={autocompactValue}
-            autocompactScope={autocompactScope}
             onSetAutocompact={onSetAutocompact}
           />
         )}
