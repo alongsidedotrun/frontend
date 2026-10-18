@@ -139,8 +139,8 @@ export function SkillsSection() {
 }
 
 function SkillGrid({ children }: { children: React.ReactNode }) {
-  // Two across in the settings column, three when it's wide enough.
-  return <div className="grid grid-cols-1 gap-3 @[520px]:grid-cols-2 @[900px]:grid-cols-3">{children}</div>;
+  // Three across in the settings column; two, then one, as it narrows.
+  return <div className="grid grid-cols-1 gap-3 @[440px]:grid-cols-2 @[640px]:grid-cols-3">{children}</div>;
 }
 
 function SkillCard({ skill, installed, onInstall, onRemove }: { skill: Skill; installed: boolean; onInstall: () => void; onRemove: () => void }) {
