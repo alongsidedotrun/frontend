@@ -143,11 +143,11 @@ export function WorkspaceBrandIcon({
         <>
           {/* The mono app icon (src-tauri/icons/source.svg, source-dark.svg): white with black
               circles in light mode, black with white in dark. Each circle is cut out of the one
-              behind by a gap in the tile's colour, at least a pixel wide so it shows at 20px. */}
+              behind by a gap in the tile's colour, at least half a pixel wide so it shows at 20px. */}
           <rect width={TILE} height={TILE} rx={radius} className="!fill-white dark:!fill-black" />
-          {[21.24, 33.13, 42.76].map((cx) => (
+          {[21.24, 32, 42.76].map((cx) => (
             <g key={cx}>
-              <circle cx={cx} cy="32.04" r={9.59 + Math.max(0.55, edgeInset * 2)} className="!fill-white dark:!fill-black" />
+              <circle cx={cx} cy="32.04" r={9.59 + Math.max(0.55, edgeInset)} className="!fill-white dark:!fill-black" />
               <circle cx={cx} cy="32.04" r="9.59" className="!fill-black dark:!fill-white" />
             </g>
           ))}
