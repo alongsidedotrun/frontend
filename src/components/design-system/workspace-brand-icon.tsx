@@ -39,11 +39,10 @@ function tileRadiusPx(size: WorkspaceBrandIconSize) {
 
 // The tile is drawn in a 64-unit viewBox: the artwork fills the centred 48×48
 // box (75%), leaving an 8-unit (12.5%) safe area on every side.
-// The Alongside workspace's stored logo is the app's favicon, a finished app
-// icon with its own rounded corners, outline and highlight. Inside this tile,
-// which rounds a logo itself, the mark is drawn inline instead (the flat
-// public/alongside-mark.svg, as shapes): as an <image>, Safari rasterises a
-// nested SVG at a low resolution and its edges come out soft.
+// The Alongside workspace's stored logo is the app's favicon. Inside this tile,
+// which rounds a logo itself, the mark is drawn inline instead, following the
+// theme like the Dock icon: as an <image>, Safari rasterises a nested SVG at a
+// low resolution and its edges come out soft.
 const APP_LOGOS = new Set(["/favicon.svg", "/alongside-mark.svg"]);
 
 const TILE = 64;
@@ -142,31 +141,26 @@ export function WorkspaceBrandIcon({
         </text>
       ) : imageSrc && APP_LOGOS.has(imageSrc) ? (
         <>
-          <defs>
-            <linearGradient id={`${clipId}-bg`} x1="32" y1="0" x2="32" y2="64" gradientUnits="userSpaceOnUse">
-              <stop stopColor="#3A8CFF" />
-              <stop offset="1" stopColor="#0566F5" />
-            </linearGradient>
-            <linearGradient id={`${clipId}-sheen`} x1="32" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-              <stop stopColor="#FFFFFF" stopOpacity="0.14" />
-              <stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          <rect width={TILE} height={TILE} rx={radius} fill={`url(#${clipId}-bg)`} />
-          <rect width={TILE} height={TILE} rx={radius} fill={`url(#${clipId}-sheen)`} />
-          {/* src-tauri/icons/source.svg's circles in this 64-unit tile; their #E5E5E5 edge as a hairline just inside. */}
-          {(
-            [
-              [21.24, "#F3F3F3"],
-              [33.13, "#F9F9F9"],
-              [42.76, "#FFFFFF"],
-            ] as const
-          ).map(([cx, fill]) => (
+          {/* The mono app icon (src-tauri/icons/source.svg, source-dark.svg): white with black
+              circles in light mode, black with white in dark. Each circle is cut out of the one
+              behind by a gap in the tile's colour, at least half a pixel wide so it shows at 20px. */}
+          <rect width={TILE} height={TILE} rx={radius} className="!fill-white dark:!fill-black" />
+          {[21.24, 32, 42.76].map((cx) => (
             <g key={cx}>
-              <circle cx={cx} cy="32.04" r="9.59" fill={fill} />
-              <circle cx={cx} cy="32.04" r={9.59 - edgeInset / 2} fill="none" stroke="#E5E5E5" strokeWidth={edgeInset} />
+              <circle cx={cx} cy="32.04" r={9.59 + Math.max(0.55, edgeInset)} className="!fill-white dark:!fill-black" />
+              <circle cx={cx} cy="32.04" r="9.59" className="!fill-black dark:!fill-white" />
             </g>
           ))}
+          <rect
+            x={edgeInset}
+            y={edgeInset}
+            width={TILE - edgeInset * 2}
+            height={TILE - edgeInset * 2}
+            rx={Math.max(0, radius - edgeInset)}
+            fill="none"
+            strokeWidth={edgeInset * 2}
+            className="stroke-[var(--redesign-sidebar-footer-onboarding-border)] dark:stroke-white/15"
+          />
         </>
       ) : imageSrc ? (
         // An uploaded logo *is* the tile: full bleed, clipped to the tile's
