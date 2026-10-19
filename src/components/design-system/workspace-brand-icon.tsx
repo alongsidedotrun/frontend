@@ -144,14 +144,29 @@ export function WorkspaceBrandIcon({
         <>
           <defs>
             <linearGradient id={`${clipId}-bg`} x1="32" y1="0" x2="32" y2="64" gradientUnits="userSpaceOnUse">
-              <stop stopColor="#2B83FF" />
-              <stop offset="1" stopColor="#056DFF" />
+              <stop stopColor="#3A8CFF" />
+              <stop offset="1" stopColor="#0566F5" />
+            </linearGradient>
+            <linearGradient id={`${clipId}-sheen`} x1="32" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#FFFFFF" stopOpacity="0.14" />
+              <stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
             </linearGradient>
           </defs>
           <rect width={TILE} height={TILE} rx={radius} fill={`url(#${clipId}-bg)`} />
-          <circle cx="21.5" cy="32" r="10.5" fill="#CFCFCF" />
-          <circle cx="32" cy="32" r="10.5" fill="#E8E8E8" />
-          <circle cx="42.5" cy="32" r="10.5" fill="#FFFFFF" />
+          <rect width={TILE} height={TILE} rx={radius} fill={`url(#${clipId}-sheen)`} />
+          {/* src-tauri/icons/source.svg's circles in this 64-unit tile; their #E5E5E5 edge as a hairline just inside. */}
+          {(
+            [
+              [21.24, "#F3F3F3"],
+              [33.13, "#F9F9F9"],
+              [42.76, "#FFFFFF"],
+            ] as const
+          ).map(([cx, fill]) => (
+            <g key={cx}>
+              <circle cx={cx} cy="32.04" r="9.59" fill={fill} />
+              <circle cx={cx} cy="32.04" r={9.59 - edgeInset / 2} fill="none" stroke="#E5E5E5" strokeWidth={edgeInset} />
+            </g>
+          ))}
         </>
       ) : imageSrc ? (
         // An uploaded logo *is* the tile: full bleed, clipped to the tile's
