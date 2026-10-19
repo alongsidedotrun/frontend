@@ -16,8 +16,8 @@ export function JoinChatIcon({ size = 24, strokeWidth = 2, className }: IconComp
       aria-hidden="true"
       className={className}
     >
-      <path d="M10.77 6.18A6.25 6.25 0 1 0 10.77 17.82" />
-      <circle cx="15.5" cy="12" r="6.25" />
+      <path d="M10.78 5.88A6.6 6.6 0 1 0 10.78 18.12" />
+      <circle cx="15.70" cy="12" r="6.6" />
     </svg>
   );
 }
