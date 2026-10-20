@@ -111,7 +111,11 @@ export function SkillsSection() {
     ? (searching ? results.filter((skill) => `${skill.name} ${skill.source}`.toLowerCase().includes(lowerNeedle)) : results).filter(keep)
     : results;
   const installed = sortSkills(
-    skills.installed.filter((skill) => !needle || `${skill.name} ${skill.description} ${skill.publisher.name}`.toLowerCase().includes(needle.toLowerCase())),
+    skills.installed.filter(
+      (skill) =>
+        (!officialOnly || skill.official === true) &&
+        (!needle || `${skill.name} ${skill.description} ${skill.publisher.name}`.toLowerCase().includes(needle.toLowerCase())),
+    ),
     sort === "installs" ? "featured" : sort,
   );
   const remoteCard = (skill: RemoteSkill) => (
@@ -184,7 +188,7 @@ export function SkillsSection() {
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder={tab === "discover" ? t("skills.browse.placeholder") : t("skills.search")}
+              placeholder={t("skills.search")}
               aria-label={t("skills.search")}
               // Focused, typed text starts at the left edge straight away (no slide); the icon and
               // the placeholder (drawn below, in place) fade out where they are. The native
@@ -193,19 +197,18 @@ export function SkillsSection() {
             />
             {!query && (
               <span aria-hidden="true" className="pointer-events-none absolute top-1/2 left-8 -translate-y-1/2 truncate text-[length:var(--redesign-chat-meta)] text-muted-foreground transition-opacity duration-200 ease-in-out group-focus-within/skills-search:opacity-0 motion-reduce:transition-none">
-                {tab === "discover" ? t("skills.browse.placeholder") : t("skills.search")}
+                {t("skills.search")}
               </span>
             )}
           </div>
-          {tab === "discover" && (
-            <DropdownMenu size="compact">
-              <DropdownTrigger render={<Button size="compact" variant="tertiary" leadingIcon={FilterLines} active={officialOnly}>{officialOnly ? t("skills.official") : t("skills.filter")}</Button>} />
-              <DropdownContent align="end" className="w-44 min-w-0">
-                <MenuItem index={0} label={t("skills.filter.everything")} checked={!officialOnly} onSelect={() => setOfficialOnly(false)} />
-                <MenuItem index={1} label={t("skills.official")} checked={officialOnly} onSelect={() => setOfficialOnly(true)} />
-              </DropdownContent>
-            </DropdownMenu>
-          )}
+          {/* On both tabs: Discover narrows skills.sh's lists, Installed your own. */}
+          <DropdownMenu size="compact">
+            <DropdownTrigger render={<Button size="compact" variant="tertiary" leadingIcon={FilterLines} active={officialOnly}>{officialOnly ? t("skills.official") : t("skills.filter")}</Button>} />
+            <DropdownContent align="end" className="w-44 min-w-0">
+              <MenuItem index={0} label={t("skills.filter.everything")} checked={!officialOnly} onSelect={() => setOfficialOnly(false)} />
+              <MenuItem index={1} label={t("skills.official")} checked={officialOnly} onSelect={() => setOfficialOnly(true)} />
+            </DropdownContent>
+          </DropdownMenu>
           <DropdownMenu size="compact">
             <DropdownTrigger render={<Button size="compact" variant="tertiary" leadingIcon={SwitchVertical01}>{t("skills.sort")}</Button>} />
             <DropdownContent align="end" className="w-40 min-w-0">
