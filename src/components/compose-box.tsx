@@ -50,6 +50,13 @@ import {
 } from "@/components/icons/untitled-ui";
 
 const styledFolderIcon = "/icons/styled-folder.svg";
+// The providers "Connect to your Providers" shows; the black marks invert in dark mode.
+const CONNECT_PROVIDER_ICONS = [
+  { src: "/icons/providers/chatgpt.svg", invertInDark: true },
+  { src: "/icons/providers/claude.svg" },
+  { src: "/icons/providers/gemini.svg" },
+  { src: "/icons/providers/grok.svg", invertInDark: true },
+];
 const appIconTileClass = "flex size-6 shrink-0 items-center justify-center rounded-[calc(24px*8/27)] border border-border bg-white shadow-[0_1px_2px_rgb(0_0_0_/_0.06)] transition-[background-color,border-color,box-shadow,translate] duration-150 hover:-translate-y-px hover:border-foreground/30 hover:bg-hover-2 hover:shadow-[0_2px_5px_rgb(0_0_0_/_0.12)] dark:bg-[#242424] dark:hover:bg-[#343434]";
 
 type SpeechRecognitionLike = {
@@ -729,6 +736,7 @@ export function ComposeBox({
   workFromFolderPath,
   onSelectWorkFromFolder,
   onOpenApps,
+  onOpenProviders,
   autoFocus,
   awaitingReply,
   onStop,
@@ -781,6 +789,8 @@ export function ComposeBox({
   workFromFolderPath?: string | null;
   onSelectWorkFromFolder?: () => void;
   onOpenApps?: () => void;
+  /** "Connect to your Providers", shown instead of the apps once no provider is set up. */
+  onOpenProviders?: () => void;
   autoFocus?: boolean;
   // Chat-only: while true, the send button becomes a stop button.
   awaitingReply?: boolean;
@@ -1457,6 +1467,10 @@ export function ComposeBox({
     window.addEventListener("keydown", onKeyDown, { capture: true });
     return () => window.removeEventListener("keydown", onKeyDown, { capture: true });
   }, []);
+
+  // Every provider checked and none set up: the row under the composer offers providers before apps.
+  // Not while a check is still running, so the row doesn't flip back and forth on load.
+  const noProviders = MODEL_PROVIDERS.length > 0 && MODEL_PROVIDERS.every((provider) => cliAvailability[provider] === false);
 
   // Sorted by provider's own display name -- pulled out of the render
   // below so checkedIndex (the model dropdown's own BaseDropdownContent,
@@ -2605,17 +2619,29 @@ export function ComposeBox({
               <img src={styledFolderIcon} alt="" aria-hidden="true" className="size-3.5 shrink-0 object-contain" />
               <span className="@max-[300px]:hidden truncate">{workFromFolderPath ? workFromFolderPath.split(/[\\/]/).filter(Boolean).pop() : t("compose.workFromFolder")}</span>
             </button>
-            <button type="button" aria-label={t("compose.connectApps")} onClick={onOpenApps} className="-mr-1 flex min-h-7 shrink-0 items-center gap-2 rounded-[calc(28px*8/27)] px-1 text-right focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              <span className="@max-[420px]:hidden">{t("compose.connectApps")}</span>
-              <span className={appIconTileClass}>
-                <img src="/icons/providers/github.svg" alt="" aria-hidden="true" className="size-3.5 object-contain dark:invert" />
-              </span>
-              {(["drive", "docs", "sheets"] as const).map((app) => (
-                <span key={app} aria-label={`Google ${app[0].toUpperCase()}${app.slice(1)} — ${t("settings.apps.comingSoon")}`} className={appIconTileClass}>
-                  <img src={`/icons/google-${app}.svg`} alt="" aria-hidden="true" className="size-[18px] object-contain" />
+            {noProviders ? (
+              <button type="button" aria-label={t("compose.connectProviders")} onClick={onOpenProviders} className="-mr-1 flex min-h-7 shrink-0 items-center gap-2 rounded-[calc(28px*8/27)] px-1 text-right focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <span className="@max-[420px]:hidden">{t("compose.connectProviders")}</span>
+                {/* ChatGPT, Claude, Gemini and Grok (Grok isn't set up yet: alongsidedotrun/private#480). */}
+                {CONNECT_PROVIDER_ICONS.map((icon) => (
+                  <span key={icon.src} className={appIconTileClass}>
+                    <img src={icon.src} alt="" aria-hidden="true" className={cn("size-3.5 object-contain", icon.invertInDark && "dark:invert")} />
+                  </span>
+                ))}
+              </button>
+            ) : (
+              <button type="button" aria-label={t("compose.connectApps")} onClick={onOpenApps} className="-mr-1 flex min-h-7 shrink-0 items-center gap-2 rounded-[calc(28px*8/27)] px-1 text-right focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <span className="@max-[420px]:hidden">{t("compose.connectApps")}</span>
+                <span className={appIconTileClass}>
+                  <img src="/icons/providers/github.svg" alt="" aria-hidden="true" className="size-3.5 object-contain dark:invert" />
                 </span>
-              ))}
-            </button>
+                {(["drive", "docs", "sheets"] as const).map((app) => (
+                  <span key={app} aria-label={`Google ${app[0].toUpperCase()}${app.slice(1)} — ${t("settings.apps.comingSoon")}`} className={appIconTileClass}>
+                    <img src={`/icons/google-${app}.svg`} alt="" aria-hidden="true" className="size-[18px] object-contain" />
+                  </span>
+                ))}
+              </button>
+            )}
           </div>
           {/* The limit warning, laid over this row (which stays underneath). */}
           {noticeBelow}
