@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FilterLines, SwitchVertical01 } from "@untitledui/icons";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,7 @@ import { DropdownContent, DropdownMenu, DropdownTrigger } from "@/components/ui/
 import { MenuItem } from "@/components/ui/menu-item";
 import { ErrorText } from "@/lib/error-code";
 import { PROVIDER_DISPLAY, ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
+import { loadModelCatalog, useModelCatalogVersion } from "@/lib/model-catalog";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { ShapeProvider } from "@/lib/shape-context";
 import {
@@ -139,11 +140,10 @@ function UsageCardSkeleton({ active = true, barsOnly = false }: { active?: boole
 }
 
 /** One row per provider (inside a settings card, which draws the dividers). */
-// A model id as people know it: the app's own label when it lists the model ("GPT-5.6 Terra"),
-// otherwise tidied from the id ("claude-opus-5-5" -> "Claude Opus 5.5", release dates dropped).
+// A model id as people know it, the same way for every provider (their own lists label models in
+// different styles: "Opus 5.5", "GPT-5.6-Luna"): "claude-opus-5-5" -> "Claude Opus 5.5",
+// "gpt-5.6-luna" -> "GPT-5.6 Luna", release dates dropped.
 function modelLabel(id: string) {
-  const known = QUICK_CHAT_MODELS.find((model) => model.value === id);
-  if (known) return known.label;
   const words: string[] = [];
   for (const part of id.split("-").filter((p) => p && !/^\d{8}$/.test(p))) {
     const previous = words[words.length - 1];
@@ -156,22 +156,40 @@ function modelLabel(id: string) {
 
 const MODEL_TAB_CLASS = "h-[22px] shrink-0 px-2.5 [&>span]:!text-[12px] [&>span]:!leading-none";
 
-/** A card's 24h/7d/30d rows, with All / each model tabs above them when the provider names more than one. */
-function UsageRows({ snapshot }: { snapshot: ProviderUsageSnapshot }) {
+// "gemini-3.8-flash-high" -> "gemini-3.8-flash": effort levels share a model's tab (as the backend
+// groups Antigravity's usage).
+const modelFamily = (id: string) => id.replace(/-(minimal|low|medium|high|xhigh)$/, "");
+
+// No usage yet, in the backend's own wording for an empty window.
+const NO_USAGE_LINES = ["24h", "7d", "30d"].map((label) => ({ label, value: "0 tokens", subtitle: "No sessions" }));
+
+/** A card's 24h/7d/30d rows, under All and a tab per model: each model the provider still offers
+ *  (the model picker's list, used or not), then any it no longer offers but used in the last 30
+ *  days, which drops off once that usage ages out. */
+function UsageRows({ snapshot, provider }: { snapshot: ProviderUsageSnapshot; provider: string }) {
   const { t } = useTranslation();
   const [selected, setSelected] = useState("all");
-  const models = snapshot.models ?? [];
-  const picked = models.find((entry) => entry.model === selected);
-  const lines = picked ? picked.usage_lines : snapshot.usage_lines;
+  const used = snapshot.models ?? [];
+  const offered = new Set(
+    QUICK_CHAT_MODELS.filter((model) => model.provider === provider && model.configured).map((model) => modelFamily(model.value)),
+  );
+  const tabs = [
+    ...used.map((entry) => ({ id: entry.model, label: modelLabel(entry.model), lines: entry.usage_lines })),
+    ...[...offered]
+      .filter((family) => !used.some((entry) => modelFamily(entry.model) === family))
+      .map((family) => ({ id: family, label: modelLabel(family), lines: NO_USAGE_LINES })),
+  ];
+  const picked = tabs.find((tab) => tab.id === selected);
+  const lines = picked ? picked.lines : snapshot.usage_lines;
   return (
     <div className="flex flex-col gap-3">
-      {models.length > 0 && (
+      {tabs.length > 0 && (
         <ShapeProvider defaultShape="pill">
           <Tabs size="compact" value={picked ? selected : "all"} onValueChange={(value) => setSelected(String(value))}>
             <TabsList className="max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>div:first-child]:!bg-background [&>div:first-child]:!shadow-[0_1px_2px_rgba(0,0,0,0.12),0_0_0_0.5px_rgba(0,0,0,0.08)] dark:[&>div:first-child]:!bg-white/12">
               <TabItem value="all" label={t("usage.models.all")} className={MODEL_TAB_CLASS} />
-              {models.map((entry) => (
-                <TabItem key={entry.model} value={entry.model} label={modelLabel(entry.model)} className={MODEL_TAB_CLASS} />
+              {tabs.map((tab) => (
+                <TabItem key={tab.id} value={tab.id} label={tab.label} className={MODEL_TAB_CLASS} />
               ))}
             </TabsList>
           </Tabs>
@@ -223,6 +241,11 @@ function leastLeft(snapshot: ProviderUsageSnapshot | null | undefined) {
  *  (by name or most used) beside the heading, like Skills' toolbar. */
 export function ProviderUsageSection() {
   const { t } = useTranslation();
+  // The model picker's list, refreshed from the providers: which models each still offers.
+  useModelCatalogVersion();
+  useEffect(() => {
+    void loadModelCatalog();
+  }, []);
   const snapshots = useAllProviderUsage();
   const { error: usageError } = useUsageStats();
   const [picked, setPicked] = useState<string[]>(() => {
@@ -376,7 +399,7 @@ export function ProviderUsageSection() {
                       {snapshot.usage_lines.length > 0 && (
                         <>
                           <div className="border-t border-border" />
-                          <UsageRows snapshot={snapshot} />
+                          <UsageRows snapshot={snapshot} provider={model.provider} />
                         </>
                       )}
                     </div>
@@ -435,7 +458,7 @@ export function ProviderUsageSection() {
                       {snapshot.usage_lines.length > 0 && (
                         <>
                           {snapshot.limits.length > 0 && <div className="border-t border-border" />}
-                          <UsageRows snapshot={snapshot} />
+                          <UsageRows snapshot={snapshot} provider={model.provider} />
                         </>
                       )}
                     </div>
