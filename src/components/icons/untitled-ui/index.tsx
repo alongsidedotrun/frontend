@@ -66,6 +66,7 @@ import {
   LayoutLeft,
   LayoutRight,
   RefreshCcw05,
+  RefreshCcw01,
   Globe02,
   Keyboard01,
   HomeLine,
@@ -187,6 +188,8 @@ export {
   Share01 as ShareIcon,
   Copy01 as CopyIcon,
   RefreshCcw05 as RotateCcwIcon,
+  // Back to a previous value (compose-box.tsx: the Effort menu's revert).
+  RefreshCcw01 as RevertIcon,
   ThumbsUp as ThumbsUpIcon,
   ThumbsDown as ThumbsDownIcon,
   VolumeMax as Volume2Icon,
