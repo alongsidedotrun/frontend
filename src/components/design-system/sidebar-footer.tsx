@@ -32,18 +32,39 @@ type GettingStartedSummaryProps = {
   onDismiss?: () => void;
 };
 
-/** Collapsible setup summary for any sidebar surface. */
+// Open or closed, as the person last left it on this device.
+const EXPANDED_KEY = "alongside_getting_started_expanded";
+
+function readExpanded(fallback: boolean) {
+  try {
+    const stored = localStorage.getItem(EXPANDED_KEY);
+    return stored === null ? fallback : stored === "1";
+  } catch {
+    return fallback;
+  }
+}
+
+/** Collapsible setup summary for any sidebar surface. Open the first time; then as last left. */
 export function GettingStartedSummary({
   label,
   steps,
   completedSteps,
-  defaultExpanded = false,
+  defaultExpanded = true,
   viewAllLabel,
   onViewAll,
   onDismiss,
 }: GettingStartedSummaryProps) {
   const { t } = useTranslation();
-  const [expanded, setExpanded] = useState(defaultExpanded);
+  const [expanded, setExpanded] = useState(() => readExpanded(defaultExpanded));
+  const toggleExpanded = () => {
+    const next = !expanded;
+    setExpanded(next);
+    try {
+      localStorage.setItem(EXPANDED_KEY, next ? "1" : "0");
+    } catch {
+      // storage blocked: as toggled, for this session
+    }
+  };
   const count = t("shell.gettingStarted.count", { done: completedSteps, total: steps.length });
   const allDone = steps.length > 0 && completedSteps >= steps.length;
   const panelRadius = expanded
@@ -71,7 +92,7 @@ export function GettingStartedSummary({
       <button
         type="button"
         aria-expanded={expanded}
-        onClick={() => setExpanded((current) => !current)}
+        onClick={toggleExpanded}
         className={cn(
           // Full colour in both states: unlike the muted sidebar rows, this is a
           // reminder that should stand out.
