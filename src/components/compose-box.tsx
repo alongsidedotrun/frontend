@@ -14,7 +14,7 @@ import { getUserDisplayName } from "@/lib/user";
 import { Button } from "@/components/ui/button";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { AnimatePresence, motion } from "motion/react";
-import { spring } from "@/lib/springs";
+import { fade, spring } from "@/lib/springs";
 // The fluidfunctionalism.com reference dropdown (Base UI Menu +
 // proximity-hover animated backgrounds) -- this file's one dropdown
 // system now, per explicit request ("Lets keep all base ui").
@@ -27,6 +27,7 @@ import { MenuItem as BaseMenuItem } from "@/components/ui/menu-item";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { QueuedMessages } from "@/components/queued-messages";
+import { DictationWave } from "@/components/dictation-wave";
 import { useQueueing, type QueuedMessage } from "@/lib/message-queue";
 import { useSkills } from "@/lib/skills";
 import { useNavigate } from "react-router-dom";
@@ -63,6 +64,7 @@ const appIconTileClass = "flex size-6 shrink-0 items-center justify-center round
 type SpeechRecognitionLike = {
   start: () => void;
   stop: () => void;
+  abort: () => void;
   continuous: boolean;
   interimResults: boolean;
   onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
@@ -1145,6 +1147,11 @@ export function ComposeBox({
     return () => clearTimeout(timer);
   }, [hasModel]);
   const [listening, setListening] = useState(false);
+  // The mic's own stream while dictating, for the wave's levels.
+  const [micStream, setMicStream] = useState<MediaStream | null>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
+  // The draft from before dictation: what it adds to, and what ✕ puts back.
+  const dictationBaseRef = useRef("");
   const [images, setImages] = useState<ImageAttachment[]>([]);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1261,32 +1268,82 @@ export function ComposeBox({
     });
   }
 
-  function toggleSpeechToText() {
-    if (listening) {
-      recognitionRef.current?.stop();
-      return;
-    }
+  function stopMicStream() {
+    micStreamRef.current?.getTracks().forEach((track) => track.stop());
+    micStreamRef.current = null;
+    setMicStream(null);
+  }
+
+  function startDictation() {
     const Recognition = getSpeechRecognition();
     if (!Recognition) {
       window.alert(t("compose.speechUnsupported"));
       return;
     }
+    // Dictation adds to what's already typed, after a space.
+    const base = value;
+    dictationBaseRef.current = base;
     const recognition = new Recognition();
     recognition.continuous = true;
-    recognition.interimResults = false;
+    // Words land as they're spoken: each result, final or still being heard, is in
+    // event.results, so the draft is rebuilt from all of them every time.
+    recognition.interimResults = true;
     recognition.onresult = (event) => {
       let transcript = "";
       for (let i = 0; i < event.results.length; i++) {
         transcript += event.results[i][0].transcript;
       }
-      onChange(transcript);
+      const spoken = transcript.trim();
+      onChange(spoken ? `${base}${base && !/\s$/.test(base) ? " " : ""}${spoken}` : base);
     };
-    recognition.onend = () => setListening(false);
-    recognition.onerror = () => setListening(false);
+    const end = () => {
+      if (recognitionRef.current === recognition) recognitionRef.current = null;
+      setListening(false);
+      stopMicStream();
+    };
+    recognition.onend = end;
+    recognition.onerror = end;
     recognitionRef.current = recognition;
     setListening(true);
     recognition.start();
+    // The wave reads the same mic on its own stream; without one it stays dotted.
+    navigator.mediaDevices
+      ?.getUserMedia({ audio: true })
+      .then((stream) => {
+        if (recognitionRef.current !== recognition) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        micStreamRef.current = stream;
+        setMicStream(stream);
+      })
+      .catch(() => {});
   }
+
+  // ✓ keeps what's in the box (stop() still settles the last words); ✕ drops it
+  // (abort() delivers nothing more) and puts the draft back as it was.
+  function finishDictation(keep: boolean) {
+    const recognition = recognitionRef.current;
+    if (!recognition) return;
+    if (keep) {
+      recognition.stop();
+      return;
+    }
+    recognitionRef.current = null;
+    recognition.abort();
+    onChange(dictationBaseRef.current);
+    setListening(false);
+    stopMicStream();
+  }
+
+  // Leaving the chat mid-dictation lets go of the mic.
+  useEffect(
+    () => () => {
+      recognitionRef.current?.abort();
+      micStreamRef.current?.getTracks().forEach((track) => track.stop());
+    },
+    [],
+  );
 
   const slashToken = dismissed ? null : parseToken(value);
   const token = slashToken;
@@ -2242,6 +2299,16 @@ export function ComposeBox({
         )}
       </div>
       <div className="mr-1 flex items-center gap-1">
+        {/* Dictating, Effort, Model and context fade out where they are (still holding their
+            space, so nothing shifts) and the live wave fades in over them, against ✕ and ✓. */}
+        <div className="relative flex items-center">
+        <motion.div
+          inert={listening}
+          initial={false}
+          animate={{ opacity: listening ? 0 : 1 }}
+          transition={fade}
+          className="flex items-center gap-1"
+        >
         {/* Effort -- now its own standalone trigger+dropdown next to the
             model selector, matching Synara's own split layout (a real
             reference app cloned for comparison: ProviderModelPicker +
@@ -2555,22 +2622,55 @@ export function ComposeBox({
             onSetAutocompact={onSetAutocompact}
           />
         )}
+        </motion.div>
+        <AnimatePresence>
+          {listening && (
+            <motion.div
+              key="dictation-wave"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={fade}
+              // Right-aligned and clipped: with less room than the wave, its oldest levels drop off the left.
+              className="pointer-events-none absolute inset-y-0 right-0 left-0 flex items-center justify-end overflow-hidden pr-1"
+            >
+              <DictationWave stream={micStream} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+        </div>
+        {/* Dictating: ✕ to drop it and ✓ to keep it, in place of the mic and send. */}
+        {listening ? (
+          <>
+            <Button
+              size="icon"
+              variant="outline"
+              onClick={() => finishDictation(false)}
+              aria-label={t("compose.dictation.cancel")}
+              className={cn("size-[var(--compose-action-size)] [&_svg]:!size-[var(--compose-mic-icon)]", PRESS_EFFECT, ICON_PRESS)}
+            >
+              <XIcon strokeWidth={1.75} />
+            </Button>
+            <Button
+              size="icon"
+              variant="outline"
+              onClick={() => finishDictation(true)}
+              aria-label={t("compose.dictation.done")}
+              className={cn("size-[var(--compose-action-size)] [&_svg]:!size-[var(--compose-mic-icon)]", PRESS_EFFECT, ICON_PRESS)}
+            >
+              <CheckIcon strokeWidth={1.75} />
+            </Button>
+          </>
+        ) : (
+          <>
         <Button
           size="icon"
-          variant={listening ? "default" : "ghost"}
-          onClick={toggleSpeechToText}
-          aria-label={listening ? t("compose.dictation.stop") : t("compose.dictation.start")}
-          className={cn("size-[var(--compose-action-size)] [&_svg]:!size-[var(--compose-mic-icon)]", PRESS_EFFECT, ICON_PRESS, !listening && ["text-foreground", NO_HOVER_SURFACE])}
+          variant="ghost"
+          onClick={startDictation}
+          aria-label={t("compose.dictation.start")}
+          className={cn("size-[var(--compose-action-size)] [&_svg]:!size-[var(--compose-mic-icon)]", PRESS_EFFECT, ICON_PRESS, "text-foreground", NO_HOVER_SURFACE)}
         >
-          {listening ? (
-            <span className="flex h-3.5 items-end gap-[2.5px]">
-              {[0, 1, 2].map((i) => (
-                <span key={i} className="w-[2.5px] rounded-full bg-current" style={{ height: "100%", animation: `eq-bounce 900ms ease-in-out ${i * 150}ms infinite` }} />
-              ))}
-            </span>
-          ) : (
-            <MicIcon className="size-[18px]" strokeWidth={1.5} />
-          )}
+          <MicIcon className="size-[18px]" strokeWidth={1.5} />
         </Button>
         {awaitingReply ? (
           <Button size="icon" variant="outline" onClick={onStop} aria-label={t("compose.stop")} className="size-[var(--compose-action-size)] [&_svg]:!size-[var(--compose-send-icon)]">
@@ -2604,6 +2704,8 @@ export function ComposeBox({
           >
             <ArrowUpIcon className="absolute top-1/2 left-1/2 size-[12px] -translate-x-1/2 -translate-y-1/2 text-white" strokeWidth={2} />
           </Button>
+        )}
+          </>
         )}
       </div>
     </div>
