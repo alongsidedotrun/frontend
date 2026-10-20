@@ -74,6 +74,7 @@ import { openSignInDialog } from "@/lib/use-sign-in";
 import { useIdentity } from "@/lib/identity";
 import { Command, RotateCcw, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SwapLabel } from "@/components/ui/swap-label";
 
 // General owns the language and timezone controls. Story: Settings
 // "Application" section
@@ -1072,7 +1073,10 @@ function UpdatePill({ state, error, onUpdate }: { state: "idle" | "updating" | "
       // A badge: the blue at 12% behind it, the full blue for its text (as the composer's command chips).
       className="inline-flex h-[18px] shrink-0 items-center rounded-full bg-[color-mix(in_oklab,var(--focus-accent)_12%,transparent)] px-1.5 text-[8.5px] leading-none font-medium whitespace-nowrap text-[var(--focus-accent)] transition-colors hover:bg-[color-mix(in_oklab,var(--focus-accent)_18%,transparent)] disabled:cursor-default disabled:opacity-70 disabled:hover:bg-[color-mix(in_oklab,var(--focus-accent)_12%,transparent)]"
     >
-      {state === "updating" ? t("settings.providers.updating") : state === "failed" ? t("settings.providers.updateFailed") : t("settings.providers.updateAvailable")}
+      {/* The label changes with the app's text swap: the old one leaves, the badge's width glides, the new one arrives. */}
+      <SwapLabel swapKey={state}>
+        {state === "updating" ? t("settings.providers.updating") : state === "failed" ? t("settings.providers.updateFailed") : t("settings.providers.updateAvailable")}
+      </SwapLabel>
     </button>
   );
 }
