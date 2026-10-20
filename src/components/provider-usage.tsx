@@ -298,11 +298,15 @@ export function ProviderUsageSection() {
                   ) : !snapshot ? (
                     <UsageCardSkeleton />
                   ) : snapshot.status === "needs_auth" ? (
-                    <p className="text-[12px] font-normal text-muted-foreground">
-                      {renderWithInlineCode(
-                        snapshot.detail ?? t("models.needsSignIn", { provider: display?.primary ?? model.provider })
-                      )}
-                    </p>
+                    // No reading yet: the message, over the bars' resting placeholder so the card keeps its shape.
+                    <div className="flex flex-col gap-3">
+                      <p className="text-[12px] font-normal text-muted-foreground">
+                        {renderWithInlineCode(
+                          snapshot.detail ?? t("models.needsSignIn", { provider: display?.primary ?? model.provider })
+                        )}
+                      </p>
+                      <UsageCardSkeleton active={false} />
+                    </div>
                   ) : snapshot.status === "error" ? (
                     <div className="flex flex-col gap-3">
                       <p className="text-[12px] font-normal text-muted-foreground">
