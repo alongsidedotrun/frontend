@@ -2214,6 +2214,15 @@ export const translations = {
     zh: "强度",
     ja: "エフォート",
   },
+  "compose.effortRevert": {
+    en: "Back to {{level}}",
+    "pt-BR": "Voltar para {{level}}",
+    es: "Volver a {{level}}",
+    fr: "Revenir à {{level}}",
+    de: "Zurück zu {{level}}",
+    zh: "恢复为{{level}}",
+    ja: "{{level}}に戻す",
+  },
   "compose.send": {
     en: "Send",
     "pt-BR": "Enviar",
