@@ -91,6 +91,8 @@ export type ProviderUsageLimit = {
   window: string;
   used_percent?: number;
   resets_at?: string;
+  /** The models this limit is shared by, when the provider says (Antigravity: "Gemini Flash, Gemini Pro"). */
+  covers?: string;
 };
 
 export type ProviderUsageLine = {

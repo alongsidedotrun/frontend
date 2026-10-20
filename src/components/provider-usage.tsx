@@ -68,7 +68,10 @@ function UsageLimitRow({ limit }: { limit: ProviderUsageLimit }) {
 
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-xs font-medium text-foreground">{limit.window}</span>
+      <span className="text-xs font-medium text-foreground">
+        {limit.window}
+        {limit.covers && <span className="font-normal text-muted-foreground"> · {limit.covers}</span>}
+      </span>
       <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted">
         <div
           className={`h-full rounded-full transition-[width] duration-500 ${USAGE_TONE_BAR_CLASS[remainingTone]}`}
