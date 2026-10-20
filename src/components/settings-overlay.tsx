@@ -1417,6 +1417,10 @@ function ProvidersSection() {
               </ConnectionList>
             </>
           )}
+          {/* Each provider's usage, right here (it had its own page). */}
+          <SettingsSection title={t("settings.providers.usage")}>
+            <ProviderUsageRows />
+          </SettingsSection>
           {/* Real integrations (issue #287) -- moved to their own top-level
               "Apps" settings section (AppsSection, below) per explicit
               correction ("Still inside providers its meant to be settings
@@ -2104,7 +2108,6 @@ function ChatSection() {
             {usage ? formatStorageBytes(usage.storage_bytes) : usageError ? "--" : "..."}
           </span>
         </SettingsRow>
-        <ProviderUsageRows />
       </SettingsSection>
 
     </div>

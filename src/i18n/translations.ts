@@ -699,6 +699,15 @@ export const translations = {
   },
 
   // -- settings-overlay.tsx: AppsSection --
+  "settings.providers.usage": {
+    en: "Usage",
+    "pt-BR": "Uso",
+    es: "Uso",
+    fr: "Utilisation",
+    de: "Nutzung",
+    zh: "用量",
+    ja: "使用状況",
+  },
   "settings.providers.usage.title": {
     en: "Provider usage",
     "pt-BR": "Uso do provedor",

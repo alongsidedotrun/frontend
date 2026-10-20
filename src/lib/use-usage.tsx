@@ -10,7 +10,7 @@ type QuickChatModel = (typeof QUICK_CHAT_MODELS)[number];
 // /usage endpoint (backend/src/db.rs's count_chats/
 // count_messages_by_provider). Shared by settings-overlay.tsx's own Usage
 // sub-section, nav-user.tsx's avatar dropdown ("Models Usage" rows), and
-// provider-usage.tsx (Settings > Chat > Usage, where those rows link) -- one fetch shape,
+// provider-usage.tsx (Settings > Providers > Usage, where those rows link) -- one fetch shape,
 // not three separate copies of the same request/type.
 export type UsageStats = {
   chat_count: number;
@@ -73,7 +73,7 @@ export function useUsageStats(): { usage: UsageStats | null; error: boolean } {
 // same provider-level number under several different labels. Still
 // sourced from the `configured: true` subset of QUICK_CHAT_MODELS -- one
 // representative model per provider, kept only for its icon. Shared by
-// nav-user.tsx's avatar dropdown and provider-usage.tsx (Settings > Chat > Usage, the bigger view those
+// nav-user.tsx's avatar dropdown and provider-usage.tsx (Settings > Providers > Usage, the bigger view those
 // rows link to), so both read the same provider list and the same real
 // counts.
 export const USAGE_PROVIDERS: QuickChatModel[] = Array.from(
