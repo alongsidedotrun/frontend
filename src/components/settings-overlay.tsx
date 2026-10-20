@@ -1121,9 +1121,6 @@ function AppsSection() {
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[12px] font-medium text-foreground">{t("settings.apps.requestApp.title")}</span>
-                <span className="line-clamp-2 text-[10px] font-normal text-muted-foreground">
-                  {t("settings.apps.requestApp.description")}
-                </span>
               </span>
             </button>
           </div>
@@ -1412,16 +1409,6 @@ function ProvidersSection() {
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[12px] font-medium text-foreground">{t("settings.providers.requestProvider.title")}</span>
-                {/* line-clamp-2, not truncate -- per explicit request
-                    ("make the requested providers description suit into
-                    two or more lines/rows, we will need to allow this to
-                    other agents"): the same wrap allowance ProviderCard's
-                    own status label got below, since a real provider's
-                    description (now shown there for every Coming soon
-                    row too) can run just as long as this one. */}
-                <span className="line-clamp-2 text-[10px] font-normal text-muted-foreground">
-                  {t("settings.providers.requestProvider.description")}
-                </span>
               </span>
             </button>
           </div>
