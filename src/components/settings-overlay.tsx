@@ -1405,7 +1405,7 @@ function ProvidersSection() {
               <ConnectionToolbar
                 filter={filter}
                 onFilter={setFilter}
-                itemCount={activeProviders.length}
+                itemCount={activeProviders.length + 1}
                 query={query}
                 onQuery={setQuery}
                 searchLabel={t("settings.connections.searchProviders")}
@@ -1414,6 +1414,16 @@ function ProvidersSection() {
                 {activeProviders.map((provider) => (
                   <ProviderCard key={provider.name} provider={provider} filter={filter} query={query} onClick={() => openProvider(provider)} />
                 ))}
+                {/* Grok: a placeholder until the backend can run it (alongsidedotrun/private#480). */}
+                {showsUnder(filter, false, query, "Grok") && (
+                  <AppRow
+                    name="Grok"
+                    description={t("settings.apps.comingSoon")}
+                    icon={<img src="/icons/providers/grok.svg" alt="" className="size-5 dark:invert" />}
+                    connected={false}
+                    onClick={() => {}}
+                  />
+                )}
               </ConnectionList>
             </>
           )}
