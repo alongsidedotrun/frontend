@@ -107,6 +107,8 @@ export type ProviderUsageSnapshot = {
   plan_name?: string;
   limits: ProviderUsageLimit[];
   usage_lines: ProviderUsageLine[];
+  /** usage_lines split by model (model id), most used first; absent when the logs name one model or none. */
+  models?: { model: string; usage_lines: ProviderUsageLine[] }[];
   detail?: string;
   /** A saved reading (from the provider's last turn) rather than a live check: when it was taken. */
   as_of?: string;
