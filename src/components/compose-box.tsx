@@ -678,7 +678,7 @@ function EffortSliderPanel({
             non-menu-item interactive element inside this Menu system elsewhere
             in this file -- keeps Base UI's own Menu.Popup from treating a drag
             gesture as an outside interaction and closing mid-drag. */}
-        <div className="relative flex h-3.5 items-center">
+        <div className="relative flex h-5 items-center">
           <input
             type="range"
             min={0}
@@ -688,7 +688,7 @@ function EffortSliderPanel({
             aria-label={t("compose.effort")}
             onPointerDown={(event) => event.stopPropagation()}
             onChange={(event) => onChange(levels[Number(event.target.value)])}
-            // h-3.5, matching the thumb's own size-3.5 -- per explicit follow-up
+            // h-5 (20px, was 14px: the taller track asked for later), matching the thumb's own size-5 -- per explicit follow-up
             // ("the bg should be the same size as the white slider"): the track
             // used to be a thin h-1 line with a much larger thumb sitting on
             // top of it; now both are the same 14px so the track reads as one
@@ -697,7 +697,7 @@ function EffortSliderPanel({
             // mt-[-5px] vertical-centering hack is gone with it -- that was
             // only ever needed to re-center a thumb taller than its own track,
             // which no longer applies now they match.
-            className="relative h-3.5 w-full cursor-pointer appearance-none rounded-full bg-[var(--send-button-bg)] outline-none [&::-moz-range-thumb]:size-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:shadow-[0_1px_2px_rgba(0,0,0,0.35)] [&::-moz-range-track]:h-3.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-transparent [&::-webkit-slider-runnable-track]:h-3.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-transparent [&::-webkit-slider-thumb]:size-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-[0_1px_2px_rgba(0,0,0,0.35)]"
+            className="relative h-5 w-full cursor-pointer appearance-none rounded-full bg-[var(--send-button-bg)] outline-none [&::-moz-range-thumb]:size-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:shadow-[0_1px_2px_rgba(0,0,0,0.35)] [&::-moz-range-track]:h-5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-transparent [&::-webkit-slider-runnable-track]:h-5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-transparent [&::-webkit-slider-thumb]:size-5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-[0_1px_2px_rgba(0,0,0,0.35)]"
           />
           {/* Inactive stop markers, per explicit follow-up ("add the inactive
               markers in the back of the bg") -- rendered *after* the input in
@@ -707,7 +707,7 @@ function EffortSliderPanel({
               marker drawn at the current activeIndex -- that position already
               has the real white thumb sitting on it, and a second dot right
               under/beside it would just look like visual noise. */}
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-[6px]">
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-[8px]">
             {levels.map((level, i) => (
               <span key={level} className={i === activeIndex ? "" : "size-1 rounded-full bg-white/50"} />
             ))}
