@@ -154,12 +154,16 @@ function modelLabel(id: string) {
 
 const MODEL_TAB_CLASS = "h-[22px] shrink-0 px-2.5 [&>span]:!text-[12px] [&>span]:!leading-none";
 
-/** A card's 24h/7d/30d rows, under All and a tab for each model used in the last 30 days (a model
- *  drops off once its usage ages out). With one model there are no tabs: it would repeat All. */
+/** A card's 24h/7d/30d rows, under All and a tab for each model used this calendar month (since the
+ *  1st, in the viewer's time zone). With one model there are no tabs: it would repeat All. */
 function UsageRows({ snapshot }: { snapshot: ProviderUsageSnapshot }) {
   const { t } = useTranslation();
   const [selected, setSelected] = useState("all");
-  const tabs = (snapshot.models ?? []).map((entry) => ({ id: entry.model, label: modelLabel(entry.model), lines: entry.usage_lines }));
+  const today = new Date();
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).getTime();
+  const tabs = (snapshot.models ?? [])
+    .filter((entry) => entry.last_used_at === undefined || entry.last_used_at >= monthStart)
+    .map((entry) => ({ id: entry.model, label: modelLabel(entry.model), lines: entry.usage_lines }));
   const picked = tabs.find((tab) => tab.id === selected);
   const lines = picked ? picked.lines : snapshot.usage_lines;
   return (
