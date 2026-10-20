@@ -69,8 +69,8 @@ const ROUTES: RouteObject[] = [
       // Static path, not caught by the :section param route below --
       // React Router ranks a static segment above a dynamic one at the
       // same position, so this always wins for this exact path. Lives
-      // Provider usage was its own page here; it's now part of Settings > Chat > Usage. Old links land there.
-      { path: "/settings/provider/usage", element: <Navigate to="/settings/chat" replace /> },
+      // Provider usage was its own page here; it's now a section of Settings > Providers. Old links land there.
+      { path: "/settings/provider/usage", element: <Navigate to="/settings/provider" replace /> },
       { path: "/settings/:section", element: <SettingsPage /> },
       { path: "/docs", element: <DocsPage /> },
       { path: "/help", element: <HelpPage /> },

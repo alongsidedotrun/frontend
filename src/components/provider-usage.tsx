@@ -33,9 +33,10 @@ function renderWithInlineCode(text: string) {
   );
 }
 
-// Each provider's usage, as rows in Settings > Chat > Usage (settings-overlay.tsx's ChatSection), under
-// chat storage -- it was its own page (/settings/provider/usage, now redirected there). The avatar
-// dropdown's usage bars (nav-user.tsx) link to it. Story: alongsidedotrun/private#217.
+// Each provider's usage, as rows in Settings > Providers' Usage section (settings-overlay.tsx's
+// ProvidersSection), under the providers -- it was its own page (/settings/provider/usage, now
+// redirected there). The avatar dropdown's usage bars (nav-user.tsx) link to it. Story:
+// alongsidedotrun/private#217.
 //
 // Real numbers -- each provider's own rate-limit/quota windows, read from
 // that provider's own CLI-login credential and usage endpoint directly
