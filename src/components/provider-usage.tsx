@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 import { DropdownContent, DropdownMenu, DropdownTrigger } from "@/components/ui/dropdown";
 import { MenuItem } from "@/components/ui/menu-item";
 import { ErrorText } from "@/lib/error-code";
-import { PROVIDER_DISPLAY, ProviderIcon } from "@/lib/quick-chat-models";
+import { PROVIDER_DISPLAY, ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
+import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
+import { ShapeProvider } from "@/lib/shape-context";
 import {
   USAGE_PROVIDERS,
   useAllProviderUsage,
@@ -97,7 +99,8 @@ function UsageLimitRow({ limit }: { limit: ProviderUsageLimit }) {
 // beat" (what the pulse communicates), it's "nothing to show right now,
 // and won't resolve on its own" -- so it reuses the same bar shapes for
 // visual continuity but static/dimmed instead of animate-pulse.
-function UsageCardSkeleton({ active = true }: { active?: boolean }) {
+// barsOnly: just the limit bars, when the card's token rows are real.
+function UsageCardSkeleton({ active = true, barsOnly = false }: { active?: boolean; barsOnly?: boolean }) {
   return (
     <div className={`flex flex-col gap-4 ${active ? "animate-pulse" : "opacity-40"}`}>
       <div className="flex flex-col gap-3">
@@ -115,15 +118,73 @@ function UsageCardSkeleton({ active = true }: { active?: boolean }) {
           </div>
         ))}
       </div>
-      <div className="border-t border-border" />
+      {!barsOnly && (
+        <>
+          <div className="border-t border-border" />
+          <div className="flex flex-col gap-2">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex items-center justify-between">
+                <div className="flex flex-col gap-1">
+                  <div className="h-2.5 w-8 rounded bg-muted" />
+                  <div className="h-2 w-20 rounded bg-muted" />
+                </div>
+                <div className="h-2.5 w-14 rounded bg-muted" />
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** One row per provider (inside a settings card, which draws the dividers). */
+// A model id as people know it: the app's own label when it lists the model ("GPT-5.6 Terra"),
+// otherwise tidied from the id ("claude-opus-5-5" -> "Claude Opus 5.5", release dates dropped).
+function modelLabel(id: string) {
+  const known = QUICK_CHAT_MODELS.find((model) => model.value === id);
+  if (known) return known.label;
+  const words: string[] = [];
+  for (const part of id.split("-").filter((p) => p && !/^\d{8}$/.test(p))) {
+    const previous = words[words.length - 1];
+    if (/^\d+$/.test(part) && previous && /^\d+(\.\d+)*$/.test(previous)) words[words.length - 1] = `${previous}.${part}`;
+    else words.push(/^\d/.test(part) ? part : part[0].toUpperCase() + part.slice(1));
+  }
+  const [first = id, ...rest] = words;
+  return first.toLowerCase() === "gpt" ? `GPT-${rest.join(" ")}` : [first, ...rest].join(" ");
+}
+
+const MODEL_TAB_CLASS = "h-[22px] shrink-0 px-2.5 [&>span]:!text-[12px] [&>span]:!leading-none";
+
+/** A card's 24h/7d/30d rows, with All / each model tabs above them when the provider names more than one. */
+function UsageRows({ snapshot }: { snapshot: ProviderUsageSnapshot }) {
+  const { t } = useTranslation();
+  const [selected, setSelected] = useState("all");
+  const models = snapshot.models ?? [];
+  const picked = models.find((entry) => entry.model === selected);
+  const lines = picked ? picked.usage_lines : snapshot.usage_lines;
+  return (
+    <div className="flex flex-col gap-3">
+      {models.length > 0 && (
+        <ShapeProvider defaultShape="pill">
+          <Tabs size="compact" value={picked ? selected : "all"} onValueChange={(value) => setSelected(String(value))}>
+            <TabsList className="max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>div:first-child]:!bg-background [&>div:first-child]:!shadow-[0_1px_2px_rgba(0,0,0,0.12),0_0_0_0.5px_rgba(0,0,0,0.08)] dark:[&>div:first-child]:!bg-white/12">
+              <TabItem value="all" label={t("usage.models.all")} className={MODEL_TAB_CLASS} />
+              {models.map((entry) => (
+                <TabItem key={entry.model} value={entry.model} label={modelLabel(entry.model)} className={MODEL_TAB_CLASS} />
+              ))}
+            </TabsList>
+          </Tabs>
+        </ShapeProvider>
+      )}
       <div className="flex flex-col gap-2">
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="flex items-center justify-between">
-            <div className="flex flex-col gap-1">
-              <div className="h-2.5 w-8 rounded bg-muted" />
-              <div className="h-2 w-20 rounded bg-muted" />
+        {lines.map((line) => (
+          <div key={line.label} className="flex items-center justify-between text-[12px]">
+            <div>
+              <div className="font-medium text-foreground">{line.label}</div>
+              {line.subtitle && <div className="text-[11px] font-normal text-muted-foreground">{line.subtitle}</div>}
             </div>
-            <div className="h-2.5 w-14 rounded bg-muted" />
+            <span className="font-medium text-foreground">{line.value}</span>
           </div>
         ))}
       </div>
@@ -131,7 +192,6 @@ function UsageCardSkeleton({ active = true }: { active?: boolean }) {
   );
 }
 
-/** One row per provider (inside a settings card, which draws the dividers). */
 type UsageSort = "name" | "mostUsed";
 // Which providers are picked in Filter (none: all of them) and how they're sorted, remembered on this device.
 const USAGE_PICKED_KEY = "alongside_usage_picked";
@@ -311,7 +371,14 @@ export function ProviderUsageSection() {
                           snapshot.detail ?? t("models.needsSignIn", { provider: display?.primary ?? model.provider })
                         )}
                       </p>
-                      <UsageCardSkeleton active={false} />
+                      {/* The token rows come from the CLI's own logs, so they're real even before the limits are. */}
+                      <UsageCardSkeleton active={false} barsOnly={snapshot.usage_lines.length > 0} />
+                      {snapshot.usage_lines.length > 0 && (
+                        <>
+                          <div className="border-t border-border" />
+                          <UsageRows snapshot={snapshot} />
+                        </>
+                      )}
                     </div>
                   ) : snapshot.status === "error" ? (
                     <div className="flex flex-col gap-3">
@@ -369,17 +436,7 @@ export function ProviderUsageSection() {
                       {snapshot.usage_lines.length > 0 && (
                         <>
                           {snapshot.limits.length > 0 && <div className="border-t border-border" />}
-                          <div className="flex flex-col gap-2">
-                            {snapshot.usage_lines.map((line) => (
-                              <div key={line.label} className="flex items-center justify-between text-[12px]">
-                                <div>
-                                  <div className="font-medium text-foreground">{line.label}</div>
-                                  {line.subtitle && <div className="text-[11px] font-normal text-muted-foreground">{line.subtitle}</div>}
-                                </div>
-                                <span className="font-medium text-foreground">{line.value}</span>
-                              </div>
-                            ))}
-                          </div>
+                          <UsageRows snapshot={snapshot} />
                         </>
                       )}
                     </div>

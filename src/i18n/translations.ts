@@ -708,6 +708,7 @@ export const translations = {
     zh: "用量",
     ja: "使用状況",
   },
+  "usage.models.all": { en: "All", "pt-BR": "Todos", es: "Todos", fr: "Tous", de: "Alle", zh: "全部", ja: "すべて" },
   "usage.filter": { en: "Filter", "pt-BR": "Filtrar", es: "Filtrar", fr: "Filtrer", de: "Filtern", zh: "筛选", ja: "絞り込み" },
   "usage.filter.all": { en: "All providers", "pt-BR": "Todos os provedores", es: "Todos los proveedores", fr: "Tous les fournisseurs", de: "Alle Anbieter", zh: "全部提供商", ja: "すべてのプロバイダー" },
   "usage.sort": { en: "Sort", "pt-BR": "Ordenar", es: "Ordenar", fr: "Trier", de: "Sortieren", zh: "排序", ja: "並べ替え" },
