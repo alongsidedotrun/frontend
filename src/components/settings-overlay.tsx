@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { ShapeProvider } from "@/lib/shape-context";
 import { ProviderUsageSection } from "@/components/provider-usage";
+import { LimitReminderRows } from "@/components/limit-reminders";
 import { Check, Plus, SearchMd } from "@untitledui/icons";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
@@ -2195,6 +2196,13 @@ function ChatSection() {
             {usage ? formatStorageBytes(usage.storage_bytes) : usageError ? "--" : "..."}
           </span>
         </SettingsRow>
+      </SettingsSection>
+
+      {/* The yellow note above the composer as a provider's 5-hour limit fills: 85% always,
+          plus any levels added here (or from the note's own Reminders). */}
+      <SettingsSection title={t("limits.reminders.title")}>
+        <p className="px-3 py-2 text-[12px] text-muted-foreground">{t("limits.reminders.hint")}</p>
+        <LimitReminderRows variant="settings" />
       </SettingsSection>
 
     </div>
