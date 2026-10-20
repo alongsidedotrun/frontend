@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { ShapeProvider } from "@/lib/shape-context";
-import { Plus, SearchMd } from "@untitledui/icons";
+import { Check, Plus, SearchMd } from "@untitledui/icons";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { useIsMac, useIsWindows } from "@/hooks/use-platform";
@@ -113,6 +113,10 @@ export type SettingsSection = "profile" | "general" | "appearance" | "chat" | "p
 const SETTINGS_CARD_RADIUS = "rounded-xl";
 const PROVIDER_ICON_FRAME = "flex size-8 shrink-0 items-center justify-center rounded-[calc(32px*8/27)] border border-border";
 // A Providers/Apps row: no border of its own (its icon's frame has one), a full-row hover.
+// At its right end: a bordered + to add it (install, log in or set up), a check once it's connected.
+const CONNECTION_ACTION = "flex size-8 shrink-0 items-center justify-center rounded-[calc(32px*8/27)]";
+const CONNECTION_ADD = `${CONNECTION_ACTION} border border-border text-foreground transition-colors hover:bg-hover-2`;
+const CONNECTED_MARK = `${CONNECTION_ACTION} bg-foreground text-background`;
 const CONNECTION_ROW = `flex w-full select-none items-center gap-3 ${SETTINGS_CARD_RADIUS} p-2 text-left transition-colors hover:bg-hover-2/50`;
 
 type ConnectionFilter = "all" | "connected" | "available";
@@ -1035,9 +1039,6 @@ function ProviderCard({ provider, onClick, filter = "all", query = "" }: { provi
           ? t("settings.providers.notSignedInPlain")
           : t("settings.providers.notInstalledPlain");
   const docsUrl = PROVIDER_DOCS_URLS[cliBinary];
-  // Same shrink-0/text sizing as before, just no hover of its own any more
-  // (see the outer row's own comment below).
-  const actionButtonClassName = "shrink-0 rounded-lg px-2 py-1 text-[11px] font-normal text-muted-foreground";
   // Every row now gets the exact same edge-to-edge hover, regardless of
   // connection state -- confirmed directly as a real inconsistency ("the
   // hover for gemini should be the exact same as claude and chatgpt"): a
@@ -1075,19 +1076,10 @@ function ProviderCard({ provider, onClick, filter = "all", query = "" }: { provi
           <span className="line-clamp-2 text-[10px] font-normal text-muted-foreground"><ErrorText message={statusLabel} /></span>
         </span>
         {isConnected && (
-          // A plain open/chevron affordance now, not a toggle -- per
-          // explicit request ("for connected we should do the arrow open
-          // icon style instead of the toggle button"). Inside this same
-          // button (was a sibling element after it, outside its
-          // clickable/hoverable area entirely) -- confirmed directly
-          // ("the > arrow is not getting the effect to click") that
-          // living outside the button meant clicking or hovering it did
-          // nothing at all. This app has no "hide this provider" setting
-          // the way Synara's own Switch toggles (that one controls
-          // provider-picker visibility) -- a toggle implied a control
-          // that doesn't exist here; this just signals "click to open"
-          // instead, matching the row's own real behavior.
-          <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+          // A check once connected; the row itself still opens it.
+          <span className={CONNECTED_MARK} aria-hidden="true">
+            <Check className="size-4" />
+          </span>
         )}
         {cliCheckError && (
           // Can't tell installed (ALS-003) from not-signed-in (ALS-004)
@@ -1101,33 +1093,20 @@ function ProviderCard({ provider, onClick, filter = "all", query = "" }: { provi
           <span className="shrink-0 text-[11px] font-normal text-muted-foreground">{t("settings.providers.noConnectionPlain")}</span>
         )}
       </button>
-      {isFullCardButton ? null : installed ? (
-        // Not signed in but the CLI is there -- opens this same provider's
-        // detail view (onClick, same as the row's own button), which
-        // already has the real "Log in"/"Setup now" flow wired up
-        // (ProviderConnectionView's own handleLogIn/handleSetupNow).
-        <button type="button" onClick={onClick} className={actionButtonClassName}>
-          {t("settings.providers.logIn")}
-        </button>
-      ) : docsUrl ? (
-        // Not installed -- straight to the provider's own install docs,
-        // not into the detail view (stopPropagation so this doesn't also
-        // trigger the row's own onClick underneath it).
+      {/* Not connected: a bordered + that does what its label says -- Log in (the CLI is there) or
+          Set up opens this provider's detail view, Install goes to its install docs. */}
+      {isFullCardButton ? null : (
         <button
           type="button"
+          aria-label={installed ? t("settings.providers.logIn") : docsUrl ? t("settings.providers.install") : t("settings.providers.setUp")}
           onClick={(event) => {
+            if (installed || !docsUrl) return onClick();
             event.stopPropagation();
             window.open(docsUrl, "_blank", "noopener,noreferrer");
           }}
-          className={actionButtonClassName}
+          className={CONNECTION_ADD}
         >
-          {t("settings.providers.install")}
-        </button>
-      ) : (
-        // No confirmed docs URL for this provider (PROVIDER_DOCS_URLS'
-        // own comment) -- falls back to the detail view, same as before.
-        <button type="button" onClick={onClick} className={actionButtonClassName}>
-          {t("settings.providers.setUp")}
+          <Plus className="size-4" />
         </button>
       )}
     </div>
@@ -1231,13 +1210,10 @@ function GithubIntegrationCard({ onClick, filter = "all", query = "" }: { onClic
           {isConnected ? t("common.connected") : t("common.disconnected")}
         </span>
       </span>
-      {/* Per explicit request ("we are missing the arrow > at github like
-          the models have") -- always shown, not gated on isConnected the
-          way ProviderCard's own chevron is, since this row is always a
-          real drill-in into GithubAppConnectionView regardless of
-          connection state (unlike a provider row, which only drills in
-          once actually connected). */}
-      <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+      {/* + until connected, then a check; either way the row opens GitHub's setup page. */}
+      <span className={isConnected ? CONNECTED_MARK : CONNECTION_ADD} aria-hidden="true">
+        {isConnected ? <Check className="size-4" /> : <Plus className="size-4" />}
+      </span>
     </button>
   );
 }
