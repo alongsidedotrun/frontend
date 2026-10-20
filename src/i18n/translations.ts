@@ -890,15 +890,6 @@ export const translations = {
     zh: "未登录",
     ja: "サインインしていません",
   },
-  "settings.providers.noConnectionPlain": {
-    en: "No connection",
-    "pt-BR": "Sem conexão",
-    es: "Sin conexión",
-    fr: "Aucune connexion",
-    de: "Keine Verbindung",
-    zh: "无连接",
-    ja: "接続なし",
-  },
   "settings.providers.logIn": {
     en: "Log in",
     "pt-BR": "Entrar",
