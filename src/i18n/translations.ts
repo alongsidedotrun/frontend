@@ -717,15 +717,6 @@ export const translations = {
     zh: "即将推出",
     ja: "近日公開",
   },
-  "settings.apps.requestApp.title": {
-    en: "Request an app",
-    "pt-BR": "Solicitar um aplicativo",
-    es: "Solicitar una aplicación",
-    fr: "Demander une application",
-    de: "Eine App anfragen",
-    zh: "申请应用",
-    ja: "アプリをリクエスト",
-  },
   "settings.apps.github.connectedAs": {
     en: "Connected as {{username}}",
     "pt-BR": "Conectado como {{username}}",
@@ -1045,15 +1036,6 @@ export const translations = {
   },
 
   // -- settings-overlay.tsx: ProvidersSection --
-  "settings.providers.requestProvider.title": {
-    en: "Request a provider",
-    "pt-BR": "Solicitar um provedor",
-    es: "Solicitar un proveedor",
-    fr: "Demander un fournisseur",
-    de: "Einen Anbieter anfragen",
-    zh: "申请服务商",
-    ja: "プロバイダーをリクエスト",
-  },
   "settings.providers.usage": {
     en: "Usage",
     "pt-BR": "Uso",
