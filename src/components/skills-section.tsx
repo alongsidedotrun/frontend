@@ -1,4 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { fade } from "@/lib/springs";
 import { useTranslation } from "react-i18next";
 import { ArrowUpRight, Check, File02, FilterLines, Plus, SearchMd, Stars02, SwitchVertical01 } from "@untitledui/icons";
 import { Button } from "@/components/ui/button";
@@ -215,80 +217,86 @@ export function SkillsSection() {
         </div>
       </div>
 
-      {tab === "installed" ? (
-        installed.length > 0 ? (
-          <section className="mt-8">
-            <SkillGrid>
-              {installed.map((skill) => (
-                <InstalledSkillCard key={skill.id} skill={skill} onRemove={() => skills.remove(skill.id)} />
-              ))}
-            </SkillGrid>
-          </section>
-        ) : (
-          <EmptyState>
-            {needle ? t("skills.empty.search") : t("skills.empty.installed")}
-            {!needle && <Button size="compact" variant="tertiary" onClick={() => setTab("discover")}>{t("skills.empty.browse")}</Button>}
-          </EmptyState>
-        )
-      ) : results !== null ? (
-        <section className="mt-8">
-          <h3 className="mb-2.5 text-[length:var(--redesign-font-size-compact)] text-muted-foreground">{t("skills.results")}</h3>
-          {shownResults === "error" ? (
-            <EmptyState>{t("skills.browse.error")}</EmptyState>
-          ) : !searching && Array.isArray(shownResults) && shownResults.length === 0 ? (
-            <EmptyState>{t("skills.browse.none", { query: needle })}</EmptyState>
-          ) : (
-            <SkeletonReveal loading={shownResults === "loading" || !shownResults || (searching && shownResults.length === 0)} skeleton={<SkeletonGrid count={6} />}>
-              {Array.isArray(shownResults) && (
-                <div className={cn("transition-opacity duration-150", searching && "opacity-70")}>
-                  <SkillGrid>{sortSkills(shownResults, sort).map(remoteCard)}</SkillGrid>
-                </div>
-              )}
-            </SkeletonReveal>
-          )}
-        </section>
-      ) : (
-        <>
-        <section className="mt-8">
-          <SectionHeader title={t("skills.official")} page="official" />
-          {official === "error" ? (
-            <EmptyState>{t("skills.browse.error")}</EmptyState>
-          ) : (
-            <SkeletonReveal loading={official === "loading"} skeleton={<SkeletonGrid count={6} official />}>
-            {official !== "loading" && (
-            <SkillGrid>
-              {official.map((company) => (
-                <OfficialCompanyCard
-                  key={company.owner}
-                  company={company}
-                  isAdded={(skill) => skills.isInstalled(installedIdFor(skill))}
-                  state={addRemote.state}
-                  onAdd={(skill) => void addRemote.add(skill)}
-                  onRemove={(skill) => skills.remove(installedIdFor(skill))}
-                />
-              ))}
-            </SkillGrid>
-            )}
-            </SkeletonReveal>
-          )}
-        </section>
-        {SECTIONS.map(({ view, titleKey, page }) => {
-          const list = lists[view];
-          return (
-            <section key={view} className="mt-8">
-              <SectionHeader title={t(titleKey)} page={page} />
-              {list === "error" ? (
+      {/* Switching tabs fades the old list out, then the new one in. */}
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={tab}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1, transition: fade }}
+          exit={{ opacity: 0, transition: fade }}
+        >
+          {tab === "installed" ? (
+            installed.length > 0 ? (
+              <section className="mt-8">
+                <SkillGrid>
+                  {installed.map((skill) => (
+                    <InstalledSkillCard key={skill.id} skill={skill} onRemove={() => skills.remove(skill.id)} />
+                  ))}
+                </SkillGrid>
+              </section>
+            ) : // Nothing installed (or nothing matching): left empty, no note or button.
+            null
+          ) : results !== null ? (
+            <section className="mt-8">
+              <h3 className="mb-2.5 text-[length:var(--redesign-font-size-compact)] text-muted-foreground">{t("skills.results")}</h3>
+              {shownResults === "error" ? (
                 <EmptyState>{t("skills.browse.error")}</EmptyState>
+              ) : !searching && Array.isArray(shownResults) && shownResults.length === 0 ? (
+                <EmptyState>{t("skills.browse.none", { query: needle })}</EmptyState>
               ) : (
-                <SkeletonReveal loading={list === "loading"} skeleton={<SkeletonGrid count={SECTION_SIZE} />}>
-                  {list !== "loading" && <SkillGrid>{sortSkills(list.filter(keep), sort).slice(0, SECTION_SIZE).map(remoteCard)}</SkillGrid>}
+                <SkeletonReveal loading={shownResults === "loading" || !shownResults || (searching && shownResults.length === 0)} skeleton={<SkeletonGrid count={6} />}>
+                  {Array.isArray(shownResults) && (
+                    <div className={cn("transition-opacity duration-150", searching && "opacity-70")}>
+                      <SkillGrid>{sortSkills(shownResults, sort).map(remoteCard)}</SkillGrid>
+                    </div>
+                  )}
                 </SkeletonReveal>
               )}
             </section>
-          );
-        })}
-        </>
-      )}
+          ) : (
+            <>
+            <section className="mt-8">
+              <SectionHeader title={t("skills.official")} page="official" />
+              {official === "error" ? (
+                <EmptyState>{t("skills.browse.error")}</EmptyState>
+              ) : (
+                <SkeletonReveal loading={official === "loading"} skeleton={<SkeletonGrid count={6} official />}>
+                {official !== "loading" && (
+                <SkillGrid>
+                  {official.map((company) => (
+                    <OfficialCompanyCard
+                      key={company.owner}
+                      company={company}
+                      isAdded={(skill) => skills.isInstalled(installedIdFor(skill))}
+                      state={addRemote.state}
+                      onAdd={(skill) => void addRemote.add(skill)}
+                      onRemove={(skill) => skills.remove(installedIdFor(skill))}
+                    />
+                  ))}
+                </SkillGrid>
+                )}
+                </SkeletonReveal>
+              )}
+            </section>
+            {SECTIONS.map(({ view, titleKey, page }) => {
+              const list = lists[view];
+              return (
+                <section key={view} className="mt-8">
+                  <SectionHeader title={t(titleKey)} page={page} />
+                  {list === "error" ? (
+                    <EmptyState>{t("skills.browse.error")}</EmptyState>
+                  ) : (
+                    <SkeletonReveal loading={list === "loading"} skeleton={<SkeletonGrid count={SECTION_SIZE} />}>
+                      {list !== "loading" && <SkillGrid>{sortSkills(list.filter(keep), sort).slice(0, SECTION_SIZE).map(remoteCard)}</SkillGrid>}
+                    </SkeletonReveal>
+                  )}
+                </section>
+              );
+            })}
+            </>
+          )}
+        </motion.div>
+      </AnimatePresence>
 
       <AddSkillDialog
         draft={draft}
