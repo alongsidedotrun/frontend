@@ -234,12 +234,8 @@ export function SkillsSection() {
                   ))}
                 </SkillGrid>
               </section>
-            ) : (
-              <EmptyState>
-                {needle ? t("skills.empty.search") : t("skills.empty.installed")}
-                {!needle && <Button size="compact" variant="tertiary" onClick={() => setTab("discover")}>{t("skills.empty.browse")}</Button>}
-              </EmptyState>
-            )
+            ) : // Nothing installed (or nothing matching): left empty, no note or button.
+            null
           ) : results !== null ? (
             <section className="mt-8">
               <h3 className="mb-2.5 text-[length:var(--redesign-font-size-compact)] text-muted-foreground">{t("skills.results")}</h3>
