@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { spring } from "@/lib/springs";
 import { isAutoScrollSuppressed, suppressAutoScroll } from "@/lib/chat-scroll-suppress";
 import { GUEST_NAME, getUserDisplayName } from "@/lib/user";
+import { useIsSignedIn } from "@/lib/auth";
 import { CommandChip, ComposeBox, leadingCommand, toImageInputs, type ImageAttachment } from "@/components/compose-box";
 import { JoinRequests, type JoinRequest } from "@/components/join-requests";
 import { clearPresence, setPresence, type Person } from "@/lib/presence";
@@ -3110,6 +3111,7 @@ function ChatRowView({
   liveWorking?: { label: string; detailText?: string };
 }) {
   const { t } = useTranslation();
+  const signedIn = useIsSignedIn();
   // Gates the actions row + disclaimer (agent branch, further down) until
   // the reply's own StreamingText reveal genuinely finishes -- per explicit
   // request ("copy, rate, re-try... source and time and advise shows before
@@ -3212,6 +3214,9 @@ function ChatRowView({
             border is the row's real edge) -- px-1 here left the header
             sitting 4px inset from that same edge instead of flush with it,
             reading as a gap on whichever side the row is aligned to. */}
+        {/* Signed out, your own messages carry no header: there's no account behind them, so no
+            avatar (a Guest "G") and no "Me" -- just the message. Others in a shared chat keep theirs. */}
+        {(signedIn || !isSelf) && (
         <div className="flex items-center gap-1.5">
           {/* 18px, a step over the agent row's 16px ProviderIcon: a round avatar
               reads smaller than a provider's mark in the same box, so this is
@@ -3223,6 +3228,7 @@ function ChatRowView({
               anyone else in a shared chat (this row is every human message). */}
           <span className="text-[length:calc(var(--redesign-chat-meta)+2px)] text-muted-foreground">{isSelf ? i18n.t("chat.me") : row.displayName}</span>
         </div>
+        )}
         {/* transition-[max-width]: sm: is a real viewport breakpoint, so
             without this the bubble snapped width instantly at 640px while
             resizing the window -- same fix as AppLayout.tsx's own content
