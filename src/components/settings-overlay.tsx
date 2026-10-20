@@ -1081,26 +1081,16 @@ function ProviderCard({ provider, onClick, filter = "all", query = "" }: { provi
             <Check className="size-4" />
           </span>
         )}
-        {cliCheckError && (
-          // Can't tell installed (ALS-003) from not-signed-in (ALS-004)
-          // apart when the check itself failed -- `installed` here can
-          // still be a stale cache hit from an earlier successful check,
-          // so this must come before that branch rather than fall through
-          // to a Log in/Install action that isn't actually knowable right
-          // now. Inside the same button as the chevron above (not a
-          // sibling span) so it shares that full-card hover instead of
-          // sitting outside it looking inert.
-          <span className="shrink-0 text-[11px] font-normal text-muted-foreground">{t("settings.providers.noConnectionPlain")}</span>
-        )}
       </button>
       {/* Not connected: a bordered + that does what its label says -- Log in (the CLI is there) or
-          Set up opens this provider's detail view, Install goes to its install docs. */}
-      {isFullCardButton ? null : (
+          Set up opens this provider's detail view, Install goes to its install docs. When the check
+          itself failed (the status line says why), it opens the detail view too. */}
+      {isConnected ? null : (
         <button
           type="button"
-          aria-label={installed ? t("settings.providers.logIn") : docsUrl ? t("settings.providers.install") : t("settings.providers.setUp")}
+          aria-label={!cliCheckError && installed ? t("settings.providers.logIn") : !cliCheckError && docsUrl ? t("settings.providers.install") : t("settings.providers.setUp")}
           onClick={(event) => {
-            if (installed || !docsUrl) return onClick();
+            if (cliCheckError || installed || !docsUrl) return onClick();
             event.stopPropagation();
             window.open(docsUrl, "_blank", "noopener,noreferrer");
           }}
