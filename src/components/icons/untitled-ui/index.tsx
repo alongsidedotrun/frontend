@@ -43,7 +43,6 @@ import {
   Sun,
   Moon01,
   Monitor01,
-  PuzzlePiece01,
   FolderPlus,
   Folder,
   HardDrive,
@@ -83,6 +82,8 @@ import {
 export { LibraryBig as SkillIcon } from "lucide-react";
 // Apps (settings nav and search): Lucide's blocks, by request.
 export { Blocks as IntegrationsIcon } from "lucide-react";
+// Providers (settings nav and search): Lucide's cpu, by request.
+export { Cpu as ProvidersIcon } from "lucide-react";
 
 // This app's one and only icon source now -- replaces Hugeicons (that
 // migration's own comment explained the earlier @fluentui/lucide split),
@@ -154,8 +155,6 @@ export {
   Moon01 as MoonIcon,
   // Desktop/system theme option.
   Monitor01 as SystemIcon,
-  // Settings sidebar's own Providers row (settings-overlay.tsx).
-  PuzzlePiece01 as ProvidersIcon,
   // Settings sidebar's own Appearance row (settings-overlay.tsx).
   Palette as PaletteIcon,
   // Providers page's own "Provider usage" card, Coming soon grid (settings-overlay.tsx).
