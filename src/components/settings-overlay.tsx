@@ -1055,7 +1055,7 @@ function UpdatePill({ state, error, onUpdate }: { state: "idle" | "updating" | "
         onUpdate();
       }}
       // A badge: the blue at 12% behind it, the full blue for its text (as the composer's command chips).
-      className="inline-flex h-5 shrink-0 items-center rounded-full bg-[color-mix(in_oklab,var(--focus-accent)_12%,transparent)] px-2 text-[10px] leading-none font-medium whitespace-nowrap text-[var(--focus-accent)] transition-colors hover:bg-[color-mix(in_oklab,var(--focus-accent)_18%,transparent)] disabled:cursor-default disabled:opacity-70 disabled:hover:bg-[color-mix(in_oklab,var(--focus-accent)_12%,transparent)]"
+      className="inline-flex h-[18px] shrink-0 items-center rounded-full bg-[color-mix(in_oklab,var(--focus-accent)_12%,transparent)] px-1.5 text-[9.5px] leading-none font-medium whitespace-nowrap text-[var(--focus-accent)] transition-colors hover:bg-[color-mix(in_oklab,var(--focus-accent)_18%,transparent)] disabled:cursor-default disabled:opacity-70 disabled:hover:bg-[color-mix(in_oklab,var(--focus-accent)_12%,transparent)]"
     >
       {state === "updating" ? t("settings.providers.updating") : state === "failed" ? t("settings.providers.updateFailed") : t("settings.providers.updateAvailable")}
     </button>
