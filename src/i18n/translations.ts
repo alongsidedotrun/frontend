@@ -918,6 +918,9 @@ export const translations = {
     zh: "未登录",
     ja: "サインインしていません",
   },
+  "settings.providers.updateAvailable": { en: "Update available", "pt-BR": "Atualização disponível", es: "Actualización disponible", fr: "Mise à jour disponible", de: "Update verfügbar", zh: "有可用更新", ja: "アップデートあり" },
+  "settings.providers.updating": { en: "Updating…", "pt-BR": "Atualizando…", es: "Actualizando…", fr: "Mise à jour…", de: "Wird aktualisiert…", zh: "正在更新…", ja: "アップデート中…" },
+  "settings.providers.updateFailed": { en: "Update failed", "pt-BR": "Falha na atualização", es: "Error al actualizar", fr: "Échec de la mise à jour", de: "Update fehlgeschlagen", zh: "更新失败", ja: "アップデートに失敗しました" },
   "settings.providers.logIn": {
     en: "Log in",
     "pt-BR": "Entrar",

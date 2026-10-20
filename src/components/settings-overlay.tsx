@@ -1005,10 +1005,66 @@ function ProviderConnectionView({ provider }: { provider: Provider }) {
 // own open-detail button) without breaking keyboard nav/accessibility, so the
 // icon+name portion is its own button and the right-hand action is a sibling, both
 // inside a plain (non-interactive) row div.
+// Whether a provider's CLI has a newer release, and updating it (backend cli_updates.rs).
+function useCliUpdate(binary: string, enabled: boolean, onUpdated: () => void) {
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [state, setState] = useState<"idle" | "updating" | "failed">("idle");
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    fetch(`/cli/${encodeURIComponent(binary)}/version`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((version: { update_available?: boolean } | null) => {
+        if (!cancelled) setUpdateAvailable(version?.update_available === true);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [binary, enabled]);
+  const update = async () => {
+    setState("updating");
+    setError(null);
+    try {
+      const res = await fetch(`/cli/${encodeURIComponent(binary)}/update`, { method: "POST" });
+      if (!res.ok) throw new Error((await res.text()) || res.statusText);
+      const version = (await res.json()) as { update_available?: boolean };
+      setUpdateAvailable(version.update_available === true);
+      setState("idle");
+      onUpdated();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setState("failed");
+    }
+  };
+  return { updateAvailable, state, error, update };
+}
+
+/** The blue "Update available" pill beside a provider's check or +; clicking it updates the CLI. */
+function UpdatePill({ state, error, onUpdate }: { state: "idle" | "updating" | "failed"; error: string | null; onUpdate: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      disabled={state === "updating"}
+      title={state === "failed" && error ? error : undefined}
+      onClick={(event) => {
+        event.stopPropagation();
+        onUpdate();
+      }}
+      className="inline-flex h-6 shrink-0 items-center rounded-full bg-[var(--send-button-bg)] px-2.5 text-[11px] font-medium whitespace-nowrap text-white transition-colors hover:bg-[var(--send-button-bg-hover)] disabled:cursor-default disabled:opacity-70 disabled:hover:bg-[var(--send-button-bg)]"
+    >
+      {state === "updating" ? t("settings.providers.updating") : state === "failed" ? t("settings.providers.updateFailed") : t("settings.providers.updateAvailable")}
+    </button>
+  );
+}
+
 function ProviderCard({ provider, onClick, filter = "all", query = "" }: { provider: Provider; onClick: () => void; filter?: ConnectionFilter; query?: string }) {
   const { t } = useTranslation();
   const cliBinary = provider.name.toLowerCase();
-  const { available, installed, error: cliCheckError } = useCliAvailability(cliBinary);
+  const { available, installed, error: cliCheckError, refetch: refetchAvailability } = useCliAvailability(cliBinary);
+  const cliUpdate = useCliUpdate(cliBinary, installed === true, () => void refetchAvailability());
   // Every caller of this component now only ever passes an
   // ACTIVE_PROVIDERS member (ProvidersSection's own activeProviders) --
   // the "Coming soon" section stopped rendering real provider tiles
@@ -1075,13 +1131,15 @@ function ProviderCard({ provider, onClick, filter = "all", query = "" }: { provi
               lines/rows, we will need to allow this to other agents"). */}
           <span className="line-clamp-2 text-[10px] font-normal text-muted-foreground"><ErrorText message={statusLabel} /></span>
         </span>
-        {isConnected && (
-          // A check once connected; the row itself still opens it.
-          <span className={CONNECTED_MARK} aria-hidden="true">
-            <Check className="size-3.5" />
-          </span>
-        )}
       </button>
+      {/* An update for the CLI (it's installed): left of the check or +. */}
+      {cliUpdate.updateAvailable && <UpdatePill state={cliUpdate.state} error={cliUpdate.error} onUpdate={() => void cliUpdate.update()} />}
+      {isConnected && (
+        // A check once connected; the row itself (the button before) opens it.
+        <span className={CONNECTED_MARK} aria-hidden="true">
+          <Check className="size-3.5" />
+        </span>
+      )}
       {/* Not connected: a bordered + that does what its label says -- Log in (the CLI is there) or
           Set up opens this provider's detail view, Install goes to its install docs. When the check
           itself failed (the status line says why), it opens the detail view too. */}
