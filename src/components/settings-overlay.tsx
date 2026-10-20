@@ -1153,15 +1153,53 @@ function AppsSection() {
           animate={{ opacity: 1, transition: spring.slow }}
           exit={{ opacity: 0, transition: spring.slow.exit }}
         >
-          <ConnectionToolbar filter={filter} onFilter={setFilter} itemCount={1} query={query} onQuery={setQuery} searchLabel={t("settings.connections.searchApps")} />
+          <ConnectionToolbar
+            filter={filter}
+            onFilter={setFilter}
+            itemCount={1 + GOOGLE_APPS.length}
+            query={query}
+            onQuery={setQuery}
+            searchLabel={t("settings.connections.searchApps")}
+          />
           <ConnectionList filter={filter} query={query}>
             <GithubIntegrationCard filter={filter} query={query} onClick={() => openApp("github")} />
+            {GOOGLE_APPS.map((app) =>
+              showsUnder(filter, false, query, app.name) ? (
+                // No connection flow yet, so never connected, and the row does nothing for now.
+                <AppRow key={app.id} name={app.name} description={t(app.descriptionKey)} icon={app.icon} connected={false} onClick={() => {}} />
+              ) : null,
+            )}
           </ConnectionList>
         </motion.div>
       )}
     </AnimatePresence>
   );
 }
+
+/** An app in Settings > Apps: its icon in a bordered frame, name and description, and a + (or a check
+ *  once connected) at the right end. */
+function AppRow({ name, description, icon, connected, onClick }: { name: string; description: string; icon: ReactNode; connected: boolean; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className={CONNECTION_ROW}>
+      <span className={PROVIDER_ICON_FRAME}>{icon}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[12px] font-medium text-foreground">{name}</span>
+        <span className="line-clamp-2 text-[10px] font-normal text-muted-foreground">{description}</span>
+      </span>
+      <span className={connected ? CONNECTED_MARK : CONNECTION_ADD} aria-hidden="true">
+        {connected ? <Check className="size-4" /> : <Plus className="size-4" />}
+      </span>
+    </button>
+  );
+}
+
+// Google's apps, listed with their marks (public/icons/google-*.svg) ahead of a connection flow.
+const GOOGLE_APPS = (["drive", "docs", "sheets"] as const).map((id) => ({
+  id,
+  name: `Google ${id[0].toUpperCase()}${id.slice(1)}`,
+  descriptionKey: `settings.apps.google.${id}.description`,
+  icon: <img src={`/icons/google-${id}.svg`} alt="" className="size-5 object-contain" />,
+}));
 
 function GithubIntegrationCard({ onClick, filter = "all", query = "" }: { onClick: () => void; filter?: ConnectionFilter; query?: string }) {
   const { t } = useTranslation();
@@ -1178,33 +1216,16 @@ function GithubIntegrationCard({ onClick, filter = "all", query = "" }: { onClic
   const isConnected = connectedUsername !== null;
   if (!showsUnder(filter, isConnected, query, "GitHub")) return null;
 
+  // Its own description below the name (the + or check says whether it's connected); the row opens
+  // GithubAppConnectionView either way.
   return (
-    <button type="button" onClick={onClick} className={CONNECTION_ROW}>
-      {/* Real GitHub mark (icons/providers/github.svg), not the generic
-          puzzle-piece IntegrationsIcon -- per explicit request ("Use
-          the github.svg from icons/providers"). dark:invert -- this
-          svg's only ink is solid near-black (#1B1F23), the exact same
-          treatment every other solid-black provider mark already gets
-          (quick-chat-models.tsx's own invertInDark flag/comment). */}
-      <span className={PROVIDER_ICON_FRAME}>
-        <img src="/icons/providers/github.svg" alt="" className="size-5 dark:invert" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-[12px] font-medium text-foreground">GitHub</span>
-        {/* Same Connected/Disconnected vocabulary ProviderCard's own status
-            label uses -- per explicit request ("update from checking to be
-            the same as our providers, connected or disconnected"), with no
-            separate "Checking..." transient state (per a later explicit
-            follow-up, "remove checking..."). */}
-        <span className="line-clamp-2 text-[10px] font-normal text-muted-foreground">
-          {isConnected ? t("common.connected") : t("common.disconnected")}
-        </span>
-      </span>
-      {/* + until connected, then a check; either way the row opens GitHub's setup page. */}
-      <span className={isConnected ? CONNECTED_MARK : CONNECTION_ADD} aria-hidden="true">
-        {isConnected ? <Check className="size-4" /> : <Plus className="size-4" />}
-      </span>
-    </button>
+    <AppRow
+      name="GitHub"
+      description={t("settings.apps.github.description")}
+      icon={<img src="/icons/providers/github.svg" alt="" className="size-5 dark:invert" />}
+      connected={isConnected}
+      onClick={onClick}
+    />
   );
 }
 
