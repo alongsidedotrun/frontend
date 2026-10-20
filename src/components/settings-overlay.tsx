@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { ShapeProvider } from "@/lib/shape-context";
-import { ProviderUsageRows } from "@/components/provider-usage";
+import { ProviderUsageSection } from "@/components/provider-usage";
 import { Check, Plus, SearchMd } from "@untitledui/icons";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
@@ -1417,10 +1417,8 @@ function ProvidersSection() {
               </ConnectionList>
             </>
           )}
-          {/* Each provider's usage, right here (it had its own page). */}
-          <SettingsSection title={t("settings.providers.usage")}>
-            <ProviderUsageRows />
-          </SettingsSection>
+          {/* Each provider's usage, right here (it had its own page): a card each, with Filter and Sort. */}
+          <ProviderUsageSection />
           {/* Real integrations (issue #287) -- moved to their own top-level
               "Apps" settings section (AppsSection, below) per explicit
               correction ("Still inside providers its meant to be settings
