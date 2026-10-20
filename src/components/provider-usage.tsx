@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { DropdownContent, DropdownMenu, DropdownTrigger } from "@/components/ui/dropdown";
 import { MenuItem } from "@/components/ui/menu-item";
 import { ErrorText } from "@/lib/error-code";
-import { PROVIDER_DISPLAY, ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
+import { PROVIDER_DISPLAY, ProviderIcon } from "@/lib/quick-chat-models";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { ShapeProvider } from "@/lib/shape-context";
 import {
@@ -70,10 +70,9 @@ function UsageLimitRow({ limit }: { limit: ProviderUsageLimit }) {
 
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-xs font-medium text-foreground">
-        {limit.window}
-        {limit.covers && <span className="font-normal text-muted-foreground"> · {limit.covers}</span>}
-      </span>
+      {/* Just the window: a quota group's own description of its models (limit.covers, e.g. Antigravity's
+          "Gemini Flash, Gemini Pro") can name ones no longer offered; the tabs below show what was used. */}
+      <span className="text-xs font-medium text-foreground">{limit.window}</span>
       <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted">
         <div
           className={`h-full rounded-full transition-[width] duration-500 ${USAGE_TONE_BAR_CLASS[remainingTone]}`}
@@ -139,11 +138,10 @@ function UsageCardSkeleton({ active = true, barsOnly = false }: { active?: boole
 }
 
 /** One row per provider (inside a settings card, which draws the dividers). */
-// A model id as people know it: the app's own label when it lists the model ("GPT-5.6 Terra"),
-// otherwise tidied from the id ("claude-opus-5-5" -> "Claude Opus 5.5", release dates dropped).
+// A model id as people know it, the same way for every provider (their own lists label models in
+// different styles: "Opus 5.5", "GPT-5.6-Luna"): "claude-opus-5-5" -> "Claude Opus 5.5",
+// "gpt-5.6-luna" -> "GPT-5.6 Luna", release dates dropped.
 function modelLabel(id: string) {
-  const known = QUICK_CHAT_MODELS.find((model) => model.value === id);
-  if (known) return known.label;
   const words: string[] = [];
   for (const part of id.split("-").filter((p) => p && !/^\d{8}$/.test(p))) {
     const previous = words[words.length - 1];
@@ -156,22 +154,23 @@ function modelLabel(id: string) {
 
 const MODEL_TAB_CLASS = "h-[22px] shrink-0 px-2.5 [&>span]:!text-[12px] [&>span]:!leading-none";
 
-/** A card's 24h/7d/30d rows, with All / each model tabs above them when the provider names more than one. */
+/** A card's 24h/7d/30d rows, under All and a tab for each model used in the last 30 days (a model
+ *  drops off once its usage ages out). With one model there are no tabs: it would repeat All. */
 function UsageRows({ snapshot }: { snapshot: ProviderUsageSnapshot }) {
   const { t } = useTranslation();
   const [selected, setSelected] = useState("all");
-  const models = snapshot.models ?? [];
-  const picked = models.find((entry) => entry.model === selected);
-  const lines = picked ? picked.usage_lines : snapshot.usage_lines;
+  const tabs = (snapshot.models ?? []).map((entry) => ({ id: entry.model, label: modelLabel(entry.model), lines: entry.usage_lines }));
+  const picked = tabs.find((tab) => tab.id === selected);
+  const lines = picked ? picked.lines : snapshot.usage_lines;
   return (
     <div className="flex flex-col gap-3">
-      {models.length > 0 && (
+      {tabs.length > 1 && (
         <ShapeProvider defaultShape="pill">
           <Tabs size="compact" value={picked ? selected : "all"} onValueChange={(value) => setSelected(String(value))}>
             <TabsList className="max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>div:first-child]:!bg-background [&>div:first-child]:!shadow-[0_1px_2px_rgba(0,0,0,0.12),0_0_0_0.5px_rgba(0,0,0,0.08)] dark:[&>div:first-child]:!bg-white/12">
               <TabItem value="all" label={t("usage.models.all")} className={MODEL_TAB_CLASS} />
-              {models.map((entry) => (
-                <TabItem key={entry.model} value={entry.model} label={modelLabel(entry.model)} className={MODEL_TAB_CLASS} />
+              {tabs.map((tab) => (
+                <TabItem key={tab.id} value={tab.id} label={tab.label} className={MODEL_TAB_CLASS} />
               ))}
             </TabsList>
           </Tabs>
