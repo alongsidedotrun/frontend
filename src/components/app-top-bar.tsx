@@ -47,12 +47,10 @@ export function AppTopBar({
   return (
     <div
       data-icon-stroke
-      data-tauri-drag-region
-      onMouseDown={(event) => {
-        if (event.button !== 0 || (event.target instanceof Element && event.target.closest("button"))) return;
-        if (!("__TAURI_INTERNALS__" in window)) return;
-        void import("@tauri-apps/api/core").then(({ invoke }) => invoke("start_window_drag")).catch(() => undefined);
-      }}
+      // The desktop window's title bar: pressing anywhere on the bar drags the window
+      // (double-click zooms), including on the chat's name; buttons stay buttons. "deep", because
+      // a bare attribute only counts presses on the bar itself, not on what's inside it.
+      data-tauri-drag-region="deep"
       className={cn(
         "pointer-events-auto absolute inset-x-0 top-0 z-[110] flex h-[40px] w-full shrink-0 select-none items-center justify-between pr-3 pl-[74px]",
         className ?? "bg-[#111111]",
