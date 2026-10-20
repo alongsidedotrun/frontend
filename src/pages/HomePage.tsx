@@ -327,6 +327,7 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
           defaultModelValue={defaultModel}
           onOpenSettings={() => openSettings("provider")}
           onOpenApps={() => openSettings("apps")}
+          onOpenProviders={() => openSettings("provider")}
           onPinDefaultModel={(value) => {
             pinnedDefaultModelRef.current = value;
           }}
