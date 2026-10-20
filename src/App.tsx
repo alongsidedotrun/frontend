@@ -12,7 +12,6 @@ import { HomePage } from "@/pages/HomePage";
 import { InboxPage } from "@/pages/InboxPage";
 import { JoinPage } from "@/pages/JoinPage";
 import { LibraryPage } from "@/pages/LibraryPage";
-import { ModelsPage } from "@/pages/ModelsPage";
 import { OnboardingPage } from "@/pages/OnboardingPage";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
 import { ProjectsPage } from "@/pages/ProjectsPage";
@@ -70,20 +69,8 @@ const ROUTES: RouteObject[] = [
       // Static path, not caught by the :section param route below --
       // React Router ranks a static segment above a dynamic one at the
       // same position, so this always wins for this exact path. Lives
-      // under /settings (not its own top-level /models any more) per
-      // explicit request ("should change the content of the settings
-      // and keep the sidebar"): the avatar dropdown's own "Provider
-      // usage" rows and the Providers page's own Usage card both link
-      // here now. /settings/provider/usage, not /settings/models --
-      // per explicit request ("that should now be
-      // /settings/provider/usage instead"), confirmed as a real bug
-      // (AppLayout.tsx's own rawSettingsSegment fell back to
-      // highlighting "General" as active on this page, since "models"
-      // matched none of the real section keys): nesting it under
-      // "provider" lets that same fallback logic map it to the
-      // Providers section instead, matching where this page actually
-      // belongs now.
-      { path: "/settings/provider/usage", element: <ModelsPage /> },
+      // Provider usage was its own page here; it's now part of Settings > Chat > Usage. Old links land there.
+      { path: "/settings/provider/usage", element: <Navigate to="/settings/chat" replace /> },
       { path: "/settings/:section", element: <SettingsPage /> },
       { path: "/docs", element: <DocsPage /> },
       { path: "/help", element: <HelpPage /> },

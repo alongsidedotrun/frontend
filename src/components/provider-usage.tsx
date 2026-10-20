@@ -1,7 +1,4 @@
 import { useTranslation } from "react-i18next";
-import { useEffect } from "react";
-import { PageContent } from "@/components/page-content";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { ErrorText } from "@/lib/error-code";
 import { PROVIDER_DISPLAY, ProviderIcon } from "@/lib/quick-chat-models";
 import {
@@ -36,10 +33,9 @@ function renderWithInlineCode(text: string) {
   );
 }
 
-// The avatar dropdown's own "Provider usage" rows (nav-user.tsx) link
-// here -- the full breakdown those bars are just a teaser for, matching
-// Synara's own dedicated usage page instead of trying to cram this into a
-// popup. Story: alongsidedotrun/private#217.
+// Each provider's usage, as rows in Settings > Chat > Usage (settings-overlay.tsx's ChatSection), under
+// chat storage -- it was its own page (/settings/provider/usage, now redirected there). The avatar
+// dropdown's usage bars (nav-user.tsx) link to it. Story: alongsidedotrun/private#217.
 //
 // Real numbers -- each provider's own rate-limit/quota windows, read from
 // that provider's own CLI-login credential and usage endpoint directly
@@ -125,12 +121,9 @@ function UsageCardSkeleton({ active = true }: { active?: boolean }) {
   );
 }
 
-export function ModelsPage() {
+/** One row per provider (inside a settings card, which draws the dividers). */
+export function ProviderUsageRows() {
   const { t } = useTranslation();
-  useEffect(() => {
-    document.title = t("models.title");
-  }, [t]);
-
   const snapshots = useAllProviderUsage();
   const { error: usageError } = useUsageStats();
   // Alphabetical by the name actually shown on the card ("ChatGPT" before
@@ -143,21 +136,7 @@ export function ModelsPage() {
   );
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      {/* px-6 py-5 on the viewport, not py-8 on PageContent -- matched to
-          settings-overlay.tsx's own Connections -> Provider page (one
-          level up), which this page's own heading is meant to line up
-          with -- per explicit request ("there's an extra gap at the top
-          ... that does not match the provider heading location"). */}
-      <ScrollArea className="min-h-0 flex-1" viewportClassName="px-6 py-5">
-        <PageContent className="gap-6">
-          <div>
-            <h1 className="text-[16px] font-semibold text-foreground">Provider usage</h1>
-            <p className="mt-0.5 text-[13px] font-normal text-muted-foreground">
-              Real usage from each provider's own account, straight from your CLI sign-in.
-            </p>
-          </div>
-          <div className="flex flex-col gap-3">
+    <>
             {orderedProviders.map((model) => {
               const snapshot = snapshots[model.provider];
               // "Claude via Claude Code", not just "Claude" -- per explicit
@@ -167,13 +146,13 @@ export function ModelsPage() {
               // ways in two places.
               const display = PROVIDER_DISPLAY[model.provider];
               return (
-                <div key={model.provider} className="flex flex-col gap-3 rounded-xl border border-border p-4">
+                <div key={model.provider} className="flex flex-col gap-3 px-3 py-3">
                   <div className="flex items-center gap-3">
-                    <span className="flex size-9 shrink-0 items-center justify-center">
-                      <ProviderIcon model={model} className="size-6" />
+                    <span className="flex size-7 shrink-0 items-center justify-center">
+                      <ProviderIcon model={model} className="size-5" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="text-[13px] font-medium text-foreground">
+                      <div className="text-[12px] font-medium text-foreground">
                         {display ? (
                           <>
                             {display.primary} <span className="text-muted-foreground">{display.caption}</span>
@@ -313,9 +292,6 @@ export function ModelsPage() {
                 </div>
               );
             })}
-          </div>
-        </PageContent>
-      </ScrollArea>
-    </div>
+    </>
   );
 }
