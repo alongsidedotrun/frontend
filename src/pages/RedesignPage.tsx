@@ -853,12 +853,7 @@ export function RedesignPage() {
     setGettingStartedDismissed(readGettingStarted(gettingStartedKey(GETTING_STARTED_DISMISSED_KEY)) === "1");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [identity.scope]);
-  // Signed out, every step shows as not done, and nothing is recorded (for now, while the web
-  // dashboard's interactive Getting started is built).
-  const trackProgress = identity.signedIn;
-  // Shown again even if it was closed before, while every step is undone.
-  const gettingStartedClosed = trackProgress && gettingStartedDismissed;
-  const newlyDone = trackProgress ? GETTING_STARTED_STEP_IDS.filter((id) => liveDone[id] && !rememberedDone.includes(id)) : [];
+  const newlyDone = GETTING_STARTED_STEP_IDS.filter((id) => liveDone[id] && !rememberedDone.includes(id));
   useEffect(() => {
     if (newlyDone.length === 0) return;
     const next = [...rememberedDone, ...newlyDone];
@@ -872,7 +867,7 @@ export function RedesignPage() {
   }, [newlyDone.join(",")]);
   const steps = gettingStartedSteps(
     t,
-    Object.fromEntries(GETTING_STARTED_STEP_IDS.map((id) => [id, trackProgress && (liveDone[id] || rememberedDone.includes(id))])) as Record<GettingStartedStepId, boolean>,
+    Object.fromEntries(GETTING_STARTED_STEP_IDS.map((id) => [id, liveDone[id] || rememberedDone.includes(id)])) as Record<GettingStartedStepId, boolean>,
     {
       account: () => (identity.signedIn ? navigate("/settings/profile") : openSignIn()),
       provider: () => navigate("/settings/provider"),
@@ -1023,11 +1018,11 @@ export function RedesignPage() {
             <div
               className={cn(
                 "grid transition-[grid-template-rows,opacity,margin] duration-200 ease-out motion-reduce:transition-none",
-                gettingStartedClosed ? "-mb-[var(--redesign-sidebar-section-gap)] grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100",
+                gettingStartedDismissed ? "-mb-[var(--redesign-sidebar-section-gap)] grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100",
               )}
-              inert={gettingStartedClosed}
+              inert={gettingStartedDismissed}
             >
-              <div className={cn(gettingStartedClosed && "min-h-0 overflow-hidden")}>
+              <div className={cn(gettingStartedDismissed && "min-h-0 overflow-hidden")}>
                 <GettingStartedSummary
                   label={t("shell.gettingStarted.label")}
                   steps={steps}
