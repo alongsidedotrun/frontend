@@ -1042,7 +1042,7 @@ function useCliUpdate(binary: string, enabled: boolean, onUpdated: () => void) {
   return { updateAvailable, state, error, update };
 }
 
-/** The blue "Update available" pill beside a provider's check or +; clicking it updates the CLI. */
+/** The blue "Update available" badge beside a provider's check or +; clicking it updates the CLI. */
 function UpdatePill({ state, error, onUpdate }: { state: "idle" | "updating" | "failed"; error: string | null; onUpdate: () => void }) {
   const { t } = useTranslation();
   return (
@@ -1054,7 +1054,8 @@ function UpdatePill({ state, error, onUpdate }: { state: "idle" | "updating" | "
         event.stopPropagation();
         onUpdate();
       }}
-      className="inline-flex h-6 shrink-0 items-center rounded-full bg-[var(--send-button-bg)] px-2.5 text-[11px] font-medium whitespace-nowrap text-white transition-colors hover:bg-[var(--send-button-bg-hover)] disabled:cursor-default disabled:opacity-70 disabled:hover:bg-[var(--send-button-bg)]"
+      // A badge: the blue at 12% behind it, the full blue for its text (as the composer's command chips).
+      className="inline-flex h-5 shrink-0 items-center rounded-full bg-[color-mix(in_oklab,var(--focus-accent)_12%,transparent)] px-2 text-[10px] leading-none font-medium whitespace-nowrap text-[var(--focus-accent)] transition-colors hover:bg-[color-mix(in_oklab,var(--focus-accent)_18%,transparent)] disabled:cursor-default disabled:opacity-70 disabled:hover:bg-[color-mix(in_oklab,var(--focus-accent)_12%,transparent)]"
     >
       {state === "updating" ? t("settings.providers.updating") : state === "failed" ? t("settings.providers.updateFailed") : t("settings.providers.updateAvailable")}
     </button>
