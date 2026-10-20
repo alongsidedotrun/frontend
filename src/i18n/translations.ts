@@ -699,15 +699,15 @@ export const translations = {
   },
 
   // -- settings-overlay.tsx: AppsSection --
-  "settings.apps.available": {
-    en: "Available",
-    "pt-BR": "Disponível",
-    es: "Disponible",
-    fr: "Disponible",
-    de: "Verfügbar",
-    zh: "可用",
-    ja: "利用可能",
-  },
+  "settings.connections.all": { en: "All", "pt-BR": "Todos", es: "Todos", fr: "Tous", de: "Alle", zh: "全部", ja: "すべて" },
+  "settings.connections.connected": { en: "Connected", "pt-BR": "Conectados", es: "Conectados", fr: "Connectés", de: "Verbunden", zh: "已连接", ja: "接続済み" },
+  "settings.connections.available": { en: "Available", "pt-BR": "Disponíveis", es: "Disponibles", fr: "Disponibles", de: "Verfügbar", zh: "可用", ja: "利用可能" },
+  "settings.connections.noneConnected": { en: "Nothing connected yet.", "pt-BR": "Nada conectado ainda.", es: "Aún no hay nada conectado.", fr: "Rien n'est encore connecté.", de: "Noch nichts verbunden.", zh: "尚未连接任何内容。", ja: "まだ何も接続されていません。" },
+  "settings.connections.noneAvailable": { en: "Everything here is connected.", "pt-BR": "Tudo aqui já está conectado.", es: "Todo aquí ya está conectado.", fr: "Tout ici est déjà connecté.", de: "Hier ist schon alles verbunden.", zh: "这里的一切都已连接。", ja: "ここにあるものはすべて接続済みです。" },
+  "settings.connections.request": { en: "Request", "pt-BR": "Solicitar", es: "Solicitar", fr: "Demander", de: "Anfragen", zh: "申请", ja: "リクエスト" },
+  "settings.connections.searchProviders": { en: "Search providers", "pt-BR": "Pesquisar provedores", es: "Buscar proveedores", fr: "Rechercher des fournisseurs", de: "Anbieter suchen", zh: "搜索提供商", ja: "プロバイダーを検索" },
+  "settings.connections.searchApps": { en: "Search apps", "pt-BR": "Pesquisar apps", es: "Buscar apps", fr: "Rechercher des apps", de: "Apps suchen", zh: "搜索应用", ja: "アプリを検索" },
+  "settings.connections.noMatches": { en: "No matches.", "pt-BR": "Nenhum resultado.", es: "Sin resultados.", fr: "Aucun résultat.", de: "Keine Treffer.", zh: "没有匹配项。", ja: "一致するものはありません。" },
   "settings.apps.comingSoon": {
     en: "Coming soon",
     "pt-BR": "Em breve",
