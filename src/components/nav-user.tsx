@@ -155,14 +155,13 @@ export function NavUserMenuItems({ onOpenSettings }: { onOpenSettings?: () => vo
         // CustomMenuItem skips proximity-hover registration entirely, so
         // it never participates in that overlay. index continues after
         // the 4 rows above (0-3), so proximity/keyboard ordering stays
-        // correct across the whole menu. onSelect still opens /models --
-        // that page is the real, full breakdown these bars are just a
-        // teaser for.
+        // correct across the whole menu. onSelect opens Settings > Providers,
+        // whose Usage section has the full breakdown these bars tease.
         <CustomMenuItem
           key={model.provider}
           index={4 + i}
           label={model.provider}
-          onSelect={() => navigate("/settings/provider/usage")}
+          onSelect={() => navigate("/settings/provider")}
           className="relative z-10 flex h-7 shrink-0 items-center gap-1 rounded-[7px] px-1.5 text-[12px] font-normal text-muted-foreground cursor-pointer"
         >
           {/* size-3.5 (14px), not size-4 (16px) -- per an app-wide
