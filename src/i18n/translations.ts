@@ -1986,6 +1986,7 @@ export const translations = {
     zh: "无法打开文件夹选择器。请重试。",
     ja: "フォルダー選択画面を開けませんでした。もう一度お試しください。",
   },
+  "compose.connectProviders": { en: "Connect to your Providers", "pt-BR": "Conectar seus provedores", es: "Conecta tus proveedores", fr: "Connectez vos fournisseurs", de: "Anbieter verbinden", zh: "连接你的提供商", ja: "プロバイダーに接続" },
   "compose.connectApps": {
     en: "Connect to your Apps",
     "pt-BR": "Conectar seus aplicativos",
