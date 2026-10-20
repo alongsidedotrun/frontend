@@ -35,6 +35,7 @@ import {
   AttachmentIcon,
   CheckIcon,
   ChevronDownIcon,
+  RevertIcon,
   ClearIcon,
   CompareIcon,
   DocIcon,
@@ -604,19 +605,26 @@ function EffortSliderPanel({
   effort,
   onChange,
   levels = EFFORT_LEVELS,
+  revertTo,
 }: {
   effort: EffortLevel;
   onChange: (level: EffortLevel) => void;
+  // What the top-right arrow goes back to (the composer's starting level); the arrow shows
+  // once the level has moved away from it.
+  revertTo?: EffortLevel;
   // The selected model's own levels (its CLI's list); all five otherwise.
   levels?: readonly EffortLevel[];
 }) {
   const { t } = useTranslation();
   const activeIndex = Math.max(0, levels.indexOf(effort));
+  const canRevert = revertTo !== undefined && revertTo !== effort && levels.includes(revertTo);
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] font-medium text-muted-foreground">{t("compose.effort")}</span>
+    // The model dropdown's own pieces: its group label and inset, so the two menus read alike.
+    <div className="flex flex-col">
+      {/* Label, the level centred, and the revert arrow. */}
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+        <BaseDropdownLabel>{t("compose.effort")}</BaseDropdownLabel>
         {/* text-[var(--send-button-bg)] -- the exact same blue the send
             button's own background uses (index.css's own --send-button-bg
             token, itself just var(--focus-accent)), per explicit request
@@ -626,65 +634,84 @@ function EffortSliderPanel({
         {/* No trailing chevron any more -- per explicit request. This value
             isn't a nested nav target (nothing expands from clicking it), so
             the arrow was implying an affordance that didn't exist. */}
-        <span className="text-[13px] font-medium text-[var(--send-button-bg)]">{effortLabel(effort)}</span>
-      </div>
-      {/* Real bug, confirmed directly ("the effort slider is not working",
-          then "i have to click at the dots instead of dragging"): this was
-          never actually a slider -- discrete click targets (first a plain
-          <button>, then a real Base UI Menu.Item once the button's own
-          clicks turned out unreliable inside Menu.Popup) rather than
-          something you could drag the thumb along. Neither primitive
-          supports a free-form pointer-drag gesture the way a native
-          <input type="range"> does out of the box (real browser-native
-          drag/touch/keyboard handling, no custom pointer-capture code to get
-          wrong) -- switched to that instead, step-snapped to the 5 real
-          EFFORT_LEVELS so it still only ever lands on a real value. Track is
-          solid var(--send-button-bg) (the send button's own blue) the whole
-          way across, not a filled-vs-unfilled split -- per explicit follow-up
-          ("the actual bg of the slider should be the blue colour of our send
-          button"); the thumb itself is now the real visible white circle
-          (also per that follow-up, "the slider circle should be our...
-          white colour"), not a transparent native thumb with a separate
-          decorative dot standing in for it. The 5 tick dots behind it are
-          still purely decorative (pointer-events-none) -- they mark the real
-          stop positions, the thumb is what actually shows the current value.
-          stopPropagation on pointerDown -- same reasoning as every other
-          non-menu-item interactive element inside this Menu system elsewhere
-          in this file -- keeps Base UI's own Menu.Popup from treating a drag
-          gesture as an outside interaction and closing mid-drag. */}
-      <div className="relative flex h-3.5 items-center">
-        <input
-          type="range"
-          min={0}
-          max={levels.length - 1}
-          step={1}
-          value={activeIndex}
-          aria-label={t("compose.effort")}
+        <span className="text-[12px] font-medium text-[var(--send-button-bg)]">{effortLabel(effort)}</span>
+        {/* Kept in place while hidden, so the level stays centred. stopPropagation on pointerDown,
+            like the slider: Menu.Popup would otherwise treat the press as leaving the menu. */}
+        <button
+          type="button"
+          aria-label={revertTo ? t("compose.effortRevert", { level: effortLabel(revertTo) }) : undefined}
+          tabIndex={canRevert ? 0 : -1}
+          aria-hidden={!canRevert}
           onPointerDown={(event) => event.stopPropagation()}
-          onChange={(event) => onChange(levels[Number(event.target.value)])}
-          // h-3.5, matching the thumb's own size-3.5 -- per explicit follow-up
-          // ("the bg should be the same size as the white slider"): the track
-          // used to be a thin h-1 line with a much larger thumb sitting on
-          // top of it; now both are the same 14px so the track reads as one
-          // solid blue pill the thumb slides along, not a line with an
-          // oversized circle overflowing it. The old webkit-only
-          // mt-[-5px] vertical-centering hack is gone with it -- that was
-          // only ever needed to re-center a thumb taller than its own track,
-          // which no longer applies now they match.
-          className="relative h-3.5 w-full cursor-pointer appearance-none rounded-full bg-[var(--send-button-bg)] outline-none [&::-moz-range-thumb]:size-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:shadow-[0_1px_2px_rgba(0,0,0,0.35)] [&::-moz-range-track]:h-3.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-transparent [&::-webkit-slider-runnable-track]:h-3.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-transparent [&::-webkit-slider-thumb]:size-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-[0_1px_2px_rgba(0,0,0,0.35)]"
-        />
-        {/* Inactive stop markers, per explicit follow-up ("add the inactive
-            markers in the back of the bg") -- rendered *after* the input in
-            DOM (paints on top of its solid blue background, the literal
-            "on/against the bg" this asks for), pointer-events-none so they
-            never intercept the drag/click the input itself handles. No
-            marker drawn at the current activeIndex -- that position already
-            has the real white thumb sitting on it, and a second dot right
-            under/beside it would just look like visual noise. */}
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-[6px]">
-          {levels.map((level, i) => (
-            <span key={level} className={i === activeIndex ? "" : "size-1 rounded-full bg-white/50"} />
-          ))}
+          onClick={() => revertTo && onChange(revertTo)}
+          className={cn(
+            "mr-1 flex size-6 items-center justify-center justify-self-end rounded-md text-muted-foreground transition-opacity hover:bg-hover-2/50 hover:text-foreground",
+            ICON_PRESS,
+            !canRevert && "pointer-events-none opacity-0",
+          )}
+        >
+          <RevertIcon className="size-3" />
+        </button>
+      </div>
+      <div className="px-2 pt-0.5 pb-2">
+        {/* Real bug, confirmed directly ("the effort slider is not working",
+            then "i have to click at the dots instead of dragging"): this was
+            never actually a slider -- discrete click targets (first a plain
+            <button>, then a real Base UI Menu.Item once the button's own
+            clicks turned out unreliable inside Menu.Popup) rather than
+            something you could drag the thumb along. Neither primitive
+            supports a free-form pointer-drag gesture the way a native
+            <input type="range"> does out of the box (real browser-native
+            drag/touch/keyboard handling, no custom pointer-capture code to get
+            wrong) -- switched to that instead, step-snapped to the 5 real
+            EFFORT_LEVELS so it still only ever lands on a real value. Track is
+            solid var(--send-button-bg) (the send button's own blue) the whole
+            way across, not a filled-vs-unfilled split -- per explicit follow-up
+            ("the actual bg of the slider should be the blue colour of our send
+            button"); the thumb itself is now the real visible white circle
+            (also per that follow-up, "the slider circle should be our...
+            white colour"), not a transparent native thumb with a separate
+            decorative dot standing in for it. The 5 tick dots behind it are
+            still purely decorative (pointer-events-none) -- they mark the real
+            stop positions, the thumb is what actually shows the current value.
+            stopPropagation on pointerDown -- same reasoning as every other
+            non-menu-item interactive element inside this Menu system elsewhere
+            in this file -- keeps Base UI's own Menu.Popup from treating a drag
+            gesture as an outside interaction and closing mid-drag. */}
+        <div className="relative flex h-5 items-center">
+          <input
+            type="range"
+            min={0}
+            max={levels.length - 1}
+            step={1}
+            value={activeIndex}
+            aria-label={t("compose.effort")}
+            onPointerDown={(event) => event.stopPropagation()}
+            onChange={(event) => onChange(levels[Number(event.target.value)])}
+            // h-5 (20px, was 14px: the taller track asked for later), matching the thumb's own size-5 -- per explicit follow-up
+            // ("the bg should be the same size as the white slider"): the track
+            // used to be a thin h-1 line with a much larger thumb sitting on
+            // top of it; now both are the same 14px so the track reads as one
+            // solid blue pill the thumb slides along, not a line with an
+            // oversized circle overflowing it. The old webkit-only
+            // mt-[-5px] vertical-centering hack is gone with it -- that was
+            // only ever needed to re-center a thumb taller than its own track,
+            // which no longer applies now they match.
+            className="relative h-5 w-full cursor-pointer appearance-none rounded-full bg-[var(--send-button-bg)] outline-none [&::-moz-range-thumb]:size-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:shadow-[0_1px_2px_rgba(0,0,0,0.35)] [&::-moz-range-track]:h-5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-transparent [&::-webkit-slider-runnable-track]:h-5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-transparent [&::-webkit-slider-thumb]:size-5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-[0_1px_2px_rgba(0,0,0,0.35)]"
+          />
+          {/* Inactive stop markers, per explicit follow-up ("add the inactive
+              markers in the back of the bg") -- rendered *after* the input in
+              DOM (paints on top of its solid blue background, the literal
+              "on/against the bg" this asks for), pointer-events-none so they
+              never intercept the drag/click the input itself handles. No
+              marker drawn at the current activeIndex -- that position already
+              has the real white thumb sitting on it, and a second dot right
+              under/beside it would just look like visual noise. */}
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-[8px]">
+            {levels.map((level, i) => (
+              <span key={level} className={i === activeIndex ? "" : "size-1 rounded-full bg-white/50"} />
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -1060,7 +1087,12 @@ export function ComposeBox({
   // loadLastEffort() -- whatever was actually last used, same "quick load"
   // reasoning as loadLastPermissionMode above -- wins over the Settings
   // default when THAT'S absent too.
-  const [effort, setEffort] = useState<EffortLevel>(() => defaultEffortValue ?? loadLastEffort() ?? defaultEffortFor());
+  // The level this composer starts from, which the Effort menu's revert arrow goes back to: the
+  // chat's own default once it has arrived, else the last choice (as it was on opening), else
+  // Settings' default.
+  const [openingEffort] = useState<EffortLevel>(() => loadLastEffort() ?? defaultEffortFor());
+  const startingEffort = defaultEffortValue ?? openingEffort;
+  const [effort, setEffort] = useState<EffortLevel>(() => startingEffort);
   // True once the user has actually picked an effort level this session --
   // defaultEffortValue arrives async, a render or more after mount (same
   // timing gap defaultModelValue's own comment above documents), so without
@@ -2235,15 +2267,27 @@ export function ComposeBox({
                 {/* Shows the current choice (e.g. "Low"), not a static
                     "Effort" label -- per explicit request ("it should
                     update from effort to the choice we did"). */}
-                <SwapLabel swapKey={effort}>{effortLabel(effort)}</SwapLabel>
+                {/* As wide as its longest level, the label at the right end: dragging the slider
+                    swaps the word in place instead of resizing the button and shifting the toolbar. */}
+                <span className="grid justify-items-end">
+                  {(modelEfforts ?? EFFORT_LEVELS).map((level) => (
+                    <span key={level} aria-hidden="true" className="invisible col-start-1 row-start-1 whitespace-nowrap">
+                      {effortLabel(level)}
+                    </span>
+                  ))}
+                  <SwapLabel swapKey={effort} glide={false} className="col-start-1 row-start-1">
+                    {effortLabel(effort)}
+                  </SwapLabel>
+                </span>
                 <ChevronDownIcon className="size-[var(--compose-tool-icon)] shrink-0" />
               </button>
             }
           />
-          <BaseDropdownContent side="bottom" align="center" sideOffset={6} anchor={effortAnchor.anchor} className="w-56 min-w-0 p-3">
+          <BaseDropdownContent side="bottom" align="center" sideOffset={6} anchor={effortAnchor.anchor} className="w-56 min-w-0">
             <EffortSliderPanel
               levels={modelEfforts}
               effort={effort}
+              revertTo={startingEffort}
               onChange={(level) => {
                 effortTouchedRef.current = true;
                 setEffort(level);
@@ -2608,7 +2652,18 @@ function useFrozenAnchor(triggerRef: React.RefObject<HTMLElement | null>) {
  *  never slides over text), and the new label enters from below. The width
  *  only animates during a swap: any other size change (an icon loading, the
  *  first render) just fits, so the toolbar never drifts on its own. */
-function SwapLabel({ swapKey, children, className }: { swapKey: string; children: ReactNode; className?: string }) {
+function SwapLabel({
+  swapKey,
+  children,
+  className,
+  glide = true,
+}: {
+  swapKey: string;
+  children: ReactNode;
+  className?: string;
+  // false: the label swaps without the width glide, for a trigger whose width is fixed.
+  glide?: boolean;
+}) {
   const [shown, setShown] = useState({ key: swapKey, children });
   const [phase, setPhase] = useState<"rest" | "exit" | "enter-start">("rest");
   // null: fits its content (no animation). A number: pinned for a swap.
@@ -2639,7 +2694,7 @@ function SwapLabel({ swapKey, children, className }: { swapKey: string; children
       return;
     }
     const dur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--text-swap-dur")) || 150;
-    setWidth(outerRef.current?.getBoundingClientRect().width ?? null);
+    if (glide) setWidth(outerRef.current?.getBoundingClientRect().width ?? null);
     setPhase("exit");
     let frame = 0;
     let release = 0;
@@ -2653,7 +2708,7 @@ function SwapLabel({ swapKey, children, className }: { swapKey: string; children
         frame = requestAnimationFrame(() => setPhase("rest"));
       });
       // Back to fitting the content once the glide is over.
-      release = window.setTimeout(() => setWidth(null), SWAP_WIDTH_MS + 40);
+      if (glide) release = window.setTimeout(() => setWidth(null), SWAP_WIDTH_MS + 40);
     }, dur);
     return () => {
       window.clearTimeout(timer);
@@ -2664,8 +2719,8 @@ function SwapLabel({ swapKey, children, className }: { swapKey: string; children
 
   // The new label is in: glide from the pinned width to its natural width.
   useLayoutEffect(() => {
-    if (phase === "enter-start" && innerRef.current) setWidth(innerRef.current.getBoundingClientRect().width);
-  }, [phase, shown.key]);
+    if (glide && phase === "enter-start" && innerRef.current) setWidth(innerRef.current.getBoundingClientRect().width);
+  }, [glide, phase, shown.key]);
 
   // Same key: show its latest content (e.g. a language change) directly.
   const content = swapKey === shown.key ? children : shown.children;
