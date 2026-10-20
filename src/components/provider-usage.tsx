@@ -70,10 +70,9 @@ function UsageLimitRow({ limit }: { limit: ProviderUsageLimit }) {
 
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-xs font-medium text-foreground">
-        {limit.window}
-        {limit.covers && <span className="font-normal text-muted-foreground"> · {limit.covers}</span>}
-      </span>
+      {/* Just the window: a quota group's own description of its models (limit.covers, e.g. Antigravity's
+          "Gemini Flash, Gemini Pro") can name ones no longer offered; the tabs below show what was used. */}
+      <span className="text-xs font-medium text-foreground">{limit.window}</span>
       <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted">
         <div
           className={`h-full rounded-full transition-[width] duration-500 ${USAGE_TONE_BAR_CLASS[remainingTone]}`}
@@ -156,7 +155,7 @@ function modelLabel(id: string) {
 const MODEL_TAB_CLASS = "h-[22px] shrink-0 px-2.5 [&>span]:!text-[12px] [&>span]:!leading-none";
 
 /** A card's 24h/7d/30d rows, under All and a tab for each model used in the last 30 days (a model
- *  drops off once its usage ages out). */
+ *  drops off once its usage ages out). With one model there are no tabs: it would repeat All. */
 function UsageRows({ snapshot }: { snapshot: ProviderUsageSnapshot }) {
   const { t } = useTranslation();
   const [selected, setSelected] = useState("all");
@@ -165,7 +164,7 @@ function UsageRows({ snapshot }: { snapshot: ProviderUsageSnapshot }) {
   const lines = picked ? picked.lines : snapshot.usage_lines;
   return (
     <div className="flex flex-col gap-3">
-      {tabs.length > 0 && (
+      {tabs.length > 1 && (
         <ShapeProvider defaultShape="pill">
           <Tabs size="compact" value={picked ? selected : "all"} onValueChange={(value) => setSelected(String(value))}>
             <TabsList className="max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>div:first-child]:!bg-background [&>div:first-child]:!shadow-[0_1px_2px_rgba(0,0,0,0.12),0_0_0_0.5px_rgba(0,0,0,0.08)] dark:[&>div:first-child]:!bg-white/12">
