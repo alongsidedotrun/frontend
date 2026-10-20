@@ -4,7 +4,8 @@ import { cn } from "@/lib/utils";
 import { useLocation, useNavigate, useOutlet } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { Blend, ChevronRight, CircleArrowUp, CircleHelp, Plus } from "lucide-react";
+import { ChevronRight, CircleArrowUp, CircleHelp, Plus } from "lucide-react";
+import { JoinChatIcon } from "@/components/icons/join-chat-icon";
 import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
 import { CreateWorkspaceDialog } from "@/components/design-system/create-workspace-dialog";
 import { CreateProjectDialog } from "@/components/design-system/create-project-dialog";
@@ -112,7 +113,7 @@ function profileMenuSections(t: Translate, onOpenProfile: () => void, onSignOut:
 // join code -- JoinChatDialog).
 const quickActions = (t: Translate): readonly QuickActionItem[] => [
   { id: "chats", label: t("common.newChat"), icon: Plus },
-  { id: "join", label: t("joinChat.title"), icon: Blend },
+  { id: "join", label: t("joinChat.title"), icon: JoinChatIcon },
 ];
 
 // Getting started follows the first-run journey, with each step backed by the
@@ -734,7 +735,7 @@ export function RedesignPage() {
       value: "join-chat",
       label: t("joinChat.title"),
       description: t("shell.commands.joinChat.description"),
-      icon: Blend,
+      icon: JoinChatIcon,
       keywords: ["share", "multiplayer", "code", "invite"],
       group: t("shell.commands.group.actions"),
       onSelect: () => setJoinOpen(true),
