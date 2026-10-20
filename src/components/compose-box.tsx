@@ -1284,7 +1284,9 @@ export function ComposeBox({
     dictationBaseRef.current = base;
     const recognition = new Recognition();
     recognition.continuous = true;
-    recognition.interimResults = false;
+    // Words land as they're spoken: each result, final or still being heard, is in
+    // event.results, so the draft is rebuilt from all of them every time.
+    recognition.interimResults = true;
     recognition.onresult = (event) => {
       let transcript = "";
       for (let i = 0; i < event.results.length; i++) {
@@ -1317,7 +1319,7 @@ export function ComposeBox({
       .catch(() => {});
   }
 
-  // ✓ keeps what was said (stop() still delivers the last result); ✕ drops it
+  // ✓ keeps what's in the box (stop() still settles the last words); ✕ drops it
   // (abort() delivers nothing more) and puts the draft back as it was.
   function finishDictation(keep: boolean) {
     const recognition = recognitionRef.current;
