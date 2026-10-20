@@ -26,6 +26,7 @@ import { MenuItem as BaseMenuItem } from "@/components/ui/menu-item";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { QueuedMessages } from "@/components/queued-messages";
+import { DictationWave } from "@/components/dictation-wave";
 import { useQueueing, type QueuedMessage } from "@/lib/message-queue";
 import { useSkills } from "@/lib/skills";
 import { useNavigate } from "react-router-dom";
@@ -62,6 +63,7 @@ const appIconTileClass = "flex size-6 shrink-0 items-center justify-center round
 type SpeechRecognitionLike = {
   start: () => void;
   stop: () => void;
+  abort: () => void;
   continuous: boolean;
   interimResults: boolean;
   onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
@@ -1144,6 +1146,11 @@ export function ComposeBox({
     return () => clearTimeout(timer);
   }, [hasModel]);
   const [listening, setListening] = useState(false);
+  // The mic's own stream while dictating, for the wave's levels.
+  const [micStream, setMicStream] = useState<MediaStream | null>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
+  // The draft from before dictation: what it adds to, and what ✕ puts back.
+  const dictationBaseRef = useRef("");
   const [images, setImages] = useState<ImageAttachment[]>([]);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1260,16 +1267,21 @@ export function ComposeBox({
     });
   }
 
-  function toggleSpeechToText() {
-    if (listening) {
-      recognitionRef.current?.stop();
-      return;
-    }
+  function stopMicStream() {
+    micStreamRef.current?.getTracks().forEach((track) => track.stop());
+    micStreamRef.current = null;
+    setMicStream(null);
+  }
+
+  function startDictation() {
     const Recognition = getSpeechRecognition();
     if (!Recognition) {
       window.alert(t("compose.speechUnsupported"));
       return;
     }
+    // Dictation adds to what's already typed, after a space.
+    const base = value;
+    dictationBaseRef.current = base;
     const recognition = new Recognition();
     recognition.continuous = true;
     recognition.interimResults = false;
@@ -1278,14 +1290,57 @@ export function ComposeBox({
       for (let i = 0; i < event.results.length; i++) {
         transcript += event.results[i][0].transcript;
       }
-      onChange(transcript);
+      const spoken = transcript.trim();
+      onChange(spoken ? `${base}${base && !/\s$/.test(base) ? " " : ""}${spoken}` : base);
     };
-    recognition.onend = () => setListening(false);
-    recognition.onerror = () => setListening(false);
+    const end = () => {
+      if (recognitionRef.current === recognition) recognitionRef.current = null;
+      setListening(false);
+      stopMicStream();
+    };
+    recognition.onend = end;
+    recognition.onerror = end;
     recognitionRef.current = recognition;
     setListening(true);
     recognition.start();
+    // The wave reads the same mic on its own stream; without one it stays dotted.
+    navigator.mediaDevices
+      ?.getUserMedia({ audio: true })
+      .then((stream) => {
+        if (recognitionRef.current !== recognition) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        micStreamRef.current = stream;
+        setMicStream(stream);
+      })
+      .catch(() => {});
   }
+
+  // ✓ keeps what was said (stop() still delivers the last result); ✕ drops it
+  // (abort() delivers nothing more) and puts the draft back as it was.
+  function finishDictation(keep: boolean) {
+    const recognition = recognitionRef.current;
+    if (!recognition) return;
+    if (keep) {
+      recognition.stop();
+      return;
+    }
+    recognitionRef.current = null;
+    recognition.abort();
+    onChange(dictationBaseRef.current);
+    setListening(false);
+    stopMicStream();
+  }
+
+  // Leaving the chat mid-dictation lets go of the mic.
+  useEffect(
+    () => () => {
+      recognitionRef.current?.abort();
+      micStreamRef.current?.getTracks().forEach((track) => track.stop());
+    },
+    [],
+  );
 
   const slashToken = dismissed ? null : parseToken(value);
   const token = slashToken;
@@ -2554,22 +2609,39 @@ export function ComposeBox({
             onSetAutocompact={onSetAutocompact}
           />
         )}
+        {/* Dictating: the wave, ✕ to drop it and ✓ to keep it, in place of the mic and send. */}
+        {listening ? (
+          <>
+            <DictationWave stream={micStream} className="mx-1" />
+            <Button
+              size="icon"
+              variant="outline"
+              onClick={() => finishDictation(false)}
+              aria-label={t("compose.dictation.cancel")}
+              className={cn("size-[var(--compose-action-size)] [&_svg]:!size-[var(--compose-mic-icon)]", PRESS_EFFECT, ICON_PRESS)}
+            >
+              <XIcon strokeWidth={1.75} />
+            </Button>
+            <Button
+              size="icon"
+              variant="outline"
+              onClick={() => finishDictation(true)}
+              aria-label={t("compose.dictation.done")}
+              className={cn("size-[var(--compose-action-size)] [&_svg]:!size-[var(--compose-mic-icon)]", PRESS_EFFECT, ICON_PRESS)}
+            >
+              <CheckIcon strokeWidth={1.75} />
+            </Button>
+          </>
+        ) : (
+          <>
         <Button
           size="icon"
-          variant={listening ? "default" : "ghost"}
-          onClick={toggleSpeechToText}
-          aria-label={listening ? t("compose.dictation.stop") : t("compose.dictation.start")}
-          className={cn("size-[var(--compose-action-size)] [&_svg]:!size-[var(--compose-mic-icon)]", PRESS_EFFECT, ICON_PRESS, !listening && ["text-foreground", NO_HOVER_SURFACE])}
+          variant="ghost"
+          onClick={startDictation}
+          aria-label={t("compose.dictation.start")}
+          className={cn("size-[var(--compose-action-size)] [&_svg]:!size-[var(--compose-mic-icon)]", PRESS_EFFECT, ICON_PRESS, "text-foreground", NO_HOVER_SURFACE)}
         >
-          {listening ? (
-            <span className="flex h-3.5 items-end gap-[2.5px]">
-              {[0, 1, 2].map((i) => (
-                <span key={i} className="w-[2.5px] rounded-full bg-current" style={{ height: "100%", animation: `eq-bounce 900ms ease-in-out ${i * 150}ms infinite` }} />
-              ))}
-            </span>
-          ) : (
-            <MicIcon className="size-[18px]" strokeWidth={1.5} />
-          )}
+          <MicIcon className="size-[18px]" strokeWidth={1.5} />
         </Button>
         {awaitingReply ? (
           <Button size="icon" variant="outline" onClick={onStop} aria-label={t("compose.stop")} className="size-[var(--compose-action-size)] [&_svg]:!size-[var(--compose-send-icon)]">
@@ -2603,6 +2675,8 @@ export function ComposeBox({
           >
             <ArrowUpIcon className="absolute top-1/2 left-1/2 size-[12px] -translate-x-1/2 -translate-y-1/2 text-white" strokeWidth={2} />
           </Button>
+        )}
+          </>
         )}
       </div>
     </div>
