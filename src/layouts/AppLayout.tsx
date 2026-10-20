@@ -823,22 +823,9 @@ export function AppLayout() {
     settledPathname === "/inbox" ||
     isSettingsRoute ||
     settledIsSettingsRoute;
-  // /settings/provider/usage (the Provider usage page, ModelsPage.tsx) is
-  // a real settings route but not one of SettingsSection's own values --
-  // it's a drill-in page reached from the Provider page's own Usage card,
-  // not a top-level nav destination with its own row to highlight, same
-  // treatment ProviderConnectionView's own drill-in already gets. Its
-  // second segment is "provider", the same value the real Provider
-  // section itself uses (settings-overlay.tsx's own SettingsSection,
-  // singular per explicit request -- "http://localhost:5173/settings/providers
-  // should be provider"), so the plain includes() check below already
-  // highlights Provider as active for this drill-in page too, with no
-  // separate special case needed (a previous version of this logic had
-  // one, back when the section key was still "providers" and didn't
-  // match this route's own "provider" segment). Any other unrecognized
-  // segment still falls back to "general" rather than passing through an
-  // invalid value, same guard SettingsPage.tsx's own VALID_SECTIONS check
-  // uses.
+  // An unrecognized settings segment falls back to "general" rather than
+  // passing through an invalid value, same guard SettingsPage.tsx's own
+  // VALID_SECTIONS check uses.
   const rawSettingsSegment = location.pathname.split("/")[2];
   const activeSettingsSection = SETTINGS_NAV_SECTIONS.includes(rawSettingsSegment as SettingsSection)
     ? (rawSettingsSegment as SettingsSection)

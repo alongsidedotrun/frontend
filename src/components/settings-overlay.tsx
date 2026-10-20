@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { ShapeProvider } from "@/lib/shape-context";
+import { ProviderUsageSection } from "@/components/provider-usage";
 import { Check, Plus, SearchMd } from "@untitledui/icons";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
@@ -55,7 +56,6 @@ import {
   IntegrationsIcon,
   PaletteIcon,
   ProvidersIcon,
-  ProviderUsageIcon,
   SearchIcon,
   SettingsIcon,
   UserIcon,
@@ -1346,7 +1346,6 @@ function ProvidersSection() {
   // is a real navigate(), which the existing stack already picks up for
   // free.
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedProviderName = searchParams.get("provider");
   const selectedProvider = selectedProviderName ? (PROVIDERS.find((p) => p.name === selectedProviderName) ?? null) : null;
@@ -1418,33 +1417,13 @@ function ProvidersSection() {
               </ConnectionList>
             </>
           )}
+          {/* Each provider's usage, right here (it had its own page): a card each, with Filter and Sort. */}
+          <ProviderUsageSection />
           {/* Real integrations (issue #287) -- moved to their own top-level
               "Apps" settings section (AppsSection, below) per explicit
               correction ("Still inside providers its meant to be settings
               > apps and not settings > providers > apps") -- no longer
               reached from here at all. */}
-          {/* Its own section, under the providers: a working link, so its
-              own describer, and a single full-width row (no grid-cols-2
-              half-width) since it's the only item in this section. */}
-          <div className="mt-4 mb-2 text-xs font-normal text-foreground select-none">
-            <span className="opacity-50">{t("settings.providers.usage")}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => navigate("/settings/provider/usage")}
-            className={cn(CONNECTION_ROW, "-mx-2 w-[calc(100%+1rem)]")}
-          >
-            <span className={PROVIDER_ICON_FRAME}>
-              <ProviderUsageIcon className="size-5 text-muted-foreground" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[12px] font-medium text-foreground">{t("settings.providers.usage.title")}</span>
-              <span className="line-clamp-2 text-[10px] font-normal text-muted-foreground">
-                {t("settings.providers.usage.description")}
-              </span>
-            </span>
-            <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-          </button>
         </motion.div>
       )}
     </AnimatePresence>

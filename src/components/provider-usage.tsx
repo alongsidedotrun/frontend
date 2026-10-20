@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useEffect } from "react";
-import { PageContent } from "@/components/page-content";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { FilterLines, SwitchVertical01 } from "@untitledui/icons";
+import { Button } from "@/components/ui/button";
+import { DropdownContent, DropdownMenu, DropdownTrigger } from "@/components/ui/dropdown";
+import { MenuItem } from "@/components/ui/menu-item";
 import { ErrorText } from "@/lib/error-code";
 import { PROVIDER_DISPLAY, ProviderIcon } from "@/lib/quick-chat-models";
 import {
@@ -12,6 +14,7 @@ import {
   USAGE_TONE_BAR_CLASS,
   formatResetCountdown,
   type ProviderUsageLimit,
+  type ProviderUsageSnapshot,
 } from "@/lib/use-usage";
 
 // provider_usage.rs's own needs_auth detail strings ("Sign in with `codex
@@ -36,10 +39,10 @@ function renderWithInlineCode(text: string) {
   );
 }
 
-// The avatar dropdown's own "Provider usage" rows (nav-user.tsx) link
-// here -- the full breakdown those bars are just a teaser for, matching
-// Synara's own dedicated usage page instead of trying to cram this into a
-// popup. Story: alongsidedotrun/private#217.
+// Each provider's usage, as rows in Settings > Providers' Usage section (settings-overlay.tsx's
+// ProvidersSection), under the providers -- it was its own page (/settings/provider/usage, now
+// redirected there). The avatar dropdown's usage bars (nav-user.tsx) link to it. Story:
+// alongsidedotrun/private#217.
 //
 // Real numbers -- each provider's own rate-limit/quota windows, read from
 // that provider's own CLI-login credential and usage endpoint directly
@@ -65,7 +68,10 @@ function UsageLimitRow({ limit }: { limit: ProviderUsageLimit }) {
 
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-xs font-medium text-foreground">{limit.window}</span>
+      <span className="text-xs font-medium text-foreground">
+        {limit.window}
+        {limit.covers && <span className="font-normal text-muted-foreground"> · {limit.covers}</span>}
+      </span>
       <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted">
         <div
           className={`h-full rounded-full transition-[width] duration-500 ${USAGE_TONE_BAR_CLASS[remainingTone]}`}
@@ -125,40 +131,104 @@ function UsageCardSkeleton({ active = true }: { active?: boolean }) {
   );
 }
 
-export function ModelsPage() {
-  const { t } = useTranslation();
-  useEffect(() => {
-    document.title = t("models.title");
-  }, [t]);
+/** One row per provider (inside a settings card, which draws the dividers). */
+type UsageSort = "name" | "mostUsed";
+// Which providers are picked in Filter (none: all of them) and how they're sorted, remembered on this device.
+const USAGE_PICKED_KEY = "alongside_usage_picked";
+const USAGE_SORT_KEY = "alongside_usage_sort";
 
+function readStored(key: string) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function store(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // storage blocked: kept for this session
+  }
+}
+
+// The least left in any of a provider's windows, for Most used; no reading sorts last.
+function leastLeft(snapshot: ProviderUsageSnapshot | null | undefined) {
+  if (!snapshot || snapshot.status !== "ok" || snapshot.limits.length === 0) return Infinity;
+  return Math.min(...snapshot.limits.map((limit) => 100 - (limit.used_percent ?? 0)));
+}
+
+/** Settings > Providers' Usage: a card per provider, with Filter (which providers to show) and Sort
+ *  (by name or most used) beside the heading, like Skills' toolbar. */
+export function ProviderUsageSection() {
+  const { t } = useTranslation();
   const snapshots = useAllProviderUsage();
   const { error: usageError } = useUsageStats();
-  // Alphabetical by the name actually shown on the card ("ChatGPT" before
-  // "Claude" before "Gemini"), not USAGE_PROVIDERS' own QUICK_CHAT_MODELS
-  // order -- per explicit request. Sorted here only, not on the shared
-  // USAGE_PROVIDERS export itself, since nav-user.tsx's own dropdown bars
-  // read that same list and weren't asked to reorder.
-  const orderedProviders = [...USAGE_PROVIDERS].sort((a, b) =>
-    (PROVIDER_DISPLAY[a.provider]?.primary ?? a.provider).localeCompare(PROVIDER_DISPLAY[b.provider]?.primary ?? b.provider)
-  );
+  const [picked, setPicked] = useState<string[]>(() => {
+    try {
+      return JSON.parse(readStored(USAGE_PICKED_KEY) ?? "[]") as string[];
+    } catch {
+      return [];
+    }
+  });
+  const [sort, setSort] = useState<UsageSort>(() => (readStored(USAGE_SORT_KEY) === "mostUsed" ? "mostUsed" : "name"));
+  const nameOf = (provider: string) => PROVIDER_DISPLAY[provider]?.primary ?? provider;
+  const fullNameOf = (provider: string) => {
+    const display = PROVIDER_DISPLAY[provider];
+    return display ? `${display.primary} ${display.caption}` : provider;
+  };
+  // All providers, or just the ones picked. Picking every one, or unpicking the last, is All again.
+  const pick = (next: string[]) => {
+    const all = next.length === 0 || USAGE_PROVIDERS.every((model) => next.includes(model.provider));
+    const value = all ? [] : next;
+    setPicked(value);
+    store(USAGE_PICKED_KEY, JSON.stringify(value));
+  };
+  const showsAll = picked.length === 0;
+  const pickSort = (next: UsageSort) => {
+    setSort(next);
+    store(USAGE_SORT_KEY, next);
+  };
+  const byName = [...USAGE_PROVIDERS].sort((a, b) => nameOf(a.provider).localeCompare(nameOf(b.provider)));
+  const shown = byName
+    .filter((model) => showsAll || picked.includes(model.provider))
+    .sort((a, b) => (sort === "mostUsed" ? leastLeft(snapshots[a.provider]) - leastLeft(snapshots[b.provider]) || 0 : 0));
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      {/* px-6 py-5 on the viewport, not py-8 on PageContent -- matched to
-          settings-overlay.tsx's own Connections -> Provider page (one
-          level up), which this page's own heading is meant to line up
-          with -- per explicit request ("there's an extra gap at the top
-          ... that does not match the provider heading location"). */}
-      <ScrollArea className="min-h-0 flex-1" viewportClassName="px-6 py-5">
-        <PageContent className="gap-6">
-          <div>
-            <h1 className="text-[16px] font-semibold text-foreground">Provider usage</h1>
-            <p className="mt-0.5 text-[13px] font-normal text-muted-foreground">
-              Real usage from each provider's own account, straight from your CLI sign-in.
-            </p>
-          </div>
-          <div className="flex flex-col gap-3">
-            {orderedProviders.map((model) => {
+    // SettingsSection's heading (settings-overlay.tsx), with the two menus at its right end.
+    <section className="flex flex-col gap-1.5" style={{ marginTop: "0.875rem" }}>
+      <div className="flex items-center justify-between gap-2 px-2 py-1">
+        <h3 className="text-[12px] font-normal text-muted-foreground/60">{t("settings.providers.usage")}</h3>
+        <div className="flex items-center gap-1">
+          <DropdownMenu size="compact">
+            <DropdownTrigger render={<Button size="compact" variant="tertiary" leadingIcon={FilterLines} active={!showsAll}>{t("usage.filter")}</Button>} />
+            <DropdownContent align="end" className="w-52 min-w-0">
+              <MenuItem index={0} label={t("usage.filter.all")} checked={showsAll} onSelect={() => pick([])} />
+              {byName.map((model, index) => (
+                <MenuItem
+                  key={model.provider}
+                  index={index + 1}
+                  label={fullNameOf(model.provider)}
+                  checked={picked.includes(model.provider)}
+                  onSelect={() =>
+                    pick(picked.includes(model.provider) ? picked.filter((p) => p !== model.provider) : [...picked, model.provider])
+                  }
+                />
+              ))}
+            </DropdownContent>
+          </DropdownMenu>
+          <DropdownMenu size="compact">
+            <DropdownTrigger render={<Button size="compact" variant="tertiary" leadingIcon={SwitchVertical01}>{t("usage.sort")}</Button>} />
+            <DropdownContent align="end" className="w-40 min-w-0">
+              <MenuItem index={0} label={t("usage.sort.name")} checked={sort === "name"} onSelect={() => pickSort("name")} />
+              <MenuItem index={1} label={t("usage.sort.mostUsed")} checked={sort === "mostUsed"} onSelect={() => pickSort("mostUsed")} />
+            </DropdownContent>
+          </DropdownMenu>
+        </div>
+      </div>
+      <div className="flex flex-col gap-2">
+            {shown.map((model) => {
               const snapshot = snapshots[model.provider];
               // "Claude via Claude Code", not just "Claude" -- per explicit
               // request, same PROVIDER_DISPLAY (quick-chat-models.tsx) used
@@ -167,13 +237,13 @@ export function ModelsPage() {
               // ways in two places.
               const display = PROVIDER_DISPLAY[model.provider];
               return (
-                <div key={model.provider} className="flex flex-col gap-3 rounded-xl border border-border p-4">
+                <div key={model.provider} className="flex flex-col gap-3 rounded-xl border border-border bg-foreground/[0.02] px-3 py-3">
                   <div className="flex items-center gap-3">
-                    <span className="flex size-9 shrink-0 items-center justify-center">
-                      <ProviderIcon model={model} className="size-6" />
+                    <span className="flex size-7 shrink-0 items-center justify-center">
+                      <ProviderIcon model={model} className="size-5" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="text-[13px] font-medium text-foreground">
+                      <div className="text-[12px] font-medium text-foreground">
                         {display ? (
                           <>
                             {display.primary} <span className="text-muted-foreground">{display.caption}</span>
@@ -234,11 +304,15 @@ export function ModelsPage() {
                   ) : !snapshot ? (
                     <UsageCardSkeleton />
                   ) : snapshot.status === "needs_auth" ? (
-                    <p className="text-[12px] font-normal text-muted-foreground">
-                      {renderWithInlineCode(
-                        snapshot.detail ?? t("models.needsSignIn", { provider: display?.primary ?? model.provider })
-                      )}
-                    </p>
+                    // No reading yet: the message, over the bars' resting placeholder so the card keeps its shape.
+                    <div className="flex flex-col gap-3">
+                      <p className="text-[12px] font-normal text-muted-foreground">
+                        {renderWithInlineCode(
+                          snapshot.detail ?? t("models.needsSignIn", { provider: display?.primary ?? model.provider })
+                        )}
+                      </p>
+                      <UsageCardSkeleton active={false} />
+                    </div>
                   ) : snapshot.status === "error" ? (
                     <div className="flex flex-col gap-3">
                       <p className="text-[12px] font-normal text-muted-foreground">
@@ -313,9 +387,7 @@ export function ModelsPage() {
                 </div>
               );
             })}
-          </div>
-        </PageContent>
-      </ScrollArea>
-    </div>
+      </div>
+    </section>
   );
 }

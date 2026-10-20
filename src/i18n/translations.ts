@@ -699,6 +699,29 @@ export const translations = {
   },
 
   // -- settings-overlay.tsx: AppsSection --
+  "settings.providers.usage": {
+    en: "Usage",
+    "pt-BR": "Uso",
+    es: "Uso",
+    fr: "Utilisation",
+    de: "Nutzung",
+    zh: "用量",
+    ja: "使用状況",
+  },
+  "usage.filter": { en: "Filter", "pt-BR": "Filtrar", es: "Filtrar", fr: "Filtrer", de: "Filtern", zh: "筛选", ja: "絞り込み" },
+  "usage.filter.all": { en: "All providers", "pt-BR": "Todos os provedores", es: "Todos los proveedores", fr: "Tous les fournisseurs", de: "Alle Anbieter", zh: "全部提供商", ja: "すべてのプロバイダー" },
+  "usage.sort": { en: "Sort", "pt-BR": "Ordenar", es: "Ordenar", fr: "Trier", de: "Sortieren", zh: "排序", ja: "並べ替え" },
+  "usage.sort.name": { en: "Name", "pt-BR": "Nome", es: "Nombre", fr: "Nom", de: "Name", zh: "名称", ja: "名前" },
+  "usage.sort.mostUsed": { en: "Most used", "pt-BR": "Mais usados", es: "Más usados", fr: "Les plus utilisés", de: "Am meisten genutzt", zh: "用量最多", ja: "使用量が多い順" },
+  "settings.providers.usage.title": {
+    en: "Provider usage",
+    "pt-BR": "Uso do provedor",
+    es: "Uso del proveedor",
+    fr: "Utilisation du fournisseur",
+    de: "Anbieter-Nutzung",
+    zh: "服务商用量",
+    ja: "プロバイダーの使用状況",
+  },
   "settings.apps.github.description": { en: "Bring repositories, issues and pull requests into your chats.", "pt-BR": "Traga repositórios, issues e pull requests para os seus chats.", es: "Lleva repositorios, issues y pull requests a tus chats.", fr: "Apportez dépôts, issues et pull requests dans vos chats.", de: "Repositorys, Issues und Pull Requests direkt in deinen Chats.", zh: "把仓库、议题和拉取请求带进你的对话。", ja: "リポジトリ、Issue、プルリクエストをチャットで扱えます。" },
   "settings.apps.google.drive.description": { en: "Pick files from Drive and use them in your chats.", "pt-BR": "Escolha arquivos do Drive e use-os nos seus chats.", es: "Elige archivos de Drive y úsalos en tus chats.", fr: "Choisissez des fichiers dans Drive et utilisez-les dans vos chats.", de: "Dateien aus Drive auswählen und in deinen Chats nutzen.", zh: "从云端硬盘选择文件，在对话中使用。", ja: "ドライブのファイルを選んでチャットで使えます。" },
   "settings.apps.google.docs.description": { en: "Read and draft documents without leaving the chat.", "pt-BR": "Leia e escreva documentos sem sair do chat.", es: "Lee y redacta documentos sin salir del chat.", fr: "Lisez et rédigez des documents sans quitter le chat.", de: "Dokumente lesen und entwerfen, ohne den Chat zu verlassen.", zh: "无需离开对话即可阅读和撰写文档。", ja: "チャットを離れずにドキュメントを読んだり書いたりできます。" },
@@ -1031,33 +1054,6 @@ export const translations = {
   },
 
   // -- settings-overlay.tsx: ProvidersSection --
-  "settings.providers.usage": {
-    en: "Usage",
-    "pt-BR": "Uso",
-    es: "Uso",
-    fr: "Utilisation",
-    de: "Nutzung",
-    zh: "用量",
-    ja: "使用状況",
-  },
-  "settings.providers.usage.title": {
-    en: "Provider usage",
-    "pt-BR": "Uso do provedor",
-    es: "Uso del proveedor",
-    fr: "Utilisation du fournisseur",
-    de: "Anbieter-Nutzung",
-    zh: "服务商用量",
-    ja: "プロバイダーの使用状況",
-  },
-  "settings.providers.usage.description": {
-    en: "See usage broken down by provider.",
-    "pt-BR": "Veja o uso detalhado por provedor.",
-    es: "Consulta el uso desglosado por proveedor.",
-    fr: "Consultez l'utilisation détaillée par fournisseur.",
-    de: "Sieh dir die Nutzung nach Anbieter aufgeschlüsselt an.",
-    zh: "查看按服务商细分的用量。",
-    ja: "プロバイダーごとの使用状況を確認できます。",
-  },
 
   "common.save": {
     en: "Save",
@@ -2983,15 +2979,6 @@ export const translations = {
     de: "Du kannst diese Seite <0>hier ausblenden</0> oder in den <1>Einstellungen</1>.",
     zh: "您可以<0>点击此处</0>隐藏此页面，或在<1>设置</1>中隐藏。",
     ja: "このページは<0>こちらをクリック</0>するか、<1>設定</1>から非表示にできます。",
-  },
-  "models.title": {
-    en: "Provider usage",
-    "pt-BR": "Uso do provedor",
-    es: "Uso del proveedor",
-    fr: "Utilisation du fournisseur",
-    de: "Anbieter-Nutzung",
-    zh: "服务商用量",
-    ja: "プロバイダーの使用状況",
   },
   "models.needsSignIn": {
     en: "Sign in with your {{provider}} account to see usage.",
