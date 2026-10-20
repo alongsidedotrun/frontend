@@ -1092,41 +1092,6 @@ function AppsSection() {
           <div className="grid grid-cols-2 gap-2">
             <GithubIntegrationCard onClick={() => openApp("github")} />
           </div>
-          <div className="mt-4 mb-2 text-xs font-normal text-foreground select-none">
-            <span className="opacity-50">{t("settings.apps.comingSoon")}</span>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {(["Drive", "Docs", "Sheets"] as const).map((app) => (
-              <div key={app} className={`flex w-full select-none items-center gap-2 ${SETTINGS_CARD_RADIUS} border border-border p-3`}>
-                <span className={PROVIDER_ICON_FRAME}>
-                  <img src={`/icons/google-${app.toLowerCase()}.svg`} alt="" className="size-6 object-contain" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[12px] font-medium text-foreground">Google {app}</span>
-                  <span className="line-clamp-2 text-[10px] font-normal text-muted-foreground">{t("settings.apps.comingSoon")}</span>
-                </span>
-              </div>
-            ))}
-            {/* Same row shape/reasoning as ProvidersSection's own "Request a
-                provider" row -- a standing action, not filtered by anything,
-                a real button ahead of a real request form (onClick still a
-                no-op placeholder, same status that row's own has). */}
-            <button
-              type="button"
-              onClick={() => {}}
-              className={`flex w-full select-none items-center gap-2 ${SETTINGS_CARD_RADIUS} border border-border p-3 text-left transition-colors hover:bg-hover-2/50`}
-            >
-              <span className={PROVIDER_ICON_FRAME}>
-                <AlongsideLogo className="size-5 text-black dark:text-white" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[12px] font-medium text-foreground">{t("settings.apps.requestApp.title")}</span>
-                <span className="line-clamp-2 text-[10px] font-normal text-muted-foreground">
-                  {t("settings.apps.requestApp.description")}
-                </span>
-              </span>
-            </button>
-          </div>
         </motion.div>
       )}
     </AnimatePresence>
@@ -1372,66 +1337,9 @@ function ProvidersSection() {
               correction ("Still inside providers its meant to be settings
               > apps and not settings > providers > apps") -- no longer
               reached from here at all. */}
-          {/* Coming soon -- per explicit request ("remove the providers at
-              coming soon as we will only have the request a provider at
-              our launch"): the real Mistral/xAI/Qwen/Kimi/GitHub/DeepSeek
-              tiles that used to render here (PROVIDERS filtered by
-              !ACTIVE_PROVIDERS) are gone from this section entirely for
-              launch, not just visually de-emphasized. */}
-          <div className="mt-4 mb-2 text-xs font-normal text-foreground select-none">
-            <span className="opacity-50">{t("settings.apps.comingSoon")}</span>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {/* Request provider -- per explicit request, its own row using
-                this app's own mark (AlongsideLogo) instead of a real
-                provider's icon or an empty slot, since it isn't one of
-                them. Always shown, not filtered by the search box above
-                -- it's a standing action, not a provider that can match
-                or fail to match a query. One grid cell like every real
-                provider tile (not col-span-2, tried first) and the same
-                solid border-border (not border-dashed) -- both per
-                explicit request, so this reads as one more row in the
-                grid rather than a visually distinct footer action.
-                Same row shape as ProviderCard now (icon+name/status left,
-                text below the icon+name instead of a description line),
-                per explicit request ("Request a provider should be in the
-                same format as the other"). A real button now, not a
-                decorative div -- per explicit request ("request a
-                provider should be a full button as well for the future
-                form"), so the whole row is clickable/hoverable ahead of a
-                real request form being wired up (onClick is still a
-                no-op placeholder, same status as the rest of this page's
-                own connect flow). */}
-            <button
-              type="button"
-              onClick={() => {}}
-              className={`flex w-full select-none items-center gap-2 ${SETTINGS_CARD_RADIUS} border border-border p-3 text-left transition-colors hover:bg-hover-2/50`}
-            >
-              <span className={PROVIDER_ICON_FRAME}>
-                <AlongsideLogo className="size-5 text-black dark:text-white" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[12px] font-medium text-foreground">{t("settings.providers.requestProvider.title")}</span>
-                {/* line-clamp-2, not truncate -- per explicit request
-                    ("make the requested providers description suit into
-                    two or more lines/rows, we will need to allow this to
-                    other agents"): the same wrap allowance ProviderCard's
-                    own status label got below, since a real provider's
-                    description (now shown there for every Coming soon
-                    row too) can run just as long as this one. */}
-                <span className="line-clamp-2 text-[10px] font-normal text-muted-foreground">
-                  {t("settings.providers.requestProvider.description")}
-                </span>
-              </span>
-            </button>
-          </div>
-
-          {/* Its own section, under Coming soon -- per explicit request
-              ("Usage should be under Coming soon section"): a real,
-              working link, so its own describer rather than sitting among
-              placeholder cards, and a single full-width row (no
-              grid-cols-2 half-width) since it's the only item in this
-              section. */}
+          {/* Its own section, under the providers: a working link, so its
+              own describer, and a single full-width row (no grid-cols-2
+              half-width) since it's the only item in this section. */}
           <div className="mt-4 mb-2 text-xs font-normal text-foreground select-none">
             <span className="opacity-50">{t("settings.providers.usage")}</span>
           </div>
