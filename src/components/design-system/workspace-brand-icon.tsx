@@ -40,8 +40,8 @@ function tileRadiusPx(size: WorkspaceBrandIconSize) {
 // The tile is drawn in a 64-unit viewBox: the artwork fills the centred 48×48
 // box (75%), leaving an 8-unit (12.5%) safe area on every side.
 // The Alongside workspace's stored logo is the app's favicon. Inside this tile,
-// which rounds a logo itself, the mark is drawn inline instead, following the
-// theme like the Dock icon: as an <image>, Safari rasterises a nested SVG at a
+// which rounds a logo itself, the mark is drawn inline instead, as the app
+// icon's black default: as an <image>, Safari rasterises a nested SVG at a
 // low resolution and its edges come out soft.
 const APP_LOGOS = new Set(["/favicon.svg", "/alongside-mark.svg"]);
 
@@ -141,14 +141,14 @@ export function WorkspaceBrandIcon({
         </text>
       ) : imageSrc && APP_LOGOS.has(imageSrc) ? (
         <>
-          {/* The mono app icon (src-tauri/icons/source.svg, source-dark.svg): white with black
-              circles in light mode, black with white in dark. Each circle is cut out of the one
-              behind by a gap in the tile's colour, at least half a pixel wide so it shows at 20px. */}
-          <rect width={TILE} height={TILE} rx={radius} className="!fill-white dark:!fill-black" />
+          {/* The app icon's default (src-tauri/icons/source-dark.svg): black with white circles,
+              in both themes. Each circle is cut out of the one behind by a gap in the tile's
+              colour, at least half a pixel wide so it shows at 20px. */}
+          <rect width={TILE} height={TILE} rx={radius} className="!fill-black" />
           {[21.24, 32, 42.76].map((cx) => (
             <g key={cx}>
-              <circle cx={cx} cy="32.04" r={9.59 + Math.max(0.55, edgeInset)} className="!fill-white dark:!fill-black" />
-              <circle cx={cx} cy="32.04" r="9.59" className="!fill-black dark:!fill-white" />
+              <circle cx={cx} cy="32.04" r={9.59 + Math.max(0.55, edgeInset)} className="!fill-black" />
+              <circle cx={cx} cy="32.04" r="9.59" className="!fill-white" />
             </g>
           ))}
           <rect
@@ -159,7 +159,8 @@ export function WorkspaceBrandIcon({
             rx={Math.max(0, radius - edgeInset)}
             fill="none"
             strokeWidth={edgeInset * 2}
-            className="stroke-[var(--redesign-sidebar-footer-onboarding-border)] dark:stroke-white/15"
+            // A faint light edge on dark surfaces only; on light ones the black tile stands out.
+            className="stroke-transparent dark:stroke-white/15"
           />
         </>
       ) : imageSrc ? (
