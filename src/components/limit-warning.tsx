@@ -4,9 +4,11 @@ import { AnimatePresence, motion } from "motion/react";
 import { AlertTriangle } from "@untitledui/icons";
 import { XIcon } from "@/components/icons/untitled-ui";
 import { spring } from "@/lib/springs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { LimitReminderRows } from "@/components/limit-reminders";
 import { cn } from "@/lib/utils";
 import { PROVIDER_DISPLAY } from "@/lib/quick-chat-models";
-import { dismissWarning, isWarningDismissed, readingFromEvent, readingFromUsage, warningLevel, type LimitReading } from "@/lib/limit-warning";
+import { dismissWarning, isWarningDismissed, readingFromEvent, readingFromUsage, useLimitReminders, warningLevel, type LimitReading } from "@/lib/limit-warning";
 
 /**
  * The yellow strip on top of the composer when a provider's 5-hour window is
@@ -51,6 +53,25 @@ export function LimitWarningStrip({ reading, onDismiss, placement = "top" }: { r
               {t("limits.warning", { provider, percent: Math.round(reading.usedPercent) })}
               {resets && <span className="opacity-75"> · {t("limits.resetsAt", { time: resets })}</span>}
             </span>
+            {/* The levels this note shows at, changed in place (the same list as Settings > Chat). */}
+            <Popover>
+              <PopoverTrigger className="shrink-0 rounded-md px-1 underline-offset-2 transition-opacity hover:underline hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                {t("limits.reminders.open")}
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                side={placement === "top" ? "top" : "bottom"}
+                // Opens on the list, not inside its first field.
+                onOpenAutoFocus={(event) => event.preventDefault()}
+                className="w-64 gap-0 rounded-xl border border-[var(--redesign-sidebar-elevated-border)] !bg-[var(--redesign-sidebar-overlay-surface)] p-1 !shadow-[var(--redesign-sidebar-elevated-shadow)] ring-0"
+              >
+                <div className="px-2 pt-1.5 pb-1">
+                  <p className="text-[12px] font-medium text-foreground">{t("limits.reminders.title")}</p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">{t("limits.reminders.hint")}</p>
+                </div>
+                <LimitReminderRows variant="popover" />
+              </PopoverContent>
+            </Popover>
             <button
               type="button"
               aria-label={t("common.close")}
@@ -78,6 +99,8 @@ export function useLimitWarning(provider: string | null | undefined, placement: 
   const id = provider === "Claude" ? "claude" : provider === "Codex" ? "codex" : null;
   const [reading, setReading] = useState<LimitReading | null>(null);
   const [, setDismissals] = useState(0);
+  // The levels as they are now: adding, changing or removing one re-checks the reading.
+  const { levels } = useLimitReminders();
 
   useEffect(() => {
     setReading(null);
@@ -95,7 +118,7 @@ export function useLimitWarning(provider: string | null | undefined, placement: 
     };
   }, [id]);
 
-  const level = reading ? warningLevel(reading.usedPercent) : null;
+  const level = reading ? warningLevel(reading.usedPercent, levels) : null;
   const shown = reading && reading.provider === id && level !== null && !isWarningDismissed(reading, level) ? reading : null;
   const notice = (
     <LimitWarningStrip
