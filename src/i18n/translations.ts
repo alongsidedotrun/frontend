@@ -726,15 +726,6 @@ export const translations = {
     zh: "申请应用",
     ja: "アプリをリクエスト",
   },
-  "settings.apps.requestApp.description": {
-    en: "We listen to our community and bring their requested apps.",
-    "pt-BR": "Ouvimos nossa comunidade e trazemos os aplicativos solicitados por eles.",
-    es: "Escuchamos a nuestra comunidad y traemos las aplicaciones que solicitan.",
-    fr: "Nous écoutons notre communauté et proposons les applications qu'elle demande.",
-    de: "Wir hören auf unsere Community und bringen die von ihr gewünschten Apps.",
-    zh: "我们倾听社区的声音，带来大家请求的应用。",
-    ja: "コミュニティの声を聞き、リクエストされたアプリを提供しています。",
-  },
   "settings.apps.github.connectedAs": {
     en: "Connected as {{username}}",
     "pt-BR": "Conectado como {{username}}",
@@ -1062,15 +1053,6 @@ export const translations = {
     de: "Einen Anbieter anfragen",
     zh: "申请服务商",
     ja: "プロバイダーをリクエスト",
-  },
-  "settings.providers.requestProvider.description": {
-    en: "We listen to our community and bring their requested providers.",
-    "pt-BR": "Ouvimos nossa comunidade e trazemos os provedores solicitados por eles.",
-    es: "Escuchamos a nuestra comunidad y traemos los proveedores que solicitan.",
-    fr: "Nous écoutons notre communauté et proposons les fournisseurs qu'elle demande.",
-    de: "Wir hören auf unsere Community und bringen die von ihr gewünschten Anbieter.",
-    zh: "我们倾听社区的声音，带来大家请求的服务商。",
-    ja: "コミュニティの声を聞き、リクエストされたプロバイダーを提供しています。",
   },
   "settings.providers.usage": {
     en: "Usage",
