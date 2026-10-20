@@ -196,17 +196,25 @@ function ConnectionToolbar({
  *  them all out (each row renders nothing when it doesn't show, leaving the list empty). */
 function ConnectionList({ filter, query, children }: { filter: ConnectionFilter; query: string; children: ReactNode }) {
   const { t } = useTranslation();
+  // Switching tabs fades the old rows out, then the new ones in.
   return (
-    <>
-      <div className="peer -mx-2 mt-3 grid grid-cols-2 gap-x-2 gap-y-0.5">{children}</div>
-      <p className="hidden pt-3 text-[12px] text-muted-foreground select-none peer-empty:block">
-        {query.trim()
-          ? t("settings.connections.noMatches")
-          : filter === "connected"
-            ? t("settings.connections.noneConnected")
-            : t("settings.connections.noneAvailable")}
-      </p>
-    </>
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={filter}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1, transition: spring.moderate }}
+        exit={{ opacity: 0, transition: spring.moderate.exit }}
+      >
+        <div className="peer -mx-2 mt-3 grid grid-cols-2 gap-x-2 gap-y-0.5">{children}</div>
+        <p className="hidden pt-3 text-[12px] text-muted-foreground select-none peer-empty:block">
+          {query.trim()
+            ? t("settings.connections.noMatches")
+            : filter === "connected"
+              ? t("settings.connections.noneConnected")
+              : t("settings.connections.noneAvailable")}
+        </p>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 const SETTINGS_CONTROL_RADIUS = "rounded-lg";
