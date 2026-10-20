@@ -14,7 +14,7 @@ import { dismissWarning, isWarningDismissed, readingFromEvent, readingFromUsage,
  * The yellow strip on top of the composer when a provider's 5-hour window is
  * nearly used up (attached like the composer's Work from folder strip below it).
  */
-export function LimitWarningStrip({ reading, note, onDismiss, placement = "top" }: { reading: LimitReading | null; note?: string; onDismiss: () => void; placement?: "top" | "bottom" }) {
+export function LimitWarningStrip({ reading, onDismiss, placement = "top" }: { reading: LimitReading | null; onDismiss: () => void; placement?: "top" | "bottom" }) {
   const { t } = useTranslation();
   const provider = reading ? PROVIDER_DISPLAY[reading.provider === "codex" ? "Codex" : "Claude"]?.primary ?? reading.provider : "";
   const resets = reading?.resetsAt ? new Date(reading.resetsAt * 1000).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : null;
@@ -50,10 +50,7 @@ export function LimitWarningStrip({ reading, note, onDismiss, placement = "top" 
           >
             <AlertTriangle aria-hidden="true" className="size-3.5 shrink-0" />
             <span className="min-w-0 flex-1 truncate">
-              {/* The reached reminder's own note leads, when it has one. */}
-              {note
-                ? t("limits.warningWithNote", { note, provider, percent: Math.round(reading.usedPercent) })
-                : t("limits.warning", { provider, percent: Math.round(reading.usedPercent) })}
+              {t("limits.warning", { provider, percent: Math.round(reading.usedPercent) })}
               {resets && <span className="opacity-75"> · {t("limits.resetsAt", { time: resets })}</span>}
             </span>
             {/* The levels this note shows at, changed in place (the same list as Settings > Chat). */}
@@ -103,7 +100,7 @@ export function useLimitWarning(provider: string | null | undefined, placement: 
   const [reading, setReading] = useState<LimitReading | null>(null);
   const [, setDismissals] = useState(0);
   // The levels as they are now: adding, changing or removing one re-checks the reading.
-  const { levels, noteFor } = useLimitReminders();
+  const { levels } = useLimitReminders();
 
   useEffect(() => {
     setReading(null);
@@ -126,7 +123,6 @@ export function useLimitWarning(provider: string | null | undefined, placement: 
   const notice = (
     <LimitWarningStrip
       reading={shown}
-      note={level !== null ? noteFor(level) : undefined}
       placement={placement}
       onDismiss={() => {
         if (reading && level !== null) dismissWarning(reading, level);
