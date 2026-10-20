@@ -421,12 +421,11 @@ export function ProviderUsageSection() {
                           {snapshot.limits.map((limit) => (
                             <UsageLimitRow key={limit.window} limit={limit} />
                           ))}
-                          {/* Saved from the provider's last reply rather than checked live (the live
-                              check would need its login from the macOS Keychain). */}
+                          {/* Not checked live (the live check would need a login from the macOS Keychain):
+                              the reading saved from a reply, or the CLI's own cached check (Claude Code's). */}
                           {snapshot.as_of && (
                             <p className="text-[11px] font-normal text-muted-foreground">
                               {t("models.usageAsOf", {
-                                provider: display?.primary ?? model.provider,
                                 time: new Date(snapshot.as_of).toLocaleString(undefined, { hour: "numeric", minute: "2-digit", month: "short", day: "numeric" }),
                               })}
                             </p>
