@@ -112,12 +112,13 @@ export type SettingsSection = "profile" | "general" | "appearance" | "chat" | "p
 // (that app's settingsPanelStyles.ts).
 const SETTINGS_CARD_RADIUS = "rounded-xl";
 const PROVIDER_ICON_FRAME = "flex size-8 shrink-0 items-center justify-center rounded-[calc(32px*8/27)] border border-border";
-// A Providers/Apps row: no border of its own (its icon's frame has one), a full-row hover.
+// A Providers/Apps row: no border of its own (its icon's frame has one) and no hover highlight; the
+// + / check and the update pill at its end are the controls that react.
 // At its right end: a bordered + to add it (install, log in or set up), the same box with a check once
 // it's connected.
 const CONNECTION_ADD = "flex size-6 shrink-0 items-center justify-center rounded-[calc(24px*8/27)] border border-border text-foreground transition-colors hover:bg-hover-2";
 const CONNECTED_MARK = CONNECTION_ADD;
-const CONNECTION_ROW = `flex w-full select-none items-center gap-3 ${SETTINGS_CARD_RADIUS} p-2 text-left transition-colors hover:bg-hover-2/50`;
+const CONNECTION_ROW = `flex w-full select-none items-center gap-3 ${SETTINGS_CARD_RADIUS} p-2 text-left`;
 
 type ConnectionFilter = "all" | "connected" | "available";
 const CONNECTION_TAB_CLASS = "h-[22px] px-2.5 [&>span]:!text-[12px] [&>span]:!leading-none";
@@ -1110,7 +1111,7 @@ function ProviderCard({ provider, onClick, filter = "all", query = "" }: { provi
   if (!showsUnder(filter, isConnected, query, provider.displayName)) return null;
 
   return (
-    <div className={`flex select-none items-center gap-3 ${SETTINGS_CARD_RADIUS} p-2 transition-colors hover:bg-hover-2/50`}>
+    <div className={`flex select-none items-center gap-3 ${SETTINGS_CARD_RADIUS} p-2`}>
       <button
         type="button"
         onClick={onClick}
