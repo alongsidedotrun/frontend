@@ -13,7 +13,7 @@ import { getUserDisplayName } from "@/lib/user";
 import { Button } from "@/components/ui/button";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { AnimatePresence, motion } from "motion/react";
-import { spring } from "@/lib/springs";
+import { fade, spring } from "@/lib/springs";
 // The fluidfunctionalism.com reference dropdown (Base UI Menu +
 // proximity-hover animated backgrounds) -- this file's one dropdown
 // system now, per explicit request ("Lets keep all base ui").
@@ -2296,6 +2296,16 @@ export function ComposeBox({
         )}
       </div>
       <div className="mr-1 flex items-center gap-1">
+        {/* Dictating, Effort, Model and context fade out where they are (still holding their
+            space, so nothing shifts) and the live wave fades in over them, against ✕ and ✓. */}
+        <div className="relative flex items-center">
+        <motion.div
+          inert={listening}
+          initial={false}
+          animate={{ opacity: listening ? 0 : 1 }}
+          transition={fade}
+          className="flex items-center gap-1"
+        >
         {/* Effort -- now its own standalone trigger+dropdown next to the
             model selector, matching Synara's own split layout (a real
             reference app cloned for comparison: ProviderModelPicker +
@@ -2609,10 +2619,26 @@ export function ComposeBox({
             onSetAutocompact={onSetAutocompact}
           />
         )}
-        {/* Dictating: the wave, ✕ to drop it and ✓ to keep it, in place of the mic and send. */}
+        </motion.div>
+        <AnimatePresence>
+          {listening && (
+            <motion.div
+              key="dictation-wave"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={fade}
+              // Right-aligned and clipped: with less room than the wave, its oldest levels drop off the left.
+              className="pointer-events-none absolute inset-y-0 right-0 left-0 flex items-center justify-end overflow-hidden pr-1"
+            >
+              <DictationWave stream={micStream} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+        </div>
+        {/* Dictating: ✕ to drop it and ✓ to keep it, in place of the mic and send. */}
         {listening ? (
           <>
-            <DictationWave stream={micStream} className="mx-1" />
             <Button
               size="icon"
               variant="outline"
