@@ -1975,6 +1975,7 @@ export const translations = {
   "compose.command.docs": {
     en: "Docs", "pt-BR": "Documentos", es: "Documentos", fr: "Documents", de: "Dokumente", zh: "文档", ja: "ドキュメント",
   },
+  "compose.workFromFolderDescription": { en: "Pick the folder the agent works in", "pt-BR": "Escolha a pasta em que o agente trabalha", es: "Elige la carpeta en la que trabaja el agente", fr: "Choisissez le dossier où travaille l'agent", de: "Wähle den Ordner, in dem der Agent arbeitet", zh: "选择智能体工作的文件夹", ja: "エージェントが作業するフォルダを選択" },
   "compose.workFromFolder": {
     en: "Work from folder",
     "pt-BR": "Trabalhar a partir de uma pasta",
