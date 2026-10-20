@@ -1,4 +1,9 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { FilterLines, SwitchVertical01 } from "@untitledui/icons";
+import { Button } from "@/components/ui/button";
+import { DropdownContent, DropdownMenu, DropdownTrigger } from "@/components/ui/dropdown";
+import { MenuItem } from "@/components/ui/menu-item";
 import { ErrorText } from "@/lib/error-code";
 import { PROVIDER_DISPLAY, ProviderIcon } from "@/lib/quick-chat-models";
 import {
@@ -9,6 +14,7 @@ import {
   USAGE_TONE_BAR_CLASS,
   formatResetCountdown,
   type ProviderUsageLimit,
+  type ProviderUsageSnapshot,
 } from "@/lib/use-usage";
 
 // provider_usage.rs's own needs_auth detail strings ("Sign in with `codex
@@ -123,22 +129,100 @@ function UsageCardSkeleton({ active = true }: { active?: boolean }) {
 }
 
 /** One row per provider (inside a settings card, which draws the dividers). */
-export function ProviderUsageRows() {
+type UsageSort = "name" | "mostUsed";
+// Which providers are hidden and how the rest are sorted, remembered on this device.
+const USAGE_HIDDEN_KEY = "alongside_usage_hidden";
+const USAGE_SORT_KEY = "alongside_usage_sort";
+
+function readStored(key: string) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function store(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // storage blocked: kept for this session
+  }
+}
+
+// The least left in any of a provider's windows, for Most used; no reading sorts last.
+function leastLeft(snapshot: ProviderUsageSnapshot | null | undefined) {
+  if (!snapshot || snapshot.status !== "ok" || snapshot.limits.length === 0) return Infinity;
+  return Math.min(...snapshot.limits.map((limit) => 100 - (limit.used_percent ?? 0)));
+}
+
+/** Settings > Providers' Usage: a card per provider, with Filter (which providers to show) and Sort
+ *  (by name or most used) beside the heading, like Skills' toolbar. */
+export function ProviderUsageSection() {
   const { t } = useTranslation();
   const snapshots = useAllProviderUsage();
   const { error: usageError } = useUsageStats();
-  // Alphabetical by the name actually shown on the card ("ChatGPT" before
-  // "Claude" before "Gemini"), not USAGE_PROVIDERS' own QUICK_CHAT_MODELS
-  // order -- per explicit request. Sorted here only, not on the shared
-  // USAGE_PROVIDERS export itself, since nav-user.tsx's own dropdown bars
-  // read that same list and weren't asked to reorder.
-  const orderedProviders = [...USAGE_PROVIDERS].sort((a, b) =>
-    (PROVIDER_DISPLAY[a.provider]?.primary ?? a.provider).localeCompare(PROVIDER_DISPLAY[b.provider]?.primary ?? b.provider)
-  );
+  const [hidden, setHidden] = useState<string[]>(() => {
+    try {
+      return JSON.parse(readStored(USAGE_HIDDEN_KEY) ?? "[]") as string[];
+    } catch {
+      return [];
+    }
+  });
+  const [sort, setSort] = useState<UsageSort>(() => (readStored(USAGE_SORT_KEY) === "mostUsed" ? "mostUsed" : "name"));
+  const nameOf = (provider: string) => PROVIDER_DISPLAY[provider]?.primary ?? provider;
+  const fullNameOf = (provider: string) => {
+    const display = PROVIDER_DISPLAY[provider];
+    return display ? `${display.primary} ${display.caption}` : provider;
+  };
+  const showHidden = (next: string[]) => {
+    setHidden(next);
+    store(USAGE_HIDDEN_KEY, JSON.stringify(next));
+  };
+  const pickSort = (next: UsageSort) => {
+    setSort(next);
+    store(USAGE_SORT_KEY, next);
+  };
+  const byName = [...USAGE_PROVIDERS].sort((a, b) => nameOf(a.provider).localeCompare(nameOf(b.provider)));
+  const shown = byName
+    .filter((model) => !hidden.includes(model.provider))
+    .sort((a, b) => (sort === "mostUsed" ? leastLeft(snapshots[a.provider]) - leastLeft(snapshots[b.provider]) || 0 : 0));
 
   return (
-    <>
-            {orderedProviders.map((model) => {
+    // SettingsSection's heading (settings-overlay.tsx), with the two menus at its right end.
+    <section className="flex flex-col gap-1.5" style={{ marginTop: "0.875rem" }}>
+      <div className="flex items-center justify-between gap-2 px-2 py-1">
+        <h3 className="text-[12px] font-normal text-muted-foreground/60">{t("settings.providers.usage")}</h3>
+        <div className="flex items-center gap-1">
+          <DropdownMenu size="compact">
+            <DropdownTrigger render={<Button size="compact" variant="tertiary" leadingIcon={FilterLines} active={hidden.length > 0}>{t("usage.filter")}</Button>} />
+            <DropdownContent align="end" className="w-52 min-w-0">
+              <MenuItem index={0} label={t("usage.filter.all")} checked={hidden.length === 0} onSelect={() => showHidden([])} />
+              {byName.map((model, index) => (
+                <MenuItem
+                  key={model.provider}
+                  index={index + 1}
+                  label={fullNameOf(model.provider)}
+                  checked={!hidden.includes(model.provider)}
+                  onSelect={() =>
+                    showHidden(hidden.includes(model.provider) ? hidden.filter((p) => p !== model.provider) : [...hidden, model.provider])
+                  }
+                />
+              ))}
+            </DropdownContent>
+          </DropdownMenu>
+          <DropdownMenu size="compact">
+            <DropdownTrigger render={<Button size="compact" variant="tertiary" leadingIcon={SwitchVertical01}>{t("usage.sort")}</Button>} />
+            <DropdownContent align="end" className="w-40 min-w-0">
+              <MenuItem index={0} label={t("usage.sort.name")} checked={sort === "name"} onSelect={() => pickSort("name")} />
+              <MenuItem index={1} label={t("usage.sort.mostUsed")} checked={sort === "mostUsed"} onSelect={() => pickSort("mostUsed")} />
+            </DropdownContent>
+          </DropdownMenu>
+        </div>
+      </div>
+      {shown.length === 0 && <p className="px-2 text-[12px] text-muted-foreground">{t("usage.noneShown")}</p>}
+      <div className="flex flex-col gap-2">
+            {shown.map((model) => {
               const snapshot = snapshots[model.provider];
               // "Claude via Claude Code", not just "Claude" -- per explicit
               // request, same PROVIDER_DISPLAY (quick-chat-models.tsx) used
@@ -147,7 +231,7 @@ export function ProviderUsageRows() {
               // ways in two places.
               const display = PROVIDER_DISPLAY[model.provider];
               return (
-                <div key={model.provider} className="flex flex-col gap-3 px-3 py-3">
+                <div key={model.provider} className="flex flex-col gap-3 rounded-xl border border-border bg-foreground/[0.02] px-3 py-3">
                   <div className="flex items-center gap-3">
                     <span className="flex size-7 shrink-0 items-center justify-center">
                       <ProviderIcon model={model} className="size-5" />
@@ -293,6 +377,7 @@ export function ProviderUsageRows() {
                 </div>
               );
             })}
-    </>
+      </div>
+    </section>
   );
 }

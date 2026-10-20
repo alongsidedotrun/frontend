@@ -708,6 +708,12 @@ export const translations = {
     zh: "用量",
     ja: "使用状況",
   },
+  "usage.filter": { en: "Filter", "pt-BR": "Filtrar", es: "Filtrar", fr: "Filtrer", de: "Filtern", zh: "筛选", ja: "絞り込み" },
+  "usage.filter.all": { en: "All providers", "pt-BR": "Todos os provedores", es: "Todos los proveedores", fr: "Tous les fournisseurs", de: "Alle Anbieter", zh: "全部提供商", ja: "すべてのプロバイダー" },
+  "usage.sort": { en: "Sort", "pt-BR": "Ordenar", es: "Ordenar", fr: "Trier", de: "Sortieren", zh: "排序", ja: "並べ替え" },
+  "usage.sort.name": { en: "Name", "pt-BR": "Nome", es: "Nombre", fr: "Nom", de: "Name", zh: "名称", ja: "名前" },
+  "usage.sort.mostUsed": { en: "Most used", "pt-BR": "Mais usados", es: "Más usados", fr: "Les plus utilisés", de: "Am meisten genutzt", zh: "用量最多", ja: "使用量が多い順" },
+  "usage.noneShown": { en: "No providers shown. Choose some in Filter.", "pt-BR": "Nenhum provedor exibido. Escolha alguns em Filtrar.", es: "No se muestra ningún proveedor. Elige algunos en Filtrar.", fr: "Aucun fournisseur affiché. Choisissez-en dans Filtrer.", de: "Keine Anbieter angezeigt. Wähle welche unter Filtern.", zh: "未显示任何提供商。请在“筛选”中选择。", ja: "表示中のプロバイダーはありません。「絞り込み」で選んでください。" },
   "settings.providers.usage.title": {
     en: "Provider usage",
     "pt-BR": "Uso do provedor",
