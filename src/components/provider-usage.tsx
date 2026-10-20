@@ -1,12 +1,11 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FilterLines, SwitchVertical01 } from "@untitledui/icons";
 import { Button } from "@/components/ui/button";
 import { DropdownContent, DropdownMenu, DropdownTrigger } from "@/components/ui/dropdown";
 import { MenuItem } from "@/components/ui/menu-item";
 import { ErrorText } from "@/lib/error-code";
-import { PROVIDER_DISPLAY, ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
-import { loadModelCatalog, useModelCatalogVersion } from "@/lib/model-catalog";
+import { PROVIDER_DISPLAY, ProviderIcon } from "@/lib/quick-chat-models";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { ShapeProvider } from "@/lib/shape-context";
 import {
@@ -156,29 +155,12 @@ function modelLabel(id: string) {
 
 const MODEL_TAB_CLASS = "h-[22px] shrink-0 px-2.5 [&>span]:!text-[12px] [&>span]:!leading-none";
 
-// "gemini-3.8-flash-high" -> "gemini-3.8-flash": effort levels share a model's tab (as the backend
-// groups Antigravity's usage).
-const modelFamily = (id: string) => id.replace(/-(minimal|low|medium|high|xhigh)$/, "");
-
-// No usage yet, in the backend's own wording for an empty window.
-const NO_USAGE_LINES = ["24h", "7d", "30d"].map((label) => ({ label, value: "0 tokens", subtitle: "No sessions" }));
-
-/** A card's 24h/7d/30d rows, under All and a tab per model: each model the provider still offers
- *  (the model picker's list, used or not), then any it no longer offers but used in the last 30
- *  days, which drops off once that usage ages out. */
-function UsageRows({ snapshot, provider }: { snapshot: ProviderUsageSnapshot; provider: string }) {
+/** A card's 24h/7d/30d rows, under All and a tab for each model used in the last 30 days (a model
+ *  drops off once its usage ages out). */
+function UsageRows({ snapshot }: { snapshot: ProviderUsageSnapshot }) {
   const { t } = useTranslation();
   const [selected, setSelected] = useState("all");
-  const used = snapshot.models ?? [];
-  const offered = new Set(
-    QUICK_CHAT_MODELS.filter((model) => model.provider === provider && model.configured).map((model) => modelFamily(model.value)),
-  );
-  const tabs = [
-    ...used.map((entry) => ({ id: entry.model, label: modelLabel(entry.model), lines: entry.usage_lines })),
-    ...[...offered]
-      .filter((family) => !used.some((entry) => modelFamily(entry.model) === family))
-      .map((family) => ({ id: family, label: modelLabel(family), lines: NO_USAGE_LINES })),
-  ];
+  const tabs = (snapshot.models ?? []).map((entry) => ({ id: entry.model, label: modelLabel(entry.model), lines: entry.usage_lines }));
   const picked = tabs.find((tab) => tab.id === selected);
   const lines = picked ? picked.lines : snapshot.usage_lines;
   return (
@@ -241,11 +223,6 @@ function leastLeft(snapshot: ProviderUsageSnapshot | null | undefined) {
  *  (by name or most used) beside the heading, like Skills' toolbar. */
 export function ProviderUsageSection() {
   const { t } = useTranslation();
-  // The model picker's list, refreshed from the providers: which models each still offers.
-  useModelCatalogVersion();
-  useEffect(() => {
-    void loadModelCatalog();
-  }, []);
   const snapshots = useAllProviderUsage();
   const { error: usageError } = useUsageStats();
   const [picked, setPicked] = useState<string[]>(() => {
@@ -399,7 +376,7 @@ export function ProviderUsageSection() {
                       {snapshot.usage_lines.length > 0 && (
                         <>
                           <div className="border-t border-border" />
-                          <UsageRows snapshot={snapshot} provider={model.provider} />
+                          <UsageRows snapshot={snapshot} />
                         </>
                       )}
                     </div>
@@ -458,7 +435,7 @@ export function ProviderUsageSection() {
                       {snapshot.usage_lines.length > 0 && (
                         <>
                           {snapshot.limits.length > 0 && <div className="border-t border-border" />}
-                          <UsageRows snapshot={snapshot} provider={model.provider} />
+                          <UsageRows snapshot={snapshot} />
                         </>
                       )}
                     </div>
