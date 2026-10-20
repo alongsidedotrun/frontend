@@ -192,29 +192,36 @@ function ConnectionToolbar({
   );
 }
 
-/** The rows in two columns, edge-aligned with the toolbar above; a note when the tab or search filters
- *  them all out (each row renders nothing when it doesn't show, leaving the list empty). */
-function ConnectionList({ filter, query, children }: { filter: ConnectionFilter; query: string; children: ReactNode }) {
-  const { t } = useTranslation();
-  // Switching tabs fades the old rows out, then the new ones in.
+/** The rows in two columns, edge-aligned with the toolbar above. Each row renders nothing when it
+ *  doesn't show. The list keeps the tallest height it has had this visit (and at least two rows), so
+ *  a tab or search with fewer rows, or none, leaves blank space rather than moving the sections
+ *  below; rows are taller when their text wraps, so a fixed height wouldn't do. */
+function ConnectionList({ filter, children }: { filter: ConnectionFilter; children: ReactNode }) {
+  const [tallest, setTallest] = useState(0);
+  const observer = useRef<ResizeObserver | null>(null);
+  const measure = useCallback((node: HTMLDivElement | null) => {
+    observer.current?.disconnect();
+    if (!node) return;
+    observer.current = new ResizeObserver(([entry]) => setTallest((height) => Math.max(height, entry.contentRect.height)));
+    observer.current.observe(node);
+  }, []);
+  // Two rows: 48px each (p-2 around the 32px icon frame) and the 2px gap between them.
   return (
-    <AnimatePresence mode="wait" initial={false}>
-      <motion.div
-        key={filter}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1, transition: spring.moderate }}
-        exit={{ opacity: 0, transition: spring.moderate.exit }}
-      >
-        <div className="peer -mx-2 mt-3 grid grid-cols-2 gap-x-2 gap-y-0.5">{children}</div>
-        <p className="hidden pt-3 text-[12px] text-muted-foreground select-none peer-empty:block">
-          {query.trim()
-            ? t("settings.connections.noMatches")
-            : filter === "connected"
-              ? t("settings.connections.noneConnected")
-              : t("settings.connections.noneAvailable")}
-        </p>
-      </motion.div>
-    </AnimatePresence>
+    <div className="-mx-2 mt-3" style={{ minHeight: Math.max(98, tallest) }}>
+      {/* Switching tabs fades the old rows out, then the new ones in. */}
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={filter}
+          ref={measure}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1, transition: spring.moderate }}
+          exit={{ opacity: 0, transition: spring.moderate.exit }}
+          className="grid grid-cols-2 content-start gap-x-2 gap-y-0.5"
+        >
+          {children}
+        </motion.div>
+      </AnimatePresence>
+    </div>
   );
 }
 const SETTINGS_CONTROL_RADIUS = "rounded-lg";
@@ -1228,7 +1235,7 @@ function AppsSection() {
             onQuery={setQuery}
             searchLabel={t("settings.connections.searchApps")}
           />
-          <ConnectionList filter={filter} query={query}>
+          <ConnectionList filter={filter}>
             <GithubIntegrationCard filter={filter} query={query} onClick={() => openApp("github")} />
             {GOOGLE_APPS.map((app) =>
               showsUnder(filter, false, query, app.name) ? (
@@ -1477,7 +1484,7 @@ function ProvidersSection() {
                 onQuery={setQuery}
                 searchLabel={t("settings.connections.searchProviders")}
               />
-              <ConnectionList filter={filter} query={query}>
+              <ConnectionList filter={filter}>
                 {activeProviders.map((provider) => (
                   <ProviderCard key={provider.name} provider={provider} filter={filter} query={query} onClick={() => openProvider(provider)} />
                 ))}
