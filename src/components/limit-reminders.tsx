@@ -7,8 +7,9 @@ import { DEFAULT_LIMIT_REMINDER, useLimitReminders } from "@/lib/limit-warning";
 /**
  * The limit reminders, as rows: 85% (always on, no remove), each added level
  * (editable, removable), then Add reminder. Any of them can carry an optional
- * note, which the limit strip shows when that level is reached. Settings > Chat
- * shows them in its card; the limit strip shows them in its Reminders popover.
+ * note, a reminder to yourself for reading the list here; the strip's own
+ * message stays the same. Settings > Chat shows them in its card; the limit
+ * strip shows them in its Reminders popover.
  */
 export function LimitReminderRows({ variant }: { variant: "settings" | "popover" }) {
   const { t } = useTranslation();
