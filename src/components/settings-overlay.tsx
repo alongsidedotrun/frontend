@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
+import { ShapeProvider } from "@/lib/shape-context";
+import { Plus, SearchMd } from "@untitledui/icons";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { useIsMac, useIsWindows } from "@/hooks/use-platform";
@@ -109,6 +112,98 @@ export type SettingsSection = "profile" | "general" | "appearance" | "chat" | "p
 // (that app's settingsPanelStyles.ts).
 const SETTINGS_CARD_RADIUS = "rounded-xl";
 const PROVIDER_ICON_FRAME = "flex size-8 shrink-0 items-center justify-center rounded-[calc(32px*8/27)] border border-border";
+// A Providers/Apps row: no border of its own (its icon's frame has one), a full-row hover.
+const CONNECTION_ROW = `flex w-full select-none items-center gap-3 ${SETTINGS_CARD_RADIUS} p-2 text-left transition-colors hover:bg-hover-2/50`;
+
+type ConnectionFilter = "all" | "connected" | "available";
+const CONNECTION_TAB_CLASS = "h-[22px] px-2.5 [&>span]:!text-[12px] [&>span]:!leading-none";
+
+// Search shows once a list is this long; shorter ones are quicker to scan.
+const CONNECTION_SEARCH_FROM = 6;
+
+/** Whether a row shows: under its tab (Available is everything not connected yet) and matching the search. */
+function showsUnder(filter: ConnectionFilter, connected: boolean, query: string, name: string) {
+  const inTab = filter === "all" || (filter === "connected") === connected;
+  return inTab && name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
+}
+
+/** Above Providers' and Apps' lists: All / Connected / Available (styled like Skills' tabs) on the
+ *  left; search (from CONNECTION_SEARCH_FROM items) and Request on the right. */
+function ConnectionToolbar({
+  filter,
+  onFilter,
+  itemCount,
+  query,
+  onQuery,
+  searchLabel,
+}: {
+  filter: ConnectionFilter;
+  onFilter: (value: ConnectionFilter) => void;
+  itemCount: number;
+  query: string;
+  onQuery: (value: string) => void;
+  searchLabel: string;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+      <ShapeProvider defaultShape="pill">
+        <Tabs size="compact" value={filter} onValueChange={(next) => onFilter(next as ConnectionFilter)}>
+          <TabsList className="[&>div:first-child]:!bg-background [&>div:first-child]:!shadow-[0_1px_2px_rgba(0,0,0,0.12),0_0_0_0.5px_rgba(0,0,0,0.08)] dark:[&>div:first-child]:!bg-white/12">
+            <TabItem value="all" label={t("settings.connections.all")} className={CONNECTION_TAB_CLASS} />
+            <TabItem value="connected" label={t("settings.connections.connected")} className={CONNECTION_TAB_CLASS} />
+            <TabItem value="available" label={t("settings.connections.available")} className={CONNECTION_TAB_CLASS} />
+          </TabsList>
+        </Tabs>
+      </ShapeProvider>
+      <div className="flex min-w-0 items-center gap-2">
+        {itemCount >= CONNECTION_SEARCH_FROM && (
+          // Skills' search field: focused, the icon and placeholder fade out.
+          <div className="group/connection-search relative w-48 min-w-0">
+            <SearchMd
+              aria-hidden="true"
+              className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground transition-opacity duration-200 ease-in-out group-focus-within/connection-search:opacity-0 motion-reduce:transition-none"
+            />
+            <Input
+              value={query}
+              onChange={(event) => onQuery(event.target.value)}
+              placeholder={searchLabel}
+              aria-label={searchLabel}
+              className="h-7 border border-border pl-8 text-[length:var(--redesign-chat-meta)] shadow-none transition-[border-color] duration-200 placeholder:text-transparent focus:pl-2.5 focus-visible:border-focus-accent dark:border-border dark:focus-visible:border-focus-accent"
+            />
+            {!query && (
+              <span aria-hidden="true" className="pointer-events-none absolute top-1/2 left-8 -translate-y-1/2 truncate text-[length:var(--redesign-chat-meta)] text-muted-foreground transition-opacity duration-200 ease-in-out group-focus-within/connection-search:opacity-0 motion-reduce:transition-none">
+                {searchLabel}
+              </span>
+            )}
+          </div>
+        )}
+        {/* The request form isn't built yet, like the request cards this replaces. */}
+        <Button size="compact" variant="primary" leadingIcon={Plus} onClick={() => {}}>
+          {t("settings.connections.request")}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** The rows in two columns, edge-aligned with the toolbar above; a note when the tab or search filters
+ *  them all out (each row renders nothing when it doesn't show, leaving the list empty). */
+function ConnectionList({ filter, query, children }: { filter: ConnectionFilter; query: string; children: ReactNode }) {
+  const { t } = useTranslation();
+  return (
+    <>
+      <div className="peer -mx-2 mt-3 grid grid-cols-2 gap-x-2 gap-y-0.5">{children}</div>
+      <p className="hidden pt-3 text-[12px] text-muted-foreground select-none peer-empty:block">
+        {query.trim()
+          ? t("settings.connections.noMatches")
+          : filter === "connected"
+            ? t("settings.connections.noneConnected")
+            : t("settings.connections.noneAvailable")}
+      </p>
+    </>
+  );
+}
 const SETTINGS_CONTROL_RADIUS = "rounded-lg";
 
 // Shared by every plain action button in a Caution section (Reset, Log
@@ -906,7 +1001,7 @@ function ProviderConnectionView({ provider }: { provider: Provider }) {
 // own open-detail button) without breaking keyboard nav/accessibility, so the
 // icon+name portion is its own button and the right-hand action is a sibling, both
 // inside a plain (non-interactive) row div.
-function ProviderCard({ provider, onClick }: { provider: Provider; onClick: () => void }) {
+function ProviderCard({ provider, onClick, filter = "all", query = "" }: { provider: Provider; onClick: () => void; filter?: ConnectionFilter; query?: string }) {
   const { t } = useTranslation();
   const cliBinary = provider.name.toLowerCase();
   const { available, installed, error: cliCheckError } = useCliAvailability(cliBinary);
@@ -955,13 +1050,14 @@ function ProviderCard({ provider, onClick }: { provider: Provider; onClick: () =
   // -- no separate hover style needed on that button any more, so it can't
   // visually compete with or fall out of step with the row's own.
   const isFullCardButton = isConnected || cliCheckError;
+  if (!showsUnder(filter, isConnected, query, provider.displayName)) return null;
 
   return (
-    <div className={`flex select-none items-center gap-2 ${SETTINGS_CARD_RADIUS} border border-border p-3 transition-colors hover:bg-hover-2/50`}>
+    <div className={`flex select-none items-center gap-3 ${SETTINGS_CARD_RADIUS} p-2 transition-colors hover:bg-hover-2/50`}>
       <button
         type="button"
         onClick={onClick}
-        className={`flex min-w-0 flex-1 select-none items-center gap-2 text-left ${isFullCardButton ? "w-full" : ""}`}
+        className={`flex min-w-0 flex-1 select-none items-center gap-3 text-left ${isFullCardButton ? "w-full" : ""}`}
       >
         <span className={PROVIDER_ICON_FRAME}>
           <ProviderIcon model={provider} className="size-5" />
@@ -1067,6 +1163,8 @@ function AppsSection() {
   function openApp(name: string) {
     setSearchParams({ app: name }, { replace: true });
   }
+  const [filter, setFilter] = useState<ConnectionFilter>("all");
+  const [query, setQuery] = useState("");
 
   return (
     <AnimatePresence mode="wait" initial={false}>
@@ -1086,19 +1184,17 @@ function AppsSection() {
           animate={{ opacity: 1, transition: spring.slow }}
           exit={{ opacity: 0, transition: spring.slow.exit }}
         >
-          <div className="mt-4 mb-2 text-xs font-normal text-foreground select-none">
-            <span className="opacity-50">{t("settings.apps.available")}</span>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <GithubIntegrationCard onClick={() => openApp("github")} />
-          </div>
+          <ConnectionToolbar filter={filter} onFilter={setFilter} itemCount={1} query={query} onQuery={setQuery} searchLabel={t("settings.connections.searchApps")} />
+          <ConnectionList filter={filter} query={query}>
+            <GithubIntegrationCard filter={filter} query={query} onClick={() => openApp("github")} />
+          </ConnectionList>
         </motion.div>
       )}
     </AnimatePresence>
   );
 }
 
-function GithubIntegrationCard({ onClick }: { onClick: () => void }) {
+function GithubIntegrationCard({ onClick, filter = "all", query = "" }: { onClick: () => void; filter?: ConnectionFilter; query?: string }) {
   const { t } = useTranslation();
   const [connectedUsername, setConnectedUsername] = useState<string | null>(null);
 
@@ -1111,20 +1207,17 @@ function GithubIntegrationCard({ onClick }: { onClick: () => void }) {
   }, []);
 
   const isConnected = connectedUsername !== null;
+  if (!showsUnder(filter, isConnected, query, "GitHub")) return null;
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex w-full select-none items-center gap-2 ${SETTINGS_CARD_RADIUS} border border-border p-3 text-left transition-colors hover:bg-hover-2/50`}
-    >
+    <button type="button" onClick={onClick} className={CONNECTION_ROW}>
       {/* Real GitHub mark (icons/providers/github.svg), not the generic
           puzzle-piece IntegrationsIcon -- per explicit request ("Use
           the github.svg from icons/providers"). dark:invert -- this
           svg's only ink is solid near-black (#1B1F23), the exact same
           treatment every other solid-black provider mark already gets
           (quick-chat-models.tsx's own invertInDark flag/comment). */}
-      <span className="flex size-8 shrink-0 items-center justify-center">
+      <span className={PROVIDER_ICON_FRAME}>
         <img src="/icons/providers/github.svg" alt="" className="size-5 dark:invert" />
       </span>
       <span className="min-w-0 flex-1">
@@ -1288,6 +1381,8 @@ function ProvidersSection() {
     () => PROVIDERS.filter((p) => ACTIVE_PROVIDERS.has(p.name)).sort((a, b) => a.displayName.localeCompare(b.displayName)),
     []
   );
+  const [filter, setFilter] = useState<ConnectionFilter>("all");
+  const [query, setQuery] = useState("");
 
   return (
     // Same crossfade AppLayout.tsx's own route transitions use (its
@@ -1317,19 +1412,23 @@ function ProvidersSection() {
               only ACTIVE_PROVIDERS.size real tiles plus Request a
               provider exist today, few enough that searching them adds
               nothing yet. */}
-          {/* grid-cols-2, not a single-column list -- per explicit
-              request, matching the reference screenshot's own two-column
-              "Connected Apps" layout. */}
+          {/* Two columns under All / Connected / Available tabs: rows without borders, the border
+              on each provider's icon instead. */}
           {activeProviders.length > 0 && (
             <>
-              <div className="mt-4 mb-2 text-xs font-normal text-foreground select-none">
-                <span className="opacity-50">{t("settings.apps.available")}</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
+              <ConnectionToolbar
+                filter={filter}
+                onFilter={setFilter}
+                itemCount={activeProviders.length}
+                query={query}
+                onQuery={setQuery}
+                searchLabel={t("settings.connections.searchProviders")}
+              />
+              <ConnectionList filter={filter} query={query}>
                 {activeProviders.map((provider) => (
-                  <ProviderCard key={provider.name} provider={provider} onClick={() => openProvider(provider)} />
+                  <ProviderCard key={provider.name} provider={provider} filter={filter} query={query} onClick={() => openProvider(provider)} />
                 ))}
-              </div>
+              </ConnectionList>
             </>
           )}
           {/* Real integrations (issue #287) -- moved to their own top-level
@@ -1346,9 +1445,9 @@ function ProvidersSection() {
           <button
             type="button"
             onClick={() => navigate("/settings/provider/usage")}
-            className={`flex w-full select-none items-center gap-2 ${SETTINGS_CARD_RADIUS} border border-border p-3 text-left transition-colors hover:bg-hover-2/50`}
+            className={cn(CONNECTION_ROW, "-mx-2 w-[calc(100%+1rem)]")}
           >
-            <span className="flex size-8 shrink-0 items-center justify-center">
+            <span className={PROVIDER_ICON_FRAME}>
               <ProviderUsageIcon className="size-5 text-muted-foreground" />
             </span>
             <span className="min-w-0 flex-1">
