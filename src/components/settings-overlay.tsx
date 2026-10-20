@@ -17,7 +17,7 @@ import {
   loadSystemUiFont,
   type ChatWidth,
 } from "@/hooks/use-appearance-settings";
-import { spring } from "@/lib/springs";
+import { fade, spring } from "@/lib/springs";
 import { modelDisplayName, PROVIDER_DISPLAY, ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
 import { effortLabel, EFFORT_LEVELS, loadDefaultEffort, saveDefaultEffort, type EffortLevel } from "@/lib/effort";
 import { loadLanguage, saveLanguage, uiLocaleFor, type LanguageValue } from "@/lib/language";
@@ -214,8 +214,8 @@ function ConnectionList({ filter, children }: { filter: ConnectionFilter; childr
           key={filter}
           ref={measure}
           initial={{ opacity: 0 }}
-          animate={{ opacity: 1, transition: spring.moderate }}
-          exit={{ opacity: 0, transition: spring.moderate.exit }}
+          animate={{ opacity: 1, transition: fade }}
+          exit={{ opacity: 0, transition: fade }}
           className="grid grid-cols-2 content-start gap-x-2 gap-y-0.5"
         >
           {children}

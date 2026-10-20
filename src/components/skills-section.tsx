@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { spring } from "@/lib/springs";
+import { fade } from "@/lib/springs";
 import { useTranslation } from "react-i18next";
 import { ArrowUpRight, Check, File02, FilterLines, Plus, SearchMd, Stars02, SwitchVertical01 } from "@untitledui/icons";
 import { Button } from "@/components/ui/button";
@@ -222,8 +222,8 @@ export function SkillsSection() {
         <motion.div
           key={tab}
           initial={{ opacity: 0 }}
-          animate={{ opacity: 1, transition: spring.moderate }}
-          exit={{ opacity: 0, transition: spring.moderate.exit }}
+          animate={{ opacity: 1, transition: fade }}
+          exit={{ opacity: 0, transition: fade }}
         >
           {tab === "installed" ? (
             installed.length > 0 ? (
