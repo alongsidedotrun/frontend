@@ -8,6 +8,7 @@ import { ErrorText } from "@/lib/error-code";
 import { PROVIDER_DISPLAY, ProviderIcon } from "@/lib/quick-chat-models";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { ShapeProvider } from "@/lib/shape-context";
+import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import {
   USAGE_PROVIDERS,
   useAllProviderUsage,
@@ -99,9 +100,10 @@ function UsageLimitRow({ limit }: { limit: ProviderUsageLimit }) {
 // and won't resolve on its own" -- so it reuses the same bar shapes for
 // visual continuity but static/dimmed instead of animate-pulse.
 // barsOnly: just the limit bars, when the card's token rows are real.
-function UsageCardSkeleton({ active = true, barsOnly = false }: { active?: boolean; barsOnly?: boolean }) {
+// still: no pulse or dimming of its own, for SkeletonReveal, which pulses it while loading.
+function UsageCardSkeleton({ active = true, barsOnly = false, still = false }: { active?: boolean; barsOnly?: boolean; still?: boolean }) {
   return (
-    <div className={`flex flex-col gap-4 ${active ? "animate-pulse" : "opacity-40"}`}>
+    <div className={`flex flex-col gap-4 ${still ? "" : active ? "animate-pulse" : "opacity-40"}`}>
       <div className="flex flex-col gap-3">
         {[0, 1].map((i) => (
           <div key={i} className="flex flex-col gap-1.5">
@@ -364,84 +366,88 @@ export function ProviderUsageSection() {
                           reachable again. */}
                       <UsageCardSkeleton active={false} />
                     </div>
-                  ) : !snapshot ? (
-                    <UsageCardSkeleton />
-                  ) : snapshot.status === "needs_auth" ? (
-                    // No reading yet: the message, over the bars' resting placeholder so the card keeps its shape.
-                    <div className="flex flex-col gap-3">
-                      <p className="text-[12px] font-normal text-muted-foreground">
-                        {renderWithInlineCode(
-                          snapshot.detail ?? t("models.needsSignIn", { provider: display?.primary ?? model.provider })
-                        )}
-                      </p>
-                      {/* The token rows come from the CLI's own logs, so they're real even before the limits are. */}
-                      <UsageCardSkeleton active={false} barsOnly={snapshot.usage_lines.length > 0} />
-                      {snapshot.usage_lines.length > 0 && (
-                        <>
-                          <div className="border-t border-border" />
-                          <UsageRows snapshot={snapshot} />
-                        </>
-                      )}
-                    </div>
-                  ) : snapshot.status === "error" ? (
-                    <div className="flex flex-col gap-3">
-                      <p className="text-[12px] font-normal text-muted-foreground">
-                        {/* Same reasoning as ChatPage.tsx's own ws.onerror
-                            handler (that file's own comment has the full
-                            history): a fetch failure reads identically
-                            whether the real cause was this app's backend
-                            being unreachable, the provider's own servers
-                            being down, or -- confirmed directly ("as my
-                            wifi dropped") -- the device itself having no
-                            network route at all. navigator.onLine catches
-                            that last, genuinely-not-Alongside's-fault case
-                            and shows the calmer, distinct ALS-001 instead of
-                            the provider's own (unrelated) failure detail. */}
-                        <ErrorText
-                          message={
-                            !navigator.onLine
-                              ? t("models.noNetwork")
-                              : (snapshot.detail ?? t("models.loadFailed"))
-                          }
-                        />
-                      </p>
-                      {/* Same inactive (non-pulsing) placeholder as the
-                          ALS-002 branch above -- per explicit request
-                          ("even with Could not reach Claude's usage
-                          endpoint (ALS-017) we should show the inactive
-                          placeholder like i agreed earlier"): this failure
-                          also isn't "still loading," so the bars should
-                          read as stalled, not animated. */}
-                      <UsageCardSkeleton active={false} />
-                    </div>
                   ) : (
-                    <div className="flex flex-col gap-4">
-                      {snapshot.limits.length === 0 && snapshot.usage_lines.length === 0 && (
-                        <p className="text-[12px] font-normal text-muted-foreground">{t("models.noUsage")}</p>
-                      )}
-                      {snapshot.limits.length > 0 && (
+                    // Skills' Discover reveal: the placeholder pulses while loading, then cross-fades
+                    // (with a blur) into the card instead of being swapped for it.
+                    <SkeletonReveal loading={!snapshot} skeleton={<UsageCardSkeleton still />}>
+                      {snapshot && (snapshot.status === "needs_auth" ? (
+                        // No reading yet: the message, over the bars' resting placeholder so the card keeps its shape.
                         <div className="flex flex-col gap-3">
-                          {snapshot.limits.map((limit) => (
-                            <UsageLimitRow key={limit.window} limit={limit} />
-                          ))}
-                          {/* Not checked live (the live check would need a login from the macOS Keychain):
-                              the reading saved from a reply, or the CLI's own cached check (Claude Code's). */}
-                          {snapshot.as_of && (
-                            <p className="text-[11px] font-normal text-muted-foreground">
-                              {t("models.usageAsOf", {
-                                time: new Date(snapshot.as_of).toLocaleString(undefined, { hour: "numeric", minute: "2-digit", month: "short", day: "numeric" }),
-                              })}
-                            </p>
+                          <p className="text-[12px] font-normal text-muted-foreground">
+                            {renderWithInlineCode(
+                              snapshot.detail ?? t("models.needsSignIn", { provider: display?.primary ?? model.provider })
+                            )}
+                          </p>
+                          {/* The token rows come from the CLI's own logs, so they're real even before the limits are. */}
+                          <UsageCardSkeleton active={false} barsOnly={snapshot.usage_lines.length > 0} />
+                          {snapshot.usage_lines.length > 0 && (
+                            <>
+                              <div className="border-t border-border" />
+                              <UsageRows snapshot={snapshot} />
+                            </>
                           )}
                         </div>
-                      )}
-                      {snapshot.usage_lines.length > 0 && (
-                        <>
-                          {snapshot.limits.length > 0 && <div className="border-t border-border" />}
-                          <UsageRows snapshot={snapshot} />
-                        </>
-                      )}
-                    </div>
+                      ) : snapshot.status === "error" ? (
+                        <div className="flex flex-col gap-3">
+                          <p className="text-[12px] font-normal text-muted-foreground">
+                            {/* Same reasoning as ChatPage.tsx's own ws.onerror
+                                handler (that file's own comment has the full
+                                history): a fetch failure reads identically
+                                whether the real cause was this app's backend
+                                being unreachable, the provider's own servers
+                                being down, or -- confirmed directly ("as my
+                                wifi dropped") -- the device itself having no
+                                network route at all. navigator.onLine catches
+                                that last, genuinely-not-Alongside's-fault case
+                                and shows the calmer, distinct ALS-001 instead of
+                                the provider's own (unrelated) failure detail. */}
+                            <ErrorText
+                              message={
+                                !navigator.onLine
+                                  ? t("models.noNetwork")
+                                  : (snapshot.detail ?? t("models.loadFailed"))
+                              }
+                            />
+                          </p>
+                          {/* Same inactive (non-pulsing) placeholder as the
+                              ALS-002 branch above -- per explicit request
+                              ("even with Could not reach Claude's usage
+                              endpoint (ALS-017) we should show the inactive
+                              placeholder like i agreed earlier"): this failure
+                              also isn't "still loading," so the bars should
+                              read as stalled, not animated. */}
+                          <UsageCardSkeleton active={false} />
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-4">
+                          {snapshot.limits.length === 0 && snapshot.usage_lines.length === 0 && (
+                            <p className="text-[12px] font-normal text-muted-foreground">{t("models.noUsage")}</p>
+                          )}
+                          {snapshot.limits.length > 0 && (
+                            <div className="flex flex-col gap-3">
+                              {snapshot.limits.map((limit) => (
+                                <UsageLimitRow key={limit.window} limit={limit} />
+                              ))}
+                              {/* Not checked live (the live check would need a login from the macOS Keychain):
+                                  the reading saved from a reply, or the CLI's own cached check (Claude Code's). */}
+                              {snapshot.as_of && (
+                                <p className="text-[11px] font-normal text-muted-foreground">
+                                  {t("models.usageAsOf", {
+                                    time: new Date(snapshot.as_of).toLocaleString(undefined, { hour: "numeric", minute: "2-digit", month: "short", day: "numeric" }),
+                                  })}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                          {snapshot.usage_lines.length > 0 && (
+                            <>
+                              {snapshot.limits.length > 0 && <div className="border-t border-border" />}
+                              <UsageRows snapshot={snapshot} />
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </SkeletonReveal>
                   )}
                 </div>
               );
