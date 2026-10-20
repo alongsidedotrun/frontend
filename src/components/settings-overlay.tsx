@@ -114,7 +114,7 @@ const SETTINGS_CARD_RADIUS = "rounded-xl";
 const PROVIDER_ICON_FRAME = "flex size-8 shrink-0 items-center justify-center rounded-[calc(32px*8/27)] border border-border";
 // A Providers/Apps row: no border of its own (its icon's frame has one), a full-row hover.
 // At its right end: a bordered + to add it (install, log in or set up), a check once it's connected.
-const CONNECTION_ACTION = "flex size-8 shrink-0 items-center justify-center rounded-[calc(32px*8/27)]";
+const CONNECTION_ACTION = "flex size-6 shrink-0 items-center justify-center rounded-[calc(24px*8/27)]";
 const CONNECTION_ADD = `${CONNECTION_ACTION} border border-border text-foreground transition-colors hover:bg-hover-2`;
 const CONNECTED_MARK = `${CONNECTION_ACTION} bg-foreground text-background`;
 const CONNECTION_ROW = `flex w-full select-none items-center gap-3 ${SETTINGS_CARD_RADIUS} p-2 text-left transition-colors hover:bg-hover-2/50`;
@@ -1078,7 +1078,7 @@ function ProviderCard({ provider, onClick, filter = "all", query = "" }: { provi
         {isConnected && (
           // A check once connected; the row itself still opens it.
           <span className={CONNECTED_MARK} aria-hidden="true">
-            <Check className="size-4" />
+            <Check className="size-3.5" />
           </span>
         )}
       </button>
@@ -1096,7 +1096,7 @@ function ProviderCard({ provider, onClick, filter = "all", query = "" }: { provi
           }}
           className={CONNECTION_ADD}
         >
-          <Plus className="size-4" />
+          <Plus className="size-3.5" />
         </button>
       )}
     </div>
@@ -1187,7 +1187,7 @@ function AppRow({ name, description, icon, connected, onClick }: { name: string;
         <span className="line-clamp-2 text-[10px] font-normal text-muted-foreground">{description}</span>
       </span>
       <span className={connected ? CONNECTED_MARK : CONNECTION_ADD} aria-hidden="true">
-        {connected ? <Check className="size-4" /> : <Plus className="size-4" />}
+        {connected ? <Check className="size-3.5" /> : <Plus className="size-3.5" />}
       </span>
     </button>
   );
