@@ -2267,7 +2267,18 @@ export function ComposeBox({
                 {/* Shows the current choice (e.g. "Low"), not a static
                     "Effort" label -- per explicit request ("it should
                     update from effort to the choice we did"). */}
-                <SwapLabel swapKey={effort}>{effortLabel(effort)}</SwapLabel>
+                {/* As wide as its longest level, the label at the right end: dragging the slider
+                    swaps the word in place instead of resizing the button and shifting the toolbar. */}
+                <span className="grid justify-items-end">
+                  {(modelEfforts ?? EFFORT_LEVELS).map((level) => (
+                    <span key={level} aria-hidden="true" className="invisible col-start-1 row-start-1 whitespace-nowrap">
+                      {effortLabel(level)}
+                    </span>
+                  ))}
+                  <SwapLabel swapKey={effort} glide={false} className="col-start-1 row-start-1">
+                    {effortLabel(effort)}
+                  </SwapLabel>
+                </span>
                 <ChevronDownIcon className="size-[var(--compose-tool-icon)] shrink-0" />
               </button>
             }
@@ -2641,7 +2652,18 @@ function useFrozenAnchor(triggerRef: React.RefObject<HTMLElement | null>) {
  *  never slides over text), and the new label enters from below. The width
  *  only animates during a swap: any other size change (an icon loading, the
  *  first render) just fits, so the toolbar never drifts on its own. */
-function SwapLabel({ swapKey, children, className }: { swapKey: string; children: ReactNode; className?: string }) {
+function SwapLabel({
+  swapKey,
+  children,
+  className,
+  glide = true,
+}: {
+  swapKey: string;
+  children: ReactNode;
+  className?: string;
+  // false: the label swaps without the width glide, for a trigger whose width is fixed.
+  glide?: boolean;
+}) {
   const [shown, setShown] = useState({ key: swapKey, children });
   const [phase, setPhase] = useState<"rest" | "exit" | "enter-start">("rest");
   // null: fits its content (no animation). A number: pinned for a swap.
@@ -2672,7 +2694,7 @@ function SwapLabel({ swapKey, children, className }: { swapKey: string; children
       return;
     }
     const dur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--text-swap-dur")) || 150;
-    setWidth(outerRef.current?.getBoundingClientRect().width ?? null);
+    if (glide) setWidth(outerRef.current?.getBoundingClientRect().width ?? null);
     setPhase("exit");
     let frame = 0;
     let release = 0;
@@ -2686,7 +2708,7 @@ function SwapLabel({ swapKey, children, className }: { swapKey: string; children
         frame = requestAnimationFrame(() => setPhase("rest"));
       });
       // Back to fitting the content once the glide is over.
-      release = window.setTimeout(() => setWidth(null), SWAP_WIDTH_MS + 40);
+      if (glide) release = window.setTimeout(() => setWidth(null), SWAP_WIDTH_MS + 40);
     }, dur);
     return () => {
       window.clearTimeout(timer);
@@ -2697,8 +2719,8 @@ function SwapLabel({ swapKey, children, className }: { swapKey: string; children
 
   // The new label is in: glide from the pinned width to its natural width.
   useLayoutEffect(() => {
-    if (phase === "enter-start" && innerRef.current) setWidth(innerRef.current.getBoundingClientRect().width);
-  }, [phase, shown.key]);
+    if (glide && phase === "enter-start" && innerRef.current) setWidth(innerRef.current.getBoundingClientRect().width);
+  }, [glide, phase, shown.key]);
 
   // Same key: show its latest content (e.g. a language change) directly.
   const content = swapKey === shown.key ? children : shown.children;
