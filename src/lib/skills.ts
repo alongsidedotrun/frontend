@@ -19,6 +19,8 @@ export interface Skill {
   instructions?: string;
   /** Added from skills.sh: source/skillId, its page there. */
   source?: string;
+  /** skills.sh marks it official (from the company itself). Not recorded for skills added before this field existed. */
+  official?: boolean;
 }
 
 // skills.sh, Vercel's open directory of agent skills.
@@ -73,7 +75,7 @@ export function useSkills() {
       write({ ...now, custom: now.custom.filter((skill) => skill.id !== id) });
     },
     /** Your own skill, or one from skills.sh (its own id, publisher and source; added once). */
-    addCustom: (skill: { name: string; description: string; instructions: string; id?: string; publisher?: SkillPublisher; source?: string }) => {
+    addCustom: (skill: { name: string; description: string; instructions: string; id?: string; publisher?: SkillPublisher; source?: string; official?: boolean }) => {
       const now = read();
       if (skill.id && now.custom.some((item) => item.id === skill.id)) return;
       write({ ...now, custom: [...now.custom, { ...skill, id: skill.id ?? `custom-${crypto.randomUUID()}`, publisher: skill.publisher ?? YOU }] });
