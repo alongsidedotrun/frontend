@@ -37,3 +37,7 @@ export const spring = {
 // the timers in step with the tokens above.
 export const exitFallbackMs = (tier: { exit: { duration: number } }) =>
   Math.round(tier.exit.duration * 1000) + 100;
+
+// A view swapped for another in place (tab content): fully out, then in, at the pace of the page
+// content swaps (SidebarSurfaceTransition's 400ms ease-in-out), rather than a quick spring.
+export const fade = { duration: 0.4, ease: "easeInOut" as const };
