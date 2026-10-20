@@ -130,8 +130,8 @@ function UsageCardSkeleton({ active = true }: { active?: boolean }) {
 
 /** One row per provider (inside a settings card, which draws the dividers). */
 type UsageSort = "name" | "mostUsed";
-// Which providers are hidden and how the rest are sorted, remembered on this device.
-const USAGE_HIDDEN_KEY = "alongside_usage_hidden";
+// Which providers are picked in Filter (none: all of them) and how they're sorted, remembered on this device.
+const USAGE_PICKED_KEY = "alongside_usage_picked";
 const USAGE_SORT_KEY = "alongside_usage_sort";
 
 function readStored(key: string) {
@@ -162,9 +162,9 @@ export function ProviderUsageSection() {
   const { t } = useTranslation();
   const snapshots = useAllProviderUsage();
   const { error: usageError } = useUsageStats();
-  const [hidden, setHidden] = useState<string[]>(() => {
+  const [picked, setPicked] = useState<string[]>(() => {
     try {
-      return JSON.parse(readStored(USAGE_HIDDEN_KEY) ?? "[]") as string[];
+      return JSON.parse(readStored(USAGE_PICKED_KEY) ?? "[]") as string[];
     } catch {
       return [];
     }
@@ -175,17 +175,21 @@ export function ProviderUsageSection() {
     const display = PROVIDER_DISPLAY[provider];
     return display ? `${display.primary} ${display.caption}` : provider;
   };
-  const showHidden = (next: string[]) => {
-    setHidden(next);
-    store(USAGE_HIDDEN_KEY, JSON.stringify(next));
+  // All providers, or just the ones picked. Picking every one, or unpicking the last, is All again.
+  const pick = (next: string[]) => {
+    const all = next.length === 0 || USAGE_PROVIDERS.every((model) => next.includes(model.provider));
+    const value = all ? [] : next;
+    setPicked(value);
+    store(USAGE_PICKED_KEY, JSON.stringify(value));
   };
+  const showsAll = picked.length === 0;
   const pickSort = (next: UsageSort) => {
     setSort(next);
     store(USAGE_SORT_KEY, next);
   };
   const byName = [...USAGE_PROVIDERS].sort((a, b) => nameOf(a.provider).localeCompare(nameOf(b.provider)));
   const shown = byName
-    .filter((model) => !hidden.includes(model.provider))
+    .filter((model) => showsAll || picked.includes(model.provider))
     .sort((a, b) => (sort === "mostUsed" ? leastLeft(snapshots[a.provider]) - leastLeft(snapshots[b.provider]) || 0 : 0));
 
   return (
@@ -195,17 +199,17 @@ export function ProviderUsageSection() {
         <h3 className="text-[12px] font-normal text-muted-foreground/60">{t("settings.providers.usage")}</h3>
         <div className="flex items-center gap-1">
           <DropdownMenu size="compact">
-            <DropdownTrigger render={<Button size="compact" variant="tertiary" leadingIcon={FilterLines} active={hidden.length > 0}>{t("usage.filter")}</Button>} />
+            <DropdownTrigger render={<Button size="compact" variant="tertiary" leadingIcon={FilterLines} active={!showsAll}>{t("usage.filter")}</Button>} />
             <DropdownContent align="end" className="w-52 min-w-0">
-              <MenuItem index={0} label={t("usage.filter.all")} checked={hidden.length === 0} onSelect={() => showHidden([])} />
+              <MenuItem index={0} label={t("usage.filter.all")} checked={showsAll} onSelect={() => pick([])} />
               {byName.map((model, index) => (
                 <MenuItem
                   key={model.provider}
                   index={index + 1}
                   label={fullNameOf(model.provider)}
-                  checked={!hidden.includes(model.provider)}
+                  checked={picked.includes(model.provider)}
                   onSelect={() =>
-                    showHidden(hidden.includes(model.provider) ? hidden.filter((p) => p !== model.provider) : [...hidden, model.provider])
+                    pick(picked.includes(model.provider) ? picked.filter((p) => p !== model.provider) : [...picked, model.provider])
                   }
                 />
               ))}
@@ -220,7 +224,6 @@ export function ProviderUsageSection() {
           </DropdownMenu>
         </div>
       </div>
-      {shown.length === 0 && <p className="px-2 text-[12px] text-muted-foreground">{t("usage.noneShown")}</p>}
       <div className="flex flex-col gap-2">
             {shown.map((model) => {
               const snapshot = snapshots[model.provider];
