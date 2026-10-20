@@ -39,6 +39,7 @@ import {
   ClearIcon,
   CompareIcon,
   DocIcon,
+  FolderIcon,
   MicIcon,
   PlusIcon,
   ShareIcon,
@@ -2047,6 +2048,19 @@ export function ComposeBox({
                   </span>
                 </span>
               </DropdownSubItem>
+              {/* The same folder pick as the Work from folder row under the composer, here too
+                  for anyone who skipped that row: the folder's name once one is picked. */}
+              {onSelectWorkFromFolder && (
+                <DropdownSubItem className="h-8 items-center gap-2.5 text-[12px] text-ink-2 transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground" onClick={onSelectWorkFromFolder}>
+                  <FolderIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+                  <span className="flex min-w-0 flex-1 items-baseline gap-3">
+                    <span className="shrink-0">{t("compose.workFromFolder")}</span>
+                    <span className="min-w-0 truncate text-[12px] text-ink-3">
+                      {workFromFolderPath ? workFromFolderPath.split(/[\\/]/).filter(Boolean).pop() : t("compose.workFromFolderDescription")}
+                    </span>
+                  </span>
+                </DropdownSubItem>
+              )}
               {/* Skills opens in place (the panel is as wide as the composer, so a side
                   submenu has nowhere to go): the installed ones to use in this message,
                   then the way to Settings > Skills. */}
