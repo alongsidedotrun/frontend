@@ -162,6 +162,7 @@ export function useAddRemoteSkill() {
         instructions: detail.instructions,
         publisher: { name: owner },
         source: skill.source,
+        official: skill.isOfficial === true,
       });
       setState(({ [skill.id]: _done, ...rest }) => rest);
     } catch {
