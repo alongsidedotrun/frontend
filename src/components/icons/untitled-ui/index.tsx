@@ -62,7 +62,6 @@ import {
   ThumbsDown,
   ThumbsUp,
   VolumeMax,
-  Stars02,
   LayoutLeft,
   LayoutRight,
   RefreshCcw05,
@@ -81,6 +80,8 @@ import {
   Eye,
   TerminalSquare,
 } from "@untitledui/icons";
+// Skills (settings nav, search, the compose box's "+" menu and skill chip): Lucide's library-big, by request.
+export { LibraryBig as SkillIcon } from "lucide-react";
 
 // This app's one and only icon source now -- replaces Hugeicons (that
 // migration's own comment explained the earlier @fluentui/lucide split),
@@ -194,8 +195,6 @@ export {
   ThumbsDown as ThumbsDownIcon,
   VolumeMax as Volume2Icon,
   Globe02 as ResearchIcon,
-  // Compose box's own "+" menu -- Add skill row (compose-box.tsx).
-  Stars02 as SkillIcon,
   ClipboardCheck as TaskIcon,
   File03 as DocIcon,
   FileSearch01 as FileSearchIcon,
