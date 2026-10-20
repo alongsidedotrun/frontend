@@ -35,6 +35,7 @@ import {
   AttachmentIcon,
   CheckIcon,
   ChevronDownIcon,
+  RevertIcon,
   ClearIcon,
   CompareIcon,
   DocIcon,
@@ -604,19 +605,25 @@ function EffortSliderPanel({
   effort,
   onChange,
   levels = EFFORT_LEVELS,
+  revertTo,
 }: {
   effort: EffortLevel;
   onChange: (level: EffortLevel) => void;
+  // What the top-right arrow goes back to (the composer's starting level); the arrow shows
+  // once the level has moved away from it.
+  revertTo?: EffortLevel;
   // The selected model's own levels (its CLI's list); all five otherwise.
   levels?: readonly EffortLevel[];
 }) {
   const { t } = useTranslation();
   const activeIndex = Math.max(0, levels.indexOf(effort));
+  const canRevert = revertTo !== undefined && revertTo !== effort && levels.includes(revertTo);
 
   return (
     // The model dropdown's own pieces: its group label and inset, so the two menus read alike.
     <div className="flex flex-col">
-      <div className="flex items-center justify-between gap-2">
+      {/* Label, the level centred, and the revert arrow. */}
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
         <BaseDropdownLabel>{t("compose.effort")}</BaseDropdownLabel>
         {/* text-[var(--send-button-bg)] -- the exact same blue the send
             button's own background uses (index.css's own --send-button-bg
@@ -627,7 +634,24 @@ function EffortSliderPanel({
         {/* No trailing chevron any more -- per explicit request. This value
             isn't a nested nav target (nothing expands from clicking it), so
             the arrow was implying an affordance that didn't exist. */}
-        <span className="px-2 text-[12px] font-medium text-[var(--send-button-bg)]">{effortLabel(effort)}</span>
+        <span className="text-[12px] font-medium text-[var(--send-button-bg)]">{effortLabel(effort)}</span>
+        {/* Kept in place while hidden, so the level stays centred. stopPropagation on pointerDown,
+            like the slider: Menu.Popup would otherwise treat the press as leaving the menu. */}
+        <button
+          type="button"
+          aria-label={revertTo ? t("compose.effortRevert", { level: effortLabel(revertTo) }) : undefined}
+          tabIndex={canRevert ? 0 : -1}
+          aria-hidden={!canRevert}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={() => revertTo && onChange(revertTo)}
+          className={cn(
+            "mr-1 flex size-6 items-center justify-center justify-self-end rounded-md text-muted-foreground transition-opacity hover:bg-hover-2/50 hover:text-foreground",
+            ICON_PRESS,
+            !canRevert && "pointer-events-none opacity-0",
+          )}
+        >
+          <RevertIcon className="size-3" />
+        </button>
       </div>
       <div className="px-2 pt-0.5 pb-2">
         {/* Real bug, confirmed directly ("the effort slider is not working",
@@ -1063,7 +1087,12 @@ export function ComposeBox({
   // loadLastEffort() -- whatever was actually last used, same "quick load"
   // reasoning as loadLastPermissionMode above -- wins over the Settings
   // default when THAT'S absent too.
-  const [effort, setEffort] = useState<EffortLevel>(() => defaultEffortValue ?? loadLastEffort() ?? defaultEffortFor());
+  // The level this composer starts from, which the Effort menu's revert arrow goes back to: the
+  // chat's own default once it has arrived, else the last choice (as it was on opening), else
+  // Settings' default.
+  const [openingEffort] = useState<EffortLevel>(() => loadLastEffort() ?? defaultEffortFor());
+  const startingEffort = defaultEffortValue ?? openingEffort;
+  const [effort, setEffort] = useState<EffortLevel>(() => startingEffort);
   // True once the user has actually picked an effort level this session --
   // defaultEffortValue arrives async, a render or more after mount (same
   // timing gap defaultModelValue's own comment above documents), so without
@@ -2247,6 +2276,7 @@ export function ComposeBox({
             <EffortSliderPanel
               levels={modelEfforts}
               effort={effort}
+              revertTo={startingEffort}
               onChange={(level) => {
                 effortTouchedRef.current = true;
                 setEffort(level);
