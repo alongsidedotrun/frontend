@@ -2,6 +2,8 @@ import { Trans, useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useOutletContext, useParams } from "react-router-dom";
+import { addressedAgent, useChatAgents } from "@/lib/chat-agents";
+import { NewAgentDialog } from "@/components/new-agent-dialog";
 import { AnimatePresence, motion } from "motion/react";
 import { spring } from "@/lib/springs";
 import { isAutoScrollSuppressed, suppressAutoScroll } from "@/lib/chat-scroll-suppress";
@@ -425,6 +427,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   const { t } = useTranslation();
   const { sessionId: routeSessionId } = useParams<{ sessionId: string }>();
   const sessionId = sessionIdOverride ?? routeSessionId;
+  // #507: the chat's specialised agents ("@reviewer ...").
+  const chatAgents = useChatAgents(sessionId);
+  const chatAgentNamesRef = useRef<string[]>([]);
+  chatAgentNamesRef.current = chatAgents.agents.map((agent) => agent.name);
+  const [newAgentOpen, setNewAgentOpen] = useState(false);
   // The centered new-chat composer and this bottom composer are two separate
   // component instances. Carry the exact permission selected for the first
   // message across that handoff instead of re-reading the asynchronously saved
@@ -1136,6 +1143,49 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
 
       const type = event.type as string;
 
+      // #507: one of this chat's agents working in the background, as a short-lived sub-agent on this
+      // person's own provider. Its replies land on one row per run, labelled with the agent; its other
+      // events (thinking, tool results, its own end) never touch this chat's own turn.
+      const subAgent = event.agent as { name?: string; asked_by?: string; run_id?: string } | undefined;
+      if (subAgent && typeof subAgent.run_id === "string") {
+        const label = `@${subAgent.name ?? ""}`;
+        if (type === "assistant" && event.message) {
+          const blocks = (event.message as { content?: { type: string; text?: string; name?: string }[] }).content ?? [];
+          const text = blocks.filter((b) => b.type === "text" && b.text).map((b) => b.text).join("\n\n");
+          const toolCallLines = blocks.filter((b) => b.type === "tool_use" && b.name).map((b) => ({ label: b.name as string }));
+          if (!text && toolCallLines.length === 0) return;
+          const runId = `agent:${subAgent.run_id}`;
+          const time = typeof event.created_at === "string" ? formatMessageTimestamp(parseServerTimestampMs(event.created_at)) : messageTime();
+          setRows((prev) => {
+            const at = prev.findIndex((r) => r.kind === "agent" && r.relayRunId === runId);
+            if (at >= 0) {
+              const row = prev[at] as Extract<ChatRow, { kind: "agent" }>;
+              const lines = [...(row.toolCallLines ?? []), ...toolCallLines];
+              const next = [...prev];
+              next[at] = { ...row, text: [row.text, text].filter(Boolean).join("\n\n"), toolCallLines: lines.length ? lines : undefined };
+              return next;
+            }
+            const row: ChatRow = {
+              kind: "agent",
+              id: nextRowId(),
+              text,
+              runBy: label,
+              relayRunId: runId,
+              modelLabel: subAgent.asked_by ? i18n.t("chat.agentAskedBy", { agent: label, name: subAgent.asked_by }) : label,
+              model: QUICK_CHAT_MODELS.find((m) => m.value === event.model) ?? modelRef.current,
+              animate: false,
+              time,
+              effort: sentEffortRef.current,
+              toolCallLines: toolCallLines.length ? toolCallLines : undefined,
+            };
+            return [...prev, row];
+          });
+        } else if (type === "result" && (event.subtype === "error" || event.is_error === true)) {
+          pushRow({ kind: "command", id: nextRowId(), text: i18n.t("chat.agentFailed", { agent: label }), time: messageTime() });
+        }
+        return;
+      }
+
       // Live only (never stored): the provider's own usage after a turn (backend lib.rs limit_usage_event).
       if (limitWarningRef.current(event)) return;
 
@@ -1281,7 +1331,9 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         // new "creation" and would just refetch the same list redundantly.
         // #462: in a shared chat, only this person's own message sent to their agent gets a reply to wait
         // for -- not someone else's, and not one sent as "Just chat".
-        const expectsMyReply = event.mine !== false && !(event.mine === true && justChatRef.current);
+        // #507: nor one addressed to one of the chat's agents ("@reviewer ..."): that agent answers, in
+        // the background, and this chat's own agent stays free.
+        const expectsMyReply = event.mine !== false && !(event.mine === true && justChatRef.current) && !addressedAgent(text, chatAgentNamesRef.current);
         if (historyReplayedRef.current) {
           if (expectsMyReply) {
             awaitingReplyRef.current = true;
@@ -2554,6 +2606,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col bg-background">
+      <NewAgentDialog open={newAgentOpen} onClose={() => setNewAgentOpen(false)} onAdd={chatAgents.add} />
       {contextLabel && (
         <div className={`absolute top-3 right-0 left-0 z-10 ${chatSidePadding}`}>
           <div className="group/chat-context inline-flex items-center gap-0.5">
@@ -2936,6 +2989,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           value={prompt}
           onChange={setPrompt}
           onSubmit={handleSend}
+          chatAgents={chatAgents.agents}
+          onNewAgent={() => setNewAgentOpen(true)}
           placeholder={t("chat.sendPlaceholder")}
           // turnInProgress, not awaitingReply -- see this file's own comment on
           // turnInProgress's declaration for the full bug report ("stop button... reverting
