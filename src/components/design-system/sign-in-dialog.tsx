@@ -8,6 +8,7 @@ import { SurfaceProvider } from "@/lib/surface-context";
 import { ShellDialog, ShellDialogActions, ShellField, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
 import { GitHubMarkIcon, GoogleIcon } from "@/components/icons/brand-icons";
 import { Button } from "@/components/ui/button";
+import { showErrorToast } from "@/components/ui/app-toast";
 import { CodeInput } from "@/components/ui/code-input";
 import { cn } from "@/lib/utils";
 import { useEmailSignIn, useSignInFlow, type EmailError } from "@/lib/use-sign-in";
@@ -53,6 +54,11 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
   const { t, i18n } = useTranslation();
   const close = () => onOpenChange(false);
   const { phase, provider, start, cancel } = useSignInFlow(close);
+  // A sign-in that couldn't start or timed out says so in a toast at the top of the window,
+  // which stays until it's closed or times out (the same id replaces it on another try).
+  useEffect(() => {
+    if (phase === "failed" || phase === "timeout") showErrorToast(t(phase === "timeout" ? "auth.errors.timeout" : "auth.errors.signIn"), { id: "sign-in" });
+  }, [phase, t]);
   // A backend without the email endpoints yet: the hosted page in the browser
   // still offers email sign-in.
   const email = useEmailSignIn(close, () => void start());
@@ -245,9 +251,6 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
             </form>
           ) : (
             <>
-              {(phase === "failed" || phase === "timeout") && (
-                <p className="text-[12px] text-destructive">{phase === "timeout" ? t("auth.errors.timeout") : t("auth.errors.signIn")}</p>
-              )}
               <Button type="button" variant="tertiary" leadingIcon={GoogleIcon} className={providerButton} onClick={() => void start("google")}>
                 {t("auth.continueWithGoogle")}
               </Button>

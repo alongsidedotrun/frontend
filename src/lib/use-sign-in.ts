@@ -25,6 +25,9 @@ export function useSignInFlow(onSignedIn: () => void) {
     controller.current?.abort();
     const current = new AbortController();
     controller.current = current;
+    // Each try starts from idle, so a failure after an earlier one is news (the dialog's
+    // error toast shows again).
+    setPhase("idle");
     if (!(await beginSignIn(nextProvider))) {
       setPhase("failed");
       return;
