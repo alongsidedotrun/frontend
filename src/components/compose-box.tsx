@@ -30,6 +30,8 @@ import { QueuedMessages } from "@/components/queued-messages";
 import { DictationWave } from "@/components/dictation-wave";
 import { useQueueing, type QueuedMessage } from "@/lib/message-queue";
 import { useSkills } from "@/lib/skills";
+import { addressedAgent } from "@/lib/chat-agents";
+import { Bot } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import GlideMenu from "@/components/primitives/glide-menu";
 import {
@@ -290,7 +292,14 @@ const SLASH_ROWS: SlashRow[] = [
  * menu command followed by a space ("/goal ..."), or "/skill <name> " for one
  * of `skillNames`. `prefix` is the exact text it takes up.
  */
-export function leadingCommand(text: string, skillNames: readonly string[] = []): { prefix: string; label: string; labelKey?: string; icon: ReactNode } | null {
+export function leadingCommand(text: string, skillNames: readonly string[] = [], agentNames: readonly string[] = []): { prefix: string; label: string; labelKey?: string; icon: ReactNode } | null {
+  // "@reviewer ..." addresses one of the chat's agents (#507): shown as its chip.
+  const agent = addressedAgent(text, agentNames);
+  if (agent) {
+    const typed = text.trimStart().slice(0, agent.length + 1);
+    const prefix = text.startsWith(`${typed} `) ? `${typed} ` : typed;
+    return { prefix, label: `@${agent}`, icon: <Bot className="size-3.5" /> };
+  }
   if (text.startsWith("/skill ")) {
     const name = [...skillNames].sort((a, b) => b.length - a.length).find((skill) => text.startsWith(`/skill ${skill} `) || text === `/skill ${skill}`);
     if (name) return { prefix: text.startsWith(`/skill ${name} `) ? `/skill ${name} ` : `/skill ${name}`, label: name, icon: <SkillIcon className="size-3.5" /> };
@@ -739,6 +748,8 @@ export function ComposeBox({
   showWorkFromFolder,
   workFromFolderPath,
   onSelectWorkFromFolder,
+  chatAgents,
+  onNewAgent,
   onOpenApps,
   onOpenProviders,
   autoFocus,
@@ -792,6 +803,9 @@ export function ComposeBox({
   showWorkFromFolder?: boolean;
   workFromFolderPath?: string | null;
   onSelectWorkFromFolder?: () => void;
+  // #507: the chat's agents, asked with "@name" (a chat only; a new chat has none yet).
+  chatAgents?: { name: string }[];
+  onNewAgent?: () => void;
   onOpenApps?: () => void;
   /** "Connect to your Providers", shown instead of the apps once no provider is set up. */
   onOpenProviders?: () => void;
@@ -1183,7 +1197,7 @@ export function ComposeBox({
   const { installed: installedSkills } = useSkills();
   // A command at the start of the draft shows as a chip (icon and name) before the text, the
   // first line indented past it; the draft itself still starts with the command, as sent.
-  const command = leadingCommand(value, installedSkills.map((skill) => skill.name));
+  const command = leadingCommand(value, installedSkills.map((skill) => skill.name), chatAgents?.map((agent) => agent.name) ?? []);
   const commandRef = useRef<HTMLSpanElement>(null);
   const [commandWidth, setCommandWidth] = useState(0);
   // Centred on the textarea's first line, wherever its padding and line height put it.
@@ -1198,6 +1212,7 @@ export function ComposeBox({
     setCommandTop(area.offsetTop + parseFloat(style.paddingTop) + (lineHeight - chip.offsetHeight) / 2);
   }, [command?.prefix, command?.label]);
   const [skillsOpen, setSkillsOpen] = useState(false);
+  const [agentsOpen, setAgentsOpen] = useState(false);
   const navigate = useNavigate();
   const fadeOutSent = () => {
     if (value.trim()) setSentGhost((ghost) => ({ text: value, key: (ghost?.key ?? 0) + 1 }));
@@ -1407,6 +1422,11 @@ export function ComposeBox({
   }
 
   // A skill, like Task and Goal, goes in front of what's already written.
+  function insertAgent(name: string) {
+    onChange(withLeadingCommand(value, command, `@${name}`));
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }
+
   function insertSkill(name: string) {
     onChange(withLeadingCommand(value, command, `/skill ${name}`));
     requestAnimationFrame(() => textareaRef.current?.focus());
@@ -2166,6 +2186,40 @@ export function ComposeBox({
                   <DropdownSubItem className="flex h-8 items-center gap-2.5 text-[12px] text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground pl-[34px]" onClick={() => navigate("/settings/skills")}>
                     {t("compose.skills.browse")}
                   </DropdownSubItem>
+                </motion.div>
+              )}
+              </AnimatePresence>
+              {/* #507: the chat's specialised agents -- pick one to ask it ("@name ..."); it works in the
+                  background while the chat goes on. Opens in place, like Skills. */}
+              {chatAgents && (
+                <DropdownSubItem closeOnClick={false} aria-expanded={agentsOpen} className="flex h-8 items-center gap-2.5 text-[12px] text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground" onClick={() => setAgentsOpen((open) => !open)}>
+                  <Bot aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+                  <span className="flex min-w-0 flex-1 items-baseline gap-3">
+                    <span className="shrink-0">{t("compose.agents")}</span>
+                    <span className="min-w-0 truncate text-[12px] text-ink-3">{t("compose.agentsDescription")}</span>
+                  </span>
+                  <ChevronDownIcon aria-hidden="true" className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform duration-150", agentsOpen && "rotate-180")} />
+                </DropdownSubItem>
+              )}
+              <AnimatePresence initial={false}>
+              {chatAgents && agentsOpen && (
+                <motion.div
+                  key="agents"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1, transition: { duration: 0.22, ease: [0.22, 1, 0.36, 1] } }}
+                  exit={{ height: 0, opacity: 0, transition: { duration: 0.16, ease: [0.4, 0, 1, 1] } }}
+                  className="overflow-hidden"
+                >
+                  {chatAgents.map((agent) => (
+                    <DropdownSubItem key={agent.name} className="flex h-8 items-center gap-2.5 text-[12px] text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground pl-[34px]" onClick={() => insertAgent(agent.name)}>
+                      <span className="truncate">@{agent.name}</span>
+                    </DropdownSubItem>
+                  ))}
+                  {onNewAgent && (
+                    <DropdownSubItem className="flex h-8 items-center gap-2.5 text-[12px] text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground pl-[34px]" onClick={onNewAgent}>
+                      {t("agents.new")}
+                    </DropdownSubItem>
+                  )}
                 </motion.div>
               )}
               </AnimatePresence>
