@@ -3925,6 +3925,9 @@ export const translations = {
     zh: "按 Esc 取消",
     ja: "Esc でキャンセル",
   },
+  "chat.checkpointSaved": { en: "Checkpoint saved", "pt-BR": "Checkpoint salvo", es: "Punto de control guardado", fr: "Point de contrôle enregistré", de: "Checkpoint gespeichert", zh: "已保存检查点", ja: "チェックポイントを保存しました" },
+  "chat.checkpointSavedLocal": { en: "Checkpoint saved from the chat's record", "pt-BR": "Checkpoint salvo a partir do registro do chat", es: "Punto de control guardado a partir del registro del chat", fr: "Point de contrôle enregistré à partir de l'historique du chat", de: "Checkpoint aus dem Chatverlauf gespeichert", zh: "已根据聊天记录保存检查点", ja: "チャットの記録からチェックポイントを保存しました" },
+  "chat.handedOff": { en: "Continued in a fresh session from the checkpoint", "pt-BR": "Continuado em uma nova sessão a partir do checkpoint", es: "Continuado en una sesión nueva desde el punto de control", fr: "Poursuivi dans une nouvelle session à partir du point de contrôle", de: "In einer neuen Sitzung ab dem Checkpoint fortgesetzt", zh: "已从检查点在新会话中继续", ja: "チェックポイントから新しいセッションで続行しました" },
   "chat.switchedTo": {
     en: "Switched to {{model}}",
     "pt-BR": "Alterado para {{model}}",
