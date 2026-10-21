@@ -1180,6 +1180,17 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       // modelRef so a *later* reply (after this client's own send, or another
       // participant's) labels itself correctly even if this client's own picker
       // wasn't what triggered the change.
+      // #502: a checkpoint of the chat was saved (automatically once it grew long, or on
+      // request), and a self-handoff carried the work into a fresh provider session.
+      if (type === "checkpoint_saved") {
+        pushMarker(i18n.t(event.written_by === "local" ? "chat.checkpointSavedLocal" : "chat.checkpointSaved"));
+        return;
+      }
+      if (type === "handoff") {
+        pushMarker(i18n.t("chat.handedOff"));
+        return;
+      }
+
       if (type === "model_changed") {
         const value = event.model as string;
         const found = QUICK_CHAT_MODELS.find((m) => m.value === value);
@@ -1793,22 +1804,17 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           const usageValue = { used };
           setContextUsage(usageValue);
           saveLastContext(usageValue);
-          // Codex (issue #265): same threshold-watcher pattern as Antigravity, but
-          // through the real backend endpoint (thread/compact/start) instead of the
-          // "/compact" text trick -- Codex's own compact only exists on that RPC.
-          if (modelRef.current.provider === "Antigravity" || modelRef.current.provider === "Codex") {
-            if (used >= autocompactThresholdRef.current) {
-              if (!compactedAboveRef.current) {
-                compactedAboveRef.current = true;
-                if (modelRef.current.provider === "Codex") {
-                  void fetch(`/sessions/${sessionId}/compact`, { method: "POST" });
-                } else {
-                  void sendMessage("/compact");
-                }
-              }
-            } else {
-              compactedAboveRef.current = false;
+          // Past the chat's threshold, every provider hands off instead of compacting
+          // (#502): the backend saves a checkpoint and the next turn starts a fresh
+          // session carrying it, the work state and the recent conversation, so nothing
+          // is lost to a compaction. (Claude no longer gets --autocompact for this.)
+          if (used >= autocompactThresholdRef.current) {
+            if (!compactedAboveRef.current) {
+              compactedAboveRef.current = true;
+              void fetch(`/sessions/${sessionId}/handoff`, { method: "POST" });
             }
+          } else {
+            compactedAboveRef.current = false;
           }
         }
         return;
