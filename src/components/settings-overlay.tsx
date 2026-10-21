@@ -635,8 +635,17 @@ export function useCliAvailability(binary: string): {
     check().then(() => {
       if (cancelled) return;
     });
+    // Installing a CLI or signing in to it happens in a terminal: coming back to the app
+    // checks again, so the row catches up without reopening Settings.
+    const recheck = () => {
+      if (document.visibilityState === "visible") void check();
+    };
+    window.addEventListener("focus", recheck);
+    document.addEventListener("visibilitychange", recheck);
     return () => {
       cancelled = true;
+      window.removeEventListener("focus", recheck);
+      document.removeEventListener("visibilitychange", recheck);
     };
   }, [binary, check]);
 

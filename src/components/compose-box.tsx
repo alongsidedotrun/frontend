@@ -1047,7 +1047,21 @@ export function ComposeBox({
       setCliAvailability(next);
     });
   }
-  useEffect(checkCliAvailability, []);
+  // Again on coming back to the app: a provider installed or signed in to meanwhile (in a
+  // terminal) shows up in the model picker without a reload.
+  useEffect(() => {
+    checkCliAvailability();
+    const recheck = () => {
+      if (document.visibilityState === "visible") checkCliAvailability();
+    };
+    window.addEventListener("focus", recheck);
+    document.addEventListener("visibilitychange", recheck);
+    return () => {
+      window.removeEventListener("focus", recheck);
+      document.removeEventListener("visibilitychange", recheck);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Each provider CLI's own model list (lib/model-catalog.ts): applied from
   // the last session's copy at load, refreshed here and when the picker opens.
   const catalogVersion = useModelCatalogVersion();
