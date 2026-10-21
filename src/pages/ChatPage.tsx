@@ -432,6 +432,9 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   const chatAgentNamesRef = useRef<string[]>([]);
   chatAgentNamesRef.current = chatAgents.agents.map((agent) => agent.name);
   const [newAgentOpen, setNewAgentOpen] = useState(false);
+  // The event handler is set up once; it reloads through this ref.
+  const chatAgentsReloadRef = useRef(chatAgents.reload);
+  chatAgentsReloadRef.current = chatAgents.reload;
   // The centered new-chat composer and this bottom composer are two separate
   // component instances. Carry the exact permission selected for the first
   // message across that handoff instead of re-reading the asynchronously saved
@@ -1180,9 +1183,17 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             };
             return [...prev, row];
           });
-        } else if (type === "result" && (event.subtype === "error" || event.is_error === true)) {
+        } else if ((type === "result" && (event.subtype === "error" || event.is_error === true)) || type === "relay_run_ended") {
+          // Its own run failed, or (another member's, in a shared chat) failed or was stopped.
           pushRow({ kind: "command", id: nextRowId(), text: i18n.t("chat.agentFailed", { agent: label }), time: messageTime() });
         }
+        return;
+      }
+
+      // #507: the chat's agents changed -- here, or by another member of a shared chat.
+      if (type === "chat_agents_updated") {
+        void chatAgentsReloadRef.current();
+        if (typeof event.by === "string" && event.by) pushMarker(i18n.t("chat.agentsUpdatedBy", { name: event.by }));
         return;
       }
 

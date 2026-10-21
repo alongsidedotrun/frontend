@@ -66,5 +66,5 @@ export function useChatAgents(sessionId: string | undefined) {
     [sessionId],
   );
 
-  return { agents, add, remove };
+  return { agents, add, remove, reload };
 }
