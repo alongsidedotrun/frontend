@@ -602,9 +602,13 @@ export function RedesignPage() {
   // Changing this key fades the page out and the next one in. Not for the
   // new-chat handoff (HomePage navigates with composeHandoff): its compose box
   // has already moved into place, so the chat page takes over without a fade.
-  const surfaceKeyRef = useRef(`${location.pathname}:${location.key}`);
+  // Settings by its path alone: it swaps its own views in place (a provider's page is
+  // ?provider=…) with their own crossfade, and keying on location.key faded the whole page
+  // out and in on top of that one -- the doubled fade opening a provider's setup.
+  const surfaceIdentity = location.pathname.startsWith("/settings") ? location.pathname : `${location.pathname}:${location.key}`;
+  const surfaceKeyRef = useRef(surfaceIdentity);
   if (!(location.state as { composeHandoff?: boolean } | null)?.composeHandoff) {
-    surfaceKeyRef.current = `${location.pathname}:${location.key}`;
+    surfaceKeyRef.current = surfaceIdentity;
   }
   const redesignSurfaceKey = surfaceKeyRef.current;
   // The chat shown in the top bar: the open one, on a chat route.
