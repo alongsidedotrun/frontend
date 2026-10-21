@@ -3,6 +3,7 @@ import * as Sentry from "@sentry/react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { GettingStartedProvider, useGettingStarted } from "@/hooks/use-getting-started";
 import { ThemeProvider } from "@/hooks/use-theme";
+import { AppToaster } from "@/components/ui/app-toast";
 import { useApplyAppearanceSettings } from "@/hooks/use-appearance-settings";
 import { AppsPage } from "@/pages/AppsPage";
 import { ChatPage } from "@/pages/ChatPage";
@@ -144,6 +145,7 @@ export function App() {
             <BrowserRouter>
               <AppRoutes />
             </BrowserRouter>
+            <AppToaster />
           </TooltipProvider>
         </GettingStartedProvider>
       </ThemeProvider>
