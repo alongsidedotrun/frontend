@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { ChevronRight, CircleArrowUp, CircleHelp, Plus } from "lucide-react";
 import { JoinChatIcon } from "@/components/icons/join-chat-icon";
+import { BotIcon } from "@/components/icons/bot-icon";
 import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
 import { CreateWorkspaceDialog } from "@/components/design-system/create-workspace-dialog";
 import { CreateProjectDialog } from "@/components/design-system/create-project-dialog";
@@ -110,10 +111,11 @@ function profileMenuSections(t: Translate, onOpenProfile: () => void, onSignOut:
 }
 
 // New chat, and under it Join chat (someone else's, with their chat ID and
-// join code -- JoinChatDialog).
+// join code -- JoinChatDialog), then Bots (#504): yours and your favourites.
 const quickActions = (t: Translate): readonly QuickActionItem[] => [
   { id: "chats", label: t("common.newChat"), icon: Plus },
   { id: "join", label: t("joinChat.title"), icon: JoinChatIcon },
+  { id: "bots", label: t("bots.title"), icon: BotIcon },
 ];
 
 // Getting started follows the first-run journey, with each step backed by the
@@ -181,7 +183,8 @@ const SETTINGS_SECTIONS: readonly SettingsSection[] = ["profile", "general", "ap
 
 function quickActionForPath(pathname: string) {
   if (pathname === "/overview") return "overview";
-  if (pathname.startsWith("/chat/") || pathname === "/") return "chats";
+  // Bots keeps the chats list beside it, like a chat does.
+  if (pathname.startsWith("/chat/") || pathname === "/" || pathname === "/bots") return "chats";
   if (pathname === "/apps") return "apps";
   if (pathname === "/agents") return "agents";
   return "inbox";
@@ -745,6 +748,15 @@ export function RedesignPage() {
       onSelect: () => setJoinOpen(true),
     },
     {
+      value: "bots",
+      label: t("bots.title"),
+      description: t("bots.subtitle"),
+      icon: BotIcon,
+      keywords: ["bot", "agent", "specialist", "include"],
+      group: t("shell.commands.group.actions"),
+      onSelect: () => navigate("/bots"),
+    },
+    {
       value: "new-project",
       label: t("nav.newProject.ariaLabel"),
       description: t("shell.commands.newProject.description"),
@@ -973,11 +985,17 @@ export function RedesignPage() {
               label={t("shell.quickActions")}
               shortcut="K"
               actions={quickActions(t)}
-              activeId={location.pathname === "/" ? "chats" : undefined}
+              activeId={location.pathname === "/" ? "chats" : location.pathname === "/bots" ? "bots" : undefined}
               onOpen={() => setQuickActionsOpen(true)}
               onActionSelect={(actionId) => {
                 if (actionId === "join") {
                   setJoinOpen(true);
+                  return;
+                }
+                if (actionId === "bots") {
+                  if (location.pathname === "/bots") return;
+                  setActiveChatId(null);
+                  navigate("/bots");
                   return;
                 }
                 if (actionId === "chats") {
