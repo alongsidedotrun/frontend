@@ -4,8 +4,9 @@ import { cn } from "@/lib/utils";
 import { useLocation, useNavigate, useOutlet } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { Bot, ChevronRight, CircleArrowUp, CircleHelp, Plus } from "lucide-react";
+import { ChevronRight, CircleArrowUp, CircleHelp, Plus } from "lucide-react";
 import { JoinChatIcon } from "@/components/icons/join-chat-icon";
+import { BotIcon } from "@/components/icons/bot-icon";
 import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
 import { CreateWorkspaceDialog } from "@/components/design-system/create-workspace-dialog";
 import { CreateProjectDialog } from "@/components/design-system/create-project-dialog";
@@ -114,7 +115,7 @@ function profileMenuSections(t: Translate, onOpenProfile: () => void, onSignOut:
 const quickActions = (t: Translate): readonly QuickActionItem[] => [
   { id: "chats", label: t("common.newChat"), icon: Plus },
   { id: "join", label: t("joinChat.title"), icon: JoinChatIcon },
-  { id: "bots", label: t("bots.title"), icon: Bot },
+  { id: "bots", label: t("bots.title"), icon: BotIcon },
 ];
 
 // Getting started follows the first-run journey, with each step backed by the
@@ -750,7 +751,7 @@ export function RedesignPage() {
       value: "bots",
       label: t("bots.title"),
       description: t("bots.subtitle"),
-      icon: Bot,
+      icon: BotIcon,
       keywords: ["bot", "agent", "specialist", "include"],
       group: t("shell.commands.group.actions"),
       onSelect: () => navigate("/bots"),
