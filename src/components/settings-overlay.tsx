@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { ShapeProvider } from "@/lib/shape-context";
 import { ProviderUsageSection } from "@/components/provider-usage";
+import { resizeImageFile } from "@/lib/resize-image";
 import { LimitReminderRows } from "@/components/limit-reminders";
 import { Check, Plus, SearchMd } from "@untitledui/icons";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
@@ -1537,33 +1538,6 @@ function ProvidersSection() {
 // every place this app actually renders an avatar today (the biggest,
 // settings-overlay.tsx's own new preview below, is 80px) with real headroom
 // for a future bigger surface, at a fraction of a typical photo's size.
-function resizeImageFile(file: File, maxSize = 256, quality = 0.85): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(reader.error ?? new Error("failed to read file"));
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = () => reject(new Error("failed to decode image"));
-      img.onload = () => {
-        const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
-        const width = Math.round(img.width * scale);
-        const height = Math.round(img.height * scale);
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          reject(new Error("canvas not supported"));
-          return;
-        }
-        ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL("image/jpeg", quality));
-      };
-      img.src = reader.result as string;
-    };
-    reader.readAsDataURL(file);
-  });
-}
 
 // New, per explicit request ("add a new menu at settings for Profile where
 // we can allow users to upload their avatar picture for now which is the
