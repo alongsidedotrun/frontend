@@ -7,9 +7,9 @@ import { BotAvatarPicker } from "@/components/bot-avatar-picker";
 import { BotFace, DEFAULT_BOT_AVATAR, type BotAvatar } from "@/components/bot-face";
 import { cn } from "@/lib/utils";
 
-export type BotDraft = { name: string; instructions: string; avatar: BotAvatar };
+export type BotDraft = { name: string; description: string; instructions: string; avatar: BotAvatar };
 
-const EMPTY_DRAFT: BotDraft = { name: "", instructions: "", avatar: DEFAULT_BOT_AVATAR };
+export const EMPTY_DRAFT: BotDraft = { name: "", description: "", instructions: "", avatar: DEFAULT_BOT_AVATAR };
 
 /** The name without a leading "@", and whether the draft can be saved. */
 export function checkDraft(draft: BotDraft) {
@@ -27,14 +27,21 @@ export function BotFields({
   onChange,
   error,
   autoFocus = true,
+  bare = false,
+  withDescription = false,
 }: {
   draft: BotDraft;
   onChange: (draft: BotDraft) => void;
   error?: string | null;
   autoFocus?: boolean;
+  /** The New bot page: no name (the page's title is) and no boxes, so it reads like the bot itself. */
+  bare?: boolean;
+  /** A bot's one-line description (bots have one; chat agents don't). */
+  withDescription?: boolean;
 }) {
   const { t } = useTranslation();
   const nameId = useId();
+  const descriptionId = useId();
   const instructionsId = useId();
   const [pickerOpen, setPickerOpen] = useState(false);
   return (
@@ -63,7 +70,7 @@ export function BotFields({
           </div>
         )}
       </div>
-      <ShellField label={t("agents.fields.name")} htmlFor={nameId}>
+      {!bare && <ShellField label={t("agents.fields.name")} htmlFor={nameId}>
         <span className="text-[13px] text-muted-foreground">@</span>
         <input
           id={nameId}
@@ -74,19 +81,43 @@ export function BotFields({
           maxLength={33}
           className={SHELL_FIELD_INPUT}
         />
-      </ShellField>
-      <section className={cn("flex flex-col gap-1 px-3 pt-2 pb-1", SHELL_RADIUS, SHELL_SURFACE)}>
-        <label htmlFor={instructionsId} className="text-[12px] text-muted-foreground">{t("agents.fields.instructions")}</label>
+      </ShellField>}
+      {!bare && withDescription && (
+        <ShellField label={t("bots.fields.description")} htmlFor={descriptionId}>
+          <input
+            id={descriptionId}
+            value={draft.description}
+            onChange={(event) => onChange({ ...draft, description: event.target.value })}
+            placeholder={t("bots.fields.descriptionPlaceholder")}
+            maxLength={300}
+            className={SHELL_FIELD_INPUT}
+          />
+        </ShellField>
+      )}
+      {bare ? (
         <textarea
-          id={instructionsId}
+          aria-label={t("agents.fields.instructions")}
           value={draft.instructions}
           onChange={(event) => onChange({ ...draft, instructions: event.target.value })}
-          placeholder={t("agents.fields.instructionsPlaceholder")}
+          placeholder={t("agents.fields.instructions")}
           maxLength={8000}
-          rows={5}
-          className="resize-none bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground/70"
+          rows={4}
+          className="resize-none bg-transparent text-center text-[13px] leading-[1.5] text-foreground outline-none placeholder:text-muted-foreground/60"
         />
-      </section>
+      ) : (
+        <section className={cn("flex flex-col gap-1 px-3 pt-2 pb-1", SHELL_RADIUS, SHELL_SURFACE)}>
+          <label htmlFor={instructionsId} className="text-[12px] text-muted-foreground">{t("agents.fields.instructions")}</label>
+          <textarea
+            id={instructionsId}
+            value={draft.instructions}
+            onChange={(event) => onChange({ ...draft, instructions: event.target.value })}
+            placeholder={t("agents.fields.instructionsPlaceholder")}
+            maxLength={8000}
+            rows={5}
+            className="resize-none bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground/70"
+          />
+        </section>
+      )}
       {error && <p className="px-1 text-[12px] text-destructive">{error}</p>}
     </div>
   );
@@ -106,7 +137,7 @@ export function NewAgentDialog({
 }: {
   open: boolean;
   onClose: () => void;
-  onAdd: (name: string, instructions: string, avatar: BotAvatar) => Promise<AddAgentError | null>;
+  onAdd: (name: string, instructions: string, avatar: BotAvatar, description: string) => Promise<AddAgentError | null>;
   kind?: "agent" | "bot";
   /** Editing: the bot as it is now. */
   initial?: BotDraft;
@@ -149,13 +180,14 @@ export function NewAgentDialog({
           event.preventDefault();
           if (!ready || busy) return;
           setBusy(true);
-          const failed = await onAdd(name, draft.instructions.trim(), draft.avatar);
+          const failed = await onAdd(name, draft.instructions.trim(), draft.avatar, draft.description.trim());
           setBusy(false);
           if (failed) setError(failed);
           else onClose();
         }}
       >
         <BotFields
+          withDescription={kind === "bot"}
           draft={draft}
           onChange={(next) => {
             setDraft(next);

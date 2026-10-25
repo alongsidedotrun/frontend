@@ -1,6 +1,6 @@
 import type { IconComponentProps } from "@/lib/icon-context";
 
-// Bots: the Alongside bot's default face (public/bots/alongside-bot-default.svg) as an outline icon
+// Bots: the Alongside bot's default face (public/bot-faces/alongside-bot-default.svg) as an outline icon
 // on Lucide's 24-unit grid -- the face as a ring, its two eyes at the same places, drawn as strokes.
 export function BotIcon({ size = 24, strokeWidth = 2, className }: IconComponentProps) {
   return (

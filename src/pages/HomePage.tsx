@@ -5,8 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { ShapeProvider } from "@/lib/shape-context";
-import { BotFields, checkDraft, type BotDraft } from "@/components/new-agent-dialog";
-import { DEFAULT_BOT_AVATAR } from "@/components/bot-face";
+import { BotFields, checkDraft, EMPTY_DRAFT, type BotDraft } from "@/components/new-agent-dialog";
 import { createBot, type Bot } from "@/lib/bots";
 import { fade } from "@/lib/springs";
 import { QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
@@ -407,7 +406,7 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
 /** New > Bot (#504): its look, name and instructions; creating it opens its chat. */
 function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
   const { t } = useTranslation();
-  const [draft, setDraft] = useState<BotDraft>({ name: "", instructions: "", avatar: DEFAULT_BOT_AVATAR });
+  const [draft, setDraft] = useState<BotDraft>(EMPTY_DRAFT);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const { name, ready } = checkDraft(draft);
@@ -418,17 +417,38 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
         event.preventDefault();
         if (!ready || busy) return;
         setBusy(true);
-        const result = await createBot(name, draft.instructions.trim(), draft.avatar);
+        const result = await createBot(name, draft.instructions.trim(), draft.avatar, draft.description.trim());
         setBusy(false);
         if (typeof result === "string") setError(t(result === "name_taken" ? "bots.errors.name_taken" : `agents.errors.${result}`));
         else onCreated(result);
       }}
     >
+      {/* The bot's name is the page's title, typed in place. */}
       <div className="text-center">
-        <h1 className="text-[18px] font-normal text-foreground">{t("bots.new")}</h1>
-        <p className="mt-1 text-[13px] text-muted-foreground">{t("bots.subtitle")}</p>
+        <input
+          autoFocus
+          value={draft.name}
+          onChange={(event) => {
+            setDraft({ ...draft, name: event.target.value.replace(/\s/g, "-") });
+            setError(null);
+          }}
+          placeholder={t("agents.fields.name")}
+          aria-label={t("agents.fields.name")}
+          maxLength={33}
+          className="w-full bg-transparent text-center text-[18px] font-normal text-foreground outline-none placeholder:text-muted-foreground/60"
+        />
+        <input
+          value={draft.description}
+          onChange={(event) => setDraft({ ...draft, description: event.target.value })}
+          placeholder={t("bots.fields.description")}
+          aria-label={t("bots.fields.description")}
+          maxLength={300}
+          className="mt-1 w-full bg-transparent text-center text-[13px] text-muted-foreground outline-none placeholder:text-muted-foreground/60"
+        />
       </div>
       <BotFields
+        bare
+        autoFocus={false}
         draft={draft}
         onChange={(next) => {
           setDraft(next);

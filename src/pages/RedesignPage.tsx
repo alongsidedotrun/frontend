@@ -1212,8 +1212,8 @@ export function RedesignPage() {
         kind="bot"
         open={botEditOpen}
         onClose={() => setBotEditOpen(false)}
-        initial={botToEdit ? { name: botToEdit.name, instructions: botToEdit.instructions, avatar: botToEdit.avatar ?? { kind: "bot", color: "#7A7A7A" } } : undefined}
-        onAdd={async (name, instructions, avatar) => botToEdit ? updateBot(botToEdit.id, { name, instructions, avatar }) : null}
+        initial={botToEdit ? { name: botToEdit.name, description: botToEdit.description ?? "", instructions: botToEdit.instructions, avatar: botToEdit.avatar ?? { kind: "bot", color: "#7A7A7A" } } : undefined}
+        onAdd={async (name, instructions, avatar, description) => botToEdit ? updateBot(botToEdit.id, { name, description, instructions, avatar }) : null}
       />
       <CreateProjectDialog
         open={newProjectOpen}

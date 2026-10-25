@@ -6,6 +6,7 @@ import type { BotAvatar } from "@/components/bot-face";
 export type Bot = {
   id: string;
   name: string;
+  description: string | null;
   instructions: string;
   avatar: BotAvatar | null;
   favourite: boolean;
@@ -32,14 +33,14 @@ async function send(path: string, method: string, body?: unknown): Promise<Respo
   }).catch(() => null);
 }
 
-export async function createBot(name: string, instructions: string, avatar: BotAvatar): Promise<Bot | BotError> {
-  const response = await send("/bots", "POST", { name, instructions, avatar });
+export async function createBot(name: string, instructions: string, avatar: BotAvatar, description = ""): Promise<Bot | BotError> {
+  const response = await send("/bots", "POST", { name, description, instructions, avatar });
   if (!response?.ok) return errorOf(response);
   changed();
   return (await response.json()) as Bot;
 }
 
-export async function updateBot(id: string, changes: Partial<Pick<Bot, "name" | "instructions" | "avatar" | "favourite">>): Promise<BotError | null> {
+export async function updateBot(id: string, changes: Partial<Pick<Bot, "name" | "instructions" | "avatar" | "favourite"> & { description: string }>): Promise<BotError | null> {
   const response = await send(`/bots/${encodeURIComponent(id)}`, "PATCH", changes);
   if (!response?.ok) return errorOf(response);
   changed();
