@@ -472,12 +472,12 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
         footer={
           // Round pills, like the app's other pill buttons, as wide as the colours above: start over, or make it.
           <ShapeProvider defaultShape="pill">
-            <div className="grid grid-cols-2 gap-2">
+            <div className="mt-2 grid grid-cols-2 gap-3">
               <Button
                 type="button"
                 size="compact"
                 variant="tertiary"
-                className="w-full"
+                className="h-9 w-full px-5"
                 disabled={busy || (!draft.name && !draft.description && !draft.instructions && draft.avatar === EMPTY_DRAFT.avatar)}
                 onClick={() => {
                   setDraft(EMPTY_DRAFT);
@@ -487,7 +487,7 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
               >
                 {t("bots.reset")}
               </Button>
-              <Button type="submit" size="compact" variant="primary" disabled={!ready || busy} className="w-full">{t("bots.createShort")}</Button>
+              <Button type="submit" size="compact" variant="primary" disabled={!ready || busy} className="h-9 w-full px-5">{t("bots.createShort")}</Button>
             </div>
           </ShapeProvider>
         }
