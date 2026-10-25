@@ -133,18 +133,7 @@ export function BotSwatches({
           );
         })}
         {withUpload && (
-          <button type="button" role="radio" aria-checked={value.kind === "image"} aria-label={t("bots.avatar.upload")} onClick={() => fileRef.current?.click()} className={swatchClass(value.kind === "image", false)}>
-            {value.kind === "image" ? (
-              <BotFace avatar={value} className="size-[var(--swatch)]" />
-            ) : (
-              <span className={ACTION_CIRCLE}>
-                <Upload01 aria-hidden="true" className="size-[calc(var(--swatch)*0.6)]" />
-              </span>
-            )}
-          </button>
-        )}
-        {withUpload && (
-          // A random colour, never the one it has. The shuffle turned so its arrows point up.
+          // A random colour, never the one it has (before Upload, which comes last). The shuffle turned so its arrows point up.
           <button
             type="button"
             aria-label={t("bots.avatar.randomise")}
@@ -158,6 +147,17 @@ export function BotSwatches({
             <span className={ACTION_CIRCLE}>
               <Shuffle01 aria-hidden="true" className="size-[calc(var(--swatch)*0.6)] -rotate-90" />
             </span>
+          </button>
+        )}
+        {withUpload && (
+          <button type="button" role="radio" aria-checked={value.kind === "image"} aria-label={t("bots.avatar.upload")} onClick={() => fileRef.current?.click()} className={swatchClass(value.kind === "image", false)}>
+            {value.kind === "image" ? (
+              <BotFace avatar={value} className="size-[var(--swatch)]" />
+            ) : (
+              <span className={ACTION_CIRCLE}>
+                <Upload01 aria-hidden="true" className="size-[calc(var(--swatch)*0.6)]" />
+              </span>
+            )}
           </button>
         )}
       </div>
