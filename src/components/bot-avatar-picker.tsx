@@ -104,8 +104,9 @@ export function BotSwatches({
   const { t } = useTranslation();
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState(false);
-  const swatchClass = (selected: boolean) => cn(
-    "grid size-8 place-items-center rounded-full transition-[box-shadow,scale] duration-150 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+  const swatchClass = (selected: boolean, grows = true) => cn(
+    "grid size-8 place-items-center rounded-full transition-[box-shadow,scale] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+    grows && "hover:scale-105",
     selected && cn("ring-2 ring-foreground/40 ring-offset-2", ringOffset),
   );
   return (
@@ -121,11 +122,13 @@ export function BotSwatches({
           );
         })}
         {withUpload && (
-          <button type="button" role="radio" aria-checked={value.kind === "image"} aria-label={t("bots.avatar.upload")} onClick={() => fileRef.current?.click()} className={swatchClass(value.kind === "image")}>
+          <button type="button" role="radio" aria-checked={value.kind === "image"} aria-label={t("bots.avatar.upload")} onClick={() => fileRef.current?.click()} className={swatchClass(value.kind === "image", false)}>
             {value.kind === "image" ? (
               <BotFace avatar={value} className="size-7" />
             ) : (
-              <span className="grid size-7 place-items-center rounded-full border border-foreground/15 bg-foreground/10 text-muted-foreground transition-colors hover:bg-foreground/15 hover:text-foreground">
+              // Steady on hover (no growing or recolouring icon); 2px over the colours, as a dark outlined
+              // circle reads smaller than a solid one beside it.
+              <span className="grid size-[30px] place-items-center rounded-full border border-foreground/20 bg-foreground/15 text-foreground/80 transition-colors hover:bg-foreground/20">
                 <Upload01 aria-hidden="true" className="size-3.5" />
               </span>
             )}
