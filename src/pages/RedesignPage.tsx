@@ -1023,15 +1023,14 @@ export function RedesignPage() {
               contentClassName="flex min-w-0 items-center"
             >
               {topBarBot ? (
-                // A bot's chat: the bot's profile -- its face, name and description; opens Edit bot.
+                // A bot's chat: the bot's profile -- its face and name, the size of a chat's title; opens Edit bot.
                 <button
                   type="button"
                   onClick={() => { setBotToEdit(topBarBot); setBotEditOpen(true); }}
-                  className="-ml-1.5 flex min-w-0 items-center gap-2 rounded-[var(--redesign-control-radius)] px-1.5 py-0.5 text-left transition-colors hover:bg-hover-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="-ml-1 flex min-w-0 items-center gap-1.5 rounded-[var(--redesign-control-radius)] px-1 py-0.5 text-left transition-colors hover:bg-hover-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <BotFace avatar={topBarBot.avatar ?? undefined} className="size-5" />
-                  <span className="shrink-0 truncate font-medium">{topBarBot.name}</span>
-                  {topBarBot.description && <span className="min-w-0 truncate text-muted-foreground">{topBarBot.description}</span>}
+                  <BotFace avatar={topBarBot.avatar ?? undefined} className="size-4" />
+                  <span className="min-w-0 truncate">{topBarBot.name}</span>
                 </button>
               ) : topBarChat ? (
                 <span className="flex min-w-0 items-center gap-1">
