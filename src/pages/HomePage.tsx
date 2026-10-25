@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ShapeProvider } from "@/lib/shape-context";
 import { BotFields, checkDraft, EMPTY_DRAFT, type BotDraft } from "@/components/new-agent-dialog";
 import { createBot, type Bot } from "@/lib/bots";
+import { useBotMood } from "@/components/bot-face";
 import { fade } from "@/lib/springs";
 import { QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
 import { useLimitWarning } from "@/components/limit-warning";
@@ -410,6 +411,8 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const { name, ready } = checkDraft(draft);
+  // The bot reacts as it's made: excited while it's named, thinking while it's told what it does.
+  const [mood, react] = useBotMood();
   return (
     <form
       className="flex w-full max-w-[420px] flex-col gap-4"
@@ -431,6 +434,7 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
           onChange={(event) => {
             setDraft({ ...draft, name: event.target.value.replace(/\s/g, "-") });
             setError(null);
+            react("excited");
           }}
           placeholder={t("agents.fields.name")}
           aria-label={t("agents.fields.name")}
@@ -439,7 +443,10 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
         />
         <input
           value={draft.description}
-          onChange={(event) => setDraft({ ...draft, description: event.target.value })}
+          onChange={(event) => {
+            setDraft({ ...draft, description: event.target.value });
+            react("excited");
+          }}
           placeholder={t("bots.fields.description")}
           aria-label={t("bots.fields.description")}
           maxLength={300}
@@ -448,9 +455,13 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
       </div>
       <BotFields
         bare
+        expression={mood}
         autoFocus={false}
         draft={draft}
         onChange={(next) => {
+          // What it does: thinking. A new look: happy.
+          if (next.instructions !== draft.instructions) react("thinking");
+          else if (next.avatar !== draft.avatar) react("happy");
           setDraft(next);
           setError(null);
         }}

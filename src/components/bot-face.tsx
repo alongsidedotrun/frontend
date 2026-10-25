@@ -1,11 +1,11 @@
-import type { CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 // A bot's look (#504): Alongside's bot face in a colour, or an uploaded image.
 export type BotAvatar = { kind: "bot"; color: string } | { kind: "image"; src: string };
 
-// The faces in public/bot-faces/alongside-bots-sprite.svg. The default is the bot at rest; the others are its
-// states (thinking while it works, happy when it's done...).
+// The faces in public/bot-faces/alongside-bots-sprite.svg. The default is the bot at rest; the others are
+// its states (thinking while it works, happy when it's done...).
 export type BotExpression = "default" | "happy" | "thinking" | "sleeping" | "excited";
 
 // The face colours a bot can have, in the picker's order; the last (grey) is the default.
@@ -25,20 +25,183 @@ export const BOT_COLORS = [
 
 export const DEFAULT_BOT_AVATAR: BotAvatar = { kind: "bot", color: "#7A7A7A" };
 
-/** A bot's face: the bot in its colour (a hairline ring keeps a white one visible), or its uploaded image. */
-export function BotFace({ avatar = DEFAULT_BOT_AVATAR, expression = "default", className }: { avatar?: BotAvatar; expression?: BotExpression; className?: string }) {
+const EYE = "#111111";
+const arc = (d: string) => <path d={d} fill="none" stroke={EYE} strokeWidth="8" strokeLinecap="round" />;
+
+// Each face's eyes, as drawn in the sprite (only the eyes change between faces). Drawn here rather than
+// through <use>, so they can blink between faces.
+const EYES: Record<BotExpression, ReactNode> = {
+  default: (
+    <>
+      <rect x="38" y="39" width="12" height="30" rx="6" />
+      <rect x="78" y="39" width="12" height="30" rx="6" />
+    </>
+  ),
+  happy: (
+    <>
+      {arc("M34 57 C34 42 54 42 54 57")}
+      {arc("M74 57 C74 42 94 42 94 57")}
+    </>
+  ),
+  thinking: (
+    <>
+      <rect x="33" y="51" width="25" height="8" rx="4" />
+      <rect x="70" y="51" width="25" height="8" rx="4" />
+    </>
+  ),
+  sleeping: (
+    <>
+      {arc("M34 49 C34 64 54 64 54 49")}
+      {arc("M74 49 C74 64 94 64 94 49")}
+    </>
+  ),
+  excited: (
+    <>
+      <circle cx="44" cy="54" r="10" />
+      <circle cx="84" cy="54" r="10" />
+    </>
+  ),
+};
+
+// A blink: the eyes squash shut quickly and open a little slower. Changing face swaps them while shut.
+const CLOSE_MS = 90;
+const OPEN_MS = 150;
+const SHUT_MS = 40;
+// A glance: the eyes slide to one side and back.
+const GLANCE_MS = 220;
+const GLANCE_X = 7;
+
+function prefersReducedMotion() {
+  return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+}
+
+/**
+ * A bot's face: the bot in its colour (a hairline ring keeps a white one visible), or its uploaded image.
+ * `animated`: it blinks into a new expression instead of jumping; at rest it blinks and glances around
+ * now and then, and waking up it looks to both sides.
+ */
+export function BotFace({
+  avatar = DEFAULT_BOT_AVATAR,
+  expression = "default",
+  animated = false,
+  className,
+}: {
+  avatar?: BotAvatar;
+  expression?: BotExpression;
+  animated?: boolean;
+  className?: string;
+}) {
+  const [shown, setShown] = useState(expression);
+  const [shut, setShut] = useState(false);
+  const [look, setLook] = useState<-1 | 0 | 1>(0);
+  // Woken up (sleeping, then at rest): it looks around once its eyes are open.
+  const [woke, setWoke] = useState(false);
+  const moving = animated && !prefersReducedMotion();
+
+  // A new expression: blink into it, looking ahead.
+  useEffect(() => {
+    if (expression === shown) return;
+    if (!moving) {
+      setShown(expression);
+      return;
+    }
+    setShut(true);
+    setLook(0);
+    const swap = window.setTimeout(() => {
+      setWoke(shown === "sleeping" && expression === "default");
+      setShown(expression);
+      setShut(false);
+    }, CLOSE_MS + SHUT_MS);
+    return () => window.clearTimeout(swap);
+  }, [expression, shown, moving]);
+
+  // At rest: just woken, a look to each side; then every 3 to 6 seconds a blink or a glance.
+  useEffect(() => {
+    if (!moving || shown !== "default") return;
+    const timers: number[] = [];
+    const after = (ms: number, step: () => void) => timers.push(window.setTimeout(step, ms));
+    const glance = (sides: readonly (-1 | 1)[], then: () => void) => {
+      let at = 0;
+      for (const side of sides) {
+        after(at, () => setLook(side));
+        at += GLANCE_MS + 520;
+      }
+      after(at, () => setLook(0));
+      after(at + GLANCE_MS, then);
+    };
+    const idle = () => after(3000 + Math.random() * 3000, () => {
+      if (Math.random() < 0.6) {
+        setShut(true);
+        after(CLOSE_MS + SHUT_MS, () => {
+          setShut(false);
+          idle();
+        });
+      } else {
+        glance([Math.random() < 0.5 ? -1 : 1], idle);
+      }
+    });
+    if (woke) {
+      setWoke(false);
+      after(OPEN_MS + 250, () => glance([-1, 1], idle));
+    } else {
+      idle();
+    }
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+    // `woke` is read once as the rest begins.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moving, shown]);
+
   if (avatar.kind === "image") {
     return <img src={avatar.src} alt="" aria-hidden="true" className={cn("shrink-0 rounded-full object-cover", className)} />;
   }
   return (
-    <svg
-      viewBox="0 0 128 128"
-      aria-hidden="true"
-      className={cn("shrink-0 overflow-visible", className)}
-      style={{ "--bot-face-color": avatar.color, "--bot-eye-color": "#111111" } as CSSProperties}
-    >
-      <use href={`/bot-faces/alongside-bots-sprite.svg#alongside-bot-${expression}`} />
+    <svg viewBox="0 0 128 128" aria-hidden="true" className={cn("shrink-0 overflow-visible", className)}>
+      <circle cx="64" cy="64" r="60" fill={avatar.color} />
+      <g
+        style={{
+          transform: `translateX(${look * GLANCE_X}px)`,
+          transition: moving ? `transform ${GLANCE_MS}ms cubic-bezier(0.4, 0, 0.2, 1)` : undefined,
+        }}
+      >
+      <g
+        fill={EYE}
+        style={{
+          transformBox: "fill-box",
+          transformOrigin: "center",
+          transform: shut ? "scaleY(0.1)" : "scaleY(1)",
+          transition: moving ? `transform ${shut ? CLOSE_MS : OPEN_MS}ms ${shut ? "cubic-bezier(0.4, 0, 1, 1)" : "cubic-bezier(0, 0, 0.2, 1)"}` : undefined,
+        } as CSSProperties}
+      >
+        {EYES[shown]}
+      </g>
+      </g>
       <circle cx="64" cy="64" r="60" fill="none" className="stroke-foreground/10" strokeWidth="2" />
     </svg>
   );
+}
+
+// How long a reaction lasts after the last keystroke, and how long the bot sleeps before waking.
+const REACTION_MS = 1600;
+const WAKE_MS = 2500;
+
+/**
+ * The New bot page's bot (#504): asleep at first, then awake; `react` shows a face for a moment (excited
+ * while you name it, thinking while you write what it does), then it's back at rest.
+ */
+export function useBotMood(): [BotExpression, (face: BotExpression) => void] {
+  const [mood, setMood] = useState<BotExpression>("sleeping");
+  const settle = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    const wake = window.setTimeout(() => setMood((current) => (current === "sleeping" ? "default" : current)), WAKE_MS);
+    return () => {
+      window.clearTimeout(wake);
+      window.clearTimeout(settle.current);
+    };
+  }, []);
+  const react = useCallback((face: BotExpression) => {
+    setMood(face);
+    window.clearTimeout(settle.current);
+    settle.current = window.setTimeout(() => setMood("default"), REACTION_MS);
+  }, []);
+  return [mood, react];
 }

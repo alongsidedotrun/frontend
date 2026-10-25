@@ -4,7 +4,7 @@ import { Bot } from "lucide-react";
 import { ShellDialog, ShellDialogActions, ShellField, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
 import { AGENT_NAME_PATTERN, type AddAgentError } from "@/lib/chat-agents";
 import { BotAvatarPicker } from "@/components/bot-avatar-picker";
-import { BotFace, DEFAULT_BOT_AVATAR, type BotAvatar } from "@/components/bot-face";
+import { BotFace, DEFAULT_BOT_AVATAR, type BotAvatar, type BotExpression } from "@/components/bot-face";
 import { cn } from "@/lib/utils";
 
 export type BotDraft = { name: string; description: string; instructions: string; avatar: BotAvatar };
@@ -29,6 +29,7 @@ export function BotFields({
   autoFocus = true,
   bare = false,
   withDescription = false,
+  expression,
 }: {
   draft: BotDraft;
   onChange: (draft: BotDraft) => void;
@@ -38,6 +39,8 @@ export function BotFields({
   bare?: boolean;
   /** A bot's one-line description (bots have one; chat agents don't). */
   withDescription?: boolean;
+  /** The face it's making; given, it's animated (the New bot page). */
+  expression?: BotExpression;
 }) {
   const { t } = useTranslation();
   const nameId = useId();
@@ -54,7 +57,7 @@ export function BotFields({
           onClick={() => setPickerOpen((open) => !open)}
           className="rounded-full transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <BotFace avatar={draft.avatar} className="size-16" />
+          <BotFace avatar={draft.avatar} expression={expression} animated={expression !== undefined} className="size-16" />
         </button>
         {pickerOpen && (
           <div
