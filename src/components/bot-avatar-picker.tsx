@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Upload01 } from "@untitledui/icons";
 import { XIcon } from "@/components/icons/untitled-ui";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
-import { BOT_COLORS, BotFace, botGradient, isDarkBotColor, type BotAvatar } from "@/components/bot-face";
+import { BOT_COLORS, BotFace, botGradient, type BotAvatar } from "@/components/bot-face";
 import { resizeImageFile } from "@/lib/resize-image";
 import { cn } from "@/lib/utils";
 
@@ -117,7 +117,7 @@ export function BotSwatches({
           const selected = value.kind === "bot" && value.color === swatch;
           return (
             <button key={swatch} type="button" role="radio" aria-checked={selected} aria-label={swatch} onClick={() => onChange({ kind: "bot", color: swatch })} className={swatchClass(selected)}>
-              <span className={cn("size-7 rounded-full border", isDarkBotColor(swatch) ? "border-white/15" : "border-black/10")} style={{ background: botGradient(swatch), backgroundOrigin: "border-box" }} />
+              <span className="size-7 rounded-full" style={{ background: botGradient(swatch) }} />
             </button>
           );
         })}

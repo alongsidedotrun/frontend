@@ -415,7 +415,10 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
   const [mood, react] = useBotMood();
   return (
     <form
-      className="flex w-full max-w-[420px] flex-col gap-4"
+      // The chat page's sizes: its column (the compose box's width), its heading for the name, its chat
+      // text for the rest, and the compose box's rounding.
+      className="t-chat-width mx-auto flex w-full flex-col gap-4"
+      style={{ maxWidth: "var(--chat-max-width)" }}
       onSubmit={async (event) => {
         event.preventDefault();
         if (!ready || busy) return;
@@ -439,7 +442,7 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
           placeholder={t("agents.fields.name")}
           aria-label={t("agents.fields.name")}
           maxLength={33}
-          className="rounded-[var(--redesign-control-radius)] border border-border px-3 transition-[border-color] duration-150 hover:border-foreground/20 focus:border-focus-accent w-full bg-transparent py-1.5 text-center text-[18px] font-normal text-foreground outline-none placeholder:text-muted-foreground/60"
+          className="rounded-[24px] border border-border bg-background px-4 transition-[border-color] duration-150 hover:border-foreground/20 focus:border-focus-accent w-full py-2 text-center text-[length:clamp(15px,calc(12.55px+0.545cqw),18px)] font-normal text-foreground outline-none placeholder:text-ink-3"
         />
         <input
           value={draft.description}
@@ -450,7 +453,7 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
           placeholder={t("bots.fields.description")}
           aria-label={t("bots.fields.description")}
           maxLength={300}
-          className="rounded-[var(--redesign-control-radius)] border border-border px-3 transition-[border-color] duration-150 hover:border-foreground/20 focus:border-focus-accent mt-2 w-full bg-transparent py-1.5 text-center text-[13px] text-muted-foreground outline-none placeholder:text-muted-foreground/60"
+          className="rounded-[24px] border border-border bg-background px-4 transition-[border-color] duration-150 hover:border-foreground/20 focus:border-focus-accent mt-2 w-full py-2 text-center text-[length:var(--redesign-chat-text)] text-foreground outline-none placeholder:text-ink-3"
         />
       </div>
       <BotFields
@@ -467,7 +470,25 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
         }}
         error={error}
       />
-      <Button type="submit" size="compact" variant="primary" disabled={!ready || busy} className="self-end">{t("bots.create")}</Button>
+      {/* Round pills, like the app's other pill buttons: start over, or make it. */}
+      <ShapeProvider defaultShape="pill">
+        <div className="flex justify-end gap-2">
+          <Button
+            type="button"
+            size="compact"
+            variant="tertiary"
+            disabled={busy || (!draft.name && !draft.description && !draft.instructions && draft.avatar === EMPTY_DRAFT.avatar)}
+            onClick={() => {
+              setDraft(EMPTY_DRAFT);
+              setError(null);
+              react("default");
+            }}
+          >
+            {t("bots.reset")}
+          </Button>
+          <Button type="submit" size="compact" variant="primary" disabled={!ready || busy}>{t("bots.create")}</Button>
+        </div>
+      </ShapeProvider>
     </form>
   );
 }

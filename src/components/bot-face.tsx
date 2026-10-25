@@ -10,7 +10,7 @@ export type BotExpression = "default" | "happy" | "thinking" | "sleeping" | "exc
 
 // The face colours a bot can have, in the picker's order; the last (grey) is the default.
 export const BOT_COLORS = [
-  "#1C1C1C",
+  "#000000",
   "#FFFFFF",
   "#8B5E3C",
   "#D93B3B",
@@ -33,19 +33,20 @@ function mix(hex: string, toward: number, amount: number) {
   return `#${channels.map((c) => Math.round(c + (toward - c) * amount).toString(16).padStart(2, "0")).join("")}`;
 }
 
+// Black and white are a plain, solid fill: no shading, no sheen.
+const SOLID = new Set(["#000000", "#FFFFFF"]);
+export function isSolidBotColor(color: string) {
+  return SOLID.has(color.toUpperCase());
+}
+
 export function botShades(color: string) {
+  if (isSolidBotColor(color)) return { top: color, bottom: color };
   return { top: mix(color, 255, 0.18), bottom: mix(color, 0, 0.12) };
 }
 
-/** Whether a colour is dark enough to need a light edge (black). */
-export function isDarkBotColor(color: string) {
-  const [r, g, b] = [1, 3, 5].map((at) => parseInt(color.slice(at, at + 2), 16));
-  return 0.299 * r + 0.587 * g + 0.114 * b < 60;
-}
-
-/** A colour's gradient as a CSS background, for its swatch (with backgroundOrigin: border-box, or the
- *  gradient repeats under the border and its light top shows along the bottom edge). */
+/** A colour's gradient as a CSS background, for its swatch. */
 export function botGradient(color: string) {
+  if (isSolidBotColor(color)) return color;
   const { top, bottom } = botShades(color);
   return `linear-gradient(to bottom, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0) 50%), linear-gradient(to bottom, ${top}, ${bottom})`;
 }
@@ -104,8 +105,10 @@ const GLANCE_MS = 220;
 const GLANCE_X = 7;
 // Following the cursor: how far the eyes go (sideways, up and down), how quickly they settle, and how
 // long after the cursor stops they drift back to idling.
-const GAZE_X = 7;
-const GAZE_Y = 5;
+const GAZE_X = 8;
+// Further down than up: what it's looking at (its form, the colours) is mostly below it.
+const GAZE_DOWN = 12;
+const GAZE_UP = 6;
 const GAZE_MS = 120;
 const GAZE_IDLE_MS = 2500;
 
@@ -114,7 +117,7 @@ function prefersReducedMotion() {
 }
 
 /**
- * A bot's face: the bot in its colour (a hairline ring keeps a white one visible), or its uploaded image.
+ * A bot's face: the bot in its colour (no edge: cleaner), or its uploaded image.
  * `animated`: it blinks into a new expression instead of jumping; at rest it blinks and glances around
  * now and then, follows the cursor while it moves, and waking up it looks to both sides.
  */
@@ -212,7 +215,7 @@ export function BotFace({
         const reach = Math.min(1, distance / (box.width * 2));
         following.current = true;
         setLook(0);
-        setGaze({ x: (dx / distance) * GAZE_X * reach, y: (dy / distance) * GAZE_Y * reach });
+        setGaze({ x: (dx / distance) * GAZE_X * reach, y: (dy / distance) * (dy > 0 ? GAZE_DOWN : GAZE_UP) * reach });
       });
       window.clearTimeout(settle);
       settle = window.setTimeout(() => {
@@ -247,7 +250,7 @@ export function BotFace({
         </linearGradient>
       </defs>
       <circle cx="64" cy="64" r="60" fill={`url(#${gradientId})`} />
-      <circle cx="64" cy="64" r="60" fill={`url(#${gradientId}-sheen)`} />
+      {!isSolidBotColor(avatar.color) && <circle cx="64" cy="64" r="60" fill={`url(#${gradientId}-sheen)`} />}
       <g
         style={{
           transform: gaze ? `translate(${gaze.x}px, ${gaze.y}px)` : `translateX(${look * GLANCE_X}px)`,
@@ -267,8 +270,6 @@ export function BotFace({
         {EYES[shown]}
       </g>
       </g>
-      {/* A dark hairline edge (a light one would read as a shine along the deeper bottom); black's is light. */}
-      <circle cx="64" cy="64" r="60" fill="none" className={isDarkBotColor(avatar.color) ? "stroke-white/15" : "stroke-black/10"} strokeWidth="2" />
     </svg>
   );
 }

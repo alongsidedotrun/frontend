@@ -113,7 +113,7 @@ export function BotFields({
           placeholder={t("agents.fields.instructions")}
           maxLength={8000}
           rows={4}
-          className="rounded-[var(--redesign-control-radius)] border border-border px-3 transition-[border-color] duration-150 hover:border-foreground/20 focus:border-focus-accent resize-none bg-transparent py-2 text-center text-[13px] leading-[1.5] text-foreground outline-none placeholder:text-muted-foreground/60"
+          className="rounded-[24px] border border-border bg-background px-4 transition-[border-color] duration-150 hover:border-foreground/20 focus:border-focus-accent resize-none py-3 text-center text-[length:var(--redesign-chat-text)] leading-[1.5] text-foreground outline-none placeholder:text-ink-3"
         />
       ) : (
         <section className={cn("flex flex-col gap-1 px-3 pt-2 pb-1", SHELL_RADIUS, SHELL_SURFACE)}>
