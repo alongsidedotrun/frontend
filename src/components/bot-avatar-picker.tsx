@@ -112,10 +112,11 @@ export function BotSwatches({
   return (
     <div className="flex flex-col items-center gap-2">
       {/* Two even rows: the colours alone (six each), or with Upload (seven, then six). */}
-      {/* Sized with the window, like the chat text: 20px narrow to 28px wide, the gaps with them. */}
+      {/* Sized with the window, like the chat text: 22px narrow to 30px wide, the gaps with them. Every
+          circle, Upload included, is the same size. */}
       <div
         className={cn("grid gap-[calc(var(--swatch)*0.36)]", withUpload ? "grid-cols-7" : "grid-cols-6")}
-        style={{ "--swatch": "clamp(1.25rem, calc(0.75rem + 0.9vw), 1.75rem)" } as React.CSSProperties}
+        style={{ "--swatch": "clamp(1.375rem, calc(0.875rem + 0.9vw), 1.875rem)" } as React.CSSProperties}
         role="radiogroup"
         aria-label={t("bots.avatar.color")}
       >
@@ -132,9 +133,8 @@ export function BotSwatches({
             {value.kind === "image" ? (
               <BotFace avatar={value} className="size-[var(--swatch)]" />
             ) : (
-              // Steady on hover (no growing or recolouring icon); 2px over the colours, as a dark outlined
-              // circle reads smaller than a solid one beside it.
-              <span className="grid size-[calc(var(--swatch)+2px)] place-items-center rounded-full border border-foreground/20 bg-foreground/15 text-foreground/80 transition-colors hover:bg-foreground/20">
+              // Steady on hover: no growing or recolouring icon.
+              <span className="grid size-[var(--swatch)] place-items-center rounded-full border border-foreground/20 bg-foreground/15 text-foreground/80 transition-colors hover:bg-foreground/20">
                 <Upload01 aria-hidden="true" className="size-[calc(var(--swatch)*0.5)]" />
               </span>
             )}

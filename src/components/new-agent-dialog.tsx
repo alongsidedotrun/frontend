@@ -106,15 +106,22 @@ export function BotFields({
         </ShellField>
       )}
       {bare ? (
-        <textarea
-          aria-label={t("agents.fields.instructions")}
-          value={draft.instructions}
-          onChange={(event) => onChange({ ...draft, instructions: event.target.value })}
-          placeholder={t("bots.placeholder.instructions")}
-          maxLength={8000}
-          rows={4}
-          className="resize-none bg-transparent px-4 py-3 text-center text-[length:var(--redesign-chat-text)] leading-[1.5] text-foreground outline-none placeholder:text-ink-3"
-        />
+        // Centred and as wide as its text (or placeholder), wrapping at the column and growing downward:
+        // a hidden copy sizes it, so the caret starts where the placeholder does, as in the name above.
+        <label className="block cursor-text px-4 py-3 text-center text-[length:var(--redesign-chat-text)] leading-[1.5] text-foreground">
+          <span className="inline-grid max-w-full align-top text-left">
+            <span aria-hidden="true" className="invisible col-start-1 row-start-1 px-1 whitespace-pre-wrap break-words">{`${draft.instructions || t("bots.placeholder.instructions")} `}</span>
+            <textarea
+              aria-label={t("agents.fields.instructions")}
+              value={draft.instructions}
+              onChange={(event) => onChange({ ...draft, instructions: event.target.value })}
+              placeholder={t("bots.placeholder.instructions")}
+              maxLength={8000}
+              rows={1}
+              className="col-start-1 row-start-1 w-full min-w-[1ch] resize-none overflow-hidden bg-transparent px-1 py-0 outline-none placeholder:text-ink-3 placeholder:transition-opacity placeholder:duration-200 focus:placeholder:opacity-0"
+            />
+          </span>
+        </label>
       ) : (
         <section className={cn("flex flex-col gap-1 px-3 pt-2 pb-1", SHELL_RADIUS, SHELL_SURFACE)}>
           <label htmlFor={instructionsId} className="text-[12px] text-muted-foreground">{t("agents.fields.instructions")}</label>

@@ -9,6 +9,7 @@ import { BotFields, checkDraft, EMPTY_DRAFT, type BotDraft } from "@/components/
 import { createBot, type Bot } from "@/lib/bots";
 import { useBotMood } from "@/components/bot-face";
 import { fade } from "@/lib/springs";
+import { cn } from "@/lib/utils";
 import { QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
 import { useLimitWarning } from "@/components/limit-warning";
 import { ComposeBox, toImageInputs, type ImageAttachment } from "@/components/compose-box";
@@ -429,31 +430,31 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
         else onCreated(result);
       }}
     >
-      {/* The bot's name is the page's title, typed in place; its placeholders say what each field is for. */}
-      <div className="text-center">
-        <input
-          autoFocus
+      {/* The bot's name is the page's title, typed in place; its placeholders say what each field is for
+          and fade out once a field is focused, as in the compose box. */}
+      <div className="flex flex-col gap-1">
+        <CenteredInput
           value={draft.name}
-          onChange={(event) => {
-            setDraft({ ...draft, name: event.target.value.replace(/\s/g, "-") });
+          onChange={(value) => {
+            setDraft({ ...draft, name: value.replace(/\s/g, "-") });
             setError(null);
             react("excited");
           }}
           placeholder={t("bots.placeholder.name")}
-          aria-label={t("agents.fields.name")}
+          label={t("agents.fields.name")}
           maxLength={33}
-          className="w-full bg-transparent px-4 py-2 text-center text-[length:clamp(15px,calc(12.55px+0.545cqw),18px)] font-normal text-foreground outline-none placeholder:text-ink-3"
+          className="py-2 text-[length:clamp(15px,calc(12.55px+0.545cqw),18px)]"
         />
-        <input
+        <CenteredInput
           value={draft.description}
-          onChange={(event) => {
-            setDraft({ ...draft, description: event.target.value });
+          onChange={(value) => {
+            setDraft({ ...draft, description: value });
             react("excited");
           }}
           placeholder={t("bots.placeholder.description")}
-          aria-label={t("bots.fields.description")}
+          label={t("bots.fields.description")}
           maxLength={300}
-          className="mt-1 w-full bg-transparent px-4 py-1 text-center text-[length:var(--redesign-chat-text)] text-foreground outline-none placeholder:text-ink-3"
+          className="py-1 text-[length:var(--redesign-chat-text)]"
         />
       </div>
       <BotFields
@@ -490,5 +491,45 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
         </div>
       </ShapeProvider>
     </form>
+  );
+}
+
+/**
+ * A centred one-line field as wide as its text, or its placeholder while empty: the caret starts where the
+ * placeholder does (not in the middle of a wide empty box) and the field grows, still centred, as you type.
+ * A hidden copy of the text sizes it, so it works in every browser. Clicking anywhere on its row focuses it.
+ */
+function CenteredInput({
+  value,
+  onChange,
+  placeholder,
+  label,
+  maxLength,
+  className,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  label: string;
+  maxLength: number;
+  className?: string;
+}) {
+  return (
+    <label className={cn("block cursor-text px-4 text-center font-normal text-foreground", className)}>
+      <span className="inline-grid max-w-full align-top">
+        <span aria-hidden="true" className="invisible col-start-1 row-start-1 overflow-hidden whitespace-pre">{value || placeholder}</span>
+        <input
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          aria-label={label}
+          maxLength={maxLength}
+          // size={1}: an input is otherwise about 20 characters wide at least, which kept a short name
+          // off centre; this way the hidden copy alone sets its width.
+          size={1}
+          className="col-start-1 row-start-1 w-full min-w-[1ch] bg-transparent p-0 text-left outline-none placeholder:text-ink-3 placeholder:transition-opacity placeholder:duration-200 focus:placeholder:opacity-0"
+        />
+      </span>
+    </label>
   );
 }
