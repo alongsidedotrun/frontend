@@ -4,7 +4,7 @@ import { BotIcon } from "@/components/icons/bot-icon";
 import { ShellDialog, ShellDialogActions, ShellField, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
 import { AGENT_NAME_PATTERN, type AddAgentError } from "@/lib/chat-agents";
 import { BotAvatarPicker, BotEyesPicker, BotSwatches } from "@/components/bot-avatar-picker";
-import { BotFace, DEFAULT_BOT_AVATAR, type BotAvatar, type BotExpression } from "@/components/bot-face";
+import { BotFace, DEFAULT_BOT_AVATAR, useBotMood, type BotAvatar, type BotExpression } from "@/components/bot-face";
 import { cn } from "@/lib/utils";
 import { showErrorToast } from "@/components/ui/app-toast";
 import type { TFunction } from "i18next";
@@ -185,6 +185,8 @@ export function NewAgentDialog({
   const formId = useId();
   const [draft, setDraft] = useState<BotDraft>(initial ?? EMPTY_DRAFT);
   const [busy, setBusy] = useState(false);
+  // A bot reacts here as on the New bot page: happy while it's named and described; a new look shows at once.
+  const [mood, react] = useBotMood();
   useEffect(() => {
     if (!open) return;
     setDraft(initial ?? EMPTY_DRAFT);
@@ -226,8 +228,15 @@ export function NewAgentDialog({
       >
         <BotFields
           forBot={kind === "bot"}
+          expression={kind === "bot" ? mood : undefined}
           draft={draft}
-          onChange={setDraft}
+          onChange={(next) => {
+            if (kind === "bot") {
+              if (next.name !== draft.name || next.description !== draft.description) react("happy");
+              else if (next.avatar !== draft.avatar) react("default");
+            }
+            setDraft(next);
+          }}
         />
       </form>
     </ShellDialog>
