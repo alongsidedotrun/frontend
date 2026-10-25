@@ -35,7 +35,7 @@ export function BotFields({
   onChange: (draft: BotDraft) => void;
   error?: string | null;
   autoFocus?: boolean;
-  /** The New bot page: no name (the page's title is) and plain bordered fields, so it reads like the bot itself. */
+  /** The New bot page: no name (the page's title is) and plain fields, so it reads like the bot itself. */
   bare?: boolean;
   /** A bot's one-line description (bots have one; chat agents don't). */
   withDescription?: boolean;
@@ -110,10 +110,10 @@ export function BotFields({
           aria-label={t("agents.fields.instructions")}
           value={draft.instructions}
           onChange={(event) => onChange({ ...draft, instructions: event.target.value })}
-          placeholder={t("agents.fields.instructions")}
+          placeholder={t("bots.placeholder.instructions")}
           maxLength={8000}
           rows={4}
-          className="rounded-[24px] border border-border bg-background px-4 transition-[border-color] duration-150 hover:border-foreground/20 focus:border-focus-accent resize-none py-3 text-center text-[length:var(--redesign-chat-text)] leading-[1.5] text-foreground outline-none placeholder:text-ink-3"
+          className="resize-none bg-transparent px-4 py-3 text-center text-[length:var(--redesign-chat-text)] leading-[1.5] text-foreground outline-none placeholder:text-ink-3"
         />
       ) : (
         <section className={cn("flex flex-col gap-1 px-3 pt-2 pb-1", SHELL_RADIUS, SHELL_SURFACE)}>

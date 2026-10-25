@@ -105,31 +105,37 @@ export function BotSwatches({
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState(false);
   const swatchClass = (selected: boolean, grows = true) => cn(
-    "grid size-8 place-items-center rounded-full transition-[box-shadow,scale] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+    "grid size-[calc(var(--swatch)+4px)] place-items-center rounded-full transition-[box-shadow,scale] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
     grows && "hover:scale-105",
     selected && cn("ring-2 ring-foreground/40 ring-offset-2", ringOffset),
   );
   return (
     <div className="flex flex-col items-center gap-2">
       {/* Two even rows: the colours alone (six each), or with Upload (seven, then six). */}
-      <div className={cn("grid gap-2.5", withUpload ? "grid-cols-7" : "grid-cols-6")} role="radiogroup" aria-label={t("bots.avatar.color")}>
+      {/* Sized with the window, like the chat text: 20px narrow to 28px wide, the gaps with them. */}
+      <div
+        className={cn("grid gap-[calc(var(--swatch)*0.36)]", withUpload ? "grid-cols-7" : "grid-cols-6")}
+        style={{ "--swatch": "clamp(1.25rem, calc(0.75rem + 0.9vw), 1.75rem)" } as React.CSSProperties}
+        role="radiogroup"
+        aria-label={t("bots.avatar.color")}
+      >
         {BOT_COLORS.map((swatch) => {
           const selected = value.kind === "bot" && value.color === swatch;
           return (
             <button key={swatch} type="button" role="radio" aria-checked={selected} aria-label={swatch} onClick={() => onChange({ kind: "bot", color: swatch })} className={swatchClass(selected)}>
-              <span className="size-7 rounded-full" style={{ background: botGradient(swatch) }} />
+              <span className="size-[var(--swatch)] rounded-full" style={{ background: botGradient(swatch) }} />
             </button>
           );
         })}
         {withUpload && (
           <button type="button" role="radio" aria-checked={value.kind === "image"} aria-label={t("bots.avatar.upload")} onClick={() => fileRef.current?.click()} className={swatchClass(value.kind === "image", false)}>
             {value.kind === "image" ? (
-              <BotFace avatar={value} className="size-7" />
+              <BotFace avatar={value} className="size-[var(--swatch)]" />
             ) : (
               // Steady on hover (no growing or recolouring icon); 2px over the colours, as a dark outlined
               // circle reads smaller than a solid one beside it.
-              <span className="grid size-[30px] place-items-center rounded-full border border-foreground/20 bg-foreground/15 text-foreground/80 transition-colors hover:bg-foreground/20">
-                <Upload01 aria-hidden="true" className="size-3.5" />
+              <span className="grid size-[calc(var(--swatch)+2px)] place-items-center rounded-full border border-foreground/20 bg-foreground/15 text-foreground/80 transition-colors hover:bg-foreground/20">
+                <Upload01 aria-hidden="true" className="size-[calc(var(--swatch)*0.5)]" />
               </span>
             )}
           </button>

@@ -429,7 +429,7 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
         else onCreated(result);
       }}
     >
-      {/* The bot's name is the page's title, typed in place; each field keeps a light border so it reads as one. */}
+      {/* The bot's name is the page's title, typed in place; its placeholders say what each field is for. */}
       <div className="text-center">
         <input
           autoFocus
@@ -439,10 +439,10 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
             setError(null);
             react("excited");
           }}
-          placeholder={t("agents.fields.name")}
+          placeholder={t("bots.placeholder.name")}
           aria-label={t("agents.fields.name")}
           maxLength={33}
-          className="rounded-[24px] border border-border bg-background px-4 transition-[border-color] duration-150 hover:border-foreground/20 focus:border-focus-accent w-full py-2 text-center text-[length:clamp(15px,calc(12.55px+0.545cqw),18px)] font-normal text-foreground outline-none placeholder:text-ink-3"
+          className="w-full bg-transparent px-4 py-2 text-center text-[length:clamp(15px,calc(12.55px+0.545cqw),18px)] font-normal text-foreground outline-none placeholder:text-ink-3"
         />
         <input
           value={draft.description}
@@ -450,10 +450,10 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
             setDraft({ ...draft, description: event.target.value });
             react("excited");
           }}
-          placeholder={t("bots.fields.description")}
+          placeholder={t("bots.placeholder.description")}
           aria-label={t("bots.fields.description")}
           maxLength={300}
-          className="rounded-[24px] border border-border bg-background px-4 transition-[border-color] duration-150 hover:border-foreground/20 focus:border-focus-accent mt-2 w-full py-2 text-center text-[length:var(--redesign-chat-text)] text-foreground outline-none placeholder:text-ink-3"
+          className="mt-1 w-full bg-transparent px-4 py-1 text-center text-[length:var(--redesign-chat-text)] text-foreground outline-none placeholder:text-ink-3"
         />
       </div>
       <BotFields
