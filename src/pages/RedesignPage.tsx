@@ -10,6 +10,7 @@ import { BotIcon } from "@/components/icons/bot-icon";
 import { Star01 } from "@untitledui/icons";
 import { BotFace, type BotAvatar } from "@/components/bot-face";
 import { NewAgentDialog } from "@/components/new-agent-dialog";
+import { showErrorToast } from "@/components/ui/app-toast";
 import { deleteBot, openBotChat, updateBot, useBots, type Bot } from "@/lib/bots";
 import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
 import { CreateWorkspaceDialog } from "@/components/design-system/create-workspace-dialog";
@@ -486,9 +487,18 @@ export function RedesignPage() {
     navigate(`/chat/${chatId}`);
   }
 
+  // Its chat, started the first time; if that fails, the coded error toast says why (no backend is
+  // ALS-002, anything else ALS-039) instead of nothing happening.
   async function openBot(bot: Bot) {
-    const chatId = bot.chat_id ?? await openBotChat(bot.id, activeWorkspace.id);
-    if (chatId) showBotChat(chatId, bot);
+    const chat = bot.chat_id ?? await openBotChat(bot.id, activeWorkspace.id);
+    if (typeof chat === "string") {
+      showBotChat(chat, bot);
+      return;
+    }
+    showErrorToast(
+      chat.reason === "unreachable" ? t("settings.providers.noConnection") : t("bots.errors.openFailed", { status: chat.status ?? "-" }),
+      { id: "open-bot-chat" },
+    );
   }
 
   async function removeBot(bot: Bot) {
