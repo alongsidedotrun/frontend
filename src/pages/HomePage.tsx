@@ -412,7 +412,7 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const { name, ready } = checkDraft(draft, false);
-  // The bot reacts as it's made: excited while it's named and described, happy at a new look.
+  // The bot reacts as it's made: happy while it's named and described.
   const [mood, react] = useBotMood();
   return (
     <form
@@ -438,7 +438,7 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
           onChange={(value) => {
             setDraft({ ...draft, name: value.replace(/\s/g, "-") });
             setError(null);
-            react("excited");
+            react("happy");
           }}
           placeholder={t("bots.placeholder.name")}
           label={t("agents.fields.name")}
@@ -449,7 +449,7 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
           value={draft.description}
           onChange={(value) => {
             setDraft({ ...draft, description: value });
-            react("excited");
+            react("happy");
           }}
           placeholder={t("bots.placeholder.description")}
           label={t("bots.fields.description")}
@@ -463,11 +463,8 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
         autoFocus={false}
         draft={draft}
         onChange={(next) => {
-          // A new expression shows at once (it's the face at rest); a new colour gets a smile.
-          if (next.avatar !== draft.avatar) {
-            const eyesChanged = next.avatar.kind === "bot" && draft.avatar.kind === "bot" && next.avatar.eyes !== draft.avatar.eyes && next.avatar.color === draft.avatar.color;
-            react(eyesChanged ? "default" : "happy");
-          }
+          // A new look (colour, expression, Randomise) shows at once, as it will rest: no reaction over it.
+          if (next.avatar !== draft.avatar) react("default");
           setDraft(next);
           setError(null);
         }}

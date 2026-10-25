@@ -297,8 +297,8 @@ const REACTION_MS = 1600;
 const WAKE_MS = 2500;
 
 /**
- * The New bot page's bot (#504): asleep at first, then awake; `react` shows a face for a moment (excited
- * while you name it, thinking while you write what it does), then it's back at rest.
+ * The New bot page's bot (#504): asleep at first, then awake; `react` shows a face for a moment (happy
+ * while you name and describe it), then it's back at rest.
  */
 export function useBotMood(): [BotExpression, (face: BotExpression) => void] {
   const [mood, setMood] = useState<BotExpression>("sleeping");
