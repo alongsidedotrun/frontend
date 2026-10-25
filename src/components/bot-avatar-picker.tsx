@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Shuffle01, Upload01 } from "@untitledui/icons";
 import { XIcon } from "@/components/icons/untitled-ui";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
-import { BOT_COLORS, BotFace, botGradient, type BotAvatar } from "@/components/bot-face";
+import { BOT_COLORS, BOT_EYES, BotFace, botGradient, type BotAvatar, type BotEyes } from "@/components/bot-face";
 import { resizeImageFile } from "@/lib/resize-image";
 import { cn } from "@/lib/utils";
 
@@ -42,7 +42,7 @@ export function BotAvatarPicker({ value, onChange, onClose }: { value: BotAvatar
           <button
             type="button"
             aria-label={t("bots.avatar.bot")}
-            onClick={() => onChange({ kind: "bot", color })}
+            onClick={() => onChange({ kind: "bot", color, eyes: value.kind === "bot" ? value.eyes : undefined })}
             className={cn(
               "grid size-20 place-items-center rounded-2xl transition-shadow",
               value.kind === "bot" ? "ring-2 ring-foreground/25" : "hover:ring-2 hover:ring-foreground/10",
@@ -50,6 +50,7 @@ export function BotAvatarPicker({ value, onChange, onClose }: { value: BotAvatar
           >
             <BotFace avatar={{ kind: "bot", color }} className="size-14" />
           </button>
+          <BotEyesPicker value={value} onChange={onChange} compact ringOffset="ring-offset-[var(--redesign-sidebar-overlay-surface)]" />
           <BotSwatches value={value} onChange={onChange} ringOffset="ring-offset-[var(--redesign-sidebar-overlay-surface)]" />
         </div>
       ) : (
@@ -81,6 +82,55 @@ export function BotAvatarPicker({ value, onChange, onClose }: { value: BotAvatar
           />
         </div>
       )}
+    </div>
+  );
+}
+
+// Sized with the window, like the chat text: 22px narrow to 30px wide.
+const SWATCH_SIZE = { "--swatch": "clamp(1.375rem, calc(0.875rem + 0.9vw), 1.875rem)" } as React.CSSProperties;
+
+/**
+ * The resting faces to choose from (#504), each the bot in its own colour with its eyes set that way. One
+ * row of seven, above the colours. `compact`: the picker panel's smaller size.
+ */
+export function BotEyesPicker({
+  value,
+  onChange,
+  compact = false,
+  ringOffset = "ring-offset-background",
+}: {
+  value: BotAvatar;
+  onChange: (avatar: BotAvatar) => void;
+  compact?: boolean;
+  ringOffset?: string;
+}) {
+  const { t } = useTranslation();
+  if (value.kind !== "bot") return null;
+  const current: BotEyes = value.eyes ?? "classic";
+  return (
+    <div
+      className="grid grid-cols-7 gap-[calc(var(--swatch)*0.36)]"
+      style={compact ? ({ "--swatch": "1.375rem" } as React.CSSProperties) : SWATCH_SIZE}
+      role="radiogroup"
+      aria-label={t("bots.eyes.label")}
+    >
+      {BOT_EYES.map((eyes) => (
+        <button
+          key={eyes}
+          type="button"
+          role="radio"
+          aria-checked={eyes === current}
+          aria-label={t(`bots.eyes.${eyes}`)}
+          title={t(`bots.eyes.${eyes}`)}
+          onClick={() => onChange({ ...value, eyes })}
+          className={cn(
+            "grid size-[calc(var(--swatch)+4px)] place-items-center rounded-full transition-[box-shadow,scale] duration-150 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            eyes === current && cn("ring-2 ring-foreground/40 ring-offset-2", ringOffset),
+          )}
+        >
+          <BotFace avatar={{ ...value, eyes }} className="size-[calc(var(--swatch)+4px)]" />
+        </button>
+      ))}
     </div>
   );
 }
@@ -120,27 +170,28 @@ export function BotSwatches({
           circle, Upload included, is the same size. */}
       <div
         className={cn("grid gap-[calc(var(--swatch)*0.36)]", withUpload ? "grid-cols-7" : "grid-cols-6")}
-        style={{ "--swatch": "clamp(1.375rem, calc(0.875rem + 0.9vw), 1.875rem)" } as React.CSSProperties}
+        style={SWATCH_SIZE}
         role="radiogroup"
         aria-label={t("bots.avatar.color")}
       >
         {BOT_COLORS.map((swatch) => {
           const selected = value.kind === "bot" && value.color === swatch;
           return (
-            <button key={swatch} type="button" role="radio" aria-checked={selected} aria-label={swatch} onClick={() => onChange({ kind: "bot", color: swatch })} className={swatchClass(selected)}>
+            <button key={swatch} type="button" role="radio" aria-checked={selected} aria-label={swatch} onClick={() => onChange({ kind: "bot", color: swatch, eyes: value.kind === "bot" ? value.eyes : undefined })} className={swatchClass(selected)}>
               <span className="size-[var(--swatch)] rounded-full" style={{ background: botGradient(swatch) }} />
             </button>
           );
         })}
         {withUpload && (
-          // A random colour, never the one it has (before Upload, which comes last). The shuffle turned so its arrows point up.
+          // A random colour (never the one it has) and resting face, before Upload, which comes last. The
+          // shuffle turned so its arrows point up.
           <button
             type="button"
             aria-label={t("bots.avatar.randomise")}
             title={t("bots.avatar.randomise")}
             onClick={() => {
               const others = BOT_COLORS.filter((color) => value.kind !== "bot" || color !== value.color);
-              onChange({ kind: "bot", color: others[Math.floor(Math.random() * others.length)] });
+              onChange({ kind: "bot", color: others[Math.floor(Math.random() * others.length)], eyes: BOT_EYES[Math.floor(Math.random() * BOT_EYES.length)] });
             }}
             className={swatchClass(false, false)}
           >

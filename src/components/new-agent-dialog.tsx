@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Bot } from "lucide-react";
 import { ShellDialog, ShellDialogActions, ShellField, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
 import { AGENT_NAME_PATTERN, type AddAgentError } from "@/lib/chat-agents";
-import { BotAvatarPicker, BotSwatches } from "@/components/bot-avatar-picker";
+import { BotAvatarPicker, BotEyesPicker, BotSwatches } from "@/components/bot-avatar-picker";
 import { BotFace, DEFAULT_BOT_AVATAR, type BotAvatar, type BotExpression } from "@/components/bot-face";
 import { cn } from "@/lib/utils";
 
@@ -58,6 +58,7 @@ export function BotFields({
         <div className="flex flex-col items-center gap-4">
           <BotFace avatar={draft.avatar} expression={expression} animated={expression !== undefined} className="size-16" />
           <div className="flex w-fit flex-col gap-4">
+            <BotEyesPicker value={draft.avatar} onChange={(avatar) => onChange({ ...draft, avatar })} />
             <BotSwatches value={draft.avatar} onChange={(avatar) => onChange({ ...draft, avatar })} withUpload />
             {footer}
           </div>

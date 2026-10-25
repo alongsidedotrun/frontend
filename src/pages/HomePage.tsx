@@ -463,8 +463,11 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
         autoFocus={false}
         draft={draft}
         onChange={(next) => {
-          // A new look: happy.
-          if (next.avatar !== draft.avatar) react("happy");
+          // A new expression shows at once (it's the face at rest); a new colour gets a smile.
+          if (next.avatar !== draft.avatar) {
+            const eyesChanged = next.avatar.kind === "bot" && draft.avatar.kind === "bot" && next.avatar.eyes !== draft.avatar.eyes && next.avatar.color === draft.avatar.color;
+            react(eyesChanged ? "default" : "happy");
+          }
           setDraft(next);
           setError(null);
         }}
