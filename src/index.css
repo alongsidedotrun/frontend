@@ -321,7 +321,7 @@
      the accent lightened toward white first, so it reads as a pale blue on
      the dark surface instead of a murky dark blue. */
   --redesign-progress-track: color-mix(in srgb, color-mix(in srgb, var(--focus-accent), white 55%) 45%, transparent);
-    /* Edges are web/'s white at 10%: additive like the ladder, so they read the same on any step. */
+    /* Edges follow --border, the same on every step. */
     --redesign-sidebar-border: var(--border);
     --redesign-overlay-border: var(--border);
     /* Fluid Functionalism's dark ladder (fluidfunctionalism.com/docs/surfaces): even, additive white
@@ -892,7 +892,8 @@
        darker in dark mode"), which tracks: a lower alpha here mixes the
        border closer to the near-black background instead of standing out
        from it. Was #313131 before any of this. */
-    --border: rgb(255 255 255 / 0.1);
+    /* Dark edges: surface-3 at 70% (web/'s white at 10% read too bright here). */
+    --border: color-mix(in srgb, var(--surface-3) 70%, transparent);
     --input: var(--surface-3);
     --section-foreground: #6d6d6d;
     /* transparent -- see :root's --ring comment above for why. */
