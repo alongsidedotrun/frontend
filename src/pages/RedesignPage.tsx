@@ -332,8 +332,10 @@ export function RedesignPage() {
     ? settingsPathSection
     : "general";
   const activeChat = chats.find((chat) => chat.id === (routeChatId ?? activeChatId)) ?? null;
+  const activeBot = activeChat?.bot_id ? botsById.get(activeChat.bot_id) : undefined;
   const routedContent = useOutlet({
     chatName: activeChat ? chatTitle(activeChat) : t("shell.untitledChat"),
+    bot: activeBot ? { name: activeBot.name, avatar: activeBot.avatar } : undefined,
     // No contextLabel: the chat's name (and project) shows in the top bar.
     receiveChatNameFromServer: (name: string) => {
       const chatId = routeChatId ?? activeChatId;
@@ -456,6 +458,7 @@ export function RedesignPage() {
 
   const redesignChatContext: ChatPageShellContext | undefined = activeChat ? {
     chatName: activeChat.name,
+    bot: activeBot ? { name: activeBot.name, avatar: activeBot.avatar } : undefined,
     receiveChatNameFromServer: (name) => {
       setChats((current) => current.map((chat) => chat.id === activeChat.id ? { ...chat, name } : chat));
     },
