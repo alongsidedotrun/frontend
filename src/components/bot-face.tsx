@@ -43,7 +43,8 @@ export function isDarkBotColor(color: string) {
   return 0.299 * r + 0.587 * g + 0.114 * b < 60;
 }
 
-/** A colour's gradient as a CSS background, for its swatch. */
+/** A colour's gradient as a CSS background, for its swatch (with backgroundOrigin: border-box, or the
+ *  gradient repeats under the border and its light top shows along the bottom edge). */
 export function botGradient(color: string) {
   const { top, bottom } = botShades(color);
   return `linear-gradient(to bottom, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0) 50%), linear-gradient(to bottom, ${top}, ${bottom})`;

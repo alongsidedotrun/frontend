@@ -116,7 +116,7 @@ export function BotSwatches({
           const selected = value.kind === "bot" && value.color === swatch;
           return (
             <button key={swatch} type="button" role="radio" aria-checked={selected} aria-label={swatch} onClick={() => onChange({ kind: "bot", color: swatch })} className={swatchClass(selected)}>
-              <span className={cn("size-7 rounded-full border", isDarkBotColor(swatch) ? "border-white/15" : "border-black/10")} style={{ background: botGradient(swatch) }} />
+              <span className={cn("size-7 rounded-full border", isDarkBotColor(swatch) ? "border-white/15" : "border-black/10")} style={{ background: botGradient(swatch), backgroundOrigin: "border-box" }} />
             </button>
           );
         })}
@@ -125,7 +125,7 @@ export function BotSwatches({
             {value.kind === "image" ? (
               <BotFace avatar={value} className="size-7" />
             ) : (
-              <span className="grid size-7 place-items-center rounded-full bg-foreground/[0.08] text-muted-foreground transition-colors hover:bg-foreground/[0.12] hover:text-foreground">
+              <span className="grid size-7 place-items-center rounded-full border border-foreground/15 bg-foreground/10 text-muted-foreground transition-colors hover:bg-foreground/15 hover:text-foreground">
                 <Upload01 aria-hidden="true" className="size-3.5" />
               </span>
             )}
