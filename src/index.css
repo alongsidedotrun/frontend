@@ -892,8 +892,8 @@
        darker in dark mode"), which tracks: a lower alpha here mixes the
        border closer to the near-black background instead of standing out
        from it. Was #313131 before any of this. */
-    /* Dark edges: surface-3 at 70% (web/'s white at 10% read too bright here). */
-    --border: color-mix(in srgb, var(--surface-3) 70%, transparent);
+    /* Dark edges: surface-4, two steps above the page (web/'s white at 10% read too bright here). */
+    --border: var(--surface-4);
     --input: var(--surface-3);
     --section-foreground: #6d6d6d;
     /* transparent -- see :root's --ring comment above for why. */
