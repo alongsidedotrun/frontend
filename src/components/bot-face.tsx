@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 // A bot's look (#504): Alongside's bot face in a colour, or an uploaded image.
@@ -24,6 +24,23 @@ export const BOT_COLORS = [
 ] as const;
 
 export const DEFAULT_BOT_AVATAR: BotAvatar = { kind: "bot", color: "#7A7A7A" };
+
+// Each colour is shaded like the Alongside logo's blue (public/favicon.svg): lighter at the top, deeper at
+// the bottom (#3A8CFF to #0566F5 there), with a soft white sheen over the top half.
+function mix(hex: string, toward: number, amount: number) {
+  const channels = [1, 3, 5].map((at) => parseInt(hex.slice(at, at + 2), 16));
+  return `#${channels.map((c) => Math.round(c + (toward - c) * amount).toString(16).padStart(2, "0")).join("")}`;
+}
+
+export function botShades(color: string) {
+  return { top: mix(color, 255, 0.18), bottom: mix(color, 0, 0.12) };
+}
+
+/** A colour's gradient as a CSS background, for its swatch. */
+export function botGradient(color: string) {
+  const { top, bottom } = botShades(color);
+  return `linear-gradient(to bottom, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0) 50%), linear-gradient(to bottom, ${top}, ${bottom})`;
+}
 
 const EYE = "#111111";
 const arc = (d: string) => <path d={d} fill="none" stroke={EYE} strokeWidth="8" strokeLinecap="round" />;
@@ -94,6 +111,7 @@ export function BotFace({
   const [shown, setShown] = useState(expression);
   const [shut, setShut] = useState(false);
   const [look, setLook] = useState<-1 | 0 | 1>(0);
+  const gradientId = `bot-face-${useId().replace(/:/g, "")}`;
   // Woken up (sleeping, then at rest): it looks around once its eyes are open.
   const [woke, setWoke] = useState(false);
   const moving = animated && !prefersReducedMotion();
@@ -154,9 +172,21 @@ export function BotFace({
   if (avatar.kind === "image") {
     return <img src={avatar.src} alt="" aria-hidden="true" className={cn("shrink-0 rounded-full object-cover", className)} />;
   }
+  const { top, bottom } = botShades(avatar.color);
   return (
     <svg viewBox="0 0 128 128" aria-hidden="true" className={cn("shrink-0 overflow-visible", className)}>
-      <circle cx="64" cy="64" r="60" fill={avatar.color} />
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="4" x2="0" y2="124" gradientUnits="userSpaceOnUse">
+          <stop stopColor={top} />
+          <stop offset="1" stopColor={bottom} />
+        </linearGradient>
+        <linearGradient id={`${gradientId}-sheen`} x1="0" y1="4" x2="0" y2="64" gradientUnits="userSpaceOnUse">
+          <stop stopColor="white" stopOpacity="0.14" />
+          <stop offset="1" stopColor="white" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <circle cx="64" cy="64" r="60" fill={`url(#${gradientId})`} />
+      <circle cx="64" cy="64" r="60" fill={`url(#${gradientId}-sheen)`} />
       <g
         style={{
           transform: `translateX(${look * GLANCE_X}px)`,

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Bot } from "lucide-react";
 import { ShellDialog, ShellDialogActions, ShellField, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
 import { AGENT_NAME_PATTERN, type AddAgentError } from "@/lib/chat-agents";
-import { BotAvatarPicker } from "@/components/bot-avatar-picker";
+import { BotAvatarPicker, BotSwatches } from "@/components/bot-avatar-picker";
 import { BotFace, DEFAULT_BOT_AVATAR, type BotAvatar, type BotExpression } from "@/components/bot-face";
 import { cn } from "@/lib/utils";
 
@@ -49,6 +49,13 @@ export function BotFields({
   const [pickerOpen, setPickerOpen] = useState(false);
   return (
     <div className="flex flex-col gap-3">
+      {/* The New bot page shows its colours under the bot; the dialogs open the picker from the face. */}
+      {bare ? (
+        <div className="flex flex-col items-center gap-4">
+          <BotFace avatar={draft.avatar} expression={expression} animated={expression !== undefined} className="size-16" />
+          <BotSwatches value={draft.avatar} onChange={(avatar) => onChange({ ...draft, avatar })} withUpload />
+        </div>
+      ) : (
       <div className="relative flex justify-center">
         <button
           type="button"
@@ -73,6 +80,7 @@ export function BotFields({
           </div>
         )}
       </div>
+      )}
       {!bare && <ShellField label={t("agents.fields.name")} htmlFor={nameId}>
         <span className="text-[13px] text-muted-foreground">@</span>
         <input

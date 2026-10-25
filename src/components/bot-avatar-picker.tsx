@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Upload01 } from "@untitledui/icons";
 import { XIcon } from "@/components/icons/untitled-ui";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
-import { BOT_COLORS, BotFace, type BotAvatar } from "@/components/bot-face";
+import { BOT_COLORS, BotFace, botGradient, type BotAvatar } from "@/components/bot-face";
 import { resizeImageFile } from "@/lib/resize-image";
 import { cn } from "@/lib/utils";
 
@@ -50,27 +50,7 @@ export function BotAvatarPicker({ value, onChange, onClose }: { value: BotAvatar
           >
             <BotFace avatar={{ kind: "bot", color }} className="size-14" />
           </button>
-          <div className="grid grid-cols-6 gap-2.5" role="radiogroup" aria-label={t("bots.avatar.color")}>
-            {BOT_COLORS.map((swatch) => {
-              const selected = value.kind === "bot" && value.color === swatch;
-              return (
-                <button
-                  key={swatch}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  aria-label={swatch}
-                  onClick={() => onChange({ kind: "bot", color: swatch })}
-                  className={cn(
-                    "grid size-8 place-items-center rounded-full transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    selected && "ring-2 ring-foreground/40 ring-offset-2 ring-offset-[var(--redesign-sidebar-overlay-surface)]",
-                  )}
-                >
-                  <span className="size-7 rounded-full border border-foreground/10" style={{ backgroundColor: swatch }} />
-                </button>
-              );
-            })}
-          </div>
+          <BotSwatches value={value} onChange={onChange} ringOffset="ring-offset-[var(--redesign-sidebar-overlay-surface)]" />
         </div>
       ) : (
         <div className="flex flex-col items-center gap-3 p-4">
@@ -100,6 +80,76 @@ export function BotAvatarPicker({ value, onChange, onClose }: { value: BotAvatar
             }}
           />
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The colours to choose from, each shaded like the Alongside logo; `withUpload` adds an image as the last
+ * choice (the New bot page, which shows them under the bot instead of in the picker).
+ */
+export function BotSwatches({
+  value,
+  onChange,
+  ringOffset = "ring-offset-background",
+  withUpload = false,
+}: {
+  value: BotAvatar;
+  onChange: (avatar: BotAvatar) => void;
+  /** The background the selected ring sits on. */
+  ringOffset?: string;
+  withUpload?: boolean;
+}) {
+  const { t } = useTranslation();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState(false);
+  const swatchClass = (selected: boolean) => cn(
+    "grid size-8 place-items-center rounded-full transition-[box-shadow,scale] duration-150 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+    selected && cn("ring-2 ring-foreground/40 ring-offset-2", ringOffset),
+  );
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <div className="grid grid-cols-6 gap-2.5" role="radiogroup" aria-label={t("bots.avatar.color")}>
+        {BOT_COLORS.map((swatch) => {
+          const selected = value.kind === "bot" && value.color === swatch;
+          return (
+            <button key={swatch} type="button" role="radio" aria-checked={selected} aria-label={swatch} onClick={() => onChange({ kind: "bot", color: swatch })} className={swatchClass(selected)}>
+              <span className="size-7 rounded-full border border-foreground/10" style={{ background: botGradient(swatch) }} />
+            </button>
+          );
+        })}
+        {withUpload && (
+          <button type="button" role="radio" aria-checked={value.kind === "image"} aria-label={t("bots.avatar.upload")} onClick={() => fileRef.current?.click()} className={swatchClass(value.kind === "image")}>
+            {value.kind === "image" ? (
+              <BotFace avatar={value} className="size-7" />
+            ) : (
+              <span className="grid size-7 place-items-center rounded-full border border-dashed border-foreground/25 text-muted-foreground">
+                <Upload01 aria-hidden="true" className="size-3.5" />
+              </span>
+            )}
+          </button>
+        )}
+      </div>
+      {withUpload && error && <p className="text-[12px] text-destructive">{t("bots.avatar.uploadFailed")}</p>}
+      {withUpload && (
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={async (event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (!file) return;
+            try {
+              onChange({ kind: "image", src: await resizeImageFile(file, 256) });
+              setError(false);
+            } catch {
+              setError(true);
+            }
+          }}
+        />
       )}
     </div>
   );
