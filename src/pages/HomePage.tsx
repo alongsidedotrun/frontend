@@ -475,7 +475,7 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
         footer={
           // Round pills, like the app's other pill buttons, as wide as the colours above: start over, or make it.
           <ShapeProvider defaultShape="pill">
-            <div className="mt-2 grid grid-cols-2 gap-3">
+            <div className="mt-2 grid w-full grid-cols-2 gap-3">
               <Button
                 type="button"
                 size="compact"

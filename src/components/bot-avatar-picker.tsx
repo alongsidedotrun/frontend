@@ -50,8 +50,8 @@ export function BotAvatarPicker({ value, onChange, onClose }: { value: BotAvatar
           >
             <BotFace avatar={{ kind: "bot", color }} className="size-14" />
           </button>
-          <BotEyesPicker value={value} onChange={onChange} compact ringOffset="ring-offset-[var(--redesign-sidebar-overlay-surface)]" />
           <BotSwatches value={value} onChange={onChange} ringOffset="ring-offset-[var(--redesign-sidebar-overlay-surface)]" />
+          <BotEyesPicker value={value} onChange={onChange} compact ringOffset="ring-offset-[var(--redesign-sidebar-overlay-surface)]" />
         </div>
       ) : (
         <div className="flex flex-col items-center gap-3 p-4">
@@ -91,7 +91,7 @@ const SWATCH_SIZE = { "--swatch": "clamp(1.375rem, calc(0.875rem + 0.9vw), 1.875
 
 /**
  * The resting faces to choose from (#504), each the bot in its own colour with its eyes set that way. One
- * row of seven, above the colours. `compact`: the picker panel's smaller size.
+ * row of seven, under the colours. `compact`: the picker panel's smaller size.
  */
 export function BotEyesPicker({
   value,
@@ -109,7 +109,8 @@ export function BotEyesPicker({
   const current: BotEyes = value.eyes ?? "classic";
   return (
     <div
-      className="grid grid-cols-7 gap-[calc(var(--swatch)*0.36)]"
+      // Each face with its name under it; the columns fit the longest name.
+      className="grid grid-cols-7 gap-x-[calc(var(--swatch)*0.2)]"
       style={compact ? ({ "--swatch": "1.375rem" } as React.CSSProperties) : SWATCH_SIZE}
       role="radiogroup"
       aria-label={t("bots.eyes.label")}
@@ -121,14 +122,26 @@ export function BotEyesPicker({
           role="radio"
           aria-checked={eyes === current}
           aria-label={t(`bots.eyes.${eyes}`)}
-          title={t(`bots.eyes.${eyes}`)}
           onClick={() => onChange({ ...value, eyes })}
-          className={cn(
-            "grid size-[calc(var(--swatch)+4px)] place-items-center rounded-full transition-[box-shadow,scale] duration-150 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            eyes === current && cn("ring-2 ring-foreground/40 ring-offset-2", ringOffset),
-          )}
+          className="group/eyes flex min-w-0 flex-col items-center gap-1.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <BotFace avatar={{ ...value, eyes }} className="size-[calc(var(--swatch)+4px)]" />
+          <span
+            className={cn(
+              "grid size-[calc(var(--swatch)+4px)] place-items-center rounded-full transition-[box-shadow,scale] duration-150 group-hover/eyes:scale-105",
+              eyes === current && cn("ring-2 ring-foreground/40 ring-offset-2", ringOffset),
+            )}
+          >
+            <BotFace avatar={{ ...value, eyes }} className="size-[calc(var(--swatch)+4px)]" />
+          </span>
+          <span
+            className={cn(
+              "whitespace-nowrap px-0.5 leading-none transition-colors",
+              compact ? "text-[10px]" : "text-[length:var(--redesign-chat-meta)]",
+              eyes === current ? "text-foreground" : "text-muted-foreground group-hover/eyes:text-foreground",
+            )}
+          >
+            {t(`bots.eyes.${eyes}`)}
+          </span>
         </button>
       ))}
     </div>

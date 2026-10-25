@@ -57,9 +57,9 @@ export function BotFields({
       {bare ? (
         <div className="flex flex-col items-center gap-4">
           <BotFace avatar={draft.avatar} expression={expression} animated={expression !== undefined} className="size-16" />
-          <div className="flex w-fit flex-col gap-4">
-            <BotEyesPicker value={draft.avatar} onChange={(avatar) => onChange({ ...draft, avatar })} />
+          <div className="flex w-fit flex-col items-center gap-4">
             <BotSwatches value={draft.avatar} onChange={(avatar) => onChange({ ...draft, avatar })} withUpload />
+            <BotEyesPicker value={draft.avatar} onChange={(avatar) => onChange({ ...draft, avatar })} />
             {footer}
           </div>
         </div>
