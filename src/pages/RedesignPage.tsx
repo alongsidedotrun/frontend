@@ -712,6 +712,8 @@ export function RedesignPage() {
   const redesignSurfaceKey = surfaceKeyRef.current;
   // The chat shown in the top bar: the open one, on a chat route.
   const topBarChat = routeChatId ? chats.find((chat) => chat.id === routeChatId) ?? null : null;
+  // A bot's chat shows the bot's profile instead of a chat title.
+  const topBarBot = topBarChat?.bot_id ? botsById.get(topBarChat.bot_id) : undefined;
   const topBarProject = topBarChat?.project_id ? projects.find((project) => project.id === topBarChat.project_id) ?? null : null;
 
   async function createProject() {
@@ -1020,7 +1022,18 @@ export function RedesignPage() {
               className="flex min-w-0 bg-transparent"
               contentClassName="flex min-w-0 items-center"
             >
-              {topBarChat ? (
+              {topBarBot ? (
+                // A bot's chat: the bot's profile -- its face, name and description; opens Edit bot.
+                <button
+                  type="button"
+                  onClick={() => { setBotToEdit(topBarBot); setBotEditOpen(true); }}
+                  className="-ml-1.5 flex min-w-0 items-center gap-2 rounded-[var(--redesign-control-radius)] px-1.5 py-0.5 text-left transition-colors hover:bg-hover-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <BotFace avatar={topBarBot.avatar ?? undefined} className="size-5" />
+                  <span className="shrink-0 truncate font-medium">{topBarBot.name}</span>
+                  {topBarBot.description && <span className="min-w-0 truncate text-muted-foreground">{topBarBot.description}</span>}
+                </button>
+              ) : topBarChat ? (
                 <span className="flex min-w-0 items-center gap-1">
                   {topBarProject && (
                     <>
