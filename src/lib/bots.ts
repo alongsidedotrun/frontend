@@ -1,61 +1,79 @@
 import { useCallback, useEffect, useState } from "react";
 import type { BotAvatar } from "@/components/bot-face";
 
-// Your bots (#504): a specialist with a name people ask it by, its instructions and its look. Kept on
-// this device until the bots library moves to the backend (each bot then gets an owner and its memory).
+// Your bots (#504): a specialist with a name, its instructions and its look. You talk to each one in its
+// own ongoing chat (chat_id, once it's been opened); the sidebar lists them under Bots.
 export type Bot = {
   id: string;
   name: string;
   instructions: string;
-  avatar: BotAvatar;
+  avatar: BotAvatar | null;
   favourite: boolean;
-  createdAt: string;
+  created_at: string;
+  chat_id: string | null;
 };
 
-const BOTS_KEY = "alongside_bots";
+export type BotError = "invalid_name" | "invalid_instructions" | "name_taken" | "failed";
+
+// Every useBots() reloads when one of them changes the list.
 const CHANGED = "alongside:bots-changed";
+const changed = () => window.dispatchEvent(new Event(CHANGED));
 
-function load(): Bot[] {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(BOTS_KEY) ?? "[]");
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+async function errorOf(response: Response | null): Promise<BotError> {
+  const body = (await response?.json().catch(() => null)) as { error?: BotError } | null;
+  return body?.error ?? "failed";
 }
 
-function save(bots: Bot[]) {
-  try {
-    localStorage.setItem(BOTS_KEY, JSON.stringify(bots));
-  } catch {
-    // Full or blocked storage: the change still shows until reload.
-  }
-  window.dispatchEvent(new Event(CHANGED));
+async function send(path: string, method: string, body?: unknown): Promise<Response | null> {
+  return fetch(path, {
+    method,
+    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  }).catch(() => null);
 }
 
-export function useBots() {
-  const [bots, setBots] = useState<Bot[]>(load);
-  useEffect(() => {
-    const reload = () => setBots(load());
-    window.addEventListener(CHANGED, reload);
-    window.addEventListener("storage", reload);
-    return () => {
-      window.removeEventListener(CHANGED, reload);
-      window.removeEventListener("storage", reload);
-    };
+export async function createBot(name: string, instructions: string, avatar: BotAvatar): Promise<Bot | BotError> {
+  const response = await send("/bots", "POST", { name, instructions, avatar });
+  if (!response?.ok) return errorOf(response);
+  changed();
+  return (await response.json()) as Bot;
+}
+
+export async function updateBot(id: string, changes: Partial<Pick<Bot, "name" | "instructions" | "avatar" | "favourite">>): Promise<BotError | null> {
+  const response = await send(`/bots/${encodeURIComponent(id)}`, "PATCH", changes);
+  if (!response?.ok) return errorOf(response);
+  changed();
+  return null;
+}
+
+export async function deleteBot(id: string): Promise<boolean> {
+  const response = await send(`/bots/${encodeURIComponent(id)}`, "DELETE");
+  if (response?.ok) changed();
+  return Boolean(response?.ok);
+}
+
+/** The bot's one ongoing chat, started the first time it's opened. */
+export async function openBotChat(id: string, workspaceId?: string): Promise<string | null> {
+  const response = await send(`/bots/${encodeURIComponent(id)}/chat`, "POST", { workspace_id: workspaceId });
+  if (!response?.ok) return null;
+  const { session_id } = (await response.json()) as { session_id: string };
+  changed();
+  return session_id;
+}
+
+/** Your bots, favourites first. `scope` reloads them when the account changes. */
+export function useBots(scope?: string) {
+  const [bots, setBots] = useState<Bot[]>([]);
+  const reload = useCallback(() => {
+    void fetch("/bots")
+      .then((response) => (response.ok ? (response.json() as Promise<Bot[]>) : []))
+      .then(setBots)
+      .catch(() => setBots([]));
   }, []);
-
-  const update = useCallback((next: (current: Bot[]) => Bot[]) => save(next(load())), []);
-
-  return {
-    bots,
-    /** Adds a bot; "name_taken" when you already have one by that name. */
-    add: useCallback(async (name: string, instructions: string, avatar: BotAvatar): Promise<"name_taken" | null> => {
-      if (load().some((bot) => bot.name.toLowerCase() === name.toLowerCase())) return "name_taken";
-      update((current) => [...current, { id: crypto.randomUUID(), name, instructions, avatar, favourite: false, createdAt: new Date().toISOString() }]);
-      return null;
-    }, [update]),
-    remove: useCallback((id: string) => update((current) => current.filter((bot) => bot.id !== id)), [update]),
-    toggleFavourite: useCallback((id: string) => update((current) => current.map((bot) => bot.id === id ? { ...bot, favourite: !bot.favourite } : bot)), [update]),
-  };
+  useEffect(() => {
+    reload();
+    window.addEventListener(CHANGED, reload);
+    return () => window.removeEventListener(CHANGED, reload);
+  }, [reload, scope]);
+  return bots;
 }

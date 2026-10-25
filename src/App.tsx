@@ -6,7 +6,6 @@ import { ThemeProvider } from "@/hooks/use-theme";
 import { AppToaster } from "@/components/ui/app-toast";
 import { useApplyAppearanceSettings } from "@/hooks/use-appearance-settings";
 import { AppsPage } from "@/pages/AppsPage";
-import { BotsPage } from "@/pages/BotsPage";
 import { ChatPage } from "@/pages/ChatPage";
 import { DocsPage } from "@/pages/DocsPage";
 import { HelpPage } from "@/pages/HelpPage";
@@ -88,8 +87,6 @@ const ROUTES: RouteObject[] = [
       // sidebar-nav.tsx's own LIBRARY_ITEM row directly under Inbox.
       { path: "/library", element: <LibraryPage /> },
       { path: "/agents", element: <Navigate to="/" replace /> },
-      // Bots (#504), the sidebar row under Join chat.
-      { path: "/bots", element: <BotsPage /> },
       { path: "/code", element: <PlaceholderPage title="Code" /> },
       { path: "/design", element: <PlaceholderPage title="Design" /> },
     ],

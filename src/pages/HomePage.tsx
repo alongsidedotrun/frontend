@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useLocation, useNavigate, useOutletContext } from "react-router-dom";
+import { useLocation, useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
+import { AnimatePresence, motion } from "motion/react";
+import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { ShapeProvider } from "@/lib/shape-context";
+import { BotFields, checkDraft, type BotDraft } from "@/components/new-agent-dialog";
+import { DEFAULT_BOT_AVATAR } from "@/components/bot-face";
+import { createBot, type Bot } from "@/lib/bots";
+import { fade } from "@/lib/springs";
 import { QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
 import { useLimitWarning } from "@/components/limit-warning";
 import { ComposeBox, toImageInputs, type ImageAttachment } from "@/components/compose-box";
@@ -26,17 +34,27 @@ export type HomePageShellContext = {
   // heading shows the same tile as the sidebar.
   workspaceLogo?: string | null;
   workspaceColor?: number | null;
+  /** #504: a bot made on this page, to open its chat. */
+  onBotCreated?: (bot: Bot) => void;
 };
 
 type HomePageProps = {
   /** Allows the redesign to reuse New Chat inside its own shell. */
   shellContextOverride?: HomePageShellContext;
   onSessionCreated?: (sessionId: string) => void;
+  /** #504: a bot made here, to open its chat. */
+  onBotCreated?: (bot: Bot) => void;
 };
 
-export function HomePage({ shellContextOverride, onSessionCreated }: HomePageProps = {}) {
+// Same pill segmented control as Settings > Skills.
+const TAB_CLASS = "h-[22px] px-2.5 [&>span]:!text-[12px] [&>span]:!leading-none";
+
+export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated }: HomePageProps = {}) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  // New (#504): a chat, or a bot (?new=bot, as the sidebar's Bots "+" opens it).
+  const [searchParams, setSearchParams] = useSearchParams();
+  const mode: "chat" | "bot" = searchParams.get("new") === "bot" ? "bot" : "chat";
   // Set when this page was reached via a project row's own "+" (sidebar-nav.tsx) --
   // per explicit request ("we should get an + beside the > at projects to create a
   // chat inside the project"). There's no real session to assign a project_id to
@@ -55,6 +73,7 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
   // open the real SettingsOverlay modal directly, threaded down to
   // ComposeBox's own "Add provider" row.
   const outletContext = useOutletContext<HomePageShellContext>();
+  const shellContext = shellContextOverride ?? outletContext;
   const { openSettings, workspaceId, workspaceName = t("home.defaultWorkspaceName"), workspaceLogo = null, workspaceColor = null } = shellContextOverride ?? outletContext;
   const workspaceTile = workspaceMonogram(workspaceName, workspaceColor);
   const [prompt, setPrompt] = useState("");
@@ -288,6 +307,37 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
 
   return (
     <div className="relative flex flex-1 overflow-hidden bg-background @container">
+      {!transitioningToChat && (
+        <div className="absolute inset-x-0 top-5 z-20 flex justify-center">
+          <ShapeProvider defaultShape="pill">
+            <Tabs size="compact" value={mode} onValueChange={(next) => setSearchParams(next === "bot" ? { new: "bot" } : {}, { replace: true })}>
+              <TabsList className="[&>div:first-child]:!bg-background [&>div:first-child]:!shadow-[0_1px_2px_rgba(0,0,0,0.12),0_0_0_0.5px_rgba(0,0,0,0.08)] dark:[&>div:first-child]:!bg-white/12">
+                <TabItem value="chat" label={t("new.chat")} className={TAB_CLASS} />
+                <TabItem value="bot" label={t("new.bot")} className={TAB_CLASS} />
+              </TabsList>
+            </Tabs>
+          </ShapeProvider>
+        </div>
+      )}
+      <AnimatePresence mode="wait" initial={false}>
+        {mode === "bot" ? (
+          <motion.div
+            key="bot"
+            className="absolute inset-0 z-10 flex items-center justify-center px-3 sm:px-5"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1, transition: fade }}
+            exit={{ opacity: 0, transition: fade }}
+          >
+            <NewBotForm onCreated={(bot) => (onBotCreated ?? shellContext.onBotCreated)?.(bot)} />
+          </motion.div>
+        ) : (
+      <motion.div
+        key="chat"
+        className="absolute inset-0"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1, transition: fade }}
+        exit={{ opacity: 0, transition: fade }}
+      >
       <div
         className={`absolute inset-x-0 z-10 px-3 pb-4 transition-[top,transform] duration-500 ease-in-out sm:px-5 ${transitioningToChat ? "top-full -translate-y-full" : "top-1/2 -translate-y-1/2"}`}
       >
@@ -347,6 +397,46 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
         />
         </div>
       </div>
+      </motion.div>
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+/** New > Bot (#504): its look, name and instructions; creating it opens its chat. */
+function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
+  const { t } = useTranslation();
+  const [draft, setDraft] = useState<BotDraft>({ name: "", instructions: "", avatar: DEFAULT_BOT_AVATAR });
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const { name, ready } = checkDraft(draft);
+  return (
+    <form
+      className="flex w-full max-w-[420px] flex-col gap-4"
+      onSubmit={async (event) => {
+        event.preventDefault();
+        if (!ready || busy) return;
+        setBusy(true);
+        const result = await createBot(name, draft.instructions.trim(), draft.avatar);
+        setBusy(false);
+        if (typeof result === "string") setError(t(result === "name_taken" ? "bots.errors.name_taken" : `agents.errors.${result}`));
+        else onCreated(result);
+      }}
+    >
+      <div className="text-center">
+        <h1 className="text-[18px] font-normal text-foreground">{t("bots.new")}</h1>
+        <p className="mt-1 text-[13px] text-muted-foreground">{t("bots.subtitle")}</p>
+      </div>
+      <BotFields
+        draft={draft}
+        onChange={(next) => {
+          setDraft(next);
+          setError(null);
+        }}
+        error={error}
+      />
+      <Button type="submit" size="compact" variant="primary" disabled={!ready || busy} className="self-end">{t("bots.create")}</Button>
+    </form>
   );
 }
