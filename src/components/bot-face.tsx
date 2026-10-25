@@ -18,7 +18,7 @@ export type BotExpression = "default" | "happy" | "thinking" | "sleeping" | "exc
 export const BOT_COLORS = [
   "#000000",
   "#FFFFFF",
-  "#8B5E3C",
+  "#EADBC0",
   "#D93B3B",
   "#F07A2C",
   "#F5A13A",
