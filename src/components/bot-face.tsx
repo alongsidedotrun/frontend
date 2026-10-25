@@ -297,24 +297,18 @@ export function BotFace({
   );
 }
 
-// How long a reaction lasts after the last keystroke, and how long the bot sleeps before waking.
+// How long a reaction lasts after the last keystroke.
 const REACTION_MS = 1600;
-const WAKE_MS = 2500;
 
 /**
- * The New bot page's bot (#504): asleep at first, then awake; `react` shows a face for a moment (happy
- * while you name and describe it), then it's back at rest.
+ * The New bot page's bot (#504): at rest with its own face from the start (awake: starting asleep read
+ * as if it weren't ready); `react` shows a face for a moment (happy while you name and describe it),
+ * then it's back at rest.
  */
 export function useBotMood(): [BotExpression, (face: BotExpression) => void] {
-  const [mood, setMood] = useState<BotExpression>("sleeping");
+  const [mood, setMood] = useState<BotExpression>("default");
   const settle = useRef<number | undefined>(undefined);
-  useEffect(() => {
-    const wake = window.setTimeout(() => setMood((current) => (current === "sleeping" ? "default" : current)), WAKE_MS);
-    return () => {
-      window.clearTimeout(wake);
-      window.clearTimeout(settle.current);
-    };
-  }, []);
+  useEffect(() => () => window.clearTimeout(settle.current), []);
   const react = useCallback((face: BotExpression) => {
     setMood(face);
     window.clearTimeout(settle.current);

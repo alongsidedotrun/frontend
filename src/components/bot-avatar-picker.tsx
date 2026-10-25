@@ -6,6 +6,7 @@ import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { BOT_COLORS, BOT_EYES, BotFace, botGradient, randomBotAvatar, type BotAvatar, type BotEyes } from "@/components/bot-face";
 import { resizeImageFile } from "@/lib/resize-image";
 import { cn } from "@/lib/utils";
+import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
 
 /**
  * Choosing a bot's look (#504), as Grok's bot editor does: the Bot tab is Alongside's bot face in one of
@@ -148,9 +149,11 @@ export function BotEyesPicker({
   );
 }
 
-// Upload and Randomise: steady on hover (no growing or recolouring icon), and 4px over the colours so
-// they fill their slot -- an outlined dark circle reads smaller than the solid colours beside it.
-const ACTION_CIRCLE = "grid size-[calc(var(--swatch)+4px)] place-items-center rounded-full border border-foreground/20 bg-foreground/15 text-foreground/80 transition-colors hover:bg-foreground/20";
+// Upload and Randomise follow the app's icon controls: the compose box's tiles' surface (the theme's border,
+// white / surface-4, a soft shadow) and the shared press feedback (hover fades, press dips; no recolouring
+// or growing). 4px over the colours so they fill their slot: an outlined circle reads smaller than a solid one.
+const ACTION_CIRCLE = "grid size-[calc(var(--swatch)+4px)] place-items-center rounded-full border border-border bg-white text-muted-foreground shadow-[0_1px_2px_rgb(0_0_0_/_0.06)] dark:bg-[var(--surface-4)]";
+const ACTION_PRESS = cn(PRESS_EFFECT, ICON_PRESS);
 
 /**
  * The colours to choose from, each shaded like the Alongside logo; `withUpload` adds an image as the last
@@ -205,7 +208,7 @@ export function BotSwatches({
             onClick={() => {
               onChange(randomBotAvatar(value.kind === "bot" ? value.color : undefined));
             }}
-            className={swatchClass(false, false)}
+            className={cn(swatchClass(false, false), ACTION_PRESS)}
           >
             <span className={ACTION_CIRCLE}>
               <Shuffle01 aria-hidden="true" className="size-[calc(var(--swatch)*0.6)] -rotate-90" />
@@ -213,7 +216,7 @@ export function BotSwatches({
           </button>
         )}
         {withUpload && (
-          <button type="button" role="radio" aria-checked={value.kind === "image"} aria-label={t("bots.avatar.upload")} onClick={() => fileRef.current?.click()} className={swatchClass(value.kind === "image", false)}>
+          <button type="button" role="radio" aria-checked={value.kind === "image"} aria-label={t("bots.avatar.upload")} onClick={() => fileRef.current?.click()} className={cn(swatchClass(value.kind === "image", false), ACTION_PRESS)}>
             {value.kind === "image" ? (
               <BotFace avatar={value} className="size-[var(--swatch)]" />
             ) : (
