@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
@@ -497,11 +497,9 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
 }
 
 /**
- * A centred one-line field as wide as its text, or its placeholder while empty: the caret starts where the
- * placeholder does (not in the middle of a wide empty box). While it's being typed in it keeps at least the
- * placeholder's width, so the text grows from there instead of snapping to the middle; leaving it, it
- * glides back to the centre (and out again on returning). A hidden copy of the text sizes it, so it works
- * in every browser. Clicking anywhere on its row focuses it.
+ * A centred one-line field: its placeholder fades out once it's focused, leaving the caret in the middle,
+ * and the text grows outward from there as you type, so nothing moves sideways. Square corners: the app's
+ * inputs are rounded, which clips the caret at a field's edge.
  */
 function CenteredInput({
   value,
@@ -518,53 +516,17 @@ function CenteredInput({
   maxLength: number;
   className?: string;
 }) {
-  const [focused, setFocused] = useState(false);
-  const boxRef = useRef<HTMLSpanElement>(null);
-  const leftBefore = useRef<number | null>(null);
-  const remember = () => {
-    leftBefore.current = boxRef.current?.getBoundingClientRect().left ?? null;
-  };
-  // Focusing or leaving can change its width (and so where it starts): it glides there rather than jumps.
-  useLayoutEffect(() => {
-    const box = boxRef.current;
-    const before = leftBefore.current;
-    leftBefore.current = null;
-    if (!box || before === null || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
-    const shift = before - box.getBoundingClientRect().left;
-    if (Math.abs(shift) < 1) return;
-    box.style.transition = "none";
-    box.style.transform = `translateX(${shift}px)`;
-    requestAnimationFrame(() => {
-      box.style.transition = "transform 200ms cubic-bezier(0.2, 0, 0, 1)";
-      box.style.transform = "";
-    });
-  }, [focused]);
   return (
-    <label className={cn("block cursor-text px-4 text-center font-normal text-foreground", className)}>
-      <span ref={boxRef} className="inline-grid max-w-full align-top">
-        <span aria-hidden="true" className="invisible col-start-1 row-start-1 overflow-hidden whitespace-pre">{value}</span>
-        {(focused || !value) && <span aria-hidden="true" className="invisible col-start-1 row-start-1 overflow-hidden whitespace-pre">{placeholder}</span>}
-        <input
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          onFocus={() => {
-            remember();
-            setFocused(true);
-          }}
-          onBlur={() => {
-            remember();
-            setFocused(false);
-          }}
-          placeholder={placeholder}
-          aria-label={label}
-          maxLength={maxLength}
-          // size={1}: an input is otherwise about 20 characters wide at least, which kept a short name
-          // off centre; this way the hidden copies alone set its width. Square: the app's inputs are
-          // rounded, and a field this tight clips its caret (and first letter) to the curve.
-          size={1}
-          className="col-start-1 row-start-1 w-full min-w-[1ch] rounded-none bg-transparent p-0 text-left outline-none placeholder:text-ink-3 placeholder:transition-opacity placeholder:duration-200 focus:placeholder:opacity-0"
-        />
-      </span>
-    </label>
+    <input
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      placeholder={placeholder}
+      aria-label={label}
+      maxLength={maxLength}
+      className={cn(
+        "block w-full rounded-none bg-transparent px-4 text-center font-normal text-foreground outline-none placeholder:text-ink-3 placeholder:transition-opacity placeholder:duration-200 focus:placeholder:opacity-0",
+        className,
+      )}
+    />
   );
 }
