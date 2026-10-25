@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Alongside bot happy">
+  <circle cx="64" cy="64" r="60" fill="var(--bot-face-color, currentColor)"/>
+  <g fill="var(--bot-eye-color, #111111)"><path d="M34 57 C34 42 54 42 54 57" fill="none" stroke="var(--bot-eye-color, #111111)" stroke-width="8" stroke-linecap="round"/><path d="M74 57 C74 42 94 42 94 57" fill="none" stroke="var(--bot-eye-color, #111111)" stroke-width="8" stroke-linecap="round"/></g>
+</svg>

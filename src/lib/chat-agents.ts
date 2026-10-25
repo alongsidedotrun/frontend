@@ -21,7 +21,20 @@ export function addressedAgent(text: string, names: readonly string[]): string |
   return names.find((name) => name.toLowerCase() === match[1].toLowerCase()) ?? null;
 }
 
-export type AddAgentError = "invalid_name" | "invalid_instructions" | "name_taken" | "failed";
+/** Why adding an agent or saving a bot failed: the backend's reason, or "unreachable" (no response, or
+ *  the dev proxy's 502/503/504 with the backend down), with the HTTP status for the error's message. */
+export type AddFailureReason = "invalid_name" | "invalid_instructions" | "name_taken" | "failed" | "unreachable";
+export type AddAgentError = { reason: AddFailureReason; status?: number };
+
+const KNOWN_REASONS: readonly AddFailureReason[] = ["invalid_name", "invalid_instructions", "name_taken"];
+
+/** The failure behind a response that wasn't OK (or never came). */
+export async function failureOf(response: Response | null): Promise<AddAgentError> {
+  if (!response || [502, 503, 504].includes(response.status)) return { reason: "unreachable", status: response?.status };
+  const body = (await response.json().catch(() => null)) as { error?: AddFailureReason } | null;
+  const reason = body?.error && KNOWN_REASONS.includes(body.error) ? body.error : "failed";
+  return { reason, status: response.status };
+}
 
 export function useChatAgents(sessionId: string | undefined) {
   const [agents, setAgents] = useState<ChatAgent[]>([]);
@@ -39,20 +52,16 @@ export function useChatAgents(sessionId: string | undefined) {
 
   const add = useCallback(
     async (name: string, instructions: string): Promise<AddAgentError | null> => {
-      if (!sessionId) return "failed";
+      if (!sessionId) return { reason: "failed" };
       const res = await fetch(`/sessions/${sessionId}/agents`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, instructions }),
       }).catch(() => null);
-      if (!res) return "failed";
-      if (res.ok) {
-        const agent = (await res.json()) as ChatAgent;
-        setAgents((current) => [...current, agent]);
-        return null;
-      }
-      const body = (await res.json().catch(() => ({}))) as { error?: AddAgentError };
-      return body.error ?? "failed";
+      if (!res?.ok) return failureOf(res);
+      const agent = (await res.json()) as ChatAgent;
+      setAgents((current) => [...current, agent]);
+      return null;
     },
     [sessionId],
   );

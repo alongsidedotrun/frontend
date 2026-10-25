@@ -6,6 +6,11 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { ChevronRight, CircleArrowUp, CircleHelp, Plus } from "lucide-react";
 import { JoinChatIcon } from "@/components/icons/join-chat-icon";
+import { BotIcon } from "@/components/icons/bot-icon";
+import { Star01 } from "@untitledui/icons";
+import { BotFace, type BotAvatar } from "@/components/bot-face";
+import { NewAgentDialog } from "@/components/new-agent-dialog";
+import { deleteBot, openBotChat, updateBot, useBots, type Bot } from "@/lib/bots";
 import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
 import { CreateWorkspaceDialog } from "@/components/design-system/create-workspace-dialog";
 import { CreateProjectDialog } from "@/components/design-system/create-project-dialog";
@@ -19,7 +24,7 @@ import { useIdentity } from "@/lib/identity";
 import { signOut } from "@/lib/auth";
 import { moveLocalWorkspaceDetailsToBackend } from "@/lib/workspace-logos";
 import { ManageWorkspaceDialog, type WorkspaceChange } from "@/components/design-system/manage-workspace-dialog";
-import { ArchiveIcon, SkillIcon, BubbleChatIcon, EditIcon, FolderIcon, WorkspacesIcon, IntegrationsIcon, LogOutIcon, MessageChatCircleIcon, PaletteIcon, ProvidersIcon, Settings01Icon, SettingsIcon, UserIcon } from "@/components/icons/untitled-ui";
+import { ArchiveIcon, DeleteIcon, SkillIcon, BubbleChatIcon, EditIcon, FolderIcon, WorkspacesIcon, IntegrationsIcon, LogOutIcon, MessageChatCircleIcon, PaletteIcon, ProvidersIcon, Settings01Icon, SettingsIcon, UserIcon } from "@/components/icons/untitled-ui";
 import { SplitView } from "@/components/design-system/split-view";
 import { AppTopBar } from "@/components/app-top-bar";
 import { QuickActions, type QuickActionItem } from "@/components/design-system/quick-actions";
@@ -71,7 +76,25 @@ type Chat = {
   name: string;
   project_id?: string | null;
   workspace_id?: string | null;
+  // #504: the bot this chat talks to, and when it was last active (Recents).
+  bot_id?: string | null;
+  last_activity?: string | null;
 };
+
+// How many chats Recents shows.
+const RECENTS_SIZE = 5;
+
+// A bot's face as a sidebar row icon, one component per look so rows don't remount on every render.
+const botIcons = new Map<string, IconComponent>();
+function botRowIcon(avatar: BotAvatar | null): IconComponent {
+  const key = JSON.stringify(avatar);
+  let icon = botIcons.get(key);
+  if (!icon) {
+    icon = ({ className }: { className?: string }) => <BotFace avatar={avatar ?? undefined} className={className} />;
+    botIcons.set(key, icon);
+  }
+  return icon;
+}
 
 const DEFAULT_WORKSPACE: WorkspaceRecord = {
   id: "personal",
@@ -109,10 +132,10 @@ function profileMenuSections(t: Translate, onOpenProfile: () => void, onSignOut:
   ];
 }
 
-// New chat, and under it Join chat (someone else's, with their chat ID and
+// New (a chat or a bot, #504), and under it Join chat (someone else's, with their chat ID and
 // join code -- JoinChatDialog).
 const quickActions = (t: Translate): readonly QuickActionItem[] => [
-  { id: "chats", label: t("common.newChat"), icon: Plus },
+  { id: "chats", label: t("shell.new"), icon: Plus },
   { id: "join", label: t("joinChat.title"), icon: JoinChatIcon },
 ];
 
@@ -262,6 +285,9 @@ export function RedesignPage() {
   const [sharedOnce, setSharedOnce] = useState(false);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
+  // Kept after closing, so the dialog's closing fade still shows the bot.
+  const [botToEdit, setBotToEdit] = useState<Bot | null>(null);
+  const [botEditOpen, setBotEditOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [projectError, setProjectError] = useState<string | null>(null);
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
@@ -285,6 +311,10 @@ export function RedesignPage() {
   const activeWorkspace = workspaces.find((workspace) => workspace.id === workspaceId) ?? DEFAULT_WORKSPACE;
   const workspaceProjects = projects.filter((project) => project.workspace_id === activeWorkspace.id);
   const workspaceChats = chats.filter((chat) => chat.workspace_id === activeWorkspace.id);
+  const bots = useBots(identity.scope);
+  const botsById = new Map(bots.map((bot) => [bot.id, bot]));
+  // A bot's chat is called by the bot's name, whatever the chat was named.
+  const chatTitle = (chat: Chat) => (chat.bot_id && botsById.get(chat.bot_id)?.name) || chat.name;
   const routeChatId = location.pathname.startsWith("/chat/")
     ? decodeURIComponent(location.pathname.slice("/chat/".length))
     : null;
@@ -302,7 +332,7 @@ export function RedesignPage() {
     : "general";
   const activeChat = chats.find((chat) => chat.id === (routeChatId ?? activeChatId)) ?? null;
   const routedContent = useOutlet({
-    chatName: activeChat?.name ?? t("shell.untitledChat"),
+    chatName: activeChat ? chatTitle(activeChat) : t("shell.untitledChat"),
     // No contextLabel: the chat's name (and project) shows in the top bar.
     receiveChatNameFromServer: (name: string) => {
       const chatId = routeChatId ?? activeChatId;
@@ -315,6 +345,8 @@ export function RedesignPage() {
         .then(applyLoadedChats);
     },
     openSettings: (section: string) => navigate(`/settings/${section}`),
+    // #504: New > Bot opens the bot's chat once it's made.
+    onBotCreated: (bot: Bot) => void openBot(bot),
     openFile: () => {},
     renameOpenFile: () => {},
     notifyFilesTouched: () => {},
@@ -444,6 +476,31 @@ export function RedesignPage() {
     workspaceColor: activeWorkspace.color ?? null,
   };
 
+  // Opens a bot's chat (#504), listing it straight away: until its first message it isn't in /sessions.
+  function showBotChat(chatId: string, bot: Bot) {
+    pendingChatIdsRef.current.add(chatId);
+    setChats((current) => current.some((chat) => chat.id === chatId)
+      ? current
+      : [{ id: chatId, name: bot.name, workspace_id: activeWorkspace.id, bot_id: bot.id }, ...current]);
+    setActiveChatId(chatId);
+    navigate(`/chat/${chatId}`);
+  }
+
+  async function openBot(bot: Bot) {
+    const chatId = bot.chat_id ?? await openBotChat(bot.id, activeWorkspace.id);
+    if (chatId) showBotChat(chatId, bot);
+  }
+
+  async function removeBot(bot: Bot) {
+    if (!await deleteBot(bot.id)) return;
+    // Its chat is archived with it.
+    setChats((current) => current.filter((chat) => chat.bot_id !== bot.id));
+    if (bot.chat_id && bot.chat_id === (routeChatId ?? activeChatId)) {
+      setActiveChatId(null);
+      navigate("/");
+    }
+  }
+
   function openCreatedChat(sessionId: string) {
     pendingChatIdsRef.current.add(sessionId);
     setChats((current) => current.some((chat) => chat.id === sessionId)
@@ -571,29 +628,61 @@ export function RedesignPage() {
     onRename: (name: string) => void renameChat(chat.id, name),
   });
 
+  // #504: Recents (chats and bot chats, newest first), Chats (a project is a row that opens to its
+  // chats) and Bots (each one opens its own chat).
+  const botMenu = (bot: Bot): readonly SidebarItemMenuEntry[] => [
+    { kind: "action", id: "edit", label: t("bots.edit"), icon: EditIcon, onSelect: () => { setBotToEdit(bot); setBotEditOpen(true); } },
+    { kind: "action", id: "favourite", label: t(bot.favourite ? "bots.unfavourite" : "bots.favouriteAction"), icon: Star01, onSelect: () => void updateBot(bot.id, { favourite: !bot.favourite }) },
+    { kind: "separator", id: "separator" },
+    { kind: "action", id: "delete", label: t("common.delete"), icon: DeleteIcon, destructive: true, onSelect: () => void removeBot(bot) },
+  ];
+  const botRow = (bot: Bot, id: string): SidebarSectionItem => ({ id, label: bot.name, icon: botRowIcon(bot.avatar), menu: botMenu(bot) });
+  const recentChats = [...workspaceChats]
+    // Bot chats only while their bot is here.
+    .filter((chat) => !chat.bot_id || botsById.has(chat.bot_id))
+    // A chat just started has no activity yet: it's the newest.
+    .sort((a, b) => !a.last_activity ? -1 : !b.last_activity ? 1 : b.last_activity.localeCompare(a.last_activity))
+    .slice(0, RECENTS_SIZE);
+
   const chatsSidebarSections: readonly SidebarSection[] = [
     {
-      id: "projects",
-      label: t("nav.projects"),
-      action: { label: t("nav.newProject.ariaLabel"), icon: Plus, onSelect: () => { setProjectError(null); setNewProjectOpen(true); } },
-      items: workspaceProjects.map((project) => ({
-        id: project.id,
-        label: project.name,
-        menu: projectMenu(project),
-        onRename: (name: string) => void renameProject(project.id, name),
-        // A project expands to its chats.
-        children: workspaceChats.filter((chat) => chat.project_id === project.id).map(chatRow),
-        childrenEmptyLabel: t("shell.sections.noChats"),
-      })),
-      emptyLabel: t("shell.sections.noProjects"),
+      id: "recents",
+      label: t("nav.recents"),
+      items: recentChats.map((chat) => {
+        const bot = chat.bot_id ? botsById.get(chat.bot_id) : undefined;
+        return bot ? botRow(bot, chat.id) : chatRow(chat);
+      }),
+      emptyLabel: t("shell.sections.noChats"),
     },
     {
       id: "chats",
       label: t("nav.chats"),
-      action: { label: t("common.newChat"), icon: Plus, onSelect: () => { setActiveChatId(null); } },
-      // Only chats outside a project; the rest are listed under their project.
-      items: workspaceChats.filter((chat) => !chat.project_id || !workspaceProjects.some((project) => project.id === chat.project_id)).map(chatRow),
+      // New (above) starts a chat; this adds a project, which then lists here with its chats.
+      action: { label: t("nav.newProject.ariaLabel"), icon: Plus, onSelect: () => { setProjectError(null); setNewProjectOpen(true); } },
+      items: [
+        ...workspaceProjects.map((project) => ({
+        id: project.id,
+        label: project.name,
+        menu: projectMenu(project),
+        onRename: (name: string) => void renameProject(project.id, name),
+          // A project expands to its chats.
+          children: workspaceChats.filter((chat) => !chat.bot_id && chat.project_id === project.id).map(chatRow),
+          childrenEmptyLabel: t("shell.sections.noChats"),
+        })),
+        // Then chats outside a project; the rest are listed under their project, and bot chats under Bots.
+        ...workspaceChats
+          .filter((chat) => !chat.bot_id && (!chat.project_id || !workspaceProjects.some((project) => project.id === chat.project_id)))
+          .map(chatRow),
+      ],
       emptyLabel: t("shell.sections.noChats"),
+    },
+    {
+      id: "bots",
+      label: t("bots.title"),
+      action: { label: t("bots.new"), icon: Plus, onSelect: () => { setActiveChatId(null); navigate("/?new=bot"); } },
+      // Its chat's id once it has one, so the open bot chat is the selected row.
+      items: bots.map((bot) => botRow(bot, bot.chat_id ?? `bot:${bot.id}`)),
+      emptyLabel: t("shell.sections.noBots"),
     },
   ];
   const activeSidebarSurface = activeQuickAction === "inbox" || activeQuickAction === "chats"
@@ -743,6 +832,18 @@ export function RedesignPage() {
       keywords: ["share", "multiplayer", "code", "invite"],
       group: t("shell.commands.group.actions"),
       onSelect: () => setJoinOpen(true),
+    },
+    {
+      value: "new-bot",
+      label: t("bots.new"),
+      description: t("bots.subtitle"),
+      icon: BotIcon,
+      keywords: ["bot", "agent", "specialist", "create"],
+      group: t("shell.commands.group.actions"),
+      onSelect: () => {
+        setActiveChatId(null);
+        navigate("/?new=bot");
+      },
     },
     {
       value: "new-project",
@@ -917,7 +1018,7 @@ export function RedesignPage() {
                       <ChevronRight aria-hidden="true" className="size-3 shrink-0 text-muted-foreground" />
                     </>
                   )}
-                  <span className="truncate">{topBarChat.name}</span>
+                  <span className="truncate">{chatTitle(topBarChat)}</span>
                 </span>
               ) : null}
             </SidebarSurfaceTransition>
@@ -1009,7 +1110,11 @@ export function RedesignPage() {
                   if (chats.some((chat) => chat.id === itemId)) {
                     setActiveChatId(itemId);
                     navigate(`/chat/${itemId}`);
+                    return;
                   }
+                  // A bot: its chat, started the first time.
+                  const bot = bots.find((candidate) => `bot:${candidate.id}` === itemId || candidate.chat_id === itemId);
+                  if (bot) void openBot(bot);
                 } : undefined}
               />
             </SidebarSurfaceTransition>
@@ -1059,7 +1164,7 @@ export function RedesignPage() {
         {routedContent ?? (activeQuickAction === "chats" && activeChat && redesignChatContext ? (
           <ChatPage key={activeChat.id} sessionIdOverride={activeChat.id} shellContextOverride={redesignChatContext} />
         ) : activeQuickAction === "chats" ? (
-          <HomePage shellContextOverride={redesignHomeContext} onSessionCreated={openCreatedChat} />
+          <HomePage shellContextOverride={redesignHomeContext} onSessionCreated={openCreatedChat} onBotCreated={(bot) => void openBot(bot)} />
         ) : (
           <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
             {null}
@@ -1103,6 +1208,13 @@ export function RedesignPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <NewAgentDialog
+        kind="bot"
+        open={botEditOpen}
+        onClose={() => setBotEditOpen(false)}
+        initial={botToEdit ? { name: botToEdit.name, description: botToEdit.description ?? "", instructions: botToEdit.instructions, avatar: botToEdit.avatar ?? { kind: "bot", color: "#7A7A7A" } } : undefined}
+        onAdd={async (name, instructions, avatar, description) => botToEdit ? updateBot(botToEdit.id, { name, description, instructions, avatar }) : null}
+      />
       <CreateProjectDialog
         open={newProjectOpen}
         onOpenChange={(open) => {

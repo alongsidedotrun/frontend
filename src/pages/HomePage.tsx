@@ -1,6 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useLocation, useNavigate, useOutletContext } from "react-router-dom";
+import { useLocation, useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
+import { AnimatePresence, motion } from "motion/react";
+import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { ShapeProvider } from "@/lib/shape-context";
+import { BotFields, checkDraft, EMPTY_DRAFT, showAddError, type BotDraft } from "@/components/new-agent-dialog";
+import { randomBotAvatar } from "@/components/bot-face";
+import { createBot, type Bot } from "@/lib/bots";
+import { useBotMood } from "@/components/bot-face";
+import { fade } from "@/lib/springs";
+import { cn } from "@/lib/utils";
 import { QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
 import { useLimitWarning } from "@/components/limit-warning";
 import { ComposeBox, toImageInputs, type ImageAttachment } from "@/components/compose-box";
@@ -26,17 +36,27 @@ export type HomePageShellContext = {
   // heading shows the same tile as the sidebar.
   workspaceLogo?: string | null;
   workspaceColor?: number | null;
+  /** #504: a bot made on this page, to open its chat. */
+  onBotCreated?: (bot: Bot) => void;
 };
 
 type HomePageProps = {
   /** Allows the redesign to reuse New Chat inside its own shell. */
   shellContextOverride?: HomePageShellContext;
   onSessionCreated?: (sessionId: string) => void;
+  /** #504: a bot made here, to open its chat. */
+  onBotCreated?: (bot: Bot) => void;
 };
 
-export function HomePage({ shellContextOverride, onSessionCreated }: HomePageProps = {}) {
+// Same pill segmented control as Settings > Skills.
+const TAB_CLASS = "h-[22px] px-2.5 [&>span]:!text-[12px] [&>span]:!leading-none";
+
+export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated }: HomePageProps = {}) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  // New (#504): a chat, or a bot (?new=bot, as the sidebar's Bots "+" opens it).
+  const [searchParams, setSearchParams] = useSearchParams();
+  const mode: "chat" | "bot" = searchParams.get("new") === "bot" ? "bot" : "chat";
   // Set when this page was reached via a project row's own "+" (sidebar-nav.tsx) --
   // per explicit request ("we should get an + beside the > at projects to create a
   // chat inside the project"). There's no real session to assign a project_id to
@@ -55,6 +75,7 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
   // open the real SettingsOverlay modal directly, threaded down to
   // ComposeBox's own "Add provider" row.
   const outletContext = useOutletContext<HomePageShellContext>();
+  const shellContext = shellContextOverride ?? outletContext;
   const { openSettings, workspaceId, workspaceName = t("home.defaultWorkspaceName"), workspaceLogo = null, workspaceColor = null } = shellContextOverride ?? outletContext;
   const workspaceTile = workspaceMonogram(workspaceName, workspaceColor);
   const [prompt, setPrompt] = useState("");
@@ -288,6 +309,37 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
 
   return (
     <div className="relative flex flex-1 overflow-hidden bg-background @container">
+      {!transitioningToChat && (
+        <div className="absolute inset-x-0 top-5 z-20 flex justify-center">
+          <ShapeProvider defaultShape="pill">
+            <Tabs size="compact" value={mode} onValueChange={(next) => setSearchParams(next === "bot" ? { new: "bot" } : {}, { replace: true })}>
+              <TabsList className="[&>div:first-child]:!bg-background [&>div:first-child]:!shadow-[0_1px_2px_rgba(0,0,0,0.12),0_0_0_0.5px_rgba(0,0,0,0.08)] dark:[&>div:first-child]:!bg-white/12">
+                <TabItem value="chat" label={t("new.chat")} className={TAB_CLASS} />
+                <TabItem value="bot" label={t("new.bot")} className={TAB_CLASS} />
+              </TabsList>
+            </Tabs>
+          </ShapeProvider>
+        </div>
+      )}
+      <AnimatePresence mode="wait" initial={false}>
+        {mode === "bot" ? (
+          <motion.div
+            key="bot"
+            className="absolute inset-0 z-10 flex items-center justify-center px-3 sm:px-5"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1, transition: fade }}
+            exit={{ opacity: 0, transition: fade }}
+          >
+            <NewBotForm onCreated={(bot) => (onBotCreated ?? shellContext.onBotCreated)?.(bot)} />
+          </motion.div>
+        ) : (
+      <motion.div
+        key="chat"
+        className="absolute inset-0"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1, transition: fade }}
+        exit={{ opacity: 0, transition: fade }}
+      >
       <div
         className={`absolute inset-x-0 z-10 px-3 pb-4 transition-[top,transform] duration-500 ease-in-out sm:px-5 ${transitioningToChat ? "top-full -translate-y-full" : "top-1/2 -translate-y-1/2"}`}
       >
@@ -347,6 +399,137 @@ export function HomePage({ shellContextOverride, onSessionCreated }: HomePagePro
         />
         </div>
       </div>
+      </motion.div>
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+/** New > Bot (#504): its look, name and instructions; creating it opens its chat. */
+function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
+  const { t } = useTranslation();
+  // A new bot starts with a random colour (never the old default grey, so it never looks unset) and
+  // face; Reset draws another.
+  const fresh = (): BotDraft => ({ ...EMPTY_DRAFT, avatar: randomBotAvatar("#7A7A7A") });
+  const [draft, setDraft] = useState<BotDraft>(fresh);
+  const [startAvatar, setStartAvatar] = useState(draft.avatar);
+  const [busy, setBusy] = useState(false);
+  const { name, ready } = checkDraft(draft, false);
+  // The bot reacts as it's made: happy while it's named and described.
+  const [mood, react] = useBotMood();
+  return (
+    <form
+      // The chat page's sizes: its column (the compose box's width), its heading for the name, its chat
+      // text for the rest, and the compose box's rounding.
+      className="t-chat-width mx-auto flex w-full flex-col gap-4"
+      style={{ maxWidth: "var(--chat-max-width)" }}
+      onSubmit={async (event) => {
+        event.preventDefault();
+        if (!ready || busy) return;
+        setBusy(true);
+        const result = await createBot(name, draft.instructions.trim(), draft.avatar, draft.description.trim());
+        setBusy(false);
+        // Errors show in the app's toast, top middle.
+        if ("reason" in result) showAddError(t, result, "bot");
+        else onCreated(result);
+      }}
+    >
+      {/* The bot's name is the page's title, typed in place; its placeholders say what each field is for
+          and fade out once a field is focused, as in the compose box. */}
+      <div className="flex flex-col gap-1">
+        <CenteredInput
+          value={draft.name}
+          onChange={(value) => {
+            setDraft({ ...draft, name: value.replace(/\s/g, "-") });
+            react("happy");
+          }}
+          placeholder={t("bots.placeholder.name")}
+          label={t("agents.fields.name")}
+          maxLength={33}
+          className="py-2 text-[length:clamp(15px,calc(12.55px+0.545cqw),18px)]"
+        />
+        <CenteredInput
+          value={draft.description}
+          onChange={(value) => {
+            setDraft({ ...draft, description: value });
+            react("happy");
+          }}
+          placeholder={t("bots.placeholder.description")}
+          label={t("bots.fields.description")}
+          maxLength={300}
+          className="py-1 text-[length:var(--redesign-chat-text)]"
+        />
+      </div>
+      <BotFields
+        bare
+        expression={mood}
+        autoFocus={false}
+        draft={draft}
+        onChange={(next) => {
+          // A new look (colour, expression, Randomise) shows at once, as it will rest: no reaction over it.
+          if (next.avatar !== draft.avatar) react("default");
+          setDraft(next);
+        }}
+        footer={
+          // Round pills, like the app's other pill buttons, as wide as the colours above: start over, or make it.
+          <ShapeProvider defaultShape="pill">
+            <div className="mt-2 grid w-full grid-cols-2 gap-3">
+              <Button
+                type="button"
+                size="compact"
+                variant="tertiary"
+                className="h-9 w-full px-5"
+                disabled={busy || (!draft.name && !draft.description && !draft.instructions && draft.avatar === startAvatar)}
+                onClick={() => {
+                  const next = fresh();
+                  setDraft(next);
+                  setStartAvatar(next.avatar);
+                  react("default");
+                }}
+              >
+                {t("bots.reset")}
+              </Button>
+              <Button type="submit" size="compact" variant="primary" disabled={!ready || busy} className="h-9 w-full px-5">{t("bots.createShort")}</Button>
+            </div>
+          </ShapeProvider>
+        }
+      />
+    </form>
+  );
+}
+
+/**
+ * A centred one-line field: its placeholder fades out once it's focused, leaving the caret in the middle,
+ * and the text grows outward from there as you type, so nothing moves sideways. Square corners: the app's
+ * inputs are rounded, which clips the caret at a field's edge.
+ */
+function CenteredInput({
+  value,
+  onChange,
+  placeholder,
+  label,
+  maxLength,
+  className,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  label: string;
+  maxLength: number;
+  className?: string;
+}) {
+  return (
+    <input
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      placeholder={placeholder}
+      aria-label={label}
+      maxLength={maxLength}
+      className={cn(
+        "block w-full rounded-none bg-transparent px-4 text-center font-normal text-foreground outline-none placeholder:text-ink-3 placeholder:transition-opacity placeholder:duration-200 focus:placeholder:opacity-0",
+        className,
+      )}
+    />
   );
 }
