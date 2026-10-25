@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { ShapeProvider } from "@/lib/shape-context";
-import { BotFields, checkDraft, EMPTY_DRAFT, type BotDraft } from "@/components/new-agent-dialog";
+import { BotFields, checkDraft, EMPTY_DRAFT, showAddError, type BotDraft } from "@/components/new-agent-dialog";
 import { createBot, type Bot } from "@/lib/bots";
 import { useBotMood } from "@/components/bot-face";
 import { fade } from "@/lib/springs";
@@ -409,7 +409,6 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
 function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
   const { t } = useTranslation();
   const [draft, setDraft] = useState<BotDraft>(EMPTY_DRAFT);
-  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const { name, ready } = checkDraft(draft, false);
   // The bot reacts as it's made: happy while it's named and described.
@@ -426,7 +425,8 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
         setBusy(true);
         const result = await createBot(name, draft.instructions.trim(), draft.avatar, draft.description.trim());
         setBusy(false);
-        if (typeof result === "string") setError(t(result === "name_taken" ? "bots.errors.name_taken" : `agents.errors.${result}`));
+        // Errors show in the app's toast, top middle.
+        if (typeof result === "string") showAddError(t, result, "bot");
         else onCreated(result);
       }}
     >
@@ -437,7 +437,6 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
           value={draft.name}
           onChange={(value) => {
             setDraft({ ...draft, name: value.replace(/\s/g, "-") });
-            setError(null);
             react("happy");
           }}
           placeholder={t("bots.placeholder.name")}
@@ -466,9 +465,7 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
           // A new look (colour, expression, Randomise) shows at once, as it will rest: no reaction over it.
           if (next.avatar !== draft.avatar) react("default");
           setDraft(next);
-          setError(null);
         }}
-        error={error}
         footer={
           // Round pills, like the app's other pill buttons, as wide as the colours above: start over, or make it.
           <ShapeProvider defaultShape="pill">
@@ -481,7 +478,6 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
                 disabled={busy || (!draft.name && !draft.description && !draft.instructions && draft.avatar === EMPTY_DRAFT.avatar)}
                 onClick={() => {
                   setDraft(EMPTY_DRAFT);
-                  setError(null);
                   react("default");
                 }}
               >

@@ -6,6 +6,19 @@ import { AGENT_NAME_PATTERN, type AddAgentError } from "@/lib/chat-agents";
 import { BotAvatarPicker, BotEyesPicker, BotSwatches } from "@/components/bot-avatar-picker";
 import { BotFace, DEFAULT_BOT_AVATAR, type BotAvatar, type BotExpression } from "@/components/bot-face";
 import { cn } from "@/lib/utils";
+import { showErrorToast } from "@/components/ui/app-toast";
+import type { TFunction } from "i18next";
+
+/** Why adding an agent or making a bot failed, in words, for the app's error toast (top middle). */
+export function addErrorMessage(t: TFunction, error: AddAgentError, kind: "agent" | "bot") {
+  if (kind === "bot" && (error === "name_taken" || error === "failed")) return t(`bots.errors.${error}`);
+  return t(`agents.errors.${error}`);
+}
+
+/** Shows that error; a new one replaces the one on screen rather than stacking. */
+export function showAddError(t: TFunction, error: AddAgentError, kind: "agent" | "bot") {
+  showErrorToast(addErrorMessage(t, error, kind), { id: "add-bot-or-agent" });
+}
 
 export type BotDraft = { name: string; description: string; instructions: string; avatar: BotAvatar };
 
@@ -26,7 +39,6 @@ export function checkDraft(draft: BotDraft, needsInstructions = true) {
 export function BotFields({
   draft,
   onChange,
-  error,
   autoFocus = true,
   bare = false,
   withDescription = false,
@@ -35,7 +47,6 @@ export function BotFields({
 }: {
   draft: BotDraft;
   onChange: (draft: BotDraft) => void;
-  error?: string | null;
   autoFocus?: boolean;
   /** The New bot page: no name (the page's title is) and plain fields, so it reads like the bot itself. */
   bare?: boolean;
@@ -128,7 +139,6 @@ export function BotFields({
           />
         </section>
       )}
-      {error && <p className="px-1 text-[12px] text-destructive">{error}</p>}
     </div>
   );
 }
@@ -155,12 +165,10 @@ export function NewAgentDialog({
   const { t } = useTranslation();
   const formId = useId();
   const [draft, setDraft] = useState<BotDraft>(initial ?? EMPTY_DRAFT);
-  const [error, setError] = useState<AddAgentError | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (!open) return;
     setDraft(initial ?? EMPTY_DRAFT);
-    setError(null);
     // Only when it opens: `initial` is rebuilt on every render of the caller.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -192,18 +200,15 @@ export function NewAgentDialog({
           setBusy(true);
           const failed = await onAdd(name, draft.instructions.trim(), draft.avatar, draft.description.trim());
           setBusy(false);
-          if (failed) setError(failed);
+          // Errors show in the app's toast, top middle, not inside the dialog.
+          if (failed) showAddError(t, failed, kind);
           else onClose();
         }}
       >
         <BotFields
           withDescription={kind === "bot"}
           draft={draft}
-          onChange={(next) => {
-            setDraft(next);
-            setError(null);
-          }}
-          error={error && t(kind === "bot" && error === "name_taken" ? "bots.errors.name_taken" : `agents.errors.${error}`)}
+          onChange={setDraft}
         />
       </form>
     </ShellDialog>
