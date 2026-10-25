@@ -431,7 +431,7 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
         const result = await createBot(name, draft.instructions.trim(), draft.avatar, draft.description.trim());
         setBusy(false);
         // Errors show in the app's toast, top middle.
-        if (typeof result === "string") showAddError(t, result, "bot");
+        if ("reason" in result) showAddError(t, result, "bot");
         else onCreated(result);
       }}
     >

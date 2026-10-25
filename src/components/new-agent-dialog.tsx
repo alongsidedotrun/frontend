@@ -9,15 +9,30 @@ import { cn } from "@/lib/utils";
 import { showErrorToast } from "@/components/ui/app-toast";
 import type { TFunction } from "i18next";
 
-/** Why adding an agent or making a bot failed, in words, for the app's error toast (top middle). */
-export function addErrorMessage(t: TFunction, error: AddAgentError, kind: "agent" | "bot") {
-  if (kind === "bot" && (error === "name_taken" || error === "failed")) return t(`bots.errors.${error}`);
-  return t(`agents.errors.${error}`);
+/**
+ * Why adding an agent or making/saving a bot failed, in words, each with its error code (project/ERRORS.md):
+ * no backend is ALS-002, a taken name ALS-035, a name not allowed ALS-036, missing instructions ALS-038,
+ * and anything else the backend refused ALS-033 (creating a bot), ALS-034 (saving one) or ALS-037 (an
+ * agent), with its HTTP status.
+ */
+export function addErrorMessage(t: TFunction, error: AddAgentError, kind: "agent" | "bot", editing = false) {
+  const status = error.status ?? "-";
+  switch (error.reason) {
+    case "unreachable":
+      return t("settings.providers.noConnection");
+    case "name_taken":
+      return t(kind === "bot" ? "bots.errors.name_taken" : "agents.errors.name_taken");
+    case "invalid_name":
+    case "invalid_instructions":
+      return t(`agents.errors.${error.reason}`);
+    default:
+      return kind === "agent" ? t("agents.errors.failed", { status }) : t(editing ? "bots.errors.saveFailed" : "bots.errors.failed", { status });
+  }
 }
 
-/** Shows that error; a new one replaces the one on screen rather than stacking. */
-export function showAddError(t: TFunction, error: AddAgentError, kind: "agent" | "bot") {
-  showErrorToast(addErrorMessage(t, error, kind), { id: "add-bot-or-agent" });
+/** Shows that error in the app's toast (top middle); a new one replaces the one on screen. */
+export function showAddError(t: TFunction, error: AddAgentError, kind: "agent" | "bot", editing = false) {
+  showErrorToast(addErrorMessage(t, error, kind, editing), { id: "add-bot-or-agent" });
 }
 
 export type BotDraft = { name: string; description: string; instructions: string; avatar: BotAvatar };
@@ -201,7 +216,7 @@ export function NewAgentDialog({
           const failed = await onAdd(name, draft.instructions.trim(), draft.avatar, draft.description.trim());
           setBusy(false);
           // Errors show in the app's toast, top middle, not inside the dialog.
-          if (failed) showAddError(t, failed, kind);
+          if (failed) showAddError(t, failed, kind, editing);
           else onClose();
         }}
       >
