@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Upload01 } from "@untitledui/icons";
+import { Shuffle01, Upload01 } from "@untitledui/icons";
 import { XIcon } from "@/components/icons/untitled-ui";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { BOT_COLORS, BotFace, botGradient, type BotAvatar } from "@/components/bot-face";
@@ -85,6 +85,10 @@ export function BotAvatarPicker({ value, onChange, onClose }: { value: BotAvatar
   );
 }
 
+// Upload and Randomise: steady on hover (no growing or recolouring icon), and 4px over the colours so
+// they fill their slot -- an outlined dark circle reads smaller than the solid colours beside it.
+const ACTION_CIRCLE = "grid size-[calc(var(--swatch)+4px)] place-items-center rounded-full border border-foreground/20 bg-foreground/15 text-foreground/80 transition-colors hover:bg-foreground/20";
+
 /**
  * The colours to choose from, each shaded like the Alongside logo; `withUpload` adds an image as the last
  * choice (the New bot page, which shows them under the bot instead of in the picker).
@@ -111,7 +115,7 @@ export function BotSwatches({
   );
   return (
     <div className="flex flex-col items-center gap-2">
-      {/* Two even rows: the colours alone (six each), or with Upload (seven, then six). */}
+      {/* Two even rows: the colours alone (six each), or with Upload and Randomise (seven each). */}
       {/* Sized with the window, like the chat text: 22px narrow to 30px wide, the gaps with them. Every
           circle, Upload included, is the same size. */}
       <div
@@ -133,12 +137,27 @@ export function BotSwatches({
             {value.kind === "image" ? (
               <BotFace avatar={value} className="size-[var(--swatch)]" />
             ) : (
-              // Steady on hover: no growing or recolouring icon. It fills its slot (4px over the colours):
-              // an outlined dark circle reads smaller than the solid colours beside it.
-              <span className="grid size-[calc(var(--swatch)+4px)] place-items-center rounded-full border border-foreground/20 bg-foreground/15 text-foreground/80 transition-colors hover:bg-foreground/20">
+              <span className={ACTION_CIRCLE}>
                 <Upload01 aria-hidden="true" className="size-[calc(var(--swatch)*0.6)]" />
               </span>
             )}
+          </button>
+        )}
+        {withUpload && (
+          // A random colour, never the one it has. The shuffle turned so its arrows point up.
+          <button
+            type="button"
+            aria-label={t("bots.avatar.randomise")}
+            title={t("bots.avatar.randomise")}
+            onClick={() => {
+              const others = BOT_COLORS.filter((color) => value.kind !== "bot" || color !== value.color);
+              onChange({ kind: "bot", color: others[Math.floor(Math.random() * others.length)] });
+            }}
+            className={swatchClass(false, false)}
+          >
+            <span className={ACTION_CIRCLE}>
+              <Shuffle01 aria-hidden="true" className="size-[calc(var(--swatch)*0.6)] -rotate-90" />
+            </span>
           </button>
         )}
       </div>

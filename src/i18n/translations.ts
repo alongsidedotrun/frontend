@@ -3952,6 +3952,7 @@ export const translations = {
   "bots.dialog.description": { en: "A specialist you talk to directly, in its own chat.", "pt-BR": "Um especialista com quem você conversa diretamente, em um chat próprio.", es: "Un especialista con el que hablas directamente, en su propio chat.", fr: "Un spécialiste avec qui vous parlez directement, dans son propre chat.", de: "Ein Spezialist, mit dem du direkt sprichst, in seinem eigenen Chat.", zh: "一个可以直接对话的专家，拥有自己的聊天。", ja: "専用のチャットで直接話せる専門ボットです。" },
   "bots.errors.name_taken": { en: "You already have a bot with that name.", "pt-BR": "Você já tem um bot com esse nome.", es: "Ya tienes un bot con ese nombre.", fr: "Vous avez déjà un bot portant ce nom.", de: "Du hast bereits einen Bot mit diesem Namen.", zh: "你已有同名机器人。", ja: "同じ名前のボットがすでにあります。" },
   "bots.avatar.bot": { en: "Bot", "pt-BR": "Bot", es: "Bot", fr: "Bot", de: "Bot", zh: "机器人", ja: "ボット" },
+  "bots.avatar.randomise": { en: "Random colour", "pt-BR": "Cor aleatória", es: "Color aleatorio", fr: "Couleur au hasard", de: "Zufällige Farbe", zh: "随机颜色", ja: "ランダムな色" },
   "bots.avatar.upload": { en: "Upload", "pt-BR": "Enviar", es: "Subir", fr: "Importer", de: "Hochladen", zh: "上传", ja: "アップロード" },
   "bots.avatar.color": { en: "Colour", "pt-BR": "Cor", es: "Color", fr: "Couleur", de: "Farbe", zh: "颜色", ja: "色" },
   "bots.avatar.change": { en: "Change its look", "pt-BR": "Mudar a aparência", es: "Cambiar su aspecto", fr: "Changer son apparence", de: "Aussehen ändern", zh: "更改外观", ja: "見た目を変更" },
