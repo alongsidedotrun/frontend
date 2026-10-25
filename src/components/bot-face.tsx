@@ -6,8 +6,9 @@ export type BotAvatar = { kind: "bot"; color: string; eyes?: BotEyes } | { kind:
 
 // The face a bot rests with: its pill eyes, set its own way, so bots don't all look alike. Its states
 // (sleeping, excited, thinking, happy) are the same for every bot.
-export type BotEyes = "classic" | "small" | "wide" | "close" | "focused" | "gentle" | "curious";
-export const BOT_EYES: readonly BotEyes[] = ["classic", "small", "wide", "close", "focused", "gentle", "curious"];
+// Pill variations, and three of the sprite's own faces (public/bot-faces) to rest with.
+export type BotEyes = "classic" | "small" | "close" | "curious" | "sleeping" | "thinking" | "happy";
+export const BOT_EYES: readonly BotEyes[] = ["classic", "small", "close", "curious", "sleeping", "thinking", "happy"];
 
 // The faces in public/bot-faces/alongside-bots-sprite.svg. The default is the bot at rest; the others are
 // its states (thinking while it works, happy when it's done...).
@@ -68,20 +69,6 @@ const arc = (d: string) => <path d={d} fill="none" stroke="currentColor" strokeW
 
 // Each face's eyes, as drawn in the sprite (only the eyes change between faces). Drawn here rather than
 // through <use>, so they can blink between faces.
-// Pill eyes for each resting face (the sprite's default is "classic").
-const pill = (x: number, y: number, height: number, tilt = 0) => (
-  <rect x={x} y={y} width="12" height={height} rx="6" transform={tilt ? `rotate(${tilt} ${x + 6} ${y + height / 2})` : undefined} />
-);
-const RESTING: Record<BotEyes, ReactNode> = {
-  classic: <>{pill(38, 39, 30)}{pill(78, 39, 30)}</>,
-  small: <>{pill(38, 46, 16)}{pill(78, 46, 16)}</>,
-  wide: <>{pill(32, 39, 30)}{pill(84, 39, 30)}</>,
-  close: <>{pill(44, 39, 30)}{pill(72, 39, 30)}</>,
-  focused: <>{pill(38, 39, 30, 16)}{pill(78, 39, 30, -16)}</>,
-  gentle: <>{pill(38, 39, 30, -16)}{pill(78, 39, 30, 16)}</>,
-  curious: <>{pill(38, 39, 30)}{pill(78, 45, 20)}</>,
-};
-
 const EYES: Record<BotExpression, ReactNode> = {
   default: (
     <>
@@ -113,6 +100,18 @@ const EYES: Record<BotExpression, ReactNode> = {
       <circle cx="84" cy="54" r="10" />
     </>
   ),
+};
+
+// Each resting face: pill eyes set a few ways (the sprite's default is "classic"), or one of its faces.
+const pill = (x: number, y: number, height: number) => <rect x={x} y={y} width="12" height={height} rx="6" />;
+const RESTING: Record<BotEyes, ReactNode> = {
+  classic: EYES.default,
+  small: <>{pill(38, 46, 16)}{pill(78, 46, 16)}</>,
+  close: <>{pill(44, 39, 30)}{pill(72, 39, 30)}</>,
+  curious: <>{pill(38, 39, 30)}{pill(78, 45, 20)}</>,
+  sleeping: EYES.sleeping,
+  thinking: EYES.thinking,
+  happy: EYES.happy,
 };
 
 // A blink: the eyes squash shut quickly and open a little slower. Changing face swaps them while shut.
@@ -286,7 +285,7 @@ export function BotFace({
           transition: moving ? `transform ${shut ? CLOSE_MS : OPEN_MS}ms ${shut ? "cubic-bezier(0.4, 0, 1, 1)" : "cubic-bezier(0, 0, 0.2, 1)"}` : undefined,
         } as CSSProperties}
       >
-        {shown === "default" ? RESTING[avatar.eyes ?? "classic"] : EYES[shown]}
+        {shown === "default" ? RESTING[avatar.eyes as BotEyes] ?? RESTING.classic : EYES[shown]}
       </g>
       </g>
     </svg>
