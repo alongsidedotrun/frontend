@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Upload01 } from "@untitledui/icons";
 import { XIcon } from "@/components/icons/untitled-ui";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
-import { BOT_COLORS, BotFace, botGradient, type BotAvatar } from "@/components/bot-face";
+import { BOT_COLORS, BotFace, botGradient, isDarkBotColor, type BotAvatar } from "@/components/bot-face";
 import { resizeImageFile } from "@/lib/resize-image";
 import { cn } from "@/lib/utils";
 
@@ -110,12 +110,13 @@ export function BotSwatches({
   );
   return (
     <div className="flex flex-col items-center gap-2">
-      <div className="grid grid-cols-6 gap-2.5" role="radiogroup" aria-label={t("bots.avatar.color")}>
+      {/* Two even rows: the colours alone (six each), or with Upload (seven, then six). */}
+      <div className={cn("grid gap-2.5", withUpload ? "grid-cols-7" : "grid-cols-6")} role="radiogroup" aria-label={t("bots.avatar.color")}>
         {BOT_COLORS.map((swatch) => {
           const selected = value.kind === "bot" && value.color === swatch;
           return (
             <button key={swatch} type="button" role="radio" aria-checked={selected} aria-label={swatch} onClick={() => onChange({ kind: "bot", color: swatch })} className={swatchClass(selected)}>
-              <span className="size-7 rounded-full border border-foreground/10" style={{ background: botGradient(swatch) }} />
+              <span className={cn("size-7 rounded-full border", isDarkBotColor(swatch) ? "border-white/15" : "border-black/10")} style={{ background: botGradient(swatch) }} />
             </button>
           );
         })}
@@ -124,7 +125,7 @@ export function BotSwatches({
             {value.kind === "image" ? (
               <BotFace avatar={value} className="size-7" />
             ) : (
-              <span className="grid size-7 place-items-center rounded-full border border-dashed border-foreground/25 text-muted-foreground">
+              <span className="grid size-7 place-items-center rounded-full bg-foreground/[0.08] text-muted-foreground transition-colors hover:bg-foreground/[0.12] hover:text-foreground">
                 <Upload01 aria-hidden="true" className="size-3.5" />
               </span>
             )}

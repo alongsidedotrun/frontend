@@ -10,6 +10,7 @@ export type BotExpression = "default" | "happy" | "thinking" | "sleeping" | "exc
 
 // The face colours a bot can have, in the picker's order; the last (grey) is the default.
 export const BOT_COLORS = [
+  "#1C1C1C",
   "#FFFFFF",
   "#8B5E3C",
   "#D93B3B",
@@ -36,6 +37,12 @@ export function botShades(color: string) {
   return { top: mix(color, 255, 0.18), bottom: mix(color, 0, 0.12) };
 }
 
+/** Whether a colour is dark enough to need light eyes (black). */
+export function isDarkBotColor(color: string) {
+  const [r, g, b] = [1, 3, 5].map((at) => parseInt(color.slice(at, at + 2), 16));
+  return 0.299 * r + 0.587 * g + 0.114 * b < 60;
+}
+
 /** A colour's gradient as a CSS background, for its swatch. */
 export function botGradient(color: string) {
   const { top, bottom } = botShades(color);
@@ -43,7 +50,8 @@ export function botGradient(color: string) {
 }
 
 const EYE = "#111111";
-const arc = (d: string) => <path d={d} fill="none" stroke={EYE} strokeWidth="8" strokeLinecap="round" />;
+// Arcs draw in the eyes' colour, whatever face they're on.
+const arc = (d: string) => <path d={d} fill="none" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />;
 
 // Each face's eyes, as drawn in the sprite (only the eyes change between faces). Drawn here rather than
 // through <use>, so they can blink between faces.
@@ -194,7 +202,8 @@ export function BotFace({
         }}
       >
       <g
-        fill={EYE}
+        fill="currentColor"
+        color={isDarkBotColor(avatar.color) ? "#F2F2F2" : EYE}
         style={{
           transformBox: "fill-box",
           transformOrigin: "center",
@@ -205,7 +214,8 @@ export function BotFace({
         {EYES[shown]}
       </g>
       </g>
-      <circle cx="64" cy="64" r="60" fill="none" className="stroke-foreground/10" strokeWidth="2" />
+      {/* A dark hairline edge (a light one would read as a shine along the deeper bottom); black's is light. */}
+      <circle cx="64" cy="64" r="60" fill="none" className={isDarkBotColor(avatar.color) ? "stroke-white/15" : "stroke-black/10"} strokeWidth="2" />
     </svg>
   );
 }
