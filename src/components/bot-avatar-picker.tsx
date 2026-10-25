@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Shuffle01, Upload01 } from "@untitledui/icons";
 import { XIcon } from "@/components/icons/untitled-ui";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
-import { BOT_COLORS, BOT_EYES, BotFace, botGradient, type BotAvatar, type BotEyes } from "@/components/bot-face";
+import { BOT_COLORS, BOT_EYES, BotFace, botGradient, randomBotAvatar, type BotAvatar, type BotEyes } from "@/components/bot-face";
 import { resizeImageFile } from "@/lib/resize-image";
 import { cn } from "@/lib/utils";
 
@@ -203,8 +203,7 @@ export function BotSwatches({
             aria-label={t("bots.avatar.randomise")}
             title={t("bots.avatar.randomise")}
             onClick={() => {
-              const others = BOT_COLORS.filter((color) => value.kind !== "bot" || color !== value.color);
-              onChange({ kind: "bot", color: others[Math.floor(Math.random() * others.length)], eyes: BOT_EYES[Math.floor(Math.random() * BOT_EYES.length)] });
+              onChange(randomBotAvatar(value.kind === "bot" ? value.color : undefined));
             }}
             className={swatchClass(false, false)}
           >

@@ -32,6 +32,12 @@ export const BOT_COLORS = [
 
 export const DEFAULT_BOT_AVATAR: BotAvatar = { kind: "bot", color: "#7A7A7A" };
 
+/** A random colour (never `notColor`) and resting face: how a new bot starts, and what Randomise picks. */
+export function randomBotAvatar(notColor?: string): BotAvatar {
+  const colors = BOT_COLORS.filter((color) => color !== notColor);
+  return { kind: "bot", color: colors[Math.floor(Math.random() * colors.length)], eyes: BOT_EYES[Math.floor(Math.random() * BOT_EYES.length)] };
+}
+
 // Each colour is shaded like the Alongside logo's blue (public/favicon.svg): lighter at the top, deeper at
 // the bottom (#3A8CFF to #0566F5 there), with a soft white sheen over the top half.
 function mix(hex: string, toward: number, amount: number) {

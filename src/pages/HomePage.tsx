@@ -6,6 +6,7 @@ import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { ShapeProvider } from "@/lib/shape-context";
 import { BotFields, checkDraft, EMPTY_DRAFT, showAddError, type BotDraft } from "@/components/new-agent-dialog";
+import { randomBotAvatar } from "@/components/bot-face";
 import { createBot, type Bot } from "@/lib/bots";
 import { useBotMood } from "@/components/bot-face";
 import { fade } from "@/lib/springs";
@@ -408,7 +409,11 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
 /** New > Bot (#504): its look, name and instructions; creating it opens its chat. */
 function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
   const { t } = useTranslation();
-  const [draft, setDraft] = useState<BotDraft>(EMPTY_DRAFT);
+  // A new bot starts with a random colour (never the old default grey, so it never looks unset) and
+  // face; Reset draws another.
+  const fresh = (): BotDraft => ({ ...EMPTY_DRAFT, avatar: randomBotAvatar("#7A7A7A") });
+  const [draft, setDraft] = useState<BotDraft>(fresh);
+  const [startAvatar, setStartAvatar] = useState(draft.avatar);
   const [busy, setBusy] = useState(false);
   const { name, ready } = checkDraft(draft, false);
   // The bot reacts as it's made: happy while it's named and described.
@@ -475,9 +480,11 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
                 size="compact"
                 variant="tertiary"
                 className="h-9 w-full px-5"
-                disabled={busy || (!draft.name && !draft.description && !draft.instructions && draft.avatar === EMPTY_DRAFT.avatar)}
+                disabled={busy || (!draft.name && !draft.description && !draft.instructions && draft.avatar === startAvatar)}
                 onClick={() => {
-                  setDraft(EMPTY_DRAFT);
+                  const next = fresh();
+                  setDraft(next);
+                  setStartAvatar(next.avatar);
                   react("default");
                 }}
               >
