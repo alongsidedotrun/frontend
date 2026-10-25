@@ -11,10 +11,11 @@ export type BotDraft = { name: string; description: string; instructions: string
 
 export const EMPTY_DRAFT: BotDraft = { name: "", description: "", instructions: "", avatar: DEFAULT_BOT_AVATAR };
 
-/** The name without a leading "@", and whether the draft can be saved. */
-export function checkDraft(draft: BotDraft) {
+/** The name without a leading "@", and whether the draft can be saved: a bot needs only its name (its
+ *  instructions can come later); a chat agent needs its instructions too. */
+export function checkDraft(draft: BotDraft, needsInstructions = true) {
   const name = draft.name.trim().replace(/^@/, "");
-  return { name, ready: AGENT_NAME_PATTERN.test(name) && draft.instructions.trim().length > 0 };
+  return { name, ready: AGENT_NAME_PATTERN.test(name) && (!needsInstructions || draft.instructions.trim().length > 0) };
 }
 
 /**
@@ -105,24 +106,8 @@ export function BotFields({
           />
         </ShellField>
       )}
-      {bare ? (
-        // Centred and as wide as its text (or placeholder), wrapping at the column and growing downward:
-        // a hidden copy sizes it, so the caret starts where the placeholder does, as in the name above.
-        <label className="block cursor-text px-4 py-3 text-center text-[length:var(--redesign-chat-text)] leading-[1.5] text-foreground">
-          <span className="inline-grid max-w-full align-top text-left">
-            <span aria-hidden="true" className="invisible col-start-1 row-start-1 px-1 whitespace-pre-wrap break-words">{`${draft.instructions || t("bots.placeholder.instructions")} `}</span>
-            <textarea
-              aria-label={t("agents.fields.instructions")}
-              value={draft.instructions}
-              onChange={(event) => onChange({ ...draft, instructions: event.target.value })}
-              placeholder={t("bots.placeholder.instructions")}
-              maxLength={8000}
-              rows={1}
-              className="col-start-1 row-start-1 w-full min-w-[1ch] resize-none overflow-hidden rounded-none bg-transparent px-1 py-0 outline-none placeholder:text-ink-3 placeholder:transition-opacity placeholder:duration-200 focus:placeholder:opacity-0"
-            />
-          </span>
-        </label>
-      ) : (
+      {/* The New bot page has no instructions: they're given once the bot exists. */}
+      {!bare && (
         <section className={cn("flex flex-col gap-1 px-3 pt-2 pb-1", SHELL_RADIUS, SHELL_SURFACE)}>
           <label htmlFor={instructionsId} className="text-[12px] text-muted-foreground">{t("agents.fields.instructions")}</label>
           <textarea
@@ -172,7 +157,7 @@ export function NewAgentDialog({
     // Only when it opens: `initial` is rebuilt on every render of the caller.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
-  const { name, ready } = checkDraft(draft);
+  const { name, ready } = checkDraft(draft, kind !== "bot");
   const editing = Boolean(initial);
   const copy = kind === "bot" ? "bots" : "agents";
 

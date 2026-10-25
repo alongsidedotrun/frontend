@@ -135,7 +135,7 @@ export function BotSwatches({
             ) : (
               // Steady on hover: no growing or recolouring icon.
               <span className="grid size-[var(--swatch)] place-items-center rounded-full border border-foreground/20 bg-foreground/15 text-foreground/80 transition-colors hover:bg-foreground/20">
-                <Upload01 aria-hidden="true" className="size-[calc(var(--swatch)*0.5)]" />
+                <Upload01 aria-hidden="true" className="size-[calc(var(--swatch)*0.62)]" />
               </span>
             )}
           </button>

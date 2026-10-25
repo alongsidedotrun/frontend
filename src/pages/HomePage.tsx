@@ -411,8 +411,8 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
   const [draft, setDraft] = useState<BotDraft>(EMPTY_DRAFT);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const { name, ready } = checkDraft(draft);
-  // The bot reacts as it's made: excited while it's named, thinking while it's told what it does.
+  const { name, ready } = checkDraft(draft, false);
+  // The bot reacts as it's made: excited while it's named and described, happy at a new look.
   const [mood, react] = useBotMood();
   return (
     <form
@@ -463,21 +463,21 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
         autoFocus={false}
         draft={draft}
         onChange={(next) => {
-          // What it does: thinking. A new look: happy.
-          if (next.instructions !== draft.instructions) react("thinking");
-          else if (next.avatar !== draft.avatar) react("happy");
+          // A new look: happy.
+          if (next.avatar !== draft.avatar) react("happy");
           setDraft(next);
           setError(null);
         }}
         error={error}
       />
-      {/* Round pills, like the app's other pill buttons: start over, or make it. */}
+      {/* Round pills, like the app's other pill buttons, across the form: start over, or make it. */}
       <ShapeProvider defaultShape="pill">
-        <div className="flex justify-end gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <Button
             type="button"
             size="compact"
             variant="tertiary"
+            className="w-full"
             disabled={busy || (!draft.name && !draft.description && !draft.instructions && draft.avatar === EMPTY_DRAFT.avatar)}
             onClick={() => {
               setDraft(EMPTY_DRAFT);
@@ -487,7 +487,7 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
           >
             {t("bots.reset")}
           </Button>
-          <Button type="submit" size="compact" variant="primary" disabled={!ready || busy}>{t("bots.create")}</Button>
+          <Button type="submit" size="compact" variant="primary" disabled={!ready || busy} className="w-full">{t("bots.createShort")}</Button>
         </div>
       </ShapeProvider>
     </form>
