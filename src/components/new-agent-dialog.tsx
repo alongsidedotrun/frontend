@@ -118,7 +118,7 @@ export function BotFields({
               placeholder={t("bots.placeholder.instructions")}
               maxLength={8000}
               rows={1}
-              className="col-start-1 row-start-1 w-full min-w-[1ch] resize-none overflow-hidden bg-transparent px-1 py-0 outline-none placeholder:text-ink-3 placeholder:transition-opacity placeholder:duration-200 focus:placeholder:opacity-0"
+              className="col-start-1 row-start-1 w-full min-w-[1ch] resize-none overflow-hidden rounded-none bg-transparent px-1 py-0 outline-none placeholder:text-ink-3 placeholder:transition-opacity placeholder:duration-200 focus:placeholder:opacity-0"
             />
           </span>
         </label>

@@ -525,9 +525,10 @@ function CenteredInput({
           aria-label={label}
           maxLength={maxLength}
           // size={1}: an input is otherwise about 20 characters wide at least, which kept a short name
-          // off centre; this way the hidden copy alone sets its width.
+          // off centre; this way the hidden copy alone sets its width. Square: the app's inputs are
+          // rounded, and a field this tight clips its caret (and first letter) to the curve.
           size={1}
-          className="col-start-1 row-start-1 w-full min-w-[1ch] bg-transparent p-0 text-left outline-none placeholder:text-ink-3 placeholder:transition-opacity placeholder:duration-200 focus:placeholder:opacity-0"
+          className="col-start-1 row-start-1 w-full min-w-[1ch] rounded-none bg-transparent p-0 text-left outline-none placeholder:text-ink-3 placeholder:transition-opacity placeholder:duration-200 focus:placeholder:opacity-0"
         />
       </span>
     </label>
