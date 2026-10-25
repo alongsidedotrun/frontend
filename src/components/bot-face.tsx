@@ -152,41 +152,38 @@ export function BotFace({
     return () => window.clearTimeout(swap);
   }, [expression, shown, moving]);
 
-  // At rest: just woken, a look to each side; then every 3 to 6 seconds a blink or a glance.
+  // At rest: just woken, a look to each side; then every 3 to 4 seconds a blink or a glance.
   useEffect(() => {
     if (!moving || shown !== "default") return;
     const timers: number[] = [];
     const after = (ms: number, step: () => void) => timers.push(window.setTimeout(step, ms));
-    const glance = (sides: readonly (-1 | 1)[], then: () => void) => {
+    const glance = (sides: readonly (-1 | 1)[]) => {
       let at = 0;
       for (const side of sides) {
         after(at, () => setLook(side));
         at += GLANCE_MS + 520;
       }
       after(at, () => setLook(0));
-      after(at + GLANCE_MS, then);
+      return at + GLANCE_MS;
     };
-    const idle = () => after(3000 + Math.random() * 3000, () => {
-      // Following the cursor, it doesn't glance away on its own.
-      if (following.current) {
-        idle();
-        return;
-      }
-      if (Math.random() < 0.6) {
+    // Every 3 to 4 seconds (counted from the start of the last one), a blink or a glance, at random.
+    // While it follows the cursor it never glances away, it only blinks.
+    const act = () => {
+      after(3000 + Math.random() * 1000, act);
+      if (following.current || Math.random() < 0.5) {
         setShut(true);
-        after(CLOSE_MS + SHUT_MS, () => {
-          setShut(false);
-          idle();
-        });
+        after(CLOSE_MS + SHUT_MS, () => setShut(false));
       } else {
-        glance([Math.random() < 0.5 ? -1 : 1], idle);
+        glance([Math.random() < 0.5 ? -1 : 1]);
       }
-    });
-    if (woke) {
+    };
+    const rest = (delay: number) => after(delay, act);
+    if (woke && !following.current) {
       setWoke(false);
-      after(OPEN_MS + 250, () => glance([-1, 1], idle));
+      after(OPEN_MS + 250, () => rest(glance([-1, 1]) + 2000 + Math.random() * 1000));
     } else {
-      idle();
+      setWoke(false);
+      rest(3000 + Math.random() * 1000);
     }
     return () => timers.forEach((timer) => window.clearTimeout(timer));
     // `woke` is read once as the rest begins.
