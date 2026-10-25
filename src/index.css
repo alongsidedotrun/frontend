@@ -313,15 +313,17 @@
   /* Quick actions belongs to the sidebar base; its border and hover state
      provide separation without introducing a second resting surface. */
   --redesign-quick-actions-surface: var(--redesign-sidebar-surface);
-  --redesign-getting-started-surface: var(--redesign-sidebar-overlay-surface);
+  /* Cards resting on the page (Getting started, the compose box's strip) are the next step up
+     (Fluid's ladder); only what floats -- menus, popovers -- sits two up. */
+  --redesign-getting-started-surface: var(--surface-2);
   --redesign-compose-extension-surface: var(--redesign-getting-started-surface);
   /* Inactive accent (Getting Started ring, inactive send) in dark mode:
      the accent lightened toward white first, so it reads as a pale blue on
      the dark surface instead of a murky dark blue. */
   --redesign-progress-track: color-mix(in srgb, color-mix(in srgb, var(--focus-accent), white 55%) 45%, transparent);
-    --redesign-sidebar-border: var(--surface-4);
-    /* An overlay's edge: one step above the overlay itself. */
-    --redesign-overlay-border: var(--surface-4);
+    /* Edges are web/'s white at 10%: additive like the ladder, so they read the same on any step. */
+    --redesign-sidebar-border: var(--border);
+    --redesign-overlay-border: var(--border);
     /* Fluid Functionalism's dark ladder (fluidfunctionalism.com/docs/surfaces): even, additive white
        steps, rebased on web/'s #0F0F0F floor (Fluid's own runs #171717 to #484848). Page = 1,
        dropdowns and popovers = page + 2, dialogs = page + 4. */
@@ -890,7 +892,7 @@
        darker in dark mode"), which tracks: a lower alpha here mixes the
        border closer to the near-black background instead of standing out
        from it. Was #313131 before any of this. */
-    --border: rgba(252, 252, 252, 0.072);
+    --border: rgb(255 255 255 / 0.1);
     --input: var(--surface-2);
     --section-foreground: #6d6d6d;
     /* transparent -- see :root's --ring comment above for why. */
