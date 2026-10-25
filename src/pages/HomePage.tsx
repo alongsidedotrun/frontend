@@ -426,7 +426,7 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
         else onCreated(result);
       }}
     >
-      {/* The bot's name is the page's title, typed in place. */}
+      {/* The bot's name is the page's title, typed in place; each field keeps a light border so it reads as one. */}
       <div className="text-center">
         <input
           autoFocus
@@ -439,7 +439,7 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
           placeholder={t("agents.fields.name")}
           aria-label={t("agents.fields.name")}
           maxLength={33}
-          className="w-full bg-transparent text-center text-[18px] font-normal text-foreground outline-none placeholder:text-muted-foreground/60"
+          className="rounded-[var(--redesign-control-radius)] border border-border px-3 transition-[border-color] duration-150 hover:border-foreground/20 focus:border-focus-accent w-full bg-transparent py-1.5 text-center text-[18px] font-normal text-foreground outline-none placeholder:text-muted-foreground/60"
         />
         <input
           value={draft.description}
@@ -450,7 +450,7 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
           placeholder={t("bots.fields.description")}
           aria-label={t("bots.fields.description")}
           maxLength={300}
-          className="mt-1 w-full bg-transparent text-center text-[13px] text-muted-foreground outline-none placeholder:text-muted-foreground/60"
+          className="rounded-[var(--redesign-control-radius)] border border-border px-3 transition-[border-color] duration-150 hover:border-foreground/20 focus:border-focus-accent mt-2 w-full bg-transparent py-1.5 text-center text-[13px] text-muted-foreground outline-none placeholder:text-muted-foreground/60"
         />
       </div>
       <BotFields
