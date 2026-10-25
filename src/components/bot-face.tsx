@@ -96,6 +96,12 @@ const SHUT_MS = 40;
 // A glance: the eyes slide to one side and back.
 const GLANCE_MS = 220;
 const GLANCE_X = 7;
+// Following the cursor: how far the eyes go (sideways, up and down), how quickly they settle, and how
+// long after the cursor stops they drift back to idling.
+const GAZE_X = 7;
+const GAZE_Y = 5;
+const GAZE_MS = 120;
+const GAZE_IDLE_MS = 2500;
 
 function prefersReducedMotion() {
   return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -104,7 +110,7 @@ function prefersReducedMotion() {
 /**
  * A bot's face: the bot in its colour (a hairline ring keeps a white one visible), or its uploaded image.
  * `animated`: it blinks into a new expression instead of jumping; at rest it blinks and glances around
- * now and then, and waking up it looks to both sides.
+ * now and then, follows the cursor while it moves, and waking up it looks to both sides.
  */
 export function BotFace({
   avatar = DEFAULT_BOT_AVATAR,
@@ -120,6 +126,10 @@ export function BotFace({
   const [shown, setShown] = useState(expression);
   const [shut, setShut] = useState(false);
   const [look, setLook] = useState<-1 | 0 | 1>(0);
+  // Where the eyes look while following the cursor (null: not following).
+  const [gaze, setGaze] = useState<{ x: number; y: number } | null>(null);
+  const following = useRef(false);
+  const svgRef = useRef<SVGSVGElement>(null);
   const gradientId = `bot-face-${useId().replace(/:/g, "")}`;
   // Woken up (sleeping, then at rest): it looks around once its eyes are open.
   const [woke, setWoke] = useState(false);
@@ -157,6 +167,11 @@ export function BotFace({
       after(at + GLANCE_MS, then);
     };
     const idle = () => after(3000 + Math.random() * 3000, () => {
+      // Following the cursor, it doesn't glance away on its own.
+      if (following.current) {
+        idle();
+        return;
+      }
       if (Math.random() < 0.6) {
         setShut(true);
         after(CLOSE_MS + SHUT_MS, () => {
@@ -178,12 +193,46 @@ export function BotFace({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [moving, shown]);
 
+  // At rest, its eyes follow the cursor, further the further away it is, and settle back once it stops.
+  useEffect(() => {
+    if (!moving || shown !== "default") return;
+    let frame = 0;
+    let settle: number | undefined;
+    const onMove = (event: PointerEvent) => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const box = svgRef.current?.getBoundingClientRect();
+        if (!box) return;
+        const dx = event.clientX - (box.left + box.width / 2);
+        const dy = event.clientY - (box.top + box.height / 2);
+        const distance = Math.hypot(dx, dy) || 1;
+        const reach = Math.min(1, distance / (box.width * 2));
+        following.current = true;
+        setLook(0);
+        setGaze({ x: (dx / distance) * GAZE_X * reach, y: (dy / distance) * GAZE_Y * reach });
+      });
+      window.clearTimeout(settle);
+      settle = window.setTimeout(() => {
+        following.current = false;
+        setGaze(null);
+      }, GAZE_IDLE_MS);
+    };
+    window.addEventListener("pointermove", onMove);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      cancelAnimationFrame(frame);
+      window.clearTimeout(settle);
+      following.current = false;
+      setGaze(null);
+    };
+  }, [moving, shown]);
+
   if (avatar.kind === "image") {
     return <img src={avatar.src} alt="" aria-hidden="true" className={cn("shrink-0 rounded-full object-cover", className)} />;
   }
   const { top, bottom } = botShades(avatar.color);
   return (
-    <svg viewBox="0 0 128 128" aria-hidden="true" className={cn("shrink-0 overflow-visible", className)}>
+    <svg ref={svgRef} viewBox="0 0 128 128" aria-hidden="true" className={cn("shrink-0 overflow-visible", className)}>
       <defs>
         <linearGradient id={gradientId} x1="0" y1="4" x2="0" y2="124" gradientUnits="userSpaceOnUse">
           <stop stopColor={top} />
@@ -198,8 +247,8 @@ export function BotFace({
       <circle cx="64" cy="64" r="60" fill={`url(#${gradientId}-sheen)`} />
       <g
         style={{
-          transform: `translateX(${look * GLANCE_X}px)`,
-          transition: moving ? `transform ${GLANCE_MS}ms cubic-bezier(0.4, 0, 0.2, 1)` : undefined,
+          transform: gaze ? `translate(${gaze.x}px, ${gaze.y}px)` : `translateX(${look * GLANCE_X}px)`,
+          transition: moving ? `transform ${gaze ? GAZE_MS : GLANCE_MS}ms ${gaze ? "cubic-bezier(0, 0, 0.2, 1)" : "cubic-bezier(0.4, 0, 0.2, 1)"}` : undefined,
         }}
       >
       <g
