@@ -133,9 +133,10 @@ export function BotSwatches({
             {value.kind === "image" ? (
               <BotFace avatar={value} className="size-[var(--swatch)]" />
             ) : (
-              // Steady on hover: no growing or recolouring icon.
-              <span className="grid size-[var(--swatch)] place-items-center rounded-full border border-foreground/20 bg-foreground/15 text-foreground/80 transition-colors hover:bg-foreground/20">
-                <Upload01 aria-hidden="true" className="size-[calc(var(--swatch)*0.8)]" />
+              // Steady on hover: no growing or recolouring icon. It fills its slot (4px over the colours):
+              // an outlined dark circle reads smaller than the solid colours beside it.
+              <span className="grid size-[calc(var(--swatch)+4px)] place-items-center rounded-full border border-foreground/20 bg-foreground/15 text-foreground/80 transition-colors hover:bg-foreground/20">
+                <Upload01 aria-hidden="true" className="size-[calc(var(--swatch)*0.6)]" />
               </span>
             )}
           </button>
