@@ -37,7 +37,7 @@ export function botShades(color: string) {
   return { top: mix(color, 255, 0.18), bottom: mix(color, 0, 0.12) };
 }
 
-/** Whether a colour is dark enough to need light eyes (black). */
+/** Whether a colour is dark enough to need a light edge (black). */
 export function isDarkBotColor(color: string) {
   const [r, g, b] = [1, 3, 5].map((at) => parseInt(color.slice(at, at + 2), 16));
   return 0.299 * r + 0.587 * g + 0.114 * b < 60;
@@ -50,7 +50,13 @@ export function botGradient(color: string) {
   return `linear-gradient(to bottom, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0) 50%), linear-gradient(to bottom, ${top}, ${bottom})`;
 }
 
-const EYE = "#111111";
+// White eyes; a white face's are dark, or they'd vanish into it.
+const EYE = "#FFFFFF";
+const EYE_ON_LIGHT = "#111111";
+function isLightBotColor(color: string) {
+  const [r, g, b] = [1, 3, 5].map((at) => parseInt(color.slice(at, at + 2), 16));
+  return 0.299 * r + 0.587 * g + 0.114 * b > 210;
+}
 // Arcs draw in the eyes' colour, whatever face they're on.
 const arc = (d: string) => <path d={d} fill="none" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />;
 
@@ -250,7 +256,7 @@ export function BotFace({
       >
       <g
         fill="currentColor"
-        color={isDarkBotColor(avatar.color) ? "#F2F2F2" : EYE}
+        color={isLightBotColor(avatar.color) ? EYE_ON_LIGHT : EYE}
         style={{
           transformBox: "fill-box",
           transformOrigin: "center",
