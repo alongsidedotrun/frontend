@@ -57,12 +57,11 @@ export function botGradient(color: string) {
   return `linear-gradient(to bottom, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0) 50%), linear-gradient(to bottom, ${top}, ${bottom})`;
 }
 
-// White eyes; a white face's are dark, or they'd vanish into it.
+// White eyes; only the white face's are dark, or they'd vanish into it.
 const EYE = "#FFFFFF";
 const EYE_ON_LIGHT = "#111111";
 function isLightBotColor(color: string) {
-  const [r, g, b] = [1, 3, 5].map((at) => parseInt(color.slice(at, at + 2), 16));
-  return 0.299 * r + 0.587 * g + 0.114 * b > 210;
+  return color.toUpperCase() === "#FFFFFF";
 }
 // Arcs draw in the eyes' colour, whatever face they're on.
 const arc = (d: string) => <path d={d} fill="none" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />;
