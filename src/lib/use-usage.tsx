@@ -221,7 +221,7 @@ export function ModelUsageBars({ provider, usagePercent }: { provider: string; u
         return (
           <span
             key={i}
-            className={cn("h-full w-[4px] rounded-full", !on && "bg-[#F5F5F5] dark:bg-[var(--surface-3)]")}
+            className={cn("h-full w-[4px] rounded-full", !on && "bg-[#F5F5F5] dark:bg-[var(--surface-4)]")}
             style={on ? { backgroundColor: accent } : undefined}
           />
         );
