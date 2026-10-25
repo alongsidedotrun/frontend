@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Bot } from "lucide-react";
 import { ShellDialog, ShellDialogActions, ShellField, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
@@ -31,6 +31,7 @@ export function BotFields({
   bare = false,
   withDescription = false,
   expression,
+  footer,
 }: {
   draft: BotDraft;
   onChange: (draft: BotDraft) => void;
@@ -42,6 +43,8 @@ export function BotFields({
   withDescription?: boolean;
   /** The face it's making; given, it's animated (the New bot page). */
   expression?: BotExpression;
+  /** The New bot page's buttons, under the colours and as wide as them. */
+  footer?: ReactNode;
 }) {
   const { t } = useTranslation();
   const nameId = useId();
@@ -54,7 +57,10 @@ export function BotFields({
       {bare ? (
         <div className="flex flex-col items-center gap-4">
           <BotFace avatar={draft.avatar} expression={expression} animated={expression !== undefined} className="size-16" />
-          <BotSwatches value={draft.avatar} onChange={(avatar) => onChange({ ...draft, avatar })} withUpload />
+          <div className="flex w-fit flex-col gap-4">
+            <BotSwatches value={draft.avatar} onChange={(avatar) => onChange({ ...draft, avatar })} withUpload />
+            {footer}
+          </div>
         </div>
       ) : (
       <div className="relative flex justify-center">

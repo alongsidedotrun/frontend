@@ -469,27 +469,29 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
           setError(null);
         }}
         error={error}
+        footer={
+          // Round pills, like the app's other pill buttons, as wide as the colours above: start over, or make it.
+          <ShapeProvider defaultShape="pill">
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                size="compact"
+                variant="tertiary"
+                className="w-full"
+                disabled={busy || (!draft.name && !draft.description && !draft.instructions && draft.avatar === EMPTY_DRAFT.avatar)}
+                onClick={() => {
+                  setDraft(EMPTY_DRAFT);
+                  setError(null);
+                  react("default");
+                }}
+              >
+                {t("bots.reset")}
+              </Button>
+              <Button type="submit" size="compact" variant="primary" disabled={!ready || busy} className="w-full">{t("bots.createShort")}</Button>
+            </div>
+          </ShapeProvider>
+        }
       />
-      {/* Round pills, like the app's other pill buttons, across the form: start over, or make it. */}
-      <ShapeProvider defaultShape="pill">
-        <div className="grid grid-cols-2 gap-2">
-          <Button
-            type="button"
-            size="compact"
-            variant="tertiary"
-            className="w-full"
-            disabled={busy || (!draft.name && !draft.description && !draft.instructions && draft.avatar === EMPTY_DRAFT.avatar)}
-            onClick={() => {
-              setDraft(EMPTY_DRAFT);
-              setError(null);
-              react("default");
-            }}
-          >
-            {t("bots.reset")}
-          </Button>
-          <Button type="submit" size="compact" variant="primary" disabled={!ready || busy} className="w-full">{t("bots.createShort")}</Button>
-        </div>
-      </ShapeProvider>
     </form>
   );
 }
