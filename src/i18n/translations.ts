@@ -4883,6 +4883,7 @@ export const translations = {
     zh: "没有项目",
     ja: "プロジェクトはありません",
   },
+  "shell.sections.noRecents": { en: "No recents", "pt-BR": "Nada recente", es: "Nada reciente", fr: "Rien de récent", de: "Nichts Neues", zh: "暂无最近项目", ja: "最近の項目はありません" },
   "shell.sections.noChats": {
     en: "No chats",
     "pt-BR": "Nenhuma conversa",

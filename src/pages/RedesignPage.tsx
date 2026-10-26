@@ -698,7 +698,7 @@ export function RedesignPage() {
         const bot = chat.bot_id ? botsById.get(chat.bot_id) : undefined;
         return bot ? botRow(bot, chat.id) : chatRow(chat);
       }),
-      emptyLabel: t("shell.sections.noChats"),
+      emptyLabel: t("shell.sections.noRecents"),
     },
     {
       id: "chats",
