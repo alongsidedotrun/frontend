@@ -49,7 +49,7 @@ import {
   Volume2Icon,
   XIcon,
 } from "@/components/icons/untitled-ui";
-import { ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
+import { AUTO_BOT_MODEL, ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
 import { RELAY_JOIN_REQUESTED_EVENT } from "@/lib/use-share";
 
 // A file in a shared chat (#460), as a message refers to it.
@@ -3027,7 +3027,9 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             },
             onRemove: (id) => setQueuedMessages((queued) => queued.filter((item) => item.id !== id)),
           }}
-          defaultModelValue={defaultModelValue}
+          // A bot's chat starts on "Let the bot choose"; a model picked from the menu stays for the chat.
+          allowBotChoice={Boolean(bot)}
+          defaultModelValue={bot ? AUTO_BOT_MODEL.value : defaultModelValue}
           defaultEffortValue={defaultEffortValue}
           defaultPermissionValue={handoffPermissionMode}
           isMultiplayer={sharedChat}

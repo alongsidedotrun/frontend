@@ -3937,6 +3937,7 @@ export const translations = {
   "bots.placeholder.name": { en: "Give your bot a name here", "pt-BR": "Dê um nome ao seu bot aqui", es: "Ponle un nombre a tu bot aquí", fr: "Donnez un nom à votre bot ici", de: "Gib deinem Bot hier einen Namen", zh: "在这里给你的机器人起个名字", ja: "ここでボットに名前を付けてください" },
   "bots.placeholder.description": { en: "We recommend giving it a description too", "pt-BR": "Recomendamos dar uma descrição também", es: "También te recomendamos darle una descripción", fr: "Nous vous conseillons aussi de lui donner une description", de: "Wir empfehlen, ihm auch eine Beschreibung zu geben", zh: "建议也给它写一段描述", ja: "説明も付けることをおすすめします" },
   "bots.createShort": { en: "Create", "pt-BR": "Criar", es: "Crear", fr: "Créer", de: "Erstellen", zh: "创建", ja: "作成" },
+  "compose.botChooses": { en: "Let the bot choose", "pt-BR": "Deixe o bot escolher", es: "Deja que el bot elija", fr: "Laisser le bot choisir", de: "Den Bot wählen lassen", zh: "让机器人选择", ja: "ボットに任せる" },
   "bots.reset": { en: "Reset", "pt-BR": "Redefinir", es: "Restablecer", fr: "Réinitialiser", de: "Zurücksetzen", zh: "重置", ja: "リセット" },
   "bots.edit": { en: "Edit", "pt-BR": "Editar", es: "Editar", fr: "Modifier", de: "Bearbeiten", zh: "编辑", ja: "編集" },
   "bots.editTitle": { en: "Edit bot", "pt-BR": "Editar bot", es: "Editar bot", fr: "Modifier le bot", de: "Bot bearbeiten", zh: "编辑机器人", ja: "ボットを編集" },
