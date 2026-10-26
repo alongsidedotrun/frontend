@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { IconComponent } from "@/lib/icon-context";
 import { cn } from "@/lib/utils";
+import { forcedNoProvider } from "@/lib/dev-no-provider";
 import { useLocation, useNavigate, useOutlet } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -142,21 +143,6 @@ const quickActions = (t: Translate): readonly QuickActionItem[] => [
 
 // Getting started follows the first-run journey, with each step backed by the
 // corresponding real account, provider, project, chat, workspace or relay state.
-// Development only: ?noProvider=1 shows the app as if no provider were connected (the first-run gate),
-// remembered until ?noProvider=0.
-const FORCE_NO_PROVIDER_KEY = "alongside_dev_no_provider";
-function forcedNoProvider(): boolean {
-  if (!import.meta.env.DEV) return false;
-  try {
-    const asked = new URLSearchParams(window.location.search).get("noProvider");
-    if (asked === "1") localStorage.setItem(FORCE_NO_PROVIDER_KEY, "1");
-    if (asked === "0") localStorage.removeItem(FORCE_NO_PROVIDER_KEY);
-    return localStorage.getItem(FORCE_NO_PROVIDER_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
 // Setting up a provider comes first: nothing that needs a model works without one.
 const GETTING_STARTED_STEP_IDS = ["provider", "account", "project", "chat", "workspace", "multiplayer"] as const;
 const GETTING_STARTED_DONE_KEY = "alongside_getting_started_done";
