@@ -1,7 +1,7 @@
 import { useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ArchiveWorkspaceItem, WorkspaceFields, WorkspaceTileMenu, WorkspaceTilePreview, type WorkspaceFieldValues } from "@/components/design-system/workspace-fields";
-import { ShellDialog, ShellDialogActions } from "@/components/design-system/shell-dialog";
+import { ShellDialog, ShellDialogActions, ShellPage } from "@/components/design-system/shell-dialog";
 
 export type ManagedWorkspace = {
   id: string;
@@ -34,13 +34,16 @@ type ManageWorkspaceDialogProps = {
   saving?: boolean;
   error?: string | null;
   nameError?: string | null;
+  /** In the main area (the sidebar's Manage workspace), not over it; Cancel calls onOpenChange(false). */
+  asPage?: boolean;
 };
 
 function valuesOf(workspace: ManagedWorkspace): WorkspaceFieldValues {
   return { name: workspace.name, description: workspace.description ?? "", logo: workspace.logo ?? null, colorIndex: workspace.color ?? null };
 }
 
-export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, onArchive, canArchive = false, projects = [], workspaces = [], onMoveProject, saving = false, error, nameError }: ManageWorkspaceDialogProps) {
+export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, onArchive, canArchive = false, projects = [], workspaces = [], onMoveProject, saving = false, error, nameError, asPage = false }: ManageWorkspaceDialogProps) {
+  const Frame = asPage ? ShellPage : ShellDialog;
   const { t } = useTranslation();
   const [values, setValues] = useState<WorkspaceFieldValues>(() => valuesOf(workspace));
   const [confirmingArchive, setConfirmingArchive] = useState(false);
@@ -66,7 +69,7 @@ export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, o
   const destinations = workspaces.filter((item) => item.id !== workspace.id);
 
   return (
-    <ShellDialog
+    <Frame
       centered
       open={open}
       onOpenChange={onOpenChange}
@@ -110,6 +113,6 @@ export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, o
           {error && <p className="px-1 text-[12px] text-destructive">{error}</p>}
         </form>
       )}
-    </ShellDialog>
+    </Frame>
   );
 }

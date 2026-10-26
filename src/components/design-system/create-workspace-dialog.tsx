@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ShellDialog, ShellDialogActions } from "@/components/design-system/shell-dialog";
+import { ShellDialog, ShellDialogActions, ShellPage } from "@/components/design-system/shell-dialog";
 import { WorkspaceFields, WorkspaceTileMenu, type WorkspaceFieldValues } from "@/components/design-system/workspace-fields";
 
 type CreateWorkspaceDialogProps = {
@@ -11,6 +11,8 @@ type CreateWorkspaceDialogProps = {
   onCreate: (name: string, logo: string | null, description: string | null, colorIndex: number | null) => Promise<void> | void;
   saving?: boolean;
   error?: string | null;
+  /** In the main area (the sidebar's New workspace), not over it; Cancel calls onOpenChange(false). */
+  asPage?: boolean;
 };
 
 const EMPTY: WorkspaceFieldValues = { name: "", description: "", logo: null, colorIndex: null };
@@ -20,7 +22,8 @@ const EMPTY: WorkspaceFieldValues = { name: "", description: "", logo: null, col
  * workspace's tile on top, live as its logo, name and colour are set, then
  * the fields, then Cancel and Create workspace.
  */
-export function CreateWorkspaceDialog({ open, onOpenChange, onCreate, saving = false, error }: CreateWorkspaceDialogProps) {
+export function CreateWorkspaceDialog({ open, onOpenChange, onCreate, saving = false, error, asPage = false }: CreateWorkspaceDialogProps) {
+  const Frame = asPage ? ShellPage : ShellDialog;
   const { t } = useTranslation();
   const [values, setValues] = useState<WorkspaceFieldValues>(EMPTY);
   const formId = useId();
@@ -37,7 +40,7 @@ export function CreateWorkspaceDialog({ open, onOpenChange, onCreate, saving = f
   };
 
   return (
-    <ShellDialog
+    <Frame
       centered
       open={open}
       onOpenChange={onOpenChange}
@@ -62,6 +65,6 @@ export function CreateWorkspaceDialog({ open, onOpenChange, onCreate, saving = f
       >
         <WorkspaceFields values={values} onChange={setValues} nameError={error} autoFocusName />
       </form>
-    </ShellDialog>
+    </Frame>
   );
 }

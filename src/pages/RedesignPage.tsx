@@ -211,7 +211,7 @@ const SETTINGS_SECTIONS: readonly SettingsSection[] = ["profile", "general", "ap
 function quickActionForPath(pathname: string) {
   if (pathname === "/overview") return "overview";
   // Join chat (a page of its own) keeps the chats sidebar.
-  if (pathname.startsWith("/chat/") || pathname === "/" || pathname === "/join-chat") return "chats";
+  if (pathname.startsWith("/chat/") || pathname === "/" || pathname === "/join-chat" || pathname.startsWith("/workspace/")) return "chats";
   if (pathname === "/apps") return "apps";
   if (pathname === "/agents") return "agents";
   return "inbox";
@@ -232,7 +232,6 @@ export function RedesignPage() {
   const [, setAppHistoryVersion] = useState(0);
   const [workspaces, setWorkspaces] = useState<WorkspaceRecord[]>([DEFAULT_WORKSPACE]);
   const [workspaceId, setWorkspaceId] = useState(DEFAULT_WORKSPACE.id);
-  const [newWorkspaceOpen, setNewWorkspaceOpen] = useState(false);
   // Sign-in is a dialog over the shell (also opened from Settings via
   // openSignInDialog in lib/use-sign-in.ts).
   const [signInOpen, setSignInOpen] = useState(false);
@@ -254,7 +253,12 @@ export function RedesignPage() {
     navigate("/join-chat");
   }, [location.pathname, navigate]);
   useShareDialogHost(openShare, openJoin);
-  const [manageWorkspacesOpen, setManageWorkspacesOpen] = useState(false);
+  // New and Manage workspace are pages in the main area (not overlays): leaving one goes back to where
+  // it was opened from, or to a new chat.
+  const workspacePath = location.pathname === "/workspace/new" || location.pathname === "/workspace/manage" ? location.pathname : null;
+  const leaveWorkspacePage = () => (appHistoryIndexRef.current > 0 ? goBackInApp() : navigate("/"));
+  const openNewWorkspace = () => { setWorkspaceError(null); navigate("/workspace/new"); };
+  const openManageWorkspace = () => { setWorkspaceError(null); setWorkspaceNameTaken(false); navigate("/workspace/manage"); };
   const [saving, setSaving] = useState(false);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   // Whether workspaceError is about the name (shown under the Name field)
@@ -794,7 +798,7 @@ export function RedesignPage() {
       const workspace = await response.json() as WorkspaceRecord;
       syncWorkspaces([...workspaces, workspace]);
       setWorkspaceId(workspace.id);
-      setNewWorkspaceOpen(false);
+      navigate("/");
     } catch (error) {
       setWorkspaceError(error instanceof Error ? error.message : t("workspace.errors.create"));
     } finally {
@@ -818,7 +822,7 @@ export function RedesignPage() {
       if (response.status === 409) throw new Error(t("workspace.errors.nameTaken"));
       if (!response.ok) throw new Error(t("workspace.errors.save"));
       syncWorkspaces(workspaces.map((item) => item.id === workspace.id ? { ...item, ...change, name: change.name ?? item.name } : item));
-      setManageWorkspacesOpen(false);
+      leaveWorkspacePage();
     } catch (error) {
       setWorkspaceError(error instanceof Error ? error.message : t("workspace.errors.save"));
     } finally {
@@ -838,7 +842,7 @@ export function RedesignPage() {
       syncWorkspaces(workspaces.filter((item) => item.id !== workspace.id));
       setProjects((current) => current.filter((project) => project.workspace_id !== workspace.id));
       setChats((current) => current.filter((chat) => chat.workspace_id !== workspace.id));
-      setManageWorkspacesOpen(false);
+      leaveWorkspacePage();
     } catch (error) {
       setWorkspaceError(error instanceof Error ? error.message : t("archive.workspace.error"));
     } finally {
@@ -858,8 +862,8 @@ export function RedesignPage() {
   }
 
   const workspaceSectionActions: readonly WorkspaceMenuAction[] = [
-    { id: "new-workspace", label: t("workspace.new"), icon: Plus, onSelect: () => { setWorkspaceError(null); setNewWorkspaceOpen(true); } },
-    { id: "manage-workspace", label: t("workspace.manage"), icon: Settings01Icon, onSelect: () => { setWorkspaceError(null); setWorkspaceNameTaken(false); setManageWorkspacesOpen(true); } },
+    { id: "new-workspace", label: t("workspace.new"), icon: Plus, onSelect: openNewWorkspace },
+    { id: "manage-workspace", label: t("workspace.manage"), icon: Settings01Icon, onSelect: openManageWorkspace },
   ];
   // Opening a bot's chat from Quick actions: the sidebar's own openBot, current on every render.
   const openBotRef = useRef(openBot);
@@ -1045,7 +1049,7 @@ export function RedesignPage() {
       provider: () => navigate("/settings/provider"),
       project: () => { setProjectError(null); setNewProjectOpen(true); },
       chat: () => navigate("/"),
-      workspace: () => { setWorkspaceError(null); setWorkspaceNameTaken(false); setManageWorkspacesOpen(true); },
+      workspace: openManageWorkspace,
       // Sharing happens from a chat (/share there): the latest one, or a new one.
       multiplayer: () => navigate(chats[0] ? `/chat/${chats[0].id}` : "/"),
     },
@@ -1241,7 +1245,25 @@ export function RedesignPage() {
         contentClassName="flex min-h-0 w-full flex-1 bg-background"
         surfaceKey={redesignSurfaceKey}
       >
-        {routedContent ?? (activeQuickAction === "chats" && activeChat && redesignChatContext ? (
+        {workspacePath === "/workspace/new" ? (
+          <CreateWorkspaceDialog asPage open onOpenChange={() => leaveWorkspacePage()} onCreate={createWorkspace} saving={saving} error={workspaceError} />
+        ) : workspacePath === "/workspace/manage" ? (
+          <ManageWorkspaceDialog
+            asPage
+            open
+            onOpenChange={() => leaveWorkspacePage()}
+            workspace={activeWorkspace}
+            onSave={(change) => updateWorkspace(activeWorkspace, change)}
+            onArchive={() => archiveWorkspace(activeWorkspace)}
+            canArchive={workspaces.length > 1}
+            projects={projects}
+            workspaces={workspaces}
+            onMoveProject={moveProjectToWorkspace}
+            saving={saving}
+            error={workspaceNameTaken ? null : workspaceError}
+            nameError={workspaceNameTaken ? workspaceError : null}
+          />
+        ) : routedContent ?? (activeQuickAction === "chats" && activeChat && redesignChatContext ? (
           <ChatPage key={activeChat.id} sessionIdOverride={activeChat.id} shellContextOverride={redesignChatContext} />
         ) : activeQuickAction === "chats" ? (
           <HomePage shellContextOverride={redesignHomeContext} onSessionCreated={openCreatedChat} onBotCreated={(bot) => void openBot(bot)} />
@@ -1253,27 +1275,6 @@ export function RedesignPage() {
       </SidebarSurfaceTransition>
       <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} />
       <ShareChatDialog sessionId={shareChatId} open={shareOpen} onOpenChange={setShareOpen} />
-      <CreateWorkspaceDialog
-        open={newWorkspaceOpen}
-        onOpenChange={setNewWorkspaceOpen}
-        onCreate={createWorkspace}
-        saving={saving}
-        error={workspaceError}
-      />
-      <ManageWorkspaceDialog
-        open={manageWorkspacesOpen}
-        onOpenChange={setManageWorkspacesOpen}
-        workspace={activeWorkspace}
-        onSave={(change) => updateWorkspace(activeWorkspace, change)}
-        onArchive={() => archiveWorkspace(activeWorkspace)}
-        canArchive={workspaces.length > 1}
-        projects={projects}
-        workspaces={workspaces}
-        onMoveProject={moveProjectToWorkspace}
-        saving={saving}
-        error={workspaceNameTaken ? null : workspaceError}
-        nameError={workspaceNameTaken ? workspaceError : null}
-      />
       <Dialog open={projectToArchive !== null} onOpenChange={(open) => { if (!open) setProjectToArchive(null); }} backdropClassName="!z-[120]">
         <DialogContent className="!z-[120]">
           <DialogHeader>

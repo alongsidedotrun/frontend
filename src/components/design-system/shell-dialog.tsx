@@ -123,6 +123,53 @@ export function ShellDialog({
 }
 
 /**
+ * A shell dialog's content as a page in the main area (New and Manage workspace): the same tile, title,
+ * description, body and actions, centred in the page instead of over it. Takes ShellDialog's props;
+ * `open`, `onOpenChange`, `initialFocus` and `centered` don't apply to a page.
+ */
+export function ShellPage({
+  top,
+  title,
+  badge,
+  description,
+  children,
+  actions,
+  icon,
+  transitionKey,
+  footnote,
+}: Parameters<typeof ShellDialog>[0]) {
+  const reduceMotion = useReducedMotion();
+  return (
+    <div className="relative flex min-h-0 flex-1 overflow-y-auto bg-background">
+      <div className="m-auto flex w-full max-w-[400px] flex-col gap-3 px-4 py-16">
+        {top && <div className="mb-6 flex flex-col">{top}</div>}
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={transitionKey}
+            className="flex flex-col gap-3"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1, transition: { duration: reduceMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] } }}
+            exit={{ opacity: 0, transition: { duration: reduceMotion ? 0 : 0.12, ease: [0.4, 0, 1, 1] } }}
+          >
+            <div className="flex flex-col items-center gap-0.5 pb-3 text-center">
+              <div className="mb-2">{icon ?? <WorkspaceBrandIcon size={32} />}</div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-[15px] font-medium text-foreground">{title}</h1>
+                {badge}
+              </div>
+              <p className="text-[12px] text-muted-foreground">{description}</p>
+            </div>
+            {children}
+            {actions}
+            {footnote}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+/**
  * The bottom of a shell dialog: Cancel (white) over the main action (black;
  * white in dark mode), both full width.
  */

@@ -62,6 +62,9 @@ const ROUTES: RouteObject[] = [
       { path: "/join", element: <JoinPage /> },
       // Joining a chat with the chat ID and join code someone gave you (the sidebar's Join chat).
       { path: "/join-chat", element: <JoinChatPage /> },
+      // New and Manage workspace: drawn by the shell (RedesignPage), which holds the workspaces.
+      { path: "/workspace/new", element: null },
+      { path: "/workspace/manage", element: null },
       { path: "/projects", element: <ProjectsPage /> },
       { path: "/apps", element: <AppsPage /> },
       // Full page now, not a modal -- per explicit request ("i want a
