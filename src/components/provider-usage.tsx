@@ -157,7 +157,6 @@ function modelLabel(id: string) {
   return first.toLowerCase() === "gpt" ? `GPT-${rest.join(" ")}` : [first, ...rest].join(" ");
 }
 
-const MODEL_TAB_CLASS = "h-[22px] shrink-0 px-2.5 [&>span]:!text-[12px] [&>span]:!leading-none";
 
 /** A card's 24h/7d/30d rows, under All and a tab for each model used this calendar month (since the
  *  1st, in the viewer's time zone). With one model there are no tabs: it would repeat All. */
@@ -176,10 +175,10 @@ function UsageRows({ snapshot }: { snapshot: ProviderUsageSnapshot }) {
       {tabs.length > 1 && (
         <ShapeProvider defaultShape="pill">
           <Tabs size="compact" value={picked ? selected : "all"} onValueChange={(value) => setSelected(String(value))}>
-            <TabsList className="max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>div:first-child]:!bg-background [&>div:first-child]:!shadow-[0_1px_2px_rgba(0,0,0,0.12),0_0_0_0.5px_rgba(0,0,0,0.08)] dark:[&>div:first-child]:!bg-white/12">
-              <TabItem value="all" label={t("usage.models.all")} className={MODEL_TAB_CLASS} />
+            <TabsList className="max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <TabItem value="all" label={t("usage.models.all")} />
               {tabs.map((tab) => (
-                <TabItem key={tab.id} value={tab.id} label={tab.label} className={MODEL_TAB_CLASS} />
+                <TabItem key={tab.id} value={tab.id} label={tab.label} />
               ))}
             </TabsList>
           </Tabs>

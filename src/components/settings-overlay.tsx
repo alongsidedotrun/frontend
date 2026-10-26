@@ -127,7 +127,6 @@ const CONNECTED_MARK = CONNECTION_ADD;
 const CONNECTION_ROW = `flex w-full select-none items-center gap-3 ${SETTINGS_CARD_RADIUS} p-2 text-left`;
 
 type ConnectionFilter = "all" | "connected" | "available";
-const CONNECTION_TAB_CLASS = "h-[22px] px-2.5 [&>span]:!text-[12px] [&>span]:!leading-none";
 
 // Search shows once a list is this long; shorter ones are quicker to scan.
 const CONNECTION_SEARCH_FROM = 6;
@@ -160,10 +159,10 @@ function ConnectionToolbar({
     <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
       <ShapeProvider defaultShape="pill">
         <Tabs size="compact" value={filter} onValueChange={(next) => onFilter(next as ConnectionFilter)}>
-          <TabsList className="[&>div:first-child]:!bg-background [&>div:first-child]:!shadow-[0_1px_2px_rgba(0,0,0,0.12),0_0_0_0.5px_rgba(0,0,0,0.08)] dark:[&>div:first-child]:!bg-white/12">
-            <TabItem value="all" label={t("settings.connections.all")} className={CONNECTION_TAB_CLASS} />
-            <TabItem value="connected" label={t("settings.connections.connected")} className={CONNECTION_TAB_CLASS} />
-            <TabItem value="available" label={t("settings.connections.available")} className={CONNECTION_TAB_CLASS} />
+          <TabsList>
+            <TabItem value="all" label={t("settings.connections.all")} />
+            <TabItem value="connected" label={t("settings.connections.connected")} />
+            <TabItem value="available" label={t("settings.connections.available")} />
           </TabsList>
         </Tabs>
       </ShapeProvider>

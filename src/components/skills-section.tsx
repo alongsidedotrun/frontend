@@ -23,7 +23,6 @@ const SECTIONS: readonly { view: SkillsShView; titleKey: string; page: string }[
 ];
 const SECTION_SIZE = 6;
 // Same pill segmented control as Invite members.
-const TAB_CLASS = "h-[22px] px-2.5 [&>span]:!text-[12px] [&>span]:!leading-none";
 
 type Sort = "featured" | "installs" | "name";
 type Loaded<T> = T | "loading" | "error";
@@ -168,9 +167,9 @@ export function SkillsSection() {
       <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
         <ShapeProvider defaultShape="pill">
           <Tabs size="compact" value={tab} onValueChange={(value) => setTab(value as "installed" | "discover")}>
-            <TabsList className="[&>div:first-child]:!bg-background [&>div:first-child]:!shadow-[0_1px_2px_rgba(0,0,0,0.12),0_0_0_0.5px_rgba(0,0,0,0.08)] dark:[&>div:first-child]:!bg-white/12">
-              <TabItem value="installed" label={t("skills.tabs.installed")} className={TAB_CLASS} />
-              <TabItem value="discover" label={t("skills.tabs.discover")} className={TAB_CLASS} />
+            <TabsList>
+              <TabItem value="installed" label={t("skills.tabs.installed")} />
+              <TabItem value="discover" label={t("skills.tabs.discover")} />
             </TabsList>
           </Tabs>
         </ShapeProvider>
