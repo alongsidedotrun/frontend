@@ -230,8 +230,11 @@ function leastLeft(snapshot: ProviderUsageSnapshot | null | undefined) {
 /** Settings > Providers' Usage: a card per provider, with Filter (which providers to show) and Sort
  *  (by name or most used) beside the heading, like Skills' toolbar. */
 // Which providers are connected (their CLI there and signed in), by provider name; absent until known.
+// The last answers, so reopening Settings shows the right thing at once.
+const lastConnected: Record<string, boolean> = {};
+
 function useConnectedProviders(providers: readonly string[]): Record<string, boolean> {
-  const [connected, setConnected] = useState<Record<string, boolean>>({});
+  const [connected, setConnected] = useState<Record<string, boolean>>(() => ({ ...lastConnected }));
   const key = providers.join(",");
   // Checked again when one is connected or disconnected (the + above, say).
   const [changes, setChanges] = useState(0);
@@ -246,7 +249,9 @@ function useConnectedProviders(providers: readonly string[]): Record<string, boo
       void fetch(`/cli/${encodeURIComponent(provider.toLowerCase())}/available`)
         .then((response) => (response.ok ? (response.json() as Promise<{ available?: boolean }>) : null))
         .then((data) => {
-          if (!cancelled && data) setConnected((current) => ({ ...current, [provider]: Boolean(data.available) && !forcedNoProvider() }));
+          if (cancelled || !data) return;
+          lastConnected[provider] = Boolean(data.available) && !forcedNoProvider();
+          setConnected((current) => ({ ...current, [provider]: lastConnected[provider] }));
         })
         .catch(() => {});
     }
@@ -294,6 +299,8 @@ export function ProviderUsageSection() {
   // Only connected providers have usage to show: the rest are left out, and with none, an empty state.
   const connected = useConnectedProviders(USAGE_PROVIDERS.map((model) => model.provider));
   const noneConnected = USAGE_PROVIDERS.every((model) => connected[model.provider] === false);
+  // Nothing until every provider has answered: no cards that then give way to the empty state.
+  const known = USAGE_PROVIDERS.every((model) => connected[model.provider] !== undefined);
   const { error: usageError } = useUsageStats();
   const [picked, setPicked] = useState<string[]>(() => {
     try {
@@ -321,7 +328,7 @@ export function ProviderUsageSection() {
     store(USAGE_SORT_KEY, next);
   };
   const byName = [...USAGE_PROVIDERS]
-    .filter((model) => connected[model.provider] !== false)
+    .filter((model) => connected[model.provider] === true)
     .sort((a, b) => nameOf(a.provider).localeCompare(nameOf(b.provider)));
   const shown = byName
     .filter((model) => showsAll || picked.includes(model.provider))
@@ -332,7 +339,7 @@ export function ProviderUsageSection() {
     <section className="flex flex-col gap-1.5" style={{ marginTop: "0.875rem" }}>
       <div className="flex items-center justify-between gap-2 px-2 py-1">
         <h3 className="text-[12px] font-normal text-muted-foreground/60">{t("settings.providers.usage")}</h3>
-        <div className={cn("flex items-center gap-1", noneConnected && "invisible")}>
+        <div className={cn("flex items-center gap-1", (noneConnected || !known) && "invisible")}>
           <DropdownMenu size="compact">
             <DropdownTrigger render={<Button size="compact" variant="tertiary" leadingIcon={FilterLines} active={!showsAll}>{t("usage.filter")}</Button>} />
             <DropdownContent align="end" className="w-52 min-w-0">
@@ -359,7 +366,7 @@ export function ProviderUsageSection() {
           </DropdownMenu>
         </div>
       </div>
-      {noneConnected ? <UsageEmptyState /> : (
+      {!known ? null : noneConnected ? <UsageEmptyState /> : (
       <div className="flex flex-col gap-2">
             {shown.map((model) => {
               const snapshot = snapshots[model.provider];
