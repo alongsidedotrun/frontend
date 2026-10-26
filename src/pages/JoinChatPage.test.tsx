@@ -59,7 +59,7 @@ describe("Join chat page (#213, #459)", () => {
     auth.signedIn = false;
     backend();
     renderDialog();
-    expect(await screen.findByText("You will be able to join a chat once you have created your account.")).toBeInTheDocument();
+    expect(await screen.findByText("You will be able to join a chat once you have created or signed in to your account.")).toBeInTheDocument();
     expect(screen.queryByLabelText("Identifier")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Join code")).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
