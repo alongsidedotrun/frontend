@@ -78,8 +78,8 @@ import { openSignInDialog } from "@/lib/use-sign-in";
 import { useIdentity } from "@/lib/identity";
 import { Command, Loader2, RotateCcw, Trash2 } from "lucide-react";
 import { showErrorToast } from "@/components/ui/app-toast";
+import { ShellDialog, ShellDialogActions, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
 import { cn } from "@/lib/utils";
-import { SwapLabel } from "@/components/ui/swap-label";
 
 // General owns the language and timezone controls. Story: Settings
 // "Application" section
@@ -743,303 +743,131 @@ function ConnectionBadge({ state }: { state: ConnectionState | undefined }) {
   );
 }
 
-// Reached by clicking any provider row -- per explicit request, connected
-// to check what connection is currently in use, not-connected to set one
-// up, both landing on the same view. Account only now -- API Key
-// connections are disabled and hidden (this component's own comment
-// further down has the full reasoning).
-function ProviderConnectionView({ provider }: { provider: Provider }) {
+// A provider's setup, over Settings (there are no provider pages): what connecting it does, in words,
+// and one action for where it stands -- install and sign in (Claude, Codex), its docs (the others),
+// sign in, or disconnect -- plus Update when a newer version is out. Opened from its row (the row, the
+// + and the check are one button). The row owns the state, so an install or sign-in carries on after
+// the overlay is closed.
+function ProviderSetupDialog({
+  provider,
+  open,
+  onClose,
+  status,
+  setup,
+  update,
+  onDisconnected,
+}: {
+  provider: Provider;
+  open: boolean;
+  onClose: () => void;
+  status: { available: boolean | undefined; installed: boolean | undefined; error: boolean };
+  setup: ReturnType<typeof useProviderSetup>;
+  update: ReturnType<typeof useCliUpdate>;
+  onDisconnected: () => Promise<boolean>;
+}) {
   const { t } = useTranslation();
-  // Guessed, not looked up anywhere real -- per explicit request to check "all
-  // providers", not just Claude/Codex (the two with a confirmed real binary name and
-  // login-status check, backend/src/server.rs's own cli_available). This may report
-  // unavailable for a provider that never had a CLI to begin with, not just one that's
-  // missing its install -- there's no per-provider metadata yet to distinguish those.
   const cliBinary = provider.name.toLowerCase();
-  const [cliMissing, setCliMissing] = useState(false);
-  const [loggingIn, setLoggingIn] = useState(false);
-  // Header badge below -- real, not the static QUICK_CHAT_MODELS `configured` any
-  // more (useCliAvailability's own comment has the full reasoning). Reused by "Log
-  // in" (below) too -- was a second, separate fetch on click before, which is what
-  // let this go straight to "nothing happens" once the CLI *was* found (the only
-  // branch that used to do anything was the missing-CLI dialog) -- there was no
-  // feedback at all for the success case. Same availability value either way, so
-  // there's nothing this second fetch could tell handleLogIn that useCliAvailability
-  // doesn't already know.
-  const { available, installed, error: cliCheckError, refetch: refetchAvailability } = useCliAvailability(cliBinary);
-  const setup = useProviderSetup(cliBinary, provider.displayName, refetchAvailability);
+  const installable = INSTALLABLE_PROVIDERS.has(cliBinary);
+  const docsUrl = PROVIDER_DOCS_URLS[cliBinary];
+  // "via Claude Code" -> "Claude Code": the app it runs through.
+  const tool = provider.displayCaption?.replace(/^via\s+/, "") ?? provider.displayName;
+  const names = { provider: provider.displayName, tool };
+  const [disconnecting, setDisconnecting] = useState(false);
+  const { available, installed, error } = status;
 
-  // Set while polling for sign-in to complete after "Setup now" (below) -- distinct
-  // from `loggingIn` (just the moment of spawning the login command itself, over in
-  // a second or two either way).
-  const [waitingForSignIn, setWaitingForSignIn] = useState(false);
-  // Distinct from the header badge's own "Connected" -- that's "will this work at
-  // all" (CLI present *and* signed in), this is "did clicking Log in specifically
-  // just confirm that". A already-available CLI is reported as already logged in via
-  // the personal account; one that's installed but not signed in opens the
-  // missing-CLI dialog (its own title/copy now branch on `installed` -- see below --
-  // since "not signed in" and "not installed at all" are different, differently
-  // actionable problems, confirmed directly as confusing when both showed the same
-  // "no PATH available" wording).
-  const [loggedInMessage, setLoggedInMessage] = useState<string | null>(null);
-  const [loggingOut, setLoggingOut] = useState(false);
+  const state: ConnectionState | undefined =
+    setup.phase === "signing-in"
+      ? "waiting"
+      : error
+        ? "error"
+        : available === undefined
+          ? undefined
+          : available
+            ? "connected"
+            : installed
+              ? "not-signed-in"
+              : "not-installed";
 
-  function handleLogIn() {
-    setLoggedInMessage(null);
-    if (cliCheckError) {
-      // Not the same dialog as a genuinely missing CLI -- confirmed directly (curl
-      // straight to /cli/{bin}/available) that a "PATH not available" report here
-      // was actually just this: the backend wasn't reachable at all (e.g. the web
-      // app open with no Tauri/backend process running), not that the CLI was
-      // really missing. Surfacing that distinction inline instead of the
-      // missing-CLI dialog avoids telling the user to (re)install something that's
-      // already installed.
-      setLoggedInMessage(t("settings.providers.noConnection"));
-    } else if (installed) {
-      // Straight to the real login flow, no overlay -- per explicit request
-      // ("when we click sign in we should do what the setup now does and
-      // completely avoid this overlay screen"). The missing-CLI dialog
-      // still has a real job for the OTHER case just below (genuinely not
-      // installed, nothing to log into yet -- "Visit provider
-      // documentation" is the only actionable step there).
-      void handleSetupNow();
-    } else if (INSTALLABLE_PROVIDERS.has(cliBinary)) {
-      // Claude and Codex install from here, then sign in, no dialog.
-      void setup.install().then((done) => {
-        if (done) void handleSetupNow();
-      });
-    } else {
-      setCliMissing(true);
-    }
+  const body =
+    setup.phase === "installing"
+      ? t("settings.providers.setup.installing", names)
+      : state === "waiting"
+        ? t("settings.providers.setup.waiting", names)
+        : state === "error"
+          ? t("settings.providers.noConnection")
+          : state === "connected"
+            ? t("settings.providers.setup.connected", names)
+            : state === "not-signed-in"
+              ? t("settings.providers.setup.signIn", names)
+              : installable
+                ? t("settings.providers.setup.install", names)
+                : t("settings.providers.setup.docs", names);
+
+  async function disconnect() {
+    setDisconnecting(true);
+    const res = await fetch(`/cli/${encodeURIComponent(cliBinary)}/logout`, { method: "POST" }).catch(() => null);
+    setDisconnecting(false);
+    if (res?.ok) await onDisconnected();
+    else showErrorToast(res ? t("settings.providers.couldNotDisconnect") : t("settings.providers.noConnection"), { id: `logout-${cliBinary}` });
   }
 
-  // Replaces the old "Manage" click, which just re-stated "Already using
-  // your personal X account" every time -- confirmed directly as unwanted
-  // ("we should not spam" that message): a CLI-based personal-account
-  // connection has no real "manage" surface beyond signing out, so this is
-  // the one real action that button can actually take now.
-  async function handleDisconnect() {
-    setLoggedInMessage(null);
-    setLoggingOut(true);
-    try {
-      const res = await fetch(`/cli/${encodeURIComponent(cliBinary)}/logout`, { method: "POST" });
-      if (res.ok) {
-        await refetchAvailability();
-      } else {
-        setLoggedInMessage(t("settings.providers.couldNotDisconnect"));
-      }
-    } catch {
-      setLoggedInMessage(t("settings.providers.noConnection"));
-    } finally {
-      setLoggingOut(false);
-    }
-  }
-
-  // "Setup now" (the missing-CLI dialog, below) -- was a pure no-op placeholder,
-  // confirmed directly as a real gap when the CLI genuinely needed signing in and
-  // clicking it did nothing. Real now: backend/src/server.rs's own cli_login route
-  // spawns the provider's actual login command (`codex login`/`claude auth login`),
-  // which opens the user's own default browser for them to complete. Only makes
-  // sense once the binary is confirmed installed (`installed`) -- there's nothing to
-  // log into if the CLI isn't even there, that case still routes to "Visit provider
-  // documentation" instead (its own onClick below).
-  //
-  // Polls afterward instead of just closing the dialog -- confirmed directly as a
-  // real gap: closing immediately after spawning login left the Connected badge
-  // showing stale "Not connected" until the whole Providers view was closed and
-  // reopened (useCliAvailability's own fetch only ever ran once, on mount), even
-  // though sign-in had genuinely completed in the browser tab that opened. 2s
-  // interval, 2 minutes max (60 attempts) -- long enough for a real OAuth flow
-  // (email, password, 2FA) without polling forever if the user abandons it.
-  async function handleSetupNow() {
-    setLoggingIn(true);
-    try {
-      await fetch(`/cli/${encodeURIComponent(cliBinary)}/login`, { method: "POST" });
-    } finally {
-      setLoggingIn(false);
-      setCliMissing(false);
-    }
-    setWaitingForSignIn(true);
-    for (let attempt = 0; attempt < 60; attempt++) {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      const isAvailable = await refetchAvailability();
-      if (isAvailable) break;
-    }
-    setWaitingForSignIn(false);
-  }
+  const busy = setup.phase !== "idle";
+  const primary =
+    state === "error" || state === undefined
+      ? undefined
+      : state === "connected"
+        ? { label: disconnecting ? t("settings.providers.disconnecting") : t("common.disconnect"), onClick: () => void disconnect(), disabled: disconnecting, destructive: true }
+        : state === "waiting"
+          ? { label: t("settings.providers.waitingForSignIn"), disabled: true, loading: true }
+          : state === "not-signed-in"
+            ? { label: t("settings.providers.signIn"), onClick: () => void setup.setUp(true), disabled: busy }
+            : installable
+              ? {
+                  label: setup.phase === "installing" ? t("settings.providers.installing") : t("settings.providers.setup.installAndSignIn"),
+                  onClick: () => void setup.setUp(false),
+                  disabled: busy,
+                  loading: setup.phase === "installing",
+                }
+              : docsUrl
+                ? { label: t("settings.providers.visitDocs"), onClick: () => void window.open(docsUrl, "_blank", "noopener,noreferrer") }
+                : undefined;
 
   return (
-    <div>
-      {/* Connected/Not connected badge, per explicit request -- icon stays left
-          (unchanged), min-w-0 flex-1 on the name/description column absorbs the
-          remaining space so the badge itself lands flush right, same "icon left,
-          badge right" layout the provider grid's own cards already use. */}
-      <div className="mt-4 flex items-center gap-3">
-        <span className="flex size-10 shrink-0 items-center justify-center">
-          <ProviderIcon model={provider} className="size-6" />
+    <ShellDialog
+      centered
+      open={open}
+      onOpenChange={(next) => { if (!next) onClose(); }}
+      icon={
+        <span className={cn("grid size-8 place-items-center", SHELL_RADIUS, SHELL_SURFACE)}>
+          <ProviderIcon model={provider} className="size-4.5" />
         </span>
-        <div className="min-w-0 flex-1">
-          {/* One shared size (13px) across name/caption/description/status
-              now, differentiated by weight and color instead of size --
-              per explicit request ("make these texts and icons consistent,
-              maybe icon 24px and text size medium"): the previous 14/12/10
-              mix (plus the icon's own 28px) read as an unintentional
-              mismatch rather than a deliberate hierarchy. */}
-          <div className="truncate text-[13px] font-medium text-foreground">
-            {provider.displayName}
-            {provider.displayCaption && (
-              <span className="ml-1.5 text-[13px] font-normal text-muted-foreground">{provider.displayCaption}</span>
-            )}
-          </div>
-          <div className="truncate text-[13px] font-normal text-muted-foreground">{provider.description}</div>
-        </div>
-        <ConnectionBadge
-          state={
-            waitingForSignIn
-              ? "waiting"
-              : cliCheckError
-                ? "error"
-                : available === undefined
-                  ? undefined
-                  : available
-                    ? "connected"
-                    : installed
-                      ? "not-signed-in"
-                      : "not-installed"
-          }
-        />
-      </div>
-
-      {/* Account only -- API Key connections are removed entirely, per
-          explicit decision: most people (including Team/Enterprise seats,
-          which still authenticate through a personal OAuth login, not a
-          shared key) use the Account path day to day, a real usage
-          endpoint (Story #217) only exists for that path anyway (an API
-          key is billed pay-per-token with no rate-limit window to show),
-          and an unused-but-present feature is worse for a new team
-          member reading this codebase than one that's genuinely gone --
-          the backend side (secrets.rs, /secrets/*, /settings/secret-backend,
-          the SecretStorageSection component) was deleted outright rather
-          than kept dormant. If a real API-key feature is ever requested,
-          that's new work built from scratch, not a tab re-added here. */}
-      <div className="mt-5">
-        <div className={`${SETTINGS_CARD_RADIUS} border border-border p-4`}>
-          <p className="text-[12px] font-medium text-foreground">{t("settings.providers.useOwnAccount", { provider: provider.displayName })}</p>
-          {/* Two variants, not one fixed sentence -- per explicit request
-              ("needs to be consistent around all providers"): the same
-              wording applies to every provider (no provider name in
-              either sentence), but which one shows depends on whether
-              there's actually a CLI to sign into yet (`installed`) --
-              ALS-003 (nothing installed) genuinely needs a different next
-              step (download it first) than ALS-004/already-connected
-              (just sign in, or check on an existing sign-in). */}
-          <p className="mt-1 text-[13px] font-normal text-muted-foreground">
-            {installed ? t("settings.providers.reusesLoginInstalled") : t("settings.providers.reusesLoginNotInstalled")}
-          </p>
-          <Button
-            variant="outline"
-            className="mt-3 h-8 text-[11px]"
-            onClick={available ? () => void handleDisconnect() : handleLogIn}
-            // `available`/`installed` both survive a connectivity error
-            // (useCliAvailability's check() only ever touches `error` in
-            // its catch, never resets these) -- so they still reflect the
-            // last real, persisted (availabilityCache/localStorage) answer
-            // even while cliCheckError is true, which is what lets
-            // "Disconnect"/"Set up" show up correctly instead of defaulting
-            // to "Log in" for a provider whose real state is already known.
-            // Disabled during a connectivity error outright -- per explicit
-            // request, logging in isn't the fix for "can't reach Alongside".
-            disabled={cliCheckError || available === undefined || loggingOut || setup.phase === "installing"}
-          >
-            {setup.phase === "installing"
-              ? t("settings.providers.installing")
-              : available
-              ? loggingOut
-                ? t("settings.providers.disconnecting")
-                : t("common.disconnect")
-              : installed
-                ? t("settings.providers.signIn")
-                : t("settings.providers.setUp")}
-          </Button>
-          {loggedInMessage && (
-            <p className="mt-2 text-[10px] font-normal text-green-600 dark:text-green-400"><ErrorText message={loggedInMessage} /></p>
-          )}
-        </div>
-      </div>
-
-      {/* installed vs not -- two different, differently-actionable problems
-          (backend/src/server.rs's own cli_available comment), confirmed directly as
-          confusing when both showed the same "no PATH available" copy: a binary
-          that's genuinely installed but not signed in needs a login (Setup now, real
-          now -- handleSetupNow's own comment above), not a reinstall. The built-in
-          top-right X (DialogContent's own showCloseButton, default true) is the
-          "skip it" affordance per explicit request -- dismissing doesn't sign
-          anyone in, that's still only the real "Setup now" button above. */}
-      <Dialog open={cliMissing} onOpenChange={setCliMissing}>
-        <DialogContent>
-          <DialogHeader>
-            {/* Dynamic per-provider copy, not a generic "Not signed in yet"
-                -- per explicit request/screenshot ("looks not professional...
-                Sign in to {provider} is required... You are trying to use
-                Gemini via Antigravity... and sign in is required."):
-                provider.displayCaption already carries the real "via X"
-                wrapper name (PROVIDER_DISPLAY, quick-chat-models.tsx --
-                "via Antigravity" for Gemini, "via Claude Code" for Claude,
-                "via Codex" for Codex), so this reads correctly for every
-                provider without hardcoding one. */}
-            <DialogTitle>
-              {installed ? t("settings.providers.signInRequired", { provider: provider.displayName }) : t("settings.providers.notInstalledTitle")}
-            </DialogTitle>
-            <DialogDescription>
-              <ErrorText
-                message={
-                  installed
-                    ? t("settings.providers.tryingToUse", {
-                        name: `${provider.displayName}${provider.displayCaption ? ` ${provider.displayCaption}` : ""}`,
-                      })
-                    : t("settings.providers.commandNotFound", { binary: cliBinary })
-                }
-              />
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              type="button"
-              // variant="secondary", not "outline" -- per explicit request
-              // ("should be our typical button style and not this
-              // transparent and black corner style"): outline's own
-              // dark:bg-input/30 fill reads as nearly invisible against
-              // this dialog's own dark surface, secondary is this app's
-              // real filled secondary-action style used elsewhere.
-              variant="secondary"
-              className="h-8 text-[11px]"
-              onClick={() => {
-                const url = PROVIDER_DOCS_URLS[cliBinary];
-                if (url) window.open(url, "_blank", "noopener,noreferrer");
-              }}
-            >
-              {t("settings.providers.visitDocs")}
-            </Button>
-            {installed && (
-              // type="button" -- per explicit request/bug report ("I
-              // pressed setup now and we should have been brought to sign
-              // in... as a new tab and not refresh our entire page"): a
-              // native <button> with no explicit type defaults to
-              // type="submit", which (if this dialog's portal ever renders
-              // inside an ancestor <form>) submits and navigates the whole
-              // page instead of just running onClick's own handler. The
-              // actual sign-in tab itself is opened by the backend's own
-              // spawned CLI login process (server.rs's own cli_login), not
-              // by this button directly -- this only has to stop being a
-              // stray form submit.
-              <Button type="button" onClick={handleSetupNow} disabled={loggingIn} className="h-8 text-[11px]">
-                {loggingIn ? t("settings.providers.opening") : t("settings.providers.setupNow")}
-              </Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+      }
+      title={provider.displayName}
+      badge={<ConnectionBadge state={state} />}
+      description={provider.displayCaption ?? provider.description}
+      actions={<ShellDialogActions cancelLabel={t("common.close")} onCancel={onClose} primary={primary} />}
+    >
+      <p className={cn("px-3 py-2.5 text-center text-[12px] text-muted-foreground", SHELL_RADIUS, SHELL_SURFACE)}>
+        <ErrorText message={body} />
+      </p>
+      {installed && update.updateAvailable && (
+        <Button
+          type="button"
+          variant="tertiary"
+          className={cn("h-8 w-full bg-white dark:bg-transparent", SHELL_RADIUS)}
+          disabled={update.state === "updating"}
+          loading={update.state === "updating"}
+          title={update.state === "failed" && update.error ? update.error : undefined}
+          onClick={() => void update.update()}
+        >
+          {update.state === "updating"
+            ? t("settings.providers.updating")
+            : update.state === "failed"
+              ? t("settings.providers.updateFailed")
+              : t("settings.providers.setup.update", names)}
+        </Button>
+      )}
+    </ShellDialog>
   );
 }
 
@@ -1131,144 +959,74 @@ function useProviderSetup(binary: string, providerName: string, refetch: () => P
   return { phase, install, setUp };
 }
 
-/** The blue "Update available" badge beside a provider's check or +; clicking it updates the CLI. */
-function UpdatePill({ state, error, onUpdate }: { state: "idle" | "updating" | "failed"; error: string | null; onUpdate: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <button
-      type="button"
-      disabled={state === "updating"}
-      title={state === "failed" && error ? error : undefined}
-      onClick={(event) => {
-        event.stopPropagation();
-        onUpdate();
-      }}
-      // A badge: the blue at 12% behind it, the full blue for its text (as the composer's command chips).
-      className="inline-flex h-[18px] shrink-0 items-center rounded-full bg-[color-mix(in_oklab,var(--focus-accent)_12%,transparent)] px-1.5 text-[8.5px] leading-none font-medium whitespace-nowrap text-[var(--focus-accent)] transition-colors hover:bg-[color-mix(in_oklab,var(--focus-accent)_18%,transparent)] disabled:cursor-default disabled:opacity-70 disabled:hover:bg-[color-mix(in_oklab,var(--focus-accent)_12%,transparent)]"
-    >
-      {/* The label changes with the app's text swap: the old one leaves, the badge's width glides, the new one arrives. */}
-      <SwapLabel swapKey={state}>
-        {state === "updating" ? t("settings.providers.updating") : state === "failed" ? t("settings.providers.updateFailed") : t("settings.providers.updateAvailable")}
-      </SwapLabel>
-    </button>
-  );
-}
-
-function ProviderCard({ provider, onClick, filter = "all", query = "" }: { provider: Provider; onClick: () => void; filter?: ConnectionFilter; query?: string }) {
+// One button per provider: its icon, name, where it stands, and a + (or a check once connected),
+// which opens its setup overlay (ProviderSetupDialog). While it installs or waits for the sign-in, a
+// spinner takes the +'s place.
+function ProviderCard({ provider, filter = "all", query = "" }: { provider: Provider; filter?: ConnectionFilter; query?: string }) {
   const { t } = useTranslation();
   const cliBinary = provider.name.toLowerCase();
   const { available, installed, error: cliCheckError, refetch: refetchAvailability } = useCliAvailability(cliBinary);
   const cliUpdate = useCliUpdate(cliBinary, installed === true, () => void refetchAvailability());
   const setup = useProviderSetup(cliBinary, provider.displayName, refetchAvailability);
-  const installable = INSTALLABLE_PROVIDERS.has(cliBinary);
-  // Every caller of this component now only ever passes an
-  // ACTIVE_PROVIDERS member (ProvidersSection's own activeProviders) --
-  // the "Coming soon" section stopped rendering real provider tiles
-  // entirely, per explicit request ("remove the providers at coming soon
-  // as we will only have the request a provider at our launch"), so the
-  // disabled/dimmed/"Coming soon" branch this component used to have for
-  // an inactive provider is dead code now, removed rather than kept
-  // around unreachable.
+  const [open, setOpen] = useState(false);
   const checking = !cliCheckError && available === undefined;
-  // `available` alone isn't enough here -- it's seeded from
-  // availabilityCache (useCliAvailability's own comment), so a provider
-  // that connected earlier this session can still read `available: true`
-  // from cache even while a fresh check just failed with cliCheckError
-  // (backend unreachable). Gating on both keeps the chevron/hover
-  // affordance in sync with the status text instead of showing a stale
-  // "Connected"-shaped row next to an ALS-002 message.
+  // `available` is seeded from availabilityCache, so a failed fresh check (cliCheckError) wins over it.
   const isConnected = available === true && !cliCheckError;
-  const checkedStatus = cliCheckError
-    // Same coded message as ConnectionBadge's own "error" state -- per
-    // explicit request, a clear error instead of a vague "can't check"
-    // (that badge's own comment has the full ALS-002 reasoning).
-    ? t("settings.providers.noConnection")
-    : checking
-      ? t("settings.providers.checking")
-      : isConnected
-        ? t("common.connected")
-        : installed
-          ? t("settings.providers.notSignedInPlain")
-          : t("settings.providers.notInstalledPlain");
-  // While the + sets it up: installing, then waiting for the sign-in in the browser.
   const statusLabel =
     setup.phase === "installing"
       ? t("settings.providers.installing")
       : setup.phase === "signing-in"
         ? t("settings.providers.waitingForSignIn")
-        : checkedStatus;
-  const docsUrl = PROVIDER_DOCS_URLS[cliBinary];
-  // Every row now gets the exact same edge-to-edge hover, regardless of
-  // connection state -- confirmed directly as a real inconsistency ("the
-  // hover for gemini should be the exact same as claude and chatgpt"): a
-  // not-yet-signed-in provider (Gemini, or Claude/Codex if they were ever
-  // logged out) used to carry a narrower hover on just its icon+name
-  // portion, stopping short of the Log in/Install button, while a
-  // Connected row got the full card. The border/padding/hover now live on
-  // this outer div unconditionally, and CSS's own hover bubbling means
-  // hovering the inner action button still lights up this same background
-  // -- no separate hover style needed on that button any more, so it can't
-  // visually compete with or fall out of step with the row's own.
-  const isFullCardButton = isConnected || cliCheckError;
+        : cliCheckError
+          ? t("settings.providers.noConnection")
+          : checking
+            ? t("settings.providers.checking")
+            : isConnected
+              ? t("common.connected")
+              : installed
+                ? t("settings.providers.notSignedInPlain")
+                : t("settings.providers.notInstalledPlain");
   if (!showsUnder(filter, isConnected, query, provider.displayName)) return null;
 
   return (
-    <div className={`flex select-none items-center gap-3 ${SETTINGS_CARD_RADIUS} p-2`}>
-      <button
-        type="button"
-        onClick={onClick}
-        className={`flex min-w-0 flex-1 select-none items-center gap-3 text-left ${isFullCardButton ? "w-full" : ""}`}
-      >
+    <>
+      <button type="button" onClick={() => setOpen(true)} aria-busy={setup.phase !== "idle"} className={CONNECTION_ROW}>
         <span className={PROVIDER_ICON_FRAME}>
           <ProviderIcon model={provider} className="size-5" />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[12px] font-medium text-foreground">
             {provider.displayName}
-            {provider.displayCaption && (
-              <span className="ml-1.5 font-normal text-muted-foreground">{provider.displayCaption}</span>
-            )}
+            {provider.displayCaption && <span className="ml-1.5 font-normal text-muted-foreground">{provider.displayCaption}</span>}
           </span>
-          {/* line-clamp-2, not truncate -- per explicit request ("make the
-              requested providers description suit into two or more
-              lines/rows, we will need to allow this to other agents"). */}
           <span className="line-clamp-2 text-[10px] font-normal text-muted-foreground"><ErrorText message={statusLabel} /></span>
         </span>
-      </button>
-      {/* An update for the CLI (it's installed): left of the check or +. */}
-      {cliUpdate.updateAvailable && <UpdatePill state={cliUpdate.state} error={cliUpdate.error} onUpdate={() => void cliUpdate.update()} />}
-      {isConnected && (
-        // A check once connected; the row itself (the button before) opens it.
-        <span className={CONNECTED_MARK} aria-hidden="true">
-          <Check className="size-3.5" />
+        {/* A newer version is out: said here, updated from the overlay. */}
+        {installed && cliUpdate.updateAvailable && (
+          <span className="inline-flex h-[18px] shrink-0 items-center rounded-full bg-[color-mix(in_oklab,var(--focus-accent)_12%,transparent)] px-1.5 text-[8.5px] leading-none font-medium whitespace-nowrap text-[var(--focus-accent)]">
+            {t("settings.providers.updateAvailable")}
+          </span>
+        )}
+        <span className={isConnected ? CONNECTED_MARK : CONNECTION_ADD} aria-hidden="true">
+          {setup.phase !== "idle" ? (
+            <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+          ) : isConnected ? (
+            <Check className="size-3.5" />
+          ) : (
+            <Plus className="size-3.5" />
+          )}
         </span>
-      )}
-      {/* Not connected: a bordered + that does what its label says -- Log in (the CLI is there) or
-          Set up opens this provider's detail view, Install goes to its install docs. When the check
-          itself failed (the status line says why), it opens the detail view too. */}
-      {isConnected ? null : (
-        <button
-          type="button"
-          aria-label={!cliCheckError && installed ? t("settings.providers.logIn") : !cliCheckError && (installable || docsUrl) ? t("settings.providers.install") : t("settings.providers.setUp")}
-          aria-busy={setup.phase !== "idle"}
-          disabled={setup.phase !== "idle"}
-          onClick={(event) => {
-            if (cliCheckError || installed) return onClick();
-            // Claude and Codex: installed here, then straight to their sign-in.
-            if (installable) {
-              event.stopPropagation();
-              return void setup.setUp(installed);
-            }
-            if (!docsUrl) return onClick();
-            event.stopPropagation();
-            window.open(docsUrl, "_blank", "noopener,noreferrer");
-          }}
-          className={cn(CONNECTION_ADD, "disabled:cursor-default")}
-        >
-          {setup.phase === "idle" ? <Plus className="size-3.5" /> : <Loader2 className="size-3.5 animate-spin text-muted-foreground" />}
-        </button>
-      )}
-    </div>
+      </button>
+      <ProviderSetupDialog
+        provider={provider}
+        open={open}
+        onClose={() => setOpen(false)}
+        status={{ available, installed, error: cliCheckError }}
+        setup={setup}
+        update={cliUpdate}
+        onDisconnected={refetchAvailability}
+      />
+    </>
   );
 }
 
@@ -1505,27 +1263,8 @@ function GithubAppConnectionView({ onBack }: { onBack: () => void }) {
 }
 
 function ProvidersSection() {
-  // Driven by a real query param (?provider=<name>) now, not local state --
-  // confirmed directly as a real bug ("the < to return to the providers is
-  // not working"): opening a provider's connection view used to be a pure
-  // React-state swap with no URL of its own, so it never became an entry
-  // in SettingsSidebarNav's own settingsHistory stack (that stack only
-  // sees pathname changes) -- the sidebar's back chevron had nothing to
-  // walk back to. Routing this through the URL means selecting a provider
-  // is a real navigate(), which the existing stack already picks up for
-  // free.
+  // No page per provider: each row opens its setup as an overlay (ProviderSetupDialog).
   const { t } = useTranslation();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const selectedProviderName = searchParams.get("provider");
-  const selectedProvider = selectedProviderName ? (PROVIDERS.find((p) => p.name === selectedProviderName) ?? null) : null;
-  function openProvider(provider: Provider) {
-    // replace: true -- matches every other settings-internal navigation in
-    // this file (RailButton's onClick, goToResult), keeping the router's
-    // own history from growing a separate entry per click; settingsHistory
-    // (this file's own back/forward stack) is what actually tracks steps
-    // now, not the router's history.
-    setSearchParams({ provider: provider.name }, { replace: true });
-  }
   // Two real sections now, not one flat grid -- per explicit request
   // ("so we have two sections"), each under its own describer label
   // (the sidebar's own "Recent projects"/"Recent chats" describer
@@ -1545,23 +1284,7 @@ function ProvidersSection() {
     // per explicit request, this list <-> connection-detail swap should
     // feel like "the same as our page transition" even though it's a
     // local view swap inside the modal, not a real route change.
-    <AnimatePresence mode="wait" initial={false}>
-      {selectedProvider ? (
-        <motion.div
-          key="connection"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1, transition: spring.slow }}
-          exit={{ opacity: 0, transition: spring.slow.exit }}
-        >
-          <ProviderConnectionView provider={selectedProvider} />
-        </motion.div>
-      ) : (
-        <motion.div
-          key="list"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1, transition: spring.slow }}
-          exit={{ opacity: 0, transition: spring.slow.exit }}
-        >
+    <div>
           {/* Search bar removed -- per explicit request ("lets remove the
               search bar from providers as that's not needed for now"):
               only ACTIVE_PROVIDERS.size real tiles plus Request a
@@ -1581,7 +1304,7 @@ function ProvidersSection() {
               />
               <ConnectionList filter={filter}>
                 {activeProviders.map((provider) => (
-                  <ProviderCard key={provider.name} provider={provider} filter={filter} query={query} onClick={() => openProvider(provider)} />
+                  <ProviderCard key={provider.name} provider={provider} filter={filter} query={query} />
                 ))}
                 {/* Grok: a placeholder until the backend can run it (alongsidedotrun/private#480). */}
                 {showsUnder(filter, false, query, "Grok") && (
@@ -1603,9 +1326,7 @@ function ProvidersSection() {
               correction ("Still inside providers its meant to be settings
               > apps and not settings > providers > apps") -- no longer
               reached from here at all. */}
-        </motion.div>
-      )}
-    </AnimatePresence>
+    </div>
   );
 }
 
