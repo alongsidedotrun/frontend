@@ -43,7 +43,6 @@ import { shapeMap } from "@/lib/shape-context";
 import { SizeProvider, useSize, type SizeVariant } from "@/lib/size-context";
 import { Elevated } from "@/lib/elevated";
 import { useSurface, SurfaceProvider } from "@/lib/surface-context";
-import { SURFACE_BG, SURFACE_DATA_HIGHLIGHTED_BG, SURFACE_HOVER_BG } from "@/lib/surface-classes";
 import { MoreTrigger } from "@/components/ui/more-trigger";
 
 // Dropdown opts out of the global pill/rounded shape context — popover surfaces
@@ -102,8 +101,10 @@ const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
     // dropdown"). This panel's own Elevated renders at offset={0} (its
     // real level *is* zIndexSubstrate -- the app's first surface tier), so
     // its own hover/selected fill sits one tier above that.
-    const zIndexSubstrate = useSurface();
-    const hoverBgClass = SURFACE_BG[Math.min(zIndexSubstrate + 1, 8)];
+    // The menus draw their own panel (--redesign-sidebar-overlay-surface, two steps above the page), so
+    // a fill from the surface ladder could land below it (darker than the menu in dark mode). hover-2
+    // adds a step to whatever is under it, the same as the selected row.
+    const hoverBgClass = "bg-hover-2";
     const {
       activeIndex,
       setActiveIndex,
@@ -442,7 +443,10 @@ const DropdownContent = forwardRef<HTMLDivElement, DropdownContentProps>(
     // Dropdown's own identical hoverBgClass above (that one's own comment
     // has the full bug report). This panel's own Elevated below also
     // renders at offset={0}, so its real level is zIndexSubstrate itself.
-    const hoverBgClass = SURFACE_BG[Math.min(zIndexSubstrate + 1, 8)];
+    // The menus draw their own panel (--redesign-sidebar-overlay-surface, two steps above the page), so
+    // a fill from the surface ladder could land below it (darker than the menu in dark mode). hover-2
+    // adds a step to whatever is under it, the same as the selected row.
+    const hoverBgClass = "bg-hover-2";
 
     const {
       activeIndex,
@@ -1068,8 +1072,10 @@ const DropdownSubItem = forwardRef<HTMLDivElement, DropdownSubItemProps>(
     // -- DropdownSubMenuItem's own submenu, or DropdownContent's top-level
     // popup for a plain non-nested caller) already *is* that popup's real
     // level, so the highlight sits one tier above it.
-    const level = useSurface();
-    const highlightClass = SURFACE_DATA_HIGHLIGHTED_BG[Math.min(level + 1, 8)];
+    // The menus draw their own panel (--redesign-sidebar-overlay-surface, two steps above the page), so
+    // a fill from the surface ladder could land below it (darker than the menu in dark mode). hover-2
+    // adds a step to whatever is under it, the same as the selected row.
+    const highlightClass = "data-[highlighted]:bg-hover-2";
     const rowClassName = cn(
       `relative flex ${useSize().control} shrink-0 items-center ${useSize().itemPx} cursor-pointer outline-none ${highlightClass} data-disabled:pointer-events-none data-disabled:opacity-50 ${shape.item}`,
       // px-2 -- same border-clearance fix as MenuItem's own itemClassName
@@ -1123,8 +1129,7 @@ const DropdownRowActionItem = forwardRef<HTMLDivElement, DropdownRowActionItemPr
     // DropdownSubItem's own highlightClass above (that one's own comment
     // has the full bug report). Real :hover here (not Base UI's
     // data-highlighted), so this reuses SURFACE_HOVER_BG directly.
-    const level = useSurface();
-    const hoverClass = SURFACE_HOVER_BG[Math.min(level + 1, 8)];
+    const hoverClass = "hover:bg-hover-2";
     return (
     <div
       ref={ref}
