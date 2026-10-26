@@ -8,10 +8,11 @@ import { ProvidersIcon } from "@/components/icons/untitled-ui";
 // whatever needs a model -- a new chat, a new bot, sending in a chat -- shows these instead, pointing to
 // Settings > Providers; the rest of the app (Settings, the sidebar, Join chat) stays open.
 
+// Alphabetical: Antigravity, Claude, Codex, Grok.
 const PROVIDER_ICONS = [
+  { src: "/icons/providers/gemini.svg", alt: "Antigravity" },
   { src: "/icons/providers/claude.svg", alt: "Claude" },
   { src: "/icons/providers/chatgpt.svg", alt: "Codex", invertInDark: true },
-  { src: "/icons/providers/gemini.svg", alt: "Antigravity" },
   { src: "/icons/providers/grok.svg", alt: "Grok", invertInDark: true },
 ];
 

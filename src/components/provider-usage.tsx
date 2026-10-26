@@ -250,14 +250,22 @@ function useConnectedProviders(providers: readonly string[]): Record<string, boo
   return connected;
 }
 
+// The empty state's rows: the providers with usage, and Grok (to come), as the composer's
+// "Connect to your Providers" row shows them.
+// Alphabetical by provider: Antigravity, Claude, Codex, Grok.
+const EMPTY_STATE_ICONS = [
+  ...USAGE_PROVIDERS,
+  { provider: "Grok", value: "grok", icon: "/icons/providers/grok.svg", invertInDark: true, iconScale: 0.82 },
+].sort((a, b) => a.provider.localeCompare(b.provider));
+
 /** No provider connected: what the section will hold, drawn faintly, and what to do. */
 function UsageEmptyState() {
   const { t } = useTranslation();
   return (
     <div className="flex flex-col items-center gap-6 rounded-xl border border-border bg-foreground/[0.02] px-4 py-10 text-center">
       <div className="flex w-full max-w-[220px] flex-col gap-2" aria-hidden="true">
-        {USAGE_PROVIDERS.map((model) => (
-          <div key={model.provider} className="flex items-center gap-2.5 rounded-lg border border-border px-2.5 py-2 opacity-60">
+        {EMPTY_STATE_ICONS.map((model) => (
+          <div key={model.value} className="flex items-center gap-2.5 rounded-lg border border-border px-2.5 py-2 opacity-60">
             <ProviderIcon model={model} className="size-3.5 shrink-0 grayscale" />
             <span className="h-1.5 flex-1 rounded-full bg-foreground/10" />
           </div>

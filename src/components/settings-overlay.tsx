@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { ShapeProvider } from "@/lib/shape-context";
 import { ProviderUsageSection } from "@/components/provider-usage";
+import { forcedNoProvider } from "@/lib/dev-no-provider";
 import { resizeImageFile } from "@/lib/resize-image";
 import { LimitReminderRows } from "@/components/limit-reminders";
 import { Check, Plus, SearchMd } from "@untitledui/icons";
@@ -601,8 +602,10 @@ export function useCliAvailability(binary: string): {
   // once this page session starts already knowing the answer, instead of
   // flashing "Checking..." (ConnectionBadge, below, no longer even has that
   // state to render) on every single reopen of Settings.
-  const [available, setAvailable] = useState<boolean | undefined>(cached?.available);
-  const [installed, setInstalled] = useState<boolean | undefined>(cached?.installed);
+  // ?noProvider=1 (development): every provider reads as not installed, to see the setup page.
+  const forced = forcedNoProvider();
+  const [available, setAvailable] = useState<boolean | undefined>(forced ? false : cached?.available);
+  const [installed, setInstalled] = useState<boolean | undefined>(forced ? false : cached?.installed);
   const [error, setError] = useState(false);
 
   const check = useCallback(() => {
@@ -612,10 +615,14 @@ export function useCliAvailability(binary: string): {
         return res.json();
       })
       .then((data) => {
-        const isAvailable = Boolean(data.available);
-        const isInstalled = Boolean(data.installed);
-        availabilityCache.set(binary, { available: isAvailable, installed: isInstalled });
-        persistAvailabilityCache();
+        const forced = forcedNoProvider();
+        const isAvailable = !forced && Boolean(data.available);
+        const isInstalled = !forced && Boolean(data.installed);
+        // A forced answer isn't the real one: the cache keeps what the CLI said.
+        if (!forced) {
+          availabilityCache.set(binary, { available: isAvailable, installed: isInstalled });
+          persistAvailabilityCache();
+        }
         setAvailable(isAvailable);
         setInstalled(isInstalled);
         setError(false);
