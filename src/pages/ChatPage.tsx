@@ -323,8 +323,14 @@ function normalizeToolName(name: string): string {
   return TOOL_NAME_ALIASES[name] ?? name;
 }
 
+// Times follow Settings > Language (English IE/UK: 24-hour, US: 12-hour, and so on), not the
+// UI translation ("en" alone reads as US English, so 12-hour everywhere).
+function clockTime(date: Date) {
+  return date.toLocaleTimeString(loadLanguage(), { hour: "2-digit", minute: "2-digit" });
+}
+
 function messageTime() {
-  return new Date().toLocaleTimeString(i18n.language, { hour: "2-digit", minute: "2-digit" });
+  return clockTime(new Date());
 }
 
 // Per explicit request: a message's own displayed time should read differently
@@ -344,14 +350,14 @@ function messageTime() {
 function formatMessageTimestamp(ms: number): string {
   const date = new Date(ms);
   const now = new Date();
-  const time = date.toLocaleTimeString(i18n.language, { hour: "2-digit", minute: "2-digit" });
+  const time = clockTime(date);
   const isSameDay = date.toDateString() === now.toDateString();
   if (isSameDay) return time;
   const oneDayMs = 24 * 60 * 60 * 1000;
   const daysAgo = Math.floor((now.getTime() - date.getTime()) / oneDayMs);
   const isSameWeek = daysAgo < 7 && date.getDay() !== now.getDay();
   if (isSameWeek) {
-    const dayName = date.toLocaleDateString(i18n.language, { weekday: "long" });
+    const dayName = date.toLocaleDateString(loadLanguage(), { weekday: "long" });
     return `${dayName} ${time}`;
   }
   const monthFirst = isMonthFirstDateOrder(loadLanguage());
@@ -3139,7 +3145,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
 // rows were still on an older span, only the agent row's own had been resized.
 function MessageTime({ time }: { time: string }) {
   return (
-    <p className="px-1 text-[length:var(--redesign-chat-meta)] text-muted-foreground">
+    // The compact size (as section headings), a step under the sender's name.
+    <p className="px-1 text-[length:var(--redesign-font-size-compact)] text-muted-foreground">
       {time}
     </p>
   );
