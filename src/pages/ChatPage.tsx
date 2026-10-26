@@ -3037,6 +3037,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           }}
           // A bot's chat starts on "Let the bot choose"; a model picked from the menu stays for the chat.
           allowBotChoice={Boolean(bot)}
+          botAvatar={bot?.avatar}
           defaultModelValue={bot ? AUTO_BOT_MODEL.value : defaultModelValue}
           defaultEffortValue={defaultEffortValue}
           defaultPermissionValue={handoffPermissionMode}
