@@ -15,14 +15,15 @@ import {
 } from "@/components/ui/command-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 
-// Listed first while nothing is typed: connecting a provider (only there while none is), then starting
-// something, then Settings. A value with no item is skipped.
-const SUGGESTIONS = ["connect-provider", "new-chat", "new-bot", "join-chat", "settings"];
+// Listed first while nothing is typed: starting something, then Settings.
+const SUGGESTIONS = ["new-chat", "new-bot", "join-chat", "settings"];
 
 type CommandMenuDemoProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   items: readonly CommandMenuItemData[];
+  /** No provider yet: ⌘K opens nothing (the sidebar's Quick actions is disabled too). */
+  disabled?: boolean;
 };
 
 /**
@@ -30,7 +31,7 @@ type CommandMenuDemoProps = {
  * filtering, keyboard navigation, focus trapping, and the full-screen dialog
  * backdrop; the shell supplies only real, currently available actions.
  */
-export function CommandMenuDemo({ open, onOpenChange, items }: CommandMenuDemoProps) {
+export function CommandMenuDemo({ open, onOpenChange, items, disabled = false }: CommandMenuDemoProps) {
   const { t } = useTranslation();
   // Tab and type values are the items' group names, which the shell sets from
   // the same keys (RedesignPage), so filtering matches in every language.
@@ -53,9 +54,9 @@ export function CommandMenuDemo({ open, onOpenChange, items }: CommandMenuDemoPr
 
   return (
     <CommandMenuDialog
-      open={open}
+      open={open && !disabled}
       onOpenChange={onOpenChange}
-      shortcut="mod+k"
+      shortcut={disabled ? null : "mod+k"}
       title={t("shell.quickActions")}
       description={t("commandMenu.description")}
       className="!border !border-white/[0.08] !bg-background/80 backdrop-blur-xl"

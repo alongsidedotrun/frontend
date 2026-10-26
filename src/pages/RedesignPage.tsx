@@ -865,18 +865,6 @@ export function RedesignPage() {
   const openBotRef = useRef(openBot);
   openBotRef.current = openBot;
   const commandMenuItems = useMemo<CommandMenuItemData[]>(() => [
-    // No provider yet: connecting one comes first, as on the New page.
-    ...(providerReady === false
-      ? [{
-          value: "connect-provider",
-          label: t("providerGate.connect"),
-          description: t("providerGate.body"),
-          icon: ProvidersIcon,
-          keywords: ["provider", "set up", "sign in", "install", "claude", "chatgpt", "gemini", "grok"],
-          group: t("shell.commands.group.actions"),
-          onSelect: () => navigate("/settings/provider"),
-        }]
-      : []),
     {
       value: "new-chat",
       label: t("common.newChat"),
@@ -970,7 +958,7 @@ export function RedesignPage() {
         navigate(`/chat/${chat.id}`);
       },
     })),
-  ], [activeChatId, bots, chats, location.pathname, location.search, navigate, openJoin, providerReady, routeChatId, t]);
+  ], [activeChatId, bots, chats, location.pathname, location.search, navigate, openJoin, routeChatId, t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1166,6 +1154,8 @@ export function RedesignPage() {
               actions={quickActions(t)}
               activeId={location.pathname === "/" ? "chats" : location.pathname === "/join-chat" ? "join" : undefined}
               onOpen={() => setQuickActionsOpen(true)}
+              // No provider yet: nothing in it can be used, so it waits (as Getting started's steps do).
+              disabled={providerReady === false}
               onActionSelect={(actionId) => {
                 if (actionId === "join") {
                   openJoin();
@@ -1324,6 +1314,7 @@ export function RedesignPage() {
       open={quickActionsOpen}
       onOpenChange={setQuickActionsOpen}
       items={commandMenuItems}
+      disabled={providerReady === false}
     />
     </>
   );
