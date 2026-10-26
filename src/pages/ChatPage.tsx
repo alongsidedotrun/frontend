@@ -3653,15 +3653,33 @@ function ChatRowView({
           gap. Only rendered when the disclosure itself renders something
           -- an empty wrapper would still add its own margin with nothing
           inside to justify it. */}
-      {(row.durationLabel || liveWorking) && (
-        <div className="mb-2">
-          {row.durationLabel ? (
-            <TurnWorkDisclosure label={row.durationLabel} detailText={row.reasoningText} toolLines={row.toolCallLines} />
-          ) : (
-            liveWorking && <TurnWorkDisclosure label={liveWorking.label} detailText={liveWorking.detailText} live />
-          )}
-        </div>
-      )}
+      {/* Grows open (and fades in) when it appears over a reply already on screen -- "Worked for Ns"
+          landing when the turn ends -- so the reply eases down instead of jumping. Clipping is only on
+          while it moves, so its own focus ring and open panel aren't cut off at rest. */}
+      <AnimatePresence initial={false}>
+        {(row.durationLabel || liveWorking) && (
+          <motion.div
+            key="work"
+            // History loading in shows it as it is; only a live turn's grows.
+            initial={row.kind === "agent" && row.animate ? { height: 0, opacity: 0, overflow: "hidden" } : false}
+            animate={{
+              height: "auto",
+              opacity: 1,
+              transition: { height: { duration: 0.32, ease: [0.2, 0.8, 0.2, 1] }, opacity: { duration: 0.24, delay: 0.08 } },
+              transitionEnd: { overflow: "visible" },
+            }}
+            exit={{ height: 0, opacity: 0, overflow: "hidden", transition: { duration: 0.2, ease: [0.4, 0, 1, 1] } }}
+          >
+            <div className="pb-2">
+              {row.durationLabel ? (
+                <TurnWorkDisclosure label={row.durationLabel} detailText={row.reasoningText} toolLines={row.toolCallLines} />
+              ) : (
+                liveWorking && <TurnWorkDisclosure label={liveWorking.label} detailText={liveWorking.detailText} live />
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div className="flex items-center gap-1.5 px-1">
         {/* size-4 (16px; was size-5) -- per explicit request ("make sure
             that both icons are size 5 to match the size of the font at
