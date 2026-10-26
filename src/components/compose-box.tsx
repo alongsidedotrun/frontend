@@ -5,7 +5,7 @@ import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { AUTO_BOT_MODEL, PROVIDER_DISPLAY, ProviderIcon, QUICK_CHAT_MODELS, modelDisplayName } from "@/lib/quick-chat-models";
-import { BotFace, useBotMood, type BotAvatar } from "@/components/bot-face";
+import { BotFace, type BotAvatar } from "@/components/bot-face";
 import { defaultEffortFor, effortLabel, EFFORT_LEVELS, type EffortLevel } from "@/lib/effort";
 import { loadLastEffort, saveLastEffort, type PermissionMode } from "@/lib/last-used";
 import { ClipboardCheck, Hand, ShieldTick, ShieldZap, Target04 } from "@untitledui/icons";
@@ -898,11 +898,6 @@ export function ComposeBox({
   onSetAutocompact: (value: string) => void;
 }) {
   const { t } = useTranslation();
-  // A bot's face on "Let the bot choose": looking about on its own, excited while the person types.
-  const [botMood, reactBotMood] = useBotMood();
-  useEffect(() => {
-    if (botAvatar && value.trim()) reactBotMood("excited");
-  }, [botAvatar, value, reactBotMood]);
   // The models a default can name: the catalog, and in a bot's chat "Let the bot choose".
   const findDefaultModel = (value: string | undefined) =>
     allowBotChoice && value === AUTO_BOT_MODEL.value ? AUTO_BOT_MODEL : QUICK_CHAT_MODELS.find((m) => m.value === value);
@@ -2520,7 +2515,7 @@ export function ComposeBox({
                 <span className="inline-flex w-max items-center gap-1">
                   {selectedModels.length === 1 &&
                     (selectedModels[0].value === AUTO_BOT_MODEL.value && botAvatar ? (
-                      <BotFace avatar={botAvatar} expression={botMood} animated className="size-[var(--compose-provider-icon)] shrink-0" />
+                      <BotFace avatar={botAvatar} className="size-[var(--compose-provider-icon)] shrink-0" />
                     ) : (
                       <ProviderIcon model={selectedModels[0]} className="size-[var(--compose-provider-icon)] shrink-0" />
                     ))}
