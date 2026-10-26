@@ -697,8 +697,17 @@ export function RedesignPage() {
     {
       id: "chats",
       label: t("nav.chats"),
-      // New (above) starts a chat; this adds a project, which then lists here with its chats.
-      action: { label: t("nav.newProject.ariaLabel"), icon: Plus, onSelect: () => { setProjectError(null); setNewProjectOpen(true); } },
+      // Starts a new chat, as New does (nothing when already on an empty one). Projects are made from a
+      // chat's menu (New project), and list here with their chats.
+      action: {
+        label: t("common.newChat"),
+        icon: Plus,
+        onSelect: () => {
+          if (location.pathname === "/" && !location.search && !activeChatId) return;
+          setActiveChatId(null);
+          navigate("/");
+        },
+      },
       items: [
         ...workspaceProjects.map((project) => ({
         id: project.id,
