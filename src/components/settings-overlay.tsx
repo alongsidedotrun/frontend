@@ -855,8 +855,8 @@ function ProviderSetupDialog({
         </span>
       }
       title={provider.displayName}
-      badge={<ConnectionBadge state={state} />}
-      description={provider.displayCaption ?? provider.description}
+      // Where it stands, under the name (no "via ..." here: the overlay is about connecting it).
+      description={<ConnectionBadge state={state} />}
       actions={<ShellDialogActions cancelLabel={t("common.close")} onCancel={onClose} primary={primary} />}
     >
       <p className={cn("px-3 py-2.5 text-center text-[12px] text-muted-foreground", SHELL_RADIUS, SHELL_SURFACE)}>
