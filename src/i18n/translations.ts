@@ -4171,6 +4171,15 @@ export const translations = {
   "chat.agentAskedBy": { en: "{{agent}} · asked by {{name}}", "pt-BR": "{{agent}} · pedido por {{name}}", es: "{{agent}} · pedido por {{name}}", fr: "{{agent}} · sollicité par {{name}}", de: "{{agent}} · gefragt von {{name}}", zh: "{{agent}} · 由 {{name}} 请求", ja: "{{agent}} · {{name}} が依頼" },
   "chat.agentFailed": { en: "{{agent}} couldn't finish.", "pt-BR": "{{agent}} não conseguiu terminar.", es: "{{agent}} no pudo terminar.", fr: "{{agent}} n'a pas pu terminer.", de: "{{agent}} konnte nicht fertig werden.", zh: "{{agent}} 未能完成。", ja: "{{agent}} は完了できませんでした。" },
   "chat.agentsUpdatedBy": { en: "{{name}} updated this chat's agents", "pt-BR": "{{name}} atualizou os agentes deste chat", es: "{{name}} actualizó los agentes de este chat", fr: "{{name}} a mis à jour les agents de ce chat", de: "{{name}} hat die Agenten dieses Chats aktualisiert", zh: "{{name}} 更新了此聊天的智能体", ja: "{{name}} がこのチャットのエージェントを更新しました" },
+  "chat.reactedBy": {
+    en: "{{name}} reacted with {{emoji}}",
+    "pt-BR": "{{name}} reagiu com {{emoji}}",
+    es: "{{name}} reaccionó con {{emoji}}",
+    fr: "{{name}} a réagi avec {{emoji}}",
+    de: "{{name}} hat mit {{emoji}} reagiert",
+    zh: "{{name}} 回应了 {{emoji}}",
+    ja: "{{name}} が {{emoji}} でリアクションしました",
+  },
   "chat.switchedTo": {
     en: "Switched to {{model}}",
     "pt-BR": "Alterado para {{model}}",

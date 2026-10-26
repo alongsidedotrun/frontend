@@ -494,6 +494,9 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   const outletContext = useOutletContext<ChatPageShellContext>();
   const { chatName, contextLabel, receiveChatNameFromServer, refreshSidebarLists, openSettings, openFile, rightPanelOpen, notifyFilesTouched, bot, providerReady } =
     shellContextOverride ?? outletContext;
+  // For the chat's event handler (set up once per connection): whether this is a bot's chat.
+  const isBotChatRef = useRef(false);
+  isBotChatRef.current = Boolean(bot);
   // Real correction, per explicit follow-up ("we reduce to 400px but
   // there's so much space around it, instead of reducing the content to
   // 400px, keep that as 800px and reduce the outside paddings on left and
@@ -1276,6 +1279,9 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       }
 
       if (type === "model_changed") {
+        // A bot's chat switches models in the background ("Let the bot choose"): no marker, and the
+        // picker stays as it is.
+        if (isBotChatRef.current || modelRef.current.value === AUTO_BOT_MODEL.value) return;
         const value = event.model as string;
         const found = QUICK_CHAT_MODELS.find((m) => m.value === value);
         if (found) modelRef.current = found;
@@ -3283,6 +3289,8 @@ function ChatRowView({
     // no syncRows, and FileDiffGroup's own ResolvedFile fetches the real
     // file content off disk instead -- same card either way.
     if (toolGroup && (row.name === "Write" || row.name === "Edit")) {
+      // Only the provider's own files (its memory): nothing to show.
+      if (toolGroup.every((r) => isProviderOwnPath(summarizeToolInput(r.input)))) return null;
       const card = renderFileDiffGroupCard(toolGroup, onOpenFile);
       if (card) return card;
     }
@@ -3405,14 +3413,28 @@ function ChatRowView({
           >
             <MessageText text={row.text} />
             {/* The bot's reaction, on the bubble's lower corner: its face and the emoji. */}
+            {/* The bot's reaction on the bubble's lower corner: just the emoji; hovering it says who. */}
             {row.reaction && (
-              <span
-                className={`absolute -bottom-3.5 flex items-center gap-1 rounded-full border border-border bg-background py-0.5 pr-1.5 pl-1 text-[12px] leading-none whitespace-nowrap shadow-[0_1px_2px_rgb(0_0_0_/_0.08)] ${isSelf ? "left-2" : "right-2"}`}
-                title={bot ? bot.name : undefined}
-              >
-                {bot && <BotFace avatar={bot.avatar ?? undefined} className="size-3.5" />}
-                <span aria-label={bot ? `${bot.name}: ${row.reaction}` : row.reaction}>{row.reaction}</span>
-              </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    tabIndex={0}
+                    aria-label={bot ? t("chat.reactedBy", { name: bot.name, emoji: row.reaction }) : row.reaction}
+                    className={`absolute -bottom-3.5 flex h-6 min-w-6 cursor-default items-center justify-center rounded-full border border-border bg-background px-1 text-[13px] leading-none shadow-[0_1px_2px_rgb(0_0_0_/_0.08)] outline-none focus-visible:ring-2 focus-visible:ring-ring ${isSelf ? "left-2" : "right-2"}`}
+                  >
+                    {row.reaction}
+                  </span>
+                </TooltipTrigger>
+                {bot && (
+                  // The app's own floating surface (as menus), not the inverted default tooltip.
+                  <TooltipContent className="border border-[var(--redesign-sidebar-elevated-border)] bg-[var(--redesign-sidebar-overlay-surface)] text-foreground shadow-[var(--redesign-sidebar-elevated-shadow)]">
+                    <span className="flex items-center gap-1.5">
+                      <BotFace avatar={bot.avatar ?? undefined} className="size-3.5" />
+                      {t("chat.reactedBy", { name: bot.name, emoji: row.reaction })}
+                    </span>
+                  </TooltipContent>
+                )}
+              </Tooltip>
             )}
           </div>
         </div>
@@ -3710,6 +3732,12 @@ function buildFileDiffRows(name: string, input: unknown): DiffRow[] | null {
 // deferred-group handling further up (a group immediately followed by the
 // reply, moved to render after it instead -- see that loop's own comment) --
 // one real FileDiffGroup-building path, not two copies that could drift.
+// The provider's own files (its memory and settings: ~/.claude, ~/.codex, ~/.gemini, ~/.grok) aren't
+// the person's work, so a change to them isn't shown in the chat.
+function isProviderOwnPath(path: string | null | undefined): boolean {
+  return Boolean(path && /(^|[\\/])\.(claude|codex|gemini|grok)[\\/]/.test(path));
+}
+
 function renderFileDiffGroupCard(
   toolGroup: Extract<ChatRow, { kind: "tool" }>[],
   onOpenFile: (path: string) => void
@@ -3718,7 +3746,7 @@ function renderFileDiffGroupCard(
   const files = toolGroup
     .map((r) => {
       const path = summarizeToolInput(r.input);
-      if (!path) return null;
+      if (!path || isProviderOwnPath(path)) return null;
       return { name: path.split("/").filter(Boolean).pop() ?? path, path, syncRows: buildFileDiffRows(r.name, r.input) };
     })
     .filter((f): f is NonNullable<typeof f> => f !== null);
