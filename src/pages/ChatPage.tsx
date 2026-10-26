@@ -1980,7 +1980,9 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               // -- reopening some older, less-recently-used chat shouldn't
               // make its own history look like the most recent real usage
               // for every *other* chat's own provisional default.
-              if (historyReplayedRef.current) saveLastModel(rowModel.value);
+              // Nor a model the bot chose ("Let the bot choose"): "last used" means the person's own pick,
+              // and counting the bot's kept it on whichever provider it happened to start with.
+              if (historyReplayedRef.current && modelRef.current.value !== AUTO_BOT_MODEL.value) saveLastModel(rowModel.value);
               const agentRowId = nextRowId();
               // Turn-duration feature (alongsidedotrun/private#53) -- this turn's
               // own "result" event (below) patches this exact row with the final
