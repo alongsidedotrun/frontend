@@ -497,6 +497,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // For the chat's event handler (set up once per connection): whether this is a bot's chat.
   const isBotChatRef = useRef(false);
   isBotChatRef.current = Boolean(bot);
+  // The chat had nothing in it when it opened (replay_complete with no events).
+  const [emptyAtOpen, setEmptyAtOpen] = useState(false);
   // Real correction, per explicit follow-up ("we reduce to 400px but
   // there's so much space around it, instead of reducing the content to
   // 400px, keep that as 800px and reduce the outside paddings on left and
@@ -1513,6 +1515,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         // A resume after a dropped connection only sent what was missed: the transcript is already on
         // screen, so there is no first-load scroll or reveal to run again.
         if (event.resumed) return;
+        // Nothing in the chat yet: a new bot's welcome is on its way (the effect on emptyAtOpen).
+        if (event.last_event_id === 0) setEmptyAtOpen(true);
         // One atomic swap-in for a branch-switch reconnect's own buffered
         // replay (pendingBranchReplayRef's own comment, above pushRow, has
         // the full reasoning) -- the old branch's rows are still what's on
@@ -2651,6 +2655,19 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       break;
     }
   }
+  // A new bot's chat opens before its welcome is written (10-15s, in the background): it shows the bot
+  // Waiting from the start, as for a sent message, until the welcome lands (or a minute and a half).
+  const hasMessages = rows.some((row) => row.kind === "agent" || row.kind === "human");
+  useEffect(() => {
+    if (!bot || !emptyAtOpen || hasMessages) return;
+    awaitingReplyRef.current = true;
+    setWaitingPhase((phase) => phase ?? "waiting");
+    const giveUp = window.setTimeout(() => {
+      awaitingReplyRef.current = false;
+      setWaitingPhase(null);
+    }, 90_000);
+    return () => window.clearTimeout(giveUp);
+  }, [bot, emptyAtOpen, hasMessages]);
   const waitingPhaseLabel =
     (waitingPhase === "waiting"
       ? t("chat.phase.waiting")
