@@ -202,7 +202,7 @@ function ConnectionToolbar({
  *  doesn't show. The list keeps the tallest height it has had this visit (and at least two rows), so
  *  a tab or search with fewer rows, or none, leaves blank space rather than moving the sections
  *  below; rows are taller when their text wraps, so a fixed height wouldn't do. */
-function ConnectionList({ filter, children, empty = false }: { filter: ConnectionFilter; children: ReactNode; empty?: boolean }) {
+function ConnectionList({ filter, children, placeholder }: { filter: ConnectionFilter; children: ReactNode; placeholder?: ReactNode }) {
   const [tallest, setTallest] = useState(0);
   const observer = useRef<ResizeObserver | null>(null);
   const measure = useCallback((node: HTMLDivElement | null) => {
@@ -213,19 +213,19 @@ function ConnectionList({ filter, children, empty = false }: { filter: Connectio
   }, []);
   // Two rows: 48px each (p-2 around the 32px icon frame) and the 2px gap between them.
   return (
-    // Nothing in this tab: no room kept for rows (its placeholder follows).
-    <div className="-mx-2 mt-3" style={{ minHeight: empty ? 0 : Math.max(98, tallest) }}>
+    // Nothing in this tab: its placeholder, in the rows' place and in the same fade, with no room kept for rows.
+    <div className="-mx-2 mt-3" style={{ minHeight: placeholder ? 0 : Math.max(98, tallest) }}>
       {/* Switching tabs fades the old rows out, then the new ones in. */}
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
           key={filter}
-          ref={measure}
+          ref={placeholder ? undefined : measure}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1, transition: fade }}
           exit={{ opacity: 0, transition: fade }}
-          className="grid grid-cols-2 content-start gap-x-2 gap-y-0.5"
+          className={placeholder ? "px-2" : "grid grid-cols-2 content-start gap-x-2 gap-y-0.5"}
         >
-          {children}
+          {placeholder ?? children}
         </motion.div>
       </AnimatePresence>
     </div>
@@ -1459,20 +1459,20 @@ function ProvidersSection() {
                 onQuery={setQuery}
                 searchLabel={t("settings.connections.searchProviders")}
               />
-              <ConnectionList filter={filter} empty={tabEmpty}>
+              <ConnectionList
+                filter={filter}
+                placeholder={
+                  !tabEmpty ? undefined : filter === "connected" ? (
+                    <ProvidersEmptyState title={t("settings.providers.empty.connected.title")} body={t("settings.providers.empty.connected.body")} />
+                  ) : (
+                    <ProvidersEmptyState title={t("settings.providers.empty.available.title")} body={t("settings.providers.empty.available.body")} />
+                  )
+                }
+              >
                 {listed.map((provider) => (
                   <ProviderCard key={provider.name} provider={provider} filter={filter} query={query} onStatus={reportStatus} />
                 ))}
               </ConnectionList>
-              {tabEmpty && (
-                <div className="mt-3">
-                  {filter === "connected" ? (
-                    <ProvidersEmptyState title={t("settings.providers.empty.connected.title")} body={t("settings.providers.empty.connected.body")} />
-                  ) : (
-                    <ProvidersEmptyState title={t("settings.providers.empty.available.title")} body={t("settings.providers.empty.available.body")} />
-                  )}
-                </div>
-              )}
             </>
           )}
           {/* Each provider's usage, right here (it had its own page): a card each, with Filter and Sort. */}
