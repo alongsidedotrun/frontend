@@ -380,7 +380,7 @@ export function SettingsDialog() {
                   </PopoverTrigger>
                   <PopoverContent className="w-full p-0">
                     <Command>
-                      <CommandInput placeholder="Search model..." />
+                      <CommandInput placeholder="Search model" />
                       <CommandEmpty>No model found.</CommandEmpty>
                       <CommandList>
                         <CommandGroup>

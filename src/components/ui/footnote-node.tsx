@@ -462,7 +462,7 @@ export function FootnoteInputElement(props: PlateElementProps) {
                   <span className="font-mono text-muted-foreground">
                     [^{proposedIdentifier}]
                   </span>
-                  <span className="truncate">: New footnote...</span>
+                  <span className="truncate">: New footnote</span>
                 </span>
               </InlineComboboxItem>
             ) : null}

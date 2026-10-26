@@ -754,7 +754,7 @@ export interface CommandMenuInputProps
 
 const CommandMenuInput = forwardRef<HTMLInputElement, CommandMenuInputProps>(
   (
-    { className, placeholder = "Type a command or search…", icon, onKeyDown, ...props },
+    { className, placeholder = "Type a command or search", icon, onKeyDown, ...props },
     ref
   ) => {
     const icons = useIcons();
