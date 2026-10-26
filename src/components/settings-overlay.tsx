@@ -468,12 +468,26 @@ const PROVIDER_DESCRIPTIONS: Record<string, string> = {
 // picker instead when a provider has no entry here).
 // Providers Alongside installs itself, with the provider's official installer (backend cli_install.rs):
 // no terminal, npm or Homebrew. The others' + still opens their docs.
-const INSTALLABLE_PROVIDERS = new Set(["claude", "codex", "antigravity"]);
+const INSTALLABLE_PROVIDERS = new Set(["claude", "codex", "antigravity", "grok"]);
 
 const PROVIDER_DOCS_URLS: Record<string, string> = {
   claude: "https://code.claude.com/docs",
   codex: "https://github.com/openai/codex",
   antigravity: "https://antigravity.google/docs",
+  grok: "https://docs.x.ai/build/overview",
+};
+
+// Grok, through xAI's Grok Build: installed and signed in from here, though chats can't run on it yet
+// (alongsidedotrun/private#480), so it isn't in the model menu (QUICK_CHAT_MODELS).
+const GROK_PROVIDER: Provider = {
+  name: "Grok",
+  displayName: "Grok",
+  displayCaption: "via Grok Build",
+  description: "Run chats and agents using xAI's Grok models",
+  icon: "/icons/providers/grok.svg",
+  value: "grok",
+  invertInDark: true,
+  configured: false,
 };
 
 // Originally just Claude/Gemini/Codex ("for now, lets focus on gemini,
@@ -1422,16 +1436,7 @@ function ProvidersSection() {
                 {activeProviders.map((provider) => (
                   <ProviderCard key={provider.name} provider={provider} filter={filter} query={query} />
                 ))}
-                {/* Grok: a placeholder until the backend can run it (alongsidedotrun/private#480). */}
-                {showsUnder(filter, false, query, "Grok") && (
-                  <AppRow
-                    name="Grok"
-                    description={t("settings.apps.comingSoon")}
-                    icon={<img src="/icons/providers/grok.svg" alt="" className="size-5 dark:invert" />}
-                    connected={false}
-                    onClick={() => {}}
-                  />
-                )}
+                <ProviderCard provider={GROK_PROVIDER} filter={filter} query={query} />
               </ConnectionList>
             </>
           )}

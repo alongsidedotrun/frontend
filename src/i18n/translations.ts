@@ -862,7 +862,7 @@ export const translations = {
     ja: "接続を解除できませんでした。もう一度お試しください。",
   },
   "settings.providers.waitingForSignIn": {
-    en: "Waiting for sign-in",
+    en: "Waiting for sign in",
     "pt-BR": "Aguardando login",
     es: "Esperando el inicio de sesión",
     fr: "En attente de connexion",
@@ -937,7 +937,7 @@ export const translations = {
     ja: "インストールしてログイン",
   },
   "settings.providers.setup.install": {
-    en: "Alongside installs {{tool}} for you, then opens the {{provider}} sign-in in your browser.",
+    en: "Alongside installs {{tool}} for you, then opens the {{provider}} sign in in your browser.",
     "pt-BR": "O Alongside instala o {{tool}} para você e abre o login do {{provider}} no navegador.",
     es: "Alongside instala {{tool}} por ti y abre el inicio de sesión de {{provider}} en tu navegador.",
     fr: "Alongside installe {{tool}} pour vous, puis ouvre la connexion {{provider}} dans votre navigateur.",
@@ -946,7 +946,7 @@ export const translations = {
     ja: "Alongside が {{tool}} をインストールし、ブラウザで {{provider}} のログインを開きます。",
   },
   "settings.providers.setup.installing": {
-    en: "Installing {{tool}}. The {{provider}} sign-in opens in your browser when it's done.",
+    en: "Installing {{tool}}. The {{provider}} sign in opens in your browser when it's done.",
     "pt-BR": "Instalando o {{tool}}. O login do {{provider}} abre no navegador quando terminar.",
     es: "Instalando {{tool}}. El inicio de sesión de {{provider}} se abrirá en tu navegador al terminar.",
     fr: "Installation de {{tool}}. La connexion {{provider}} s'ouvrira dans votre navigateur ensuite.",
@@ -1019,7 +1019,7 @@ export const translations = {
     ja: "Google のコードを貼り付け",
   },
   "settings.providers.setup.finish": {
-    en: "Finish sign-in",
+    en: "Finish sign in",
     "pt-BR": "Concluir login",
     es: "Terminar de iniciar sesión",
     fr: "Terminer la connexion",
@@ -1028,7 +1028,7 @@ export const translations = {
     ja: "ログインを完了",
   },
   "settings.providers.setup.openGoogle": {
-    en: "Open Google sign-in again",
+    en: "Open Google sign in again",
     "pt-BR": "Abrir o login do Google de novo",
     es: "Volver a abrir el inicio de sesión de Google",
     fr: "Rouvrir la connexion Google",
@@ -2747,7 +2747,7 @@ export const translations = {
     ja: "ブラウザでサインインを完了してください。完了すると、Alongside がここで続行します。",
   },
   "auth.reopen": {
-    en: "Open the sign-in page again",
+    en: "Open the sign in page again",
     "pt-BR": "Abrir a página de login novamente",
     es: "Abrir la página de inicio de sesión de nuevo",
     fr: "Rouvrir la page de connexion",
@@ -2756,7 +2756,7 @@ export const translations = {
     ja: "サインインページをもう一度開く",
   },
   "auth.errors.signIn": {
-    en: "Sign-in could not start. Try again.",
+    en: "Sign in could not start. Try again.",
     "pt-BR": "Não foi possível iniciar o login. Tente novamente.",
     es: "No se pudo iniciar sesión. Inténtalo de nuevo.",
     fr: "La connexion n'a pas pu démarrer. Réessayez.",
@@ -2765,7 +2765,7 @@ export const translations = {
     ja: "サインインを開始できませんでした。もう一度お試しください。",
   },
   "auth.errors.timeout": {
-    en: "Sign-in timed out. Try again.",
+    en: "Sign in timed out. Try again.",
     "pt-BR": "O login expirou. Tente novamente.",
     es: "Se agotó el tiempo de inicio de sesión. Inténtalo de nuevo.",
     fr: "La connexion a expiré. Réessayez.",
@@ -4722,7 +4722,7 @@ export const translations = {
     ja: "デフォルトのプロバイダー、思考レベル、使用量",
   },
   "shell.commands.profile.description": {
-    en: "Your account, photo and sign-in",
+    en: "Your account, photo and sign in",
     "pt-BR": "Sua conta, foto e login",
     es: "Tu cuenta, foto e inicio de sesión",
     fr: "Votre compte, photo et connexion",
