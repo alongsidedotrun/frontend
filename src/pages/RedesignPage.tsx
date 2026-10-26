@@ -751,7 +751,9 @@ export function RedesignPage() {
   // out and in on top of that one -- the doubled fade opening a provider's setup.
   const surfaceIdentity = location.pathname.startsWith("/settings") ? location.pathname : `${location.pathname}:${location.key}`;
   const surfaceKeyRef = useRef(surfaceIdentity);
-  if (!(location.state as { composeHandoff?: boolean } | null)?.composeHandoff) {
+  // Nor for New's Chat | Bot switch (newTab): the tabs stay and only the form under them fades.
+  const surfaceState = location.state as { composeHandoff?: boolean; newTab?: boolean } | null;
+  if (!surfaceState?.composeHandoff && !surfaceState?.newTab) {
     surfaceKeyRef.current = surfaceIdentity;
   }
   const redesignSurfaceKey = surfaceKeyRef.current;
