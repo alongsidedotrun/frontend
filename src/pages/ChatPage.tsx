@@ -5,7 +5,7 @@ import { useOutletContext, useParams } from "react-router-dom";
 import { addressedAgent, useChatAgents } from "@/lib/chat-agents";
 import { NewAgentDialog } from "@/components/new-agent-dialog";
 import { ProviderNotice } from "@/components/provider-gate";
-import { BotFace, type BotAvatar } from "@/components/bot-face";
+import { BotFace, moodFace, useBotMood, type BotAvatar, type BotMood } from "@/components/bot-face";
 import { AnimatePresence, motion } from "motion/react";
 import { spring } from "@/lib/springs";
 import { isAutoScrollSuppressed, suppressAutoScroll } from "@/lib/chat-scroll-suppress";
@@ -2639,6 +2639,18 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // searchQueryRef -- real, not fabricated: the same WebSearch tool_use block's own
   // `input.query` field (see the "assistant" event handler above), shown only when
   // it actually arrived with one.
+  // A bot's face while a turn runs (after OpenBot's avatar moods): curious while it waits, thinking,
+  // then working (searching counts as working).
+  const waitingMood: BotMood | undefined =
+    waitingPhase === "waiting" ? "waiting" : waitingPhase === "thinking" || waitingPhase === "reasoning" ? "thinking" : waitingPhase ? "working" : undefined;
+  // The latest reply: its bot face is the live one.
+  let latestAgentRowId: string | undefined;
+  for (let index = rows.length - 1; index >= 0; index--) {
+    if (rows[index].kind === "agent") {
+      latestAgentRowId = rows[index].id;
+      break;
+    }
+  }
   const waitingPhaseLabel =
     (waitingPhase === "waiting"
       ? t("chat.phase.waiting")
@@ -2923,6 +2935,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                   onOpenFile={openFile}
                   toolGroup={groupStarts.get(row.id)}
                   liveWorking={liveWorking}
+                  latestReply={row.kind === "agent" && row.id === latestAgentRowId}
+                  botMood={liveWorking ? waitingMood : undefined}
                 />
               </div>
               {deferredCard && <div className={rowClassName}>{deferredCard}</div>}
@@ -2953,6 +2967,16 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             // own agent-reply text size, same reasoning the row's
             // previous size bump already established.
             <div className="flex items-center gap-2 py-1">
+              {/* A bot's chat: the bot, its face showing what it's doing, then the label. */}
+              {bot && waitingMood && (
+                <BotFace
+                  avatar={bot.avatar ?? undefined}
+                  expression={moodFace(waitingMood).expression}
+                  breathe={moodFace(waitingMood).breathe}
+                  animated
+                  className="size-4 shrink-0"
+                />
+              )}
               <TurnWorkDisclosure label={waitingPhaseLabel} detailText={liveReasoningText ?? undefined} live />
             </div>
           )}
@@ -3211,6 +3235,8 @@ function ChatRowView({
   onOpenFile,
   toolGroup,
   liveWorking,
+  latestReply = false,
+  botMood,
 }: {
   row: ChatRow;
   /** A bot's chat: its own replies are labelled with the bot, the model after it. */
@@ -3237,7 +3263,18 @@ function ChatRowView({
   // settled disclosure will occupy once the turn finishes, so nothing
   // visibly jumps between the live and settled states.
   liveWorking?: { label: string; detailText?: string };
+  /** The chat's latest reply: a bot's face there is alive (looking about; pleased when it arrives). */
+  latestReply?: boolean;
+  /** While this reply's turn still runs: the bot's mood (waiting, thinking, working). */
+  botMood?: BotMood;
 }) {
+  // A bot's fresh reply: pleased for a moment, then back at rest (OpenBot's "responded" mood).
+  const [replyMood, reactReply] = useBotMood();
+  useEffect(() => {
+    if (row.kind === "agent" && row.animate && bot) reactReply("happy");
+    // Once, as the reply arrives.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const { t } = useTranslation();
   const signedIn = useIsSignedIn();
   // Gates the actions row + disclaimer (agent branch, further down) until
@@ -3638,7 +3675,13 @@ function ChatRowView({
         {bot && !row.runBy ? (
           // #504: a bot's own reply -- the bot, then the model that answered for it.
           <>
-            <BotFace avatar={bot.avatar ?? undefined} className="size-4" />
+            <BotFace
+              avatar={bot.avatar ?? undefined}
+              expression={botMood ? moodFace(botMood).expression : replyMood}
+              breathe={botMood ? moodFace(botMood).breathe : false}
+              animated={latestReply}
+              className="size-4"
+            />
             <span className="text-[length:var(--redesign-chat-meta)] text-foreground">{bot.name}</span>
             <span className="text-[length:var(--redesign-chat-meta)] text-muted-foreground">· {row.modelLabel}</span>
           </>

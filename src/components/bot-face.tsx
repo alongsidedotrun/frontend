@@ -12,7 +12,34 @@ export const BOT_EYES: readonly BotEyes[] = ["classic", "small", "close", "curio
 
 // The faces in public/bot-faces/alongside-bots-sprite.svg. The default is the bot at rest; the others are
 // its states (thinking while it works, happy when it's done...).
-export type BotExpression = "default" | "happy" | "thinking" | "sleeping" | "excited";
+export type BotExpression = "default" | "happy" | "thinking" | "sleeping" | "excited" | "curious" | "sad";
+
+/**
+ * What a bot is doing, as its face shows it (after OpenBot's avatar moods): at rest; excited while the
+ * person types to it; curious while it waits (on a provider, or for the person); thinking; working
+ * (attentive, breathing); pleased with a fresh reply, before settling back; sad when a turn failed.
+ */
+export type BotMood = "idle" | "typing" | "waiting" | "thinking" | "working" | "responded" | "failed";
+
+/** The face for a mood, and whether it breathes (a busy mood keeps moving). */
+export function moodFace(mood: BotMood): { expression: BotExpression; breathe: boolean } {
+  switch (mood) {
+    case "typing":
+      return { expression: "excited", breathe: false };
+    case "waiting":
+      return { expression: "curious", breathe: false };
+    case "thinking":
+      return { expression: "thinking", breathe: true };
+    case "working":
+      return { expression: "default", breathe: true };
+    case "responded":
+      return { expression: "happy", breathe: false };
+    case "failed":
+      return { expression: "sad", breathe: false };
+    default:
+      return { expression: "default", breathe: false };
+  }
+}
 
 // The face colours a bot can have, in the picker's order; the last (grey) is the default.
 export const BOT_COLORS = [
@@ -105,6 +132,20 @@ const EYES: Record<BotExpression, ReactNode> = {
       <circle cx="84" cy="54" r="10" />
     </>
   ),
+  // One eye a little smaller, as if tilting its head.
+  curious: (
+    <>
+      <rect x="38" y="39" width="12" height="30" rx="6" />
+      <rect x="78" y="45" width="12" height="20" rx="6" />
+    </>
+  ),
+  // Shorter eyes, their tops tipped in.
+  sad: (
+    <>
+      <rect x="38" y="46" width="12" height="22" rx="6" transform="rotate(-18 44 57)" />
+      <rect x="78" y="46" width="12" height="22" rx="6" transform="rotate(18 84 57)" />
+    </>
+  ),
 };
 
 // Each resting face: pill eyes set a few ways (the sprite's default is "classic"), or one of its faces.
@@ -148,11 +189,14 @@ export function BotFace({
   avatar = DEFAULT_BOT_AVATAR,
   expression = "default",
   animated = false,
+  breathe = false,
   className,
 }: {
   avatar?: BotAvatar;
   expression?: BotExpression;
   animated?: boolean;
+  /** A busy bot (thinking, working): it swells and settles slowly, like breathing. */
+  breathe?: boolean;
   className?: string;
 }) {
   const [shown, setShown] = useState(expression);
@@ -261,7 +305,12 @@ export function BotFace({
   }
   const { top, bottom } = botShades(avatar.color);
   return (
-    <svg ref={svgRef} viewBox="0 0 128 128" aria-hidden="true" className={cn("shrink-0 overflow-visible", className)}>
+    <svg
+      ref={svgRef}
+      viewBox="0 0 128 128"
+      aria-hidden="true"
+      className={cn("shrink-0 overflow-visible", breathe && "origin-center animate-[bot-breathe_2.4s_ease-in-out_infinite] motion-reduce:animate-none", className)}
+    >
       <defs>
         <linearGradient id={gradientId} x1="0" y1="4" x2="0" y2="124" gradientUnits="userSpaceOnUse">
           <stop stopColor={top} />
