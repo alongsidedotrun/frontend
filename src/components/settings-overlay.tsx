@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { ShapeProvider } from "@/lib/shape-context";
-import { ProviderUsageSection } from "@/components/provider-usage";
+import { ProvidersEmptyState, ProviderUsageSection } from "@/components/provider-usage";
 import { forcedNoProvider } from "@/lib/dev-no-provider";
 import { providersChanged } from "@/lib/providers-changed";
 import { resizeImageFile } from "@/lib/resize-image";
@@ -202,7 +202,7 @@ function ConnectionToolbar({
  *  doesn't show. The list keeps the tallest height it has had this visit (and at least two rows), so
  *  a tab or search with fewer rows, or none, leaves blank space rather than moving the sections
  *  below; rows are taller when their text wraps, so a fixed height wouldn't do. */
-function ConnectionList({ filter, children }: { filter: ConnectionFilter; children: ReactNode }) {
+function ConnectionList({ filter, children, empty = false }: { filter: ConnectionFilter; children: ReactNode; empty?: boolean }) {
   const [tallest, setTallest] = useState(0);
   const observer = useRef<ResizeObserver | null>(null);
   const measure = useCallback((node: HTMLDivElement | null) => {
@@ -213,7 +213,8 @@ function ConnectionList({ filter, children }: { filter: ConnectionFilter; childr
   }, []);
   // Two rows: 48px each (p-2 around the 32px icon frame) and the 2px gap between them.
   return (
-    <div className="-mx-2 mt-3" style={{ minHeight: Math.max(98, tallest) }}>
+    // Nothing in this tab: no room kept for rows (its placeholder follows).
+    <div className="-mx-2 mt-3" style={{ minHeight: empty ? 0 : Math.max(98, tallest) }}>
       {/* Switching tabs fades the old rows out, then the new ones in. */}
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
@@ -1060,7 +1061,18 @@ function useProviderSetup(binary: string, providerName: string, refetch: () => P
 // sign-in (Gemini's overlay opens by itself for the code Google shows); once signed in, Connected,
 // which opens the overlay (to disconnect). Anything else (a provider to install from its docs, a failed
 // check) opens the overlay.
-function ProviderCard({ provider, filter = "all", query = "" }: { provider: Provider; filter?: ConnectionFilter; query?: string }) {
+function ProviderCard({
+  provider,
+  filter = "all",
+  query = "",
+  onStatus,
+}: {
+  provider: Provider;
+  filter?: ConnectionFilter;
+  query?: string;
+  /** Whether it's connected, once known: Providers shows a placeholder when a tab has none. */
+  onStatus?: (name: string, connected: boolean) => void;
+}) {
   const { t } = useTranslation();
   const cliBinary = provider.name.toLowerCase();
   const { available, installed, error: cliCheckError, refetch: refetchAvailability } = useCliAvailability(cliBinary);
@@ -1075,6 +1087,10 @@ function ProviderCard({ provider, filter = "all", query = "" }: { provider: Prov
   const checking = !cliCheckError && available === undefined;
   // `available` is seeded from availabilityCache, so a failed fresh check (cliCheckError) wins over it.
   const isConnected = available === true && !cliCheckError;
+  const known = cliCheckError || available !== undefined;
+  useEffect(() => {
+    if (known) onStatus?.(provider.name, isConnected);
+  }, [known, isConnected, provider.name, onStatus]);
   const statusLabel =
     setup.phase === "installing"
       ? t("settings.providers.installing")
@@ -1407,6 +1423,17 @@ function ProvidersSection() {
   );
   const [filter, setFilter] = useState<ConnectionFilter>("all");
   const [query, setQuery] = useState("");
+  const listed = useMemo(() => [...activeProviders, GROK_PROVIDER], [activeProviders]);
+  // Each provider's connection, as its row learns it: Connected or Available with none in it (once
+  // every one has answered) gets a placeholder instead of an empty space.
+  const [connections, setConnections] = useState<Record<string, boolean>>({});
+  const reportStatus = useCallback((name: string, connected: boolean) => {
+    setConnections((current) => (current[name] === connected ? current : { ...current, [name]: connected }));
+  }, []);
+  const tabEmpty =
+    filter !== "all" &&
+    listed.every((provider) => connections[provider.name] !== undefined) &&
+    !listed.some((provider) => showsUnder(filter, connections[provider.name], query, provider.displayName));
 
   return (
     // Same crossfade AppLayout.tsx's own route transitions use (its
@@ -1432,12 +1459,20 @@ function ProvidersSection() {
                 onQuery={setQuery}
                 searchLabel={t("settings.connections.searchProviders")}
               />
-              <ConnectionList filter={filter}>
-                {activeProviders.map((provider) => (
-                  <ProviderCard key={provider.name} provider={provider} filter={filter} query={query} />
+              <ConnectionList filter={filter} empty={tabEmpty}>
+                {listed.map((provider) => (
+                  <ProviderCard key={provider.name} provider={provider} filter={filter} query={query} onStatus={reportStatus} />
                 ))}
-                <ProviderCard provider={GROK_PROVIDER} filter={filter} query={query} />
               </ConnectionList>
+              {tabEmpty && (
+                <div className="mt-3">
+                  {filter === "connected" ? (
+                    <ProvidersEmptyState title={t("settings.providers.empty.connected.title")} body={t("settings.providers.empty.connected.body")} />
+                  ) : (
+                    <ProvidersEmptyState title={t("settings.providers.empty.available.title")} body={t("settings.providers.empty.available.body")} />
+                  )}
+                </div>
+              )}
             </>
           )}
           {/* Each provider's usage, right here (it had its own page): a card each, with Filter and Sort. */}

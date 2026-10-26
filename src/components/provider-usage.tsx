@@ -275,6 +275,12 @@ const EMPTY_STATE_ICONS = [
 /** No provider connected: what the section will hold, drawn faintly, and what to do. */
 function UsageEmptyState() {
   const { t } = useTranslation();
+  return <ProvidersEmptyState title={t("usage.empty.title")} body={t("usage.empty.body")} />;
+}
+
+/** Nothing to list yet (Usage, or Providers' Connected and Available tabs): the providers drawn faintly,
+ *  a title and what will fill it. */
+export function ProvidersEmptyState({ title, body }: { title: string; body: string }) {
   return (
     <div className="flex flex-col items-center gap-6 rounded-xl border border-border bg-foreground/[0.02] px-4 py-10 text-center">
       <div className="flex w-full max-w-[220px] flex-col gap-2" aria-hidden="true">
@@ -286,8 +292,8 @@ function UsageEmptyState() {
         ))}
       </div>
       <div>
-        <p className="text-[length:var(--redesign-chat-text)] font-medium text-foreground">{t("usage.empty.title")}</p>
-        <p className="mt-1 text-[length:var(--redesign-chat-meta)] text-muted-foreground">{t("usage.empty.body")}</p>
+        <p className="text-[length:var(--redesign-chat-text)] font-medium text-foreground">{title}</p>
+        <p className="mt-1 text-[length:var(--redesign-chat-meta)] text-muted-foreground">{body}</p>
       </div>
     </div>
   );
