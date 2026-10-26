@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { ShapeProvider } from "@/lib/shape-context";
 import { ProviderUsageSection } from "@/components/provider-usage";
@@ -78,7 +78,7 @@ import { openSignInDialog } from "@/lib/use-sign-in";
 import { useIdentity } from "@/lib/identity";
 import { Command, Loader2, RotateCcw, Trash2 } from "lucide-react";
 import { showErrorToast } from "@/components/ui/app-toast";
-import { ShellDialog, ShellDialogActions, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
+import { ShellDialog, ShellDialogActions, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
 import { cn } from "@/lib/utils";
 
 // General owns the language and timezone controls. Story: Settings
@@ -468,7 +468,7 @@ const PROVIDER_DESCRIPTIONS: Record<string, string> = {
 // picker instead when a provider has no entry here).
 // Providers Alongside installs itself, with the provider's official installer (backend cli_install.rs):
 // no terminal, npm or Homebrew. The others' + still opens their docs.
-const INSTALLABLE_PROVIDERS = new Set(["claude", "codex"]);
+const INSTALLABLE_PROVIDERS = new Set(["claude", "codex", "antigravity"]);
 
 const PROVIDER_DOCS_URLS: Record<string, string> = {
   claude: "https://code.claude.com/docs",
@@ -773,10 +773,12 @@ function ProviderSetupDialog({
   const tool = provider.displayCaption?.replace(/^via\s+/, "") ?? provider.displayName;
   const names = { provider: provider.displayName, tool };
   const [disconnecting, setDisconnecting] = useState(false);
+  const [code, setCode] = useState("");
   const { available, installed, error } = status;
+  const askingForCode = setup.phase === "code" || setup.phase === "finishing";
 
   const state: ConnectionState | undefined =
-    setup.phase === "signing-in"
+    setup.phase === "signing-in" || askingForCode
       ? "waiting"
       : error
         ? "error"
@@ -791,7 +793,9 @@ function ProviderSetupDialog({
   const body =
     setup.phase === "installing"
       ? t("settings.providers.setup.installing", names)
-      : state === "waiting"
+      : askingForCode
+        ? t("settings.providers.setup.code", names)
+        : state === "waiting"
         ? t("settings.providers.setup.waiting", names)
         : state === "error"
           ? t("settings.providers.noConnection")
@@ -812,8 +816,16 @@ function ProviderSetupDialog({
   }
 
   const busy = setup.phase !== "idle";
-  const primary =
-    state === "error" || state === undefined
+  const codeFormId = useId();
+  const primary = askingForCode
+    ? {
+        label: t("settings.providers.setup.finish"),
+        type: "submit" as const,
+        form: codeFormId,
+        disabled: code.trim() === "" || setup.phase === "finishing",
+        loading: setup.phase === "finishing",
+      }
+    : state === "error" || state === undefined
       ? undefined
       : state === "connected"
         ? { label: disconnecting ? t("settings.providers.disconnecting") : t("common.disconnect"), onClick: () => void disconnect(), disabled: disconnecting, destructive: true }
@@ -850,6 +862,40 @@ function ProviderSetupDialog({
       <p className={cn("px-3 py-2.5 text-center text-[12px] text-muted-foreground", SHELL_RADIUS, SHELL_SURFACE)}>
         <ErrorText message={body} />
       </p>
+      {askingForCode && (
+        <form
+          id={codeFormId}
+          className="flex flex-col gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (code.trim() && setup.phase === "code") void setup.submitCode(code.trim()).then(() => setCode(""));
+          }}
+        >
+          <ShellField label={t("settings.providers.setup.codeLabel")} htmlFor={`${codeFormId}-code`}>
+            <input
+              id={`${codeFormId}-code`}
+              autoFocus
+              autoComplete="off"
+              spellCheck={false}
+              value={code}
+              onChange={(event) => setCode(event.target.value)}
+              placeholder={t("settings.providers.setup.codePlaceholder")}
+              className={SHELL_FIELD_INPUT}
+            />
+          </ShellField>
+          {/* The tab Google opened, again, if it was closed or never showed. */}
+          {setup.link && (
+            <Button
+              type="button"
+              variant="tertiary"
+              className={cn("h-8 w-full bg-white dark:bg-transparent", SHELL_RADIUS)}
+              onClick={() => window.open(setup.link ?? undefined, "_blank", "noopener,noreferrer")}
+            >
+              {t("settings.providers.setup.openGoogle")}
+            </Button>
+          )}
+        </form>
+      )}
       {installed && update.updateAvailable && (
         <Button
           type="button"
@@ -925,7 +971,9 @@ function useCliUpdate(binary: string, enabled: boolean, onUpdated: () => void) {
 // detail view's Setup now). A failed install says why in the toast (ALS-040), with no backend ALS-002.
 function useProviderSetup(binary: string, providerName: string, refetch: () => Promise<boolean>) {
   const { t } = useTranslation();
-  const [phase, setPhase] = useState<"idle" | "installing" | "signing-in">("idle");
+  const [phase, setPhase] = useState<"idle" | "installing" | "signing-in" | "code" | "finishing">("idle");
+  // Antigravity's sign-in: the Google page it opened, which shows a code to paste here (antigravity_login.rs).
+  const [link, setLink] = useState<string | null>(null);
 
   const install = async (): Promise<boolean> => {
     setPhase("installing");
@@ -943,7 +991,20 @@ function useProviderSetup(binary: string, providerName: string, refetch: () => P
 
   const signIn = async () => {
     setPhase("signing-in");
-    await fetch(`/cli/${encodeURIComponent(binary)}/login`, { method: "POST" }).catch(() => null);
+    const res = await fetch(`/cli/${encodeURIComponent(binary)}/login`, { method: "POST" }).catch(() => null);
+    // Antigravity answers with its Google link: the code from there finishes it (submitCode).
+    const answer = res?.status === 200 ? ((await res.json().catch(() => null)) as { url?: string; needs_code?: boolean } | null) : null;
+    if (answer?.needs_code && answer.url) {
+      setLink(answer.url);
+      setPhase("code");
+      return;
+    }
+    if (res && !res.ok && res.status !== 404) {
+      const detail = (await res.text().catch(() => "")).trim();
+      setPhase("idle");
+      showErrorToast(detail ? t("settings.providers.signInFailed", { provider: providerName, detail }) : t("settings.providers.noConnection"), { id: `login-${binary}` });
+      return;
+    }
     for (let attempt = 0; attempt < 60; attempt++) {
       await new Promise((resolve) => setTimeout(resolve, 2000));
       if (await refetch()) break;
@@ -956,7 +1017,27 @@ function useProviderSetup(binary: string, providerName: string, refetch: () => P
     await signIn();
   };
 
-  return { phase, install, setUp };
+  const submitCode = async (code: string) => {
+    setPhase("finishing");
+    const res = await fetch(`/cli/${encodeURIComponent(binary)}/login/code`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    }).catch(() => null);
+    if (res?.ok) {
+      await refetch();
+      setLink(null);
+      setPhase("idle");
+      return;
+    }
+    const detail = res ? (await res.text().catch(() => "")).trim() : "";
+    // Expired or refused: it starts again from Sign in.
+    setLink(null);
+    setPhase("idle");
+    showErrorToast(detail ? t("settings.providers.signInFailed", { provider: providerName, detail }) : t("settings.providers.noConnection"), { id: `login-${binary}` });
+  };
+
+  return { phase, link, install, setUp, submitCode };
 }
 
 // One button per provider: its icon, name, where it stands, and a + (or a check once connected),
@@ -977,7 +1058,9 @@ function ProviderCard({ provider, filter = "all", query = "" }: { provider: Prov
       ? t("settings.providers.installing")
       : setup.phase === "signing-in"
         ? t("settings.providers.waitingForSignIn")
-        : cliCheckError
+        : setup.phase === "code" || setup.phase === "finishing"
+          ? t("settings.providers.setup.waitingForCode")
+          : cliCheckError
           ? t("settings.providers.noConnection")
           : checking
             ? t("settings.providers.checking")
