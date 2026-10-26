@@ -110,7 +110,7 @@ export function JoinChatPage() {
     <div className="relative flex flex-1 overflow-hidden bg-background @container">
       <div className="absolute inset-0 flex items-center justify-center overflow-y-auto px-3 sm:px-5">
         <form
-          className="flex w-full max-w-[420px] flex-col items-center gap-4 text-center"
+          className="flex w-full max-w-[520px] flex-col items-center gap-4 text-center"
           onSubmit={(event) => {
             event.preventDefault();
             if (!signedIn) return openSignInDialog();
@@ -122,7 +122,7 @@ export function JoinChatPage() {
           </span>
           <div>
             <h1 className="text-[length:clamp(15px,calc(12.55px+0.545cqw),18px)] font-normal text-foreground">{t("joinChat.title")}</h1>
-            <p className="mt-1.5 text-[length:var(--redesign-chat-text)] text-muted-foreground">{t(signedIn ? "joinChat.signedInDescription" : "joinChat.signIn")}</p>
+            <p className="mt-1.5 text-pretty text-[length:var(--redesign-chat-text)] text-muted-foreground">{t(signedIn ? "joinChat.signedInDescription" : "joinChat.signIn")}</p>
           </div>
           {/* Signed out: no fields, just what it takes (an account) and Sign in. */}
           {!signedIn ? null : disclosure ? (
