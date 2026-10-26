@@ -2967,15 +2967,10 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             // own agent-reply text size, same reasoning the row's
             // previous size bump already established.
             <div className="flex items-center gap-2 py-1">
-              {/* A bot's chat: the bot, its face showing what it's doing, then the label. */}
+              {/* A bot's chat: the bot, its face showing what it's doing (still: only the latest reply's
+                  face moves), then the label. */}
               {bot && waitingMood && (
-                <BotFace
-                  avatar={bot.avatar ?? undefined}
-                  expression={moodFace(waitingMood).expression}
-                  breathe={moodFace(waitingMood).breathe}
-                  animated
-                  className="size-4 shrink-0"
-                />
+                <BotFace avatar={bot.avatar ?? undefined} expression={moodFace(waitingMood).expression} className="size-4 shrink-0" />
               )}
               <TurnWorkDisclosure label={waitingPhaseLabel} detailText={liveReasoningText ?? undefined} live />
             </div>
