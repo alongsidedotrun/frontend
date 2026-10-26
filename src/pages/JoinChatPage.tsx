@@ -124,7 +124,8 @@ export function JoinChatPage() {
             <h1 className="text-[length:clamp(15px,calc(12.55px+0.545cqw),18px)] font-normal text-foreground">{t("joinChat.title")}</h1>
             <p className="mt-1.5 text-[length:var(--redesign-chat-text)] text-muted-foreground">{t(signedIn ? "joinChat.signedInDescription" : "joinChat.signIn")}</p>
           </div>
-          {disclosure ? (
+          {/* Signed out: no fields, just what it takes (an account) and Sign in. */}
+          {!signedIn ? null : disclosure ? (
             <div className={cn("flex w-full max-w-[360px] flex-col gap-3 p-4 text-left", SHELL_RADIUS, SHELL_SURFACE)}>
               <h3 className="text-[13px] font-medium text-foreground">{t("share.disclosure.title")}</h3>
               <p className="text-[12px] text-muted-foreground">{disclosure}</p>

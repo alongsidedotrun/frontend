@@ -210,7 +210,8 @@ const SETTINGS_SECTIONS: readonly SettingsSection[] = ["profile", "general", "ap
 
 function quickActionForPath(pathname: string) {
   if (pathname === "/overview") return "overview";
-  if (pathname.startsWith("/chat/") || pathname === "/") return "chats";
+  // Join chat (a page of its own) keeps the chats sidebar.
+  if (pathname.startsWith("/chat/") || pathname === "/" || pathname === "/join-chat") return "chats";
   if (pathname === "/apps") return "apps";
   if (pathname === "/agents") return "agents";
   return "inbox";

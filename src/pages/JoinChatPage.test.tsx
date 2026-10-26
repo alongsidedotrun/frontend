@@ -59,10 +59,11 @@ describe("Join chat page (#213, #459)", () => {
     auth.signedIn = false;
     backend();
     renderDialog();
-    await userEvent.click(await screen.findByRole("button", { name: "Sign in" }));
+    expect(await screen.findByText("You will be able to join a chat once you have created your account.")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Identifier")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Join code")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
     expect(signIn.open).toHaveBeenCalled();
-    expect(screen.getByLabelText("Identifier")).toBeDisabled();
-    expect(screen.getByLabelText("Join code")).toBeDisabled();
   });
 
   it("needs both a full chat ID and a full code, shown in their usual shape", async () => {
