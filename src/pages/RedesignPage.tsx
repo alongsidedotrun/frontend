@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { IconComponent } from "@/lib/icon-context";
 import { cn } from "@/lib/utils";
 import { forcedNoProvider } from "@/lib/dev-no-provider";
+import { PROVIDERS_CHANGED } from "@/lib/providers-changed";
 import { useLocation, useNavigate, useOutlet } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -261,12 +262,17 @@ export function RedesignPage() {
   // shared or joined through the relay. Re-read on each navigation; both are cheap local calls.
   // Whether any provider is connected: null until the first check answers, so nothing is gated on a guess.
   const [providerReady, setProviderReady] = useState<boolean | null>(null);
-  // Checked again when the window comes back into focus (a provider connected in a terminal, say).
+  // Checked again when the window comes back into focus (a provider connected in a terminal, say), and
+  // when Settings sees one connect or disconnect.
   const [providerCheck, setProviderCheck] = useState(0);
   useEffect(() => {
     const recheck = () => setProviderCheck((count) => count + 1);
     window.addEventListener("focus", recheck);
-    return () => window.removeEventListener("focus", recheck);
+    window.addEventListener(PROVIDERS_CHANGED, recheck);
+    return () => {
+      window.removeEventListener("focus", recheck);
+      window.removeEventListener(PROVIDERS_CHANGED, recheck);
+    };
   }, []);
   // Sidebar row menus: the project awaiting delete confirmation, and the chat
   // to add to the project being created from its "New project…" entry.

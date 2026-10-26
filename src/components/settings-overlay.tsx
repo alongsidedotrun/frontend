@@ -3,6 +3,7 @@ import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { ShapeProvider } from "@/lib/shape-context";
 import { ProviderUsageSection } from "@/components/provider-usage";
 import { forcedNoProvider } from "@/lib/dev-no-provider";
+import { providersChanged } from "@/lib/providers-changed";
 import { resizeImageFile } from "@/lib/resize-image";
 import { LimitReminderRows } from "@/components/limit-reminders";
 import { Check, Plus, SearchMd } from "@untitledui/icons";
@@ -75,7 +76,8 @@ import {
 import { signOut, useIsSignedIn } from "@/lib/auth";
 import { openSignInDialog } from "@/lib/use-sign-in";
 import { useIdentity } from "@/lib/identity";
-import { Command, RotateCcw, Trash2 } from "lucide-react";
+import { Command, Loader2, RotateCcw, Trash2 } from "lucide-react";
+import { showErrorToast } from "@/components/ui/app-toast";
 import { cn } from "@/lib/utils";
 import { SwapLabel } from "@/components/ui/swap-label";
 
@@ -464,6 +466,10 @@ const PROVIDER_DESCRIPTIONS: Record<string, string> = {
 // no real backend integration yet, so there's nothing real to link to for
 // them (ProviderCard's own "Install" falls back to opening the provider
 // picker instead when a provider has no entry here).
+// Providers Alongside installs itself, with the provider's official installer (backend cli_install.rs):
+// no terminal, npm or Homebrew. The others' + still opens their docs.
+const INSTALLABLE_PROVIDERS = new Set(["claude", "codex"]);
+
 const PROVIDER_DOCS_URLS: Record<string, string> = {
   claude: "https://code.claude.com/docs",
   codex: "https://github.com/openai/codex",
@@ -620,8 +626,10 @@ export function useCliAvailability(binary: string): {
         const isInstalled = !forced && Boolean(data.installed);
         // A forced answer isn't the real one: the cache keeps what the CLI said.
         if (!forced) {
+          const before = availabilityCache.get(binary)?.available;
           availabilityCache.set(binary, { available: isAvailable, installed: isInstalled });
           persistAvailabilityCache();
+          if (before !== undefined && before !== isAvailable) providersChanged();
         }
         setAvailable(isAvailable);
         setInstalled(isInstalled);
@@ -759,6 +767,7 @@ function ProviderConnectionView({ provider }: { provider: Provider }) {
   // there's nothing this second fetch could tell handleLogIn that useCliAvailability
   // doesn't already know.
   const { available, installed, error: cliCheckError, refetch: refetchAvailability } = useCliAvailability(cliBinary);
+  const setup = useProviderSetup(cliBinary, provider.displayName, refetchAvailability);
 
   // Set while polling for sign-in to complete after "Setup now" (below) -- distinct
   // from `loggingIn` (just the moment of spawning the login command itself, over in
@@ -794,6 +803,11 @@ function ProviderConnectionView({ provider }: { provider: Provider }) {
       // installed, nothing to log into yet -- "Visit provider
       // documentation" is the only actionable step there).
       void handleSetupNow();
+    } else if (INSTALLABLE_PROVIDERS.has(cliBinary)) {
+      // Claude and Codex install from here, then sign in, no dialog.
+      void setup.install().then((done) => {
+        if (done) void handleSetupNow();
+      });
     } else {
       setCliMissing(true);
     }
@@ -935,9 +949,11 @@ function ProviderConnectionView({ provider }: { provider: Provider }) {
             // to "Log in" for a provider whose real state is already known.
             // Disabled during a connectivity error outright -- per explicit
             // request, logging in isn't the fix for "can't reach Alongside".
-            disabled={cliCheckError || available === undefined || loggingOut}
+            disabled={cliCheckError || available === undefined || loggingOut || setup.phase === "installing"}
           >
-            {available
+            {setup.phase === "installing"
+              ? t("settings.providers.installing")
+              : available
               ? loggingOut
                 ? t("settings.providers.disconnecting")
                 : t("common.disconnect")
@@ -1076,6 +1092,45 @@ function useCliUpdate(binary: string, enabled: boolean, onUpdated: () => void) {
   return { updateAvailable, state, error, update };
 }
 
+// Setting a provider up from its row in one click: installing it when it isn't (Claude Code, Codex),
+// then its own sign-in in the browser, watched until it's connected (2s, for up to 2 minutes, as the
+// detail view's Setup now). A failed install says why in the toast (ALS-040), with no backend ALS-002.
+function useProviderSetup(binary: string, providerName: string, refetch: () => Promise<boolean>) {
+  const { t } = useTranslation();
+  const [phase, setPhase] = useState<"idle" | "installing" | "signing-in">("idle");
+
+  const install = async (): Promise<boolean> => {
+    setPhase("installing");
+    const res = await fetch(`/cli/${encodeURIComponent(binary)}/install`, { method: "POST" }).catch(() => null);
+    const detail = res && !res.ok ? (await res.text().catch(() => "")).trim() : "";
+    setPhase("idle");
+    if (res?.ok) {
+      await refetch();
+      return true;
+    }
+    // Only the backend's own failure has a reason in its body; none (or the dev proxy's empty 502) is no backend.
+    showErrorToast(detail ? t("settings.providers.installFailed", { provider: providerName, detail }) : t("settings.providers.noConnection"), { id: `install-${binary}` });
+    return false;
+  };
+
+  const signIn = async () => {
+    setPhase("signing-in");
+    await fetch(`/cli/${encodeURIComponent(binary)}/login`, { method: "POST" }).catch(() => null);
+    for (let attempt = 0; attempt < 60; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      if (await refetch()) break;
+    }
+    setPhase("idle");
+  };
+
+  const setUp = async (installed: boolean | undefined) => {
+    if (!installed && !(await install())) return;
+    await signIn();
+  };
+
+  return { phase, install, setUp };
+}
+
 /** The blue "Update available" badge beside a provider's check or +; clicking it updates the CLI. */
 function UpdatePill({ state, error, onUpdate }: { state: "idle" | "updating" | "failed"; error: string | null; onUpdate: () => void }) {
   const { t } = useTranslation();
@@ -1104,6 +1159,8 @@ function ProviderCard({ provider, onClick, filter = "all", query = "" }: { provi
   const cliBinary = provider.name.toLowerCase();
   const { available, installed, error: cliCheckError, refetch: refetchAvailability } = useCliAvailability(cliBinary);
   const cliUpdate = useCliUpdate(cliBinary, installed === true, () => void refetchAvailability());
+  const setup = useProviderSetup(cliBinary, provider.displayName, refetchAvailability);
+  const installable = INSTALLABLE_PROVIDERS.has(cliBinary);
   // Every caller of this component now only ever passes an
   // ACTIVE_PROVIDERS member (ProvidersSection's own activeProviders) --
   // the "Coming soon" section stopped rendering real provider tiles
@@ -1121,7 +1178,7 @@ function ProviderCard({ provider, onClick, filter = "all", query = "" }: { provi
   // affordance in sync with the status text instead of showing a stale
   // "Connected"-shaped row next to an ALS-002 message.
   const isConnected = available === true && !cliCheckError;
-  const statusLabel = cliCheckError
+  const checkedStatus = cliCheckError
     // Same coded message as ConnectionBadge's own "error" state -- per
     // explicit request, a clear error instead of a vague "can't check"
     // (that badge's own comment has the full ALS-002 reasoning).
@@ -1133,6 +1190,13 @@ function ProviderCard({ provider, onClick, filter = "all", query = "" }: { provi
         : installed
           ? t("settings.providers.notSignedInPlain")
           : t("settings.providers.notInstalledPlain");
+  // While the + sets it up: installing, then waiting for the sign-in in the browser.
+  const statusLabel =
+    setup.phase === "installing"
+      ? t("settings.providers.installing")
+      : setup.phase === "signing-in"
+        ? t("settings.providers.waitingForSignIn")
+        : checkedStatus;
   const docsUrl = PROVIDER_DOCS_URLS[cliBinary];
   // Every row now gets the exact same edge-to-edge hover, regardless of
   // connection state -- confirmed directly as a real inconsistency ("the
@@ -1185,15 +1249,23 @@ function ProviderCard({ provider, onClick, filter = "all", query = "" }: { provi
       {isConnected ? null : (
         <button
           type="button"
-          aria-label={!cliCheckError && installed ? t("settings.providers.logIn") : !cliCheckError && docsUrl ? t("settings.providers.install") : t("settings.providers.setUp")}
+          aria-label={!cliCheckError && installed ? t("settings.providers.logIn") : !cliCheckError && (installable || docsUrl) ? t("settings.providers.install") : t("settings.providers.setUp")}
+          aria-busy={setup.phase !== "idle"}
+          disabled={setup.phase !== "idle"}
           onClick={(event) => {
-            if (cliCheckError || installed || !docsUrl) return onClick();
+            if (cliCheckError || installed) return onClick();
+            // Claude and Codex: installed here, then straight to their sign-in.
+            if (installable) {
+              event.stopPropagation();
+              return void setup.setUp(installed);
+            }
+            if (!docsUrl) return onClick();
             event.stopPropagation();
             window.open(docsUrl, "_blank", "noopener,noreferrer");
           }}
-          className={CONNECTION_ADD}
+          className={cn(CONNECTION_ADD, "disabled:cursor-default")}
         >
-          <Plus className="size-3.5" />
+          {setup.phase === "idle" ? <Plus className="size-3.5" /> : <Loader2 className="size-3.5 animate-spin text-muted-foreground" />}
         </button>
       )}
     </div>

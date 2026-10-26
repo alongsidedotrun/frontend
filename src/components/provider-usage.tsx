@@ -7,6 +7,7 @@ import { MenuItem } from "@/components/ui/menu-item";
 import { ErrorText } from "@/lib/error-code";
 import { cn } from "@/lib/utils";
 import { forcedNoProvider } from "@/lib/dev-no-provider";
+import { PROVIDERS_CHANGED } from "@/lib/providers-changed";
 import { PROVIDER_DISPLAY, ProviderIcon } from "@/lib/quick-chat-models";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { ShapeProvider } from "@/lib/shape-context";
@@ -232,6 +233,13 @@ function leastLeft(snapshot: ProviderUsageSnapshot | null | undefined) {
 function useConnectedProviders(providers: readonly string[]): Record<string, boolean> {
   const [connected, setConnected] = useState<Record<string, boolean>>({});
   const key = providers.join(",");
+  // Checked again when one is connected or disconnected (the + above, say).
+  const [changes, setChanges] = useState(0);
+  useEffect(() => {
+    const recheck = () => setChanges((count) => count + 1);
+    window.addEventListener(PROVIDERS_CHANGED, recheck);
+    return () => window.removeEventListener(PROVIDERS_CHANGED, recheck);
+  }, []);
   useEffect(() => {
     let cancelled = false;
     for (const provider of providers) {
@@ -246,7 +254,7 @@ function useConnectedProviders(providers: readonly string[]): Record<string, boo
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, changes]);
   return connected;
 }
 
