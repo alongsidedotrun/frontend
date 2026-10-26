@@ -11,6 +11,7 @@ import { createBot, type Bot } from "@/lib/bots";
 import { useBotMood } from "@/components/bot-face";
 import { fade } from "@/lib/springs";
 import { cn } from "@/lib/utils";
+import { ProviderGate } from "@/components/provider-gate";
 import { QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
 import { useLimitWarning } from "@/components/limit-warning";
 import { ComposeBox, toImageInputs, type ImageAttachment } from "@/components/compose-box";
@@ -38,6 +39,8 @@ export type HomePageShellContext = {
   workspaceColor?: number | null;
   /** #504: a bot made on this page, to open its chat. */
   onBotCreated?: (bot: Bot) => void;
+  /** Whether a provider is connected (null: not known yet). With none, the page asks to connect one. */
+  providerReady?: boolean | null;
 };
 
 type HomePageProps = {
@@ -309,6 +312,13 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
 
   return (
     <div className="relative flex flex-1 overflow-hidden bg-background @container">
+      {/* No provider yet: nothing here can run, so the page asks for one instead (Settings > Providers). */}
+      {shellContext.providerReady === false && !transitioningToChat ? (
+        <div className="absolute inset-0 z-10 flex items-center justify-center px-3 sm:px-5">
+          <ProviderGate onConnect={() => navigate("/settings/provider")} />
+        </div>
+      ) : (
+      <>
       {!transitioningToChat && (
         <div className="absolute inset-x-0 top-5 z-20 flex justify-center">
           <ShapeProvider defaultShape="pill">
@@ -402,6 +412,8 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
       </motion.div>
         )}
       </AnimatePresence>
+      </>
+      )}
     </div>
   );
 }
