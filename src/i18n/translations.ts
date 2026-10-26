@@ -4811,6 +4811,15 @@ export const translations = {
     zh: "整理相关对话",
     ja: "関連するチャットを整理",
   },
+  "shell.commands.openBot": {
+    en: "Open its chat",
+    "pt-BR": "Abrir o chat dele",
+    es: "Abrir su chat",
+    fr: "Ouvrir son chat",
+    de: "Seinen Chat öffnen",
+    zh: "打开它的对话",
+    ja: "チャットを開く",
+  },
   "shell.commands.openChat": {
     en: "Open chat",
     "pt-BR": "Abrir conversa",

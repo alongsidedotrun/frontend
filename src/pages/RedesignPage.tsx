@@ -196,9 +196,9 @@ const gettingStartedSteps = (
 const SETTINGS_COMMANDS: readonly { section: SettingsSection; labelKey: string; icon: IconComponent; keywords: string[] }[] = [
   { section: "general", labelKey: "settings.nav.general", icon: SettingsIcon, keywords: ["language", "timezone", "notifications", "tips"] },
   { section: "appearance", labelKey: "settings.nav.appearance", icon: PaletteIcon, keywords: ["theme", "dark", "light", "font", "transparency"] },
-  { section: "chat", labelKey: "settings.nav.chat", icon: BubbleChatIcon, keywords: ["provider", "effort", "usage"] },
+  { section: "chat", labelKey: "settings.nav.chat", icon: BubbleChatIcon, keywords: ["model", "effort", "spelling"] },
   { section: "profile", labelKey: "settings.nav.profile", icon: UserIcon, keywords: ["account", "picture", "sign in", "log out"] },
-  { section: "provider", labelKey: "settings.nav.provider", icon: ProvidersIcon, keywords: ["models", "api key", "ai"] },
+  { section: "provider", labelKey: "settings.nav.provider", icon: ProvidersIcon, keywords: ["ai", "models", "connect", "sign in", "install", "usage", "claude", "chatgpt", "codex", "gemini", "antigravity", "grok"] },
   { section: "apps", labelKey: "settings.nav.apps", icon: IntegrationsIcon, keywords: ["integrations", "connect"] },
   { section: "skills", labelKey: "settings.nav.skills", icon: SkillIcon, keywords: ["skill", "add skill", "import", "instructions"] },
   { section: "archived-workspaces", labelKey: "settings.archived.workspaces.title", icon: WorkspacesIcon, keywords: ["archived", "restore", "delete", "workspace"] },
@@ -861,7 +861,22 @@ export function RedesignPage() {
     { id: "new-workspace", label: t("workspace.new"), icon: Plus, onSelect: () => { setWorkspaceError(null); setNewWorkspaceOpen(true); } },
     { id: "manage-workspace", label: t("workspace.manage"), icon: Settings01Icon, onSelect: () => { setWorkspaceError(null); setWorkspaceNameTaken(false); setManageWorkspacesOpen(true); } },
   ];
+  // Opening a bot's chat from Quick actions: the sidebar's own openBot, current on every render.
+  const openBotRef = useRef(openBot);
+  openBotRef.current = openBot;
   const commandMenuItems = useMemo<CommandMenuItemData[]>(() => [
+    // No provider yet: connecting one comes first, as on the New page.
+    ...(providerReady === false
+      ? [{
+          value: "connect-provider",
+          label: t("providerGate.connect"),
+          description: t("providerGate.body"),
+          icon: ProvidersIcon,
+          keywords: ["provider", "set up", "sign in", "install", "claude", "chatgpt", "gemini", "grok"],
+          group: t("shell.commands.group.actions"),
+          onSelect: () => navigate("/settings/provider"),
+        }]
+      : []),
     {
       value: "new-chat",
       label: t("common.newChat"),
@@ -870,7 +885,9 @@ export function RedesignPage() {
       shortcut: "mod+n",
       keywords: ["compose", "start", "conversation"],
       group: t("shell.commands.group.actions"),
+      // Already on an empty new chat: nothing, as the sidebar's New.
       onSelect: () => {
+        if (location.pathname === "/" && !location.search && !activeChatId) return;
         setActiveChatId(null);
         navigate("/");
       },
@@ -928,7 +945,18 @@ export function RedesignPage() {
       group: t("nav.settings"),
       onSelect: () => navigate(`/settings/${section}`),
     })),
-    ...chats.map((chat) => ({
+    // Your bots, each opening its one chat (as in the sidebar's Bots).
+    ...bots.map((bot) => ({
+      value: `bot-${bot.id}`,
+      label: bot.name,
+      description: bot.description || t("shell.commands.openBot"),
+      icon: botRowIcon(bot.avatar),
+      keywords: ["bot", "agent"],
+      group: t("bots.title"),
+      onSelect: () => void openBotRef.current(bot),
+    })),
+    // Chats; a bot's chat is listed with its bot above.
+    ...chats.filter((chat) => !chat.bot_id).map((chat) => ({
       value: `chat-${chat.id}`,
       label: chat.name,
       description: t("shell.commands.openChat"),
@@ -942,7 +970,7 @@ export function RedesignPage() {
         navigate(`/chat/${chat.id}`);
       },
     })),
-  ], [activeChatId, chats, navigate, routeChatId, t]);
+  ], [activeChatId, bots, chats, location.pathname, location.search, navigate, openJoin, providerReady, routeChatId, t]);
 
   useEffect(() => {
     let cancelled = false;

@@ -15,6 +15,10 @@ import {
 } from "@/components/ui/command-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 
+// Listed first while nothing is typed: connecting a provider (only there while none is), then starting
+// something, then Settings. A value with no item is skipped.
+const SUGGESTIONS = ["connect-provider", "new-chat", "new-bot", "join-chat", "settings"];
+
 type CommandMenuDemoProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -30,7 +34,7 @@ export function CommandMenuDemo({ open, onOpenChange, items }: CommandMenuDemoPr
   const { t } = useTranslation();
   // Tab and type values are the items' group names, which the shell sets from
   // the same keys (RedesignPage), so filtering matches in every language.
-  const groups = [t("shell.commands.group.actions"), t("nav.chats"), t("nav.settings")];
+  const groups = [t("shell.commands.group.actions"), t("bots.title"), t("nav.chats"), t("nav.settings")];
   const tabs = [{ value: "all", label: t("commandMenu.tabs.all") }, ...groups.map((group) => ({ value: group, label: group }))];
   const types = [{ value: "all", label: t("commandMenu.filters.allTypes") }, ...groups.map((group) => ({ value: group, label: group }))];
   const sorts = [
@@ -57,7 +61,7 @@ export function CommandMenuDemo({ open, onOpenChange, items }: CommandMenuDemoPr
       className="!border !border-white/[0.08] !bg-background/80 backdrop-blur-xl"
       backdropClassName="!bg-background/45 !backdrop-blur-sm"
     >
-      <CommandMenu items={visibleItems} suggestions={["new-chat", "new-project", "settings"]} suggestionsLabel={t("commandMenu.suggestions")}>
+      <CommandMenu items={visibleItems} suggestions={SUGGESTIONS} suggestionsLabel={t("commandMenu.suggestions")}>
         <CommandMenuInput placeholder={t("commandMenu.placeholder")} />
         <CommandMenuTabs tabs={tabs} value={tab} onValueChange={setTab} tabsLabel={t("commandMenu.filterResults")}>
           <CommandMenuFilters>
