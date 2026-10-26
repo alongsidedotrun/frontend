@@ -119,6 +119,8 @@ type ChatRow =
       mine?: boolean;
       // #460: files sent with it in a shared chat (read from this device's own copy).
       files?: SharedFile[];
+      // A bot's reaction to it (an emoji, e.g. a thumbs up for "understood"): see reactionOf.
+      reaction?: string;
     }
   | {
       kind: "agent";
@@ -317,6 +319,15 @@ function toolDisplayLabel(name: string): string {
 function cleanRunCommand(command: string): string {
   const match = command.match(/^\/bin\/bash -lc "(.*)"$/s);
   return match ? match[1] : command;
+}
+
+// A bot can react to the message it's answering: its reply starts with "[[react:👍]]" (one emoji), and
+// may be nothing else when the reaction says it all (backend chat_agents::bot_preamble tells it so).
+const REACTION = /^\s*\[\[react:\s*([^\]\s]{1,16})\s*\]\]\s*/u;
+
+function reactionOf(text: string): { reaction: string | null; text: string } {
+  const match = REACTION.exec(text);
+  return match ? { reaction: match[1], text: text.slice(match[0].length) } : { reaction: null, text };
 }
 
 function normalizeToolName(name: string): string {
@@ -1961,6 +1972,18 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               updateLiveReasoningText(block.thinking);
             } else if (block.type === "text" && block.text) {
               setWaitingPhase(null);
+              // A reaction goes on the message it answers (the last one sent); a reply that's only a
+              // reaction adds no row of its own.
+              const reacted = reactionOf(block.text);
+              if (reacted.reaction) {
+                const emoji = reacted.reaction;
+                setRows((prev) => {
+                  const at = prev.map((row) => row.kind).lastIndexOf("human");
+                  return at < 0 ? prev : prev.map((row, index) => (index === at && row.kind === "human" ? { ...row, reaction: emoji } : row));
+                });
+              }
+              if (!reacted.text.trim()) continue;
+              block.text = reacted.text;
               // event.model -- the real model that actually produced *this*
               // reply (backend/src/lib.rs's own record()/attach_model),
               // falling back to modelRef.current (the compose box's current
@@ -3376,11 +3399,21 @@ function ChatRowView({
               --foreground comment has the full history), so this is now a literal
               shared token rather than two colors that happened to match. */}
           <div
-            className={`rounded-[var(--redesign-chat-bubble-radius)] px-[var(--redesign-chat-bubble-padding-x)] py-[var(--redesign-chat-bubble-padding-y)] text-[length:var(--redesign-chat-text)] leading-relaxed whitespace-pre-wrap text-foreground ${
+            className={`relative rounded-[var(--redesign-chat-bubble-radius)] px-[var(--redesign-chat-bubble-padding-x)] py-[var(--redesign-chat-bubble-padding-y)] text-[length:var(--redesign-chat-text)] leading-relaxed whitespace-pre-wrap text-foreground ${
               row.failed ? "border border-destructive/40" : ""
-            } bg-accent`}
+            } ${row.reaction ? "mb-3" : ""} bg-accent`}
           >
             <MessageText text={row.text} />
+            {/* The bot's reaction, on the bubble's lower corner: its face and the emoji. */}
+            {row.reaction && (
+              <span
+                className={`absolute -bottom-3.5 flex items-center gap-1 rounded-full border border-border bg-background py-0.5 pr-1.5 pl-1 text-[12px] leading-none whitespace-nowrap shadow-[0_1px_2px_rgb(0_0_0_/_0.08)] ${isSelf ? "left-2" : "right-2"}`}
+                title={bot ? bot.name : undefined}
+              >
+                {bot && <BotFace avatar={bot.avatar ?? undefined} className="size-3.5" />}
+                <span aria-label={bot ? `${bot.name}: ${row.reaction}` : row.reaction}>{row.reaction}</span>
+              </span>
+            )}
           </div>
         </div>
         {row.files && row.files.length > 0 && sessionId && (
