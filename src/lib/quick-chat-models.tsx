@@ -176,6 +176,18 @@ export function preloadProviderIcons() {
 // Opus 4.6" under provider "GitHub") keep their full label, since the
 // provider name there isn't part of the model's own name. Shared by
 // compose-box.tsx's own model trigger and nav-user.tsx's Models section.
+/**
+ * #504: "Let the bot choose" -- a bot's chat sends this instead of a model, and the backend picks one per
+ * message (backend/src/bot_turns.rs). Offered only in a bot's chat, at the top of the model menu.
+ */
+export const AUTO_BOT_MODEL: QuickChatModel = {
+  value: "auto",
+  label: "Let the bot choose",
+  provider: "Alongside",
+  icon: "/bot-faces/alongside-bot-choose.svg",
+  configured: true,
+};
+
 export function modelDisplayName(model: { label: string; provider: string }) {
   const prefix = `${model.provider} `;
   return model.label.startsWith(prefix) ? model.label.slice(prefix.length) : model.label;

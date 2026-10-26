@@ -50,10 +50,10 @@ export async function deleteBot(id: string): Promise<boolean> {
   return Boolean(response?.ok);
 }
 
-/** The bot's one ongoing chat, started the first time it's opened. */
-export async function openBotChat(id: string, workspaceId?: string): Promise<string | null> {
+/** The bot's one ongoing chat (its id), started the first time it's opened; or why it couldn't be. */
+export async function openBotChat(id: string, workspaceId?: string): Promise<string | BotError> {
   const response = await send(`/bots/${encodeURIComponent(id)}/chat`, "POST", { workspace_id: workspaceId });
-  if (!response?.ok) return null;
+  if (!response?.ok) return failureOf(response);
   const { session_id } = (await response.json()) as { session_id: string };
   changed();
   return session_id;

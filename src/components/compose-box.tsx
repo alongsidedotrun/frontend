@@ -4,7 +4,7 @@ import type { IconComponent, IconComponentProps } from "@/lib/icon-context";
 import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
-import { PROVIDER_DISPLAY, ProviderIcon, QUICK_CHAT_MODELS, modelDisplayName } from "@/lib/quick-chat-models";
+import { AUTO_BOT_MODEL, PROVIDER_DISPLAY, ProviderIcon, QUICK_CHAT_MODELS, modelDisplayName } from "@/lib/quick-chat-models";
 import { defaultEffortFor, effortLabel, EFFORT_LEVELS, type EffortLevel } from "@/lib/effort";
 import { loadLastEffort, saveLastEffort, type PermissionMode } from "@/lib/last-used";
 import { ClipboardCheck, Hand, ShieldTick, ShieldZap, Target04 } from "@untitledui/icons";
@@ -119,6 +119,7 @@ let cliAvailabilityCache: Record<string, boolean> = {};
 // selection rule.
 function modelSelectionLabel(selected: typeof QUICK_CHAT_MODELS) {
   if (selected.length === 0) return i18n.t("compose.model");
+  if (selected[0].value === AUTO_BOT_MODEL.value) return i18n.t("compose.botChooses");
   return modelDisplayName(selected[0]);
 }
 
@@ -757,6 +758,7 @@ export function ComposeBox({
   onStop,
   defaultModelValue,
   onModelsChange,
+  allowBotChoice = false,
   contextUsage,
   onOpenSettings,
   chatId,
@@ -877,6 +879,8 @@ export function ComposeBox({
   // HomePage-only: the same below the composer (a new chat's composer sits mid-page), laid over
   // the Work from folder row, which stays underneath and shows again once it's closed.
   noticeBelow?: ReactNode;
+  /** A bot's chat (#504): "Let the bot choose" heads the model menu, and can be the default model. */
+  allowBotChoice?: boolean;
   queue?: {
     items: QueuedMessage[];
     onAdd: (message: Omit<QueuedMessage, "id">) => void;
@@ -890,8 +894,11 @@ export function ComposeBox({
   onSetAutocompact: (value: string) => void;
 }) {
   const { t } = useTranslation();
+  // The models a default can name: the catalog, and in a bot's chat "Let the bot choose".
+  const findDefaultModel = (value: string | undefined) =>
+    allowBotChoice && value === AUTO_BOT_MODEL.value ? AUTO_BOT_MODEL : QUICK_CHAT_MODELS.find((m) => m.value === value);
   const [selectedModels, setSelectedModels] = useState(() => {
-    const initial = QUICK_CHAT_MODELS.find((m) => m.value === defaultModelValue);
+    const initial = findDefaultModel(defaultModelValue);
     return initial ? [initial] : [];
   });
   // Real, custom scroll thumb for the model list below, not the native
@@ -1014,7 +1021,7 @@ export function ComposeBox({
     // then. A real manual pick (selectModel below) still still blocks this
     // for good, exactly like the length check used to.
     if (selectedModels.length > 0 && !autoSelectedModelRef.current) return;
-    const initial = QUICK_CHAT_MODELS.find((m) => m.value === defaultModelValue);
+    const initial = findDefaultModel(defaultModelValue);
     if (initial) {
       autoSelectedModelRef.current = true;
       setSelectedModels([initial]);
@@ -2569,6 +2576,21 @@ export function ComposeBox({
                 submenu headed by the provider's name. The model list keeps
                 its cap-then-scroll treatment and custom thumb (below); only
                 one submenu is open at a time, so they share the one list ref. */}
+            {/* A bot's chat: the bot picks the model per message, unless one is chosen below. */}
+            {allowBotChoice && (
+              <>
+                <DropdownSubItem
+                  className={cn("py-1.5 pr-2.5 pl-2.5 text-[12px] whitespace-nowrap", selectedModels[0]?.value === AUTO_BOT_MODEL.value && "bg-hover-2")}
+                  onClick={() => selectModel(AUTO_BOT_MODEL)}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <ProviderIcon model={AUTO_BOT_MODEL} className="size-3.5 shrink-0" />
+                    {t("compose.botChooses")}
+                  </span>
+                </DropdownSubItem>
+                <DropdownSeparator />
+              </>
+            )}
             <BaseDropdownLabel>{t("compose.providers")}</BaseDropdownLabel>
             {providerGroups.map(([provider, models], index) => (
               <DropdownSubMenuItem

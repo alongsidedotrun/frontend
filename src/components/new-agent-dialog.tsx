@@ -1,10 +1,10 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Bot } from "lucide-react";
+import { BotIcon } from "@/components/icons/bot-icon";
 import { ShellDialog, ShellDialogActions, ShellField, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
 import { AGENT_NAME_PATTERN, type AddAgentError } from "@/lib/chat-agents";
 import { BotAvatarPicker, BotEyesPicker, BotSwatches } from "@/components/bot-avatar-picker";
-import { BotFace, DEFAULT_BOT_AVATAR, type BotAvatar, type BotExpression } from "@/components/bot-face";
+import { BotFace, DEFAULT_BOT_AVATAR, useBotMood, type BotAvatar, type BotExpression } from "@/components/bot-face";
 import { cn } from "@/lib/utils";
 import { showErrorToast } from "@/components/ui/app-toast";
 import type { TFunction } from "i18next";
@@ -56,7 +56,7 @@ export function BotFields({
   onChange,
   autoFocus = true,
   bare = false,
-  withDescription = false,
+  forBot = false,
   expression,
   footer,
 }: {
@@ -65,8 +65,8 @@ export function BotFields({
   autoFocus?: boolean;
   /** The New bot page: no name (the page's title is) and plain fields, so it reads like the bot itself. */
   bare?: boolean;
-  /** A bot's one-line description (bots have one; chat agents don't). */
-  withDescription?: boolean;
+  /** A bot (its description; no "@" or instructions box) rather than a chat's agent. */
+  forBot?: boolean;
   /** The face it's making; given, it's animated (the New bot page). */
   expression?: BotExpression;
   /** The New bot page's buttons, under the colours and as wide as them. */
@@ -80,7 +80,9 @@ export function BotFields({
   return (
     <div className="flex flex-col gap-3">
       {/* The New bot page shows its colours under the bot; the dialogs open the picker from the face. */}
-      {bare ? (
+      {/* A bot's look -- colours, Randomise, Upload, expressions -- shows under its face, on the New bot
+          page and in Edit bot alike; a chat's agent opens the picker from its face. */}
+      {bare || forBot ? (
         <div className="flex flex-col items-center gap-4">
           <BotFace avatar={draft.avatar} expression={expression} animated={expression !== undefined} className="size-16" />
           <div className="flex w-fit flex-col items-center gap-4">
@@ -116,7 +118,8 @@ export function BotFields({
       </div>
       )}
       {!bare && <ShellField label={t("agents.fields.name")} htmlFor={nameId}>
-        <span className="text-[13px] text-muted-foreground">@</span>
+        {/* An agent is asked by @name in its chat; a bot is talked to directly, so no @. */}
+        {!forBot && <span className="text-[13px] text-muted-foreground">@</span>}
         <input
           id={nameId}
           autoFocus={autoFocus}
@@ -127,7 +130,7 @@ export function BotFields({
           className={SHELL_FIELD_INPUT}
         />
       </ShellField>}
-      {!bare && withDescription && (
+      {!bare && forBot && (
         <ShellField label={t("bots.fields.description")} htmlFor={descriptionId}>
           <input
             id={descriptionId}
@@ -140,7 +143,8 @@ export function BotFields({
         </ShellField>
       )}
       {/* The New bot page has no instructions: they're given once the bot exists. */}
-      {!bare && (
+      {/* A bot's instructions are given in its chat; only a chat's agent is told its speciality here. */}
+      {!bare && !forBot && (
         <section className={cn("flex flex-col gap-1 px-3 pt-2 pb-1", SHELL_RADIUS, SHELL_SURFACE)}>
           <label htmlFor={instructionsId} className="text-[12px] text-muted-foreground">{t("agents.fields.instructions")}</label>
           <textarea
@@ -181,6 +185,8 @@ export function NewAgentDialog({
   const formId = useId();
   const [draft, setDraft] = useState<BotDraft>(initial ?? EMPTY_DRAFT);
   const [busy, setBusy] = useState(false);
+  // A bot reacts here as on the New bot page: happy while it's named and described; a new look shows at once.
+  const [mood, react] = useBotMood();
   useEffect(() => {
     if (!open) return;
     setDraft(initial ?? EMPTY_DRAFT);
@@ -196,7 +202,7 @@ export function NewAgentDialog({
       centered
       open={open}
       onOpenChange={(next) => { if (!next) onClose(); }}
-      icon={<span className={cn("grid size-8 place-items-center", SHELL_RADIUS, SHELL_SURFACE)}><Bot aria-hidden="true" className="size-4 text-foreground" /></span>}
+      icon={<span className={cn("grid size-8 place-items-center", SHELL_RADIUS, SHELL_SURFACE)}><BotIcon aria-hidden="true" className="size-4 text-foreground" /></span>}
       title={t(editing ? "bots.editTitle" : `${copy}.new`)}
       description={t(`${copy}.dialog.description`)}
       actions={
@@ -221,9 +227,16 @@ export function NewAgentDialog({
         }}
       >
         <BotFields
-          withDescription={kind === "bot"}
+          forBot={kind === "bot"}
+          expression={kind === "bot" ? mood : undefined}
           draft={draft}
-          onChange={setDraft}
+          onChange={(next) => {
+            if (kind === "bot") {
+              if (next.name !== draft.name || next.description !== draft.description) react("happy");
+              else if (next.avatar !== draft.avatar) react("default");
+            }
+            setDraft(next);
+          }}
         />
       </form>
     </ShellDialog>

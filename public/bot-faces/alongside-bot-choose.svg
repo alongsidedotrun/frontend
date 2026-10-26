@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Let the bot choose">
+  <defs><linearGradient id="g" x1="0" y1="4" x2="0" y2="124" gradientUnits="userSpaceOnUse"><stop stop-color="#959595"/><stop offset="1" stop-color="#6B6B6B"/></linearGradient></defs>
+  <circle cx="64" cy="64" r="60" fill="url(#g)"/>
+  <g fill="#FFFFFF"><rect x="38" y="39" width="12" height="30" rx="6"/><rect x="78" y="39" width="12" height="30" rx="6"/></g>
+</svg>

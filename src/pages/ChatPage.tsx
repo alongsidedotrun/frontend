@@ -4,6 +4,8 @@ import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode 
 import { useOutletContext, useParams } from "react-router-dom";
 import { addressedAgent, useChatAgents } from "@/lib/chat-agents";
 import { NewAgentDialog } from "@/components/new-agent-dialog";
+import { ProviderNotice } from "@/components/provider-gate";
+import { BotFace, type BotAvatar } from "@/components/bot-face";
 import { AnimatePresence, motion } from "motion/react";
 import { spring } from "@/lib/springs";
 import { isAutoScrollSuppressed, suppressAutoScroll } from "@/lib/chat-scroll-suppress";
@@ -48,7 +50,7 @@ import {
   Volume2Icon,
   XIcon,
 } from "@/components/icons/untitled-ui";
-import { ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
+import { AUTO_BOT_MODEL, ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
 import { RELAY_JOIN_REQUESTED_EVENT } from "@/lib/use-share";
 
 // A file in a shared chat (#460), as a message refers to it.
@@ -407,6 +409,10 @@ function nextRowId() {
 // pure flourish on top of it.
 export type ChatPageShellContext = {
   chatName: string;
+  /** Whether a provider is connected (null: not known yet). With none, sending waits for one. */
+  providerReady?: boolean | null;
+  /** #504: the bot this chat talks to; its replies are labelled with it. */
+  bot?: { name: string; avatar: BotAvatar | null };
   /** The workspace/project context displayed at the chat canvas's top edge. */
   contextLabel?: string;
   receiveChatNameFromServer: (name: string) => void;
@@ -469,7 +475,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // chat_name_updated) -- receiveChatNameFromServer's own existing refresh
   // call only fires on a successful rename, not on every real message.
   const outletContext = useOutletContext<ChatPageShellContext>();
-  const { chatName, contextLabel, receiveChatNameFromServer, refreshSidebarLists, openSettings, openFile, rightPanelOpen, notifyFilesTouched } =
+  const { chatName, contextLabel, receiveChatNameFromServer, refreshSidebarLists, openSettings, openFile, rightPanelOpen, notifyFilesTouched, bot, providerReady } =
     shellContextOverride ?? outletContext;
   // Real correction, per explicit follow-up ("we reduce to 400px but
   // there's so much space around it, instead of reducing the content to
@@ -2399,7 +2405,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
 
   function handleSend(images: ImageAttachment[], effort: EffortLevel, permissionMode: PermissionMode) {
     const trimmed = prompt.trim();
-    if (!trimmed) return;
+    // No provider to answer: what was typed stays in the composer (the strip above says why).
+    if (!trimmed || (providerReady === false && !sharedChat)) return;
     setPrompt("");
     void submitPrompt(trimmed, images, effort, permissionMode, true);
   }
@@ -2407,6 +2414,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // A composed message on its way out, typed now or drained from the queue. A queued one
   // never picks up an edit started since (allowEdit). Resolves to whether a turn starts.
   async function submitPrompt(trimmed: string, images: ImageAttachment[], effort: EffortLevel, permissionMode: PermissionMode, allowEdit: boolean): Promise<boolean> {
+    // No provider to answer: the message stays in the composer (the strip above says why).
+    if (providerReady === false && !sharedChat) return false;
     if (/^\/subtask(?:\s|$)/i.test(trimmed)) addTaskSubtask(trimmed);
     if (trimmed === "/summarize") {
       if (!sessionId) return false;
@@ -2864,6 +2873,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               >
                 <ChatRowView
                   row={row}
+                  bot={bot}
                   isPendingEdit={row.kind === "human" && row.eventId === pendingEditEventId}
                   onCancelEdit={cancelEdit}
                   onRetry={retryLastMessage}
@@ -3010,7 +3020,9 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           // separate role driving the "Waiting"/"Thinking" shimmer above.
           awaitingReply={turnInProgress}
           onStop={stopTurn}
-          notice={limitWarning.notice}
+          // No provider: a strip asks for one, and sending waits (submitPrompt). Not in a shared chat,
+          // where messages to the people in it still go.
+          notice={providerReady === false && !sharedChat ? <ProviderNotice onConnect={() => openSettings("provider")} /> : limitWarning.notice}
           queue={{
             items: queuedMessages,
             onAdd: (message) => {
@@ -3023,7 +3035,9 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             },
             onRemove: (id) => setQueuedMessages((queued) => queued.filter((item) => item.id !== id)),
           }}
-          defaultModelValue={defaultModelValue}
+          // A bot's chat starts on "Let the bot choose"; a model picked from the menu stays for the chat.
+          allowBotChoice={Boolean(bot)}
+          defaultModelValue={bot ? AUTO_BOT_MODEL.value : defaultModelValue}
           defaultEffortValue={defaultEffortValue}
           defaultPermissionValue={handoffPermissionMode}
           isMultiplayer={sharedChat}
@@ -3145,6 +3159,7 @@ function MessageText({ text }: { text: string }) {
 
 function ChatRowView({
   row,
+  bot,
   isPendingEdit,
   onCancelEdit,
   onRetry,
@@ -3159,6 +3174,8 @@ function ChatRowView({
   liveWorking,
 }: {
   row: ChatRow;
+  /** A bot's chat: its own replies are labelled with the bot, the model after it. */
+  bot?: { name: string; avatar: BotAvatar | null };
   isPendingEdit: boolean;
   onCancelEdit: () => void;
   onRetry: () => void;
@@ -3551,11 +3568,22 @@ function ChatRowView({
             that both icons are size 5 to match the size of the font at
             the messages"), matching the row's own text-[length:var(--redesign-chat-meta)] label next to
             it instead of running larger than it. */}
-        <ProviderIcon model={row.model} className="size-4" onLoad={() => setIconLoaded(true)} />
-        {/* text-xs, no font-medium -- same fix as the "command" row's own
-            "Alongside" label just above: matches the "human" row's sender-name
-            label exactly, its real symmetric counterpart. */}
-        <span className="text-[length:var(--redesign-chat-meta)] text-muted-foreground">{row.modelLabel}</span>
+        {bot && !row.runBy ? (
+          // #504: a bot's own reply -- the bot, then the model that answered for it.
+          <>
+            <BotFace avatar={bot.avatar ?? undefined} className="size-4" />
+            <span className="text-[length:var(--redesign-chat-meta)] text-foreground">{bot.name}</span>
+            <span className="text-[length:var(--redesign-chat-meta)] text-muted-foreground">· {row.modelLabel}</span>
+          </>
+        ) : (
+          <>
+            <ProviderIcon model={row.model} className="size-4" onLoad={() => setIconLoaded(true)} />
+            {/* text-xs, no font-medium -- same fix as the "command" row's own
+                "Alongside" label just above: matches the "human" row's sender-name
+                label exactly, its real symmetric counterpart. */}
+            <span className="text-[length:var(--redesign-chat-meta)] text-muted-foreground">{row.modelLabel}</span>
+          </>
+        )}
       </div>
       {/* --redesign-chat-text leading-relaxed -- matches the reference component's own reply
           text size exactly (was text-sm/14px with Tailwind's default leading), per

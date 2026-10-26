@@ -10,6 +10,7 @@ import { BotIcon } from "@/components/icons/bot-icon";
 import { Star01 } from "@untitledui/icons";
 import { BotFace, type BotAvatar } from "@/components/bot-face";
 import { NewAgentDialog } from "@/components/new-agent-dialog";
+import { showErrorToast } from "@/components/ui/app-toast";
 import { deleteBot, openBotChat, updateBot, useBots, type Bot } from "@/lib/bots";
 import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
 import { CreateWorkspaceDialog } from "@/components/design-system/create-workspace-dialog";
@@ -141,7 +142,8 @@ const quickActions = (t: Translate): readonly QuickActionItem[] => [
 
 // Getting started follows the first-run journey, with each step backed by the
 // corresponding real account, provider, project, chat, workspace or relay state.
-const GETTING_STARTED_STEP_IDS = ["account", "provider", "project", "chat", "workspace", "multiplayer"] as const;
+// Setting up a provider comes first: nothing that needs a model works without one.
+const GETTING_STARTED_STEP_IDS = ["provider", "account", "project", "chat", "workspace", "multiplayer"] as const;
 const GETTING_STARTED_DONE_KEY = "alongside_getting_started_done";
 const GETTING_STARTED_DISMISSED_KEY = "alongside_getting_started_dismissed";
 
@@ -256,7 +258,15 @@ export function RedesignPage() {
   const [chats, setChats] = useState<Chat[]>([]);
   // Getting started's own checks: any provider CLI connected, and a chat
   // shared or joined through the relay. Re-read on each navigation; both are cheap local calls.
-  const [providerReady, setProviderReady] = useState(false);
+  // Whether any provider is connected: null until the first check answers, so nothing is gated on a guess.
+  const [providerReady, setProviderReady] = useState<boolean | null>(null);
+  // Checked again when the window comes back into focus (a provider connected in a terminal, say).
+  const [providerCheck, setProviderCheck] = useState(0);
+  useEffect(() => {
+    const recheck = () => setProviderCheck((count) => count + 1);
+    window.addEventListener("focus", recheck);
+    return () => window.removeEventListener("focus", recheck);
+  }, []);
   // Sidebar row menus: the project awaiting delete confirmation, and the chat
   // to add to the project being created from its "New project…" entry.
   const [projectToArchive, setProjectToArchive] = useState<Project | null>(null);
@@ -331,8 +341,12 @@ export function RedesignPage() {
     ? settingsPathSection
     : "general";
   const activeChat = chats.find((chat) => chat.id === (routeChatId ?? activeChatId)) ?? null;
+  const activeBot = activeChat?.bot_id ? botsById.get(activeChat.bot_id) : undefined;
   const routedContent = useOutlet({
     chatName: activeChat ? chatTitle(activeChat) : t("shell.untitledChat"),
+    // Whether a provider is connected (null: not known yet); the New page and chats gate on false.
+    providerReady,
+    bot: activeBot ? { name: activeBot.name, avatar: activeBot.avatar } : undefined,
     // No contextLabel: the chat's name (and project) shows in the top bar.
     receiveChatNameFromServer: (name: string) => {
       const chatId = routeChatId ?? activeChatId;
@@ -455,6 +469,8 @@ export function RedesignPage() {
 
   const redesignChatContext: ChatPageShellContext | undefined = activeChat ? {
     chatName: activeChat.name,
+    providerReady,
+    bot: activeBot ? { name: activeBot.name, avatar: activeBot.avatar } : undefined,
     receiveChatNameFromServer: (name) => {
       setChats((current) => current.map((chat) => chat.id === activeChat.id ? { ...chat, name } : chat));
     },
@@ -463,13 +479,14 @@ export function RedesignPage() {
         .then((response) => response.ok ? response.json() as Promise<Chat[]> : [])
         .then(applyLoadedChats);
     },
-    openSettings: () => {},
+    openSettings: (section) => navigate(`/settings/${section}`),
     openFile: () => {},
     rightPanelOpen: false,
     notifyFilesTouched: () => {},
   } : undefined;
   const redesignHomeContext: HomePageShellContext = {
-    openSettings: () => {},
+    openSettings: (section) => navigate(`/settings/${section}`),
+    providerReady,
     workspaceId: activeWorkspace.id,
     workspaceName: activeWorkspace.name,
     workspaceLogo: activeWorkspace.logo ?? null,
@@ -486,9 +503,18 @@ export function RedesignPage() {
     navigate(`/chat/${chatId}`);
   }
 
+  // Its chat, started the first time; if that fails, the coded error toast says why (no backend is
+  // ALS-002, anything else ALS-039) instead of nothing happening.
   async function openBot(bot: Bot) {
-    const chatId = bot.chat_id ?? await openBotChat(bot.id, activeWorkspace.id);
-    if (chatId) showBotChat(chatId, bot);
+    const chat = bot.chat_id ?? await openBotChat(bot.id, activeWorkspace.id);
+    if (typeof chat === "string") {
+      showBotChat(chat, bot);
+      return;
+    }
+    showErrorToast(
+      chat.reason === "unreachable" ? t("settings.providers.noConnection") : t("bots.errors.openFailed", { status: chat.status ?? "-" }),
+      { id: "open-bot-chat" },
+    );
   }
 
   async function removeBot(bot: Bot) {
@@ -702,6 +728,8 @@ export function RedesignPage() {
   const redesignSurfaceKey = surfaceKeyRef.current;
   // The chat shown in the top bar: the open one, on a chat route.
   const topBarChat = routeChatId ? chats.find((chat) => chat.id === routeChatId) ?? null : null;
+  // A bot's chat shows the bot's profile instead of a chat title.
+  const topBarBot = topBarChat?.bot_id ? botsById.get(topBarChat.bot_id) : undefined;
   const topBarProject = topBarChat?.project_id ? projects.find((project) => project.id === topBarChat.project_id) ?? null : null;
 
   async function createProject() {
@@ -915,7 +943,7 @@ export function RedesignPage() {
     return () => {
       cancelled = true;
     };
-  }, [location.pathname, identity.scope]);
+  }, [location.pathname, identity.scope, providerCheck]);
 
   // Signing in, out or switching account leaves a chat that belonged to the
   // account before (the backend now answers it as not found).
@@ -931,7 +959,7 @@ export function RedesignPage() {
   // out later doesn't untick it), remembered on this device.
   const liveDone: Record<GettingStartedStepId, boolean> = {
     account: identity.signedIn,
-    provider: providerReady,
+    provider: providerReady === true,
     project: projects.length > 0,
     chat: chats.length > 0,
     workspace: workspaces.some(
@@ -1010,7 +1038,17 @@ export function RedesignPage() {
               className="flex min-w-0 bg-transparent"
               contentClassName="flex min-w-0 items-center"
             >
-              {topBarChat ? (
+              {topBarBot ? (
+                // A bot's chat: the bot's profile -- its face and name, the size of a chat's title; opens Edit bot.
+                <button
+                  type="button"
+                  onClick={() => { setBotToEdit(topBarBot); setBotEditOpen(true); }}
+                  className="-ml-1 flex min-w-0 items-center gap-1.5 rounded-[var(--redesign-control-radius)] px-1 py-0.5 text-left transition-colors hover:bg-hover-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <BotFace avatar={topBarBot.avatar ?? undefined} className="size-4" />
+                  <span className="min-w-0 truncate">{topBarBot.name}</span>
+                </button>
+              ) : topBarChat ? (
                 <span className="flex min-w-0 items-center gap-1">
                   {topBarProject && (
                     <>
