@@ -8,7 +8,7 @@ import { resizeImageFile } from "@/lib/resize-image";
 import { LimitReminderRows } from "@/components/limit-reminders";
 import { Check, Plus, SearchMd } from "@untitledui/icons";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useIsMac, useIsWindows } from "@/hooks/use-platform";
 import { useIsTauri } from "@/hooks/use-tauri";
 import { useTheme } from "@/hooks/use-theme";
@@ -203,32 +203,40 @@ function ConnectionToolbar({
  *  a tab or search with fewer rows, or none, leaves blank space rather than moving the sections
  *  below; rows are taller when their text wraps, so a fixed height wouldn't do. */
 function ConnectionList({ filter, children, placeholder }: { filter: ConnectionFilter; children: ReactNode; placeholder?: ReactNode }) {
-  const [tallest, setTallest] = useState(0);
+  const reduceMotion = useReducedMotion();
+  // As tall as what it shows, gliding to each new height while the rows cross-fade, so what's below
+  // (Usage) moves smoothly instead of snapping, and no room is kept for rows that aren't there.
+  const [contentHeight, setContentHeight] = useState<number | null>(null);
   const observer = useRef<ResizeObserver | null>(null);
   const measure = useCallback((node: HTMLDivElement | null) => {
     observer.current?.disconnect();
-    if (!node) return;
-    observer.current = new ResizeObserver(([entry]) => setTallest((height) => Math.max(height, entry.contentRect.height)));
+    observer.current = null;
+    if (!node || typeof ResizeObserver === "undefined") return;
+    observer.current = new ResizeObserver(() => setContentHeight(node.offsetHeight));
     observer.current.observe(node);
   }, []);
-  // Two rows: 48px each (p-2 around the 32px icon frame) and the 2px gap between them.
   return (
-    // Nothing in this tab: its placeholder, in the rows' place and in the same fade, with no room kept for rows.
-    <div className="-mx-2 mt-3" style={{ minHeight: placeholder ? 0 : Math.max(98, tallest) }}>
-      {/* Switching tabs fades the old rows out, then the new ones in. */}
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.div
-          key={filter}
-          ref={placeholder ? undefined : measure}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1, transition: fade }}
-          exit={{ opacity: 0, transition: fade }}
-          className={placeholder ? "px-2" : "grid grid-cols-2 content-start gap-x-2 gap-y-0.5"}
-        >
-          {placeholder ?? children}
-        </motion.div>
-      </AnimatePresence>
-    </div>
+    <motion.div
+      className="-mx-2 mt-3 overflow-hidden"
+      initial={false}
+      animate={{ height: contentHeight ?? "auto" }}
+      transition={{ duration: reduceMotion ? 0 : 0.22, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <div ref={measure}>
+        {/* Switching tabs fades the old rows out, then the new ones (or the tab's placeholder) in. */}
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={placeholder ? `${filter}-empty` : filter}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1, transition: fade }}
+            exit={{ opacity: 0, transition: fade }}
+            className={placeholder ? "px-2" : "grid grid-cols-2 content-start gap-x-2 gap-y-0.5"}
+          >
+            {placeholder ?? children}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+    </motion.div>
   );
 }
 const SETTINGS_CONTROL_RADIUS = "rounded-lg";
