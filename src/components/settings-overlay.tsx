@@ -21,7 +21,7 @@ import {
   loadSystemUiFont,
   type ChatWidth,
 } from "@/hooks/use-appearance-settings";
-import { fade, spring } from "@/lib/springs";
+import { spring } from "@/lib/springs";
 import { modelDisplayName, PROVIDER_DISPLAY, ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
 import { effortLabel, EFFORT_LEVELS, loadDefaultEffort, saveDefaultEffort, type EffortLevel } from "@/lib/effort";
 import { loadLanguage, saveLanguage, uiLocaleFor, type LanguageValue } from "@/lib/language";
@@ -202,41 +202,38 @@ function ConnectionToolbar({
  *  doesn't show. The list keeps the tallest height it has had this visit (and at least two rows), so
  *  a tab or search with fewer rows, or none, leaves blank space rather than moving the sections
  *  below; rows are taller when their text wraps, so a fixed height wouldn't do. */
-function ConnectionList({ filter, children, placeholder }: { filter: ConnectionFilter; children: ReactNode; placeholder?: ReactNode }) {
+// Switching tabs: what's below the tabs (the list, and on Providers its Usage too) fades out, changes
+// while it's hidden, then fades back in, so nothing slides or snaps. `shown` is the tab whose content is
+// on screen; the tabs themselves follow the click at once.
+const TAB_FADE_MS = 150;
+
+function useTabFade<T>(value: T) {
   const reduceMotion = useReducedMotion();
-  // As tall as what it shows, gliding to each new height while the rows cross-fade, so what's below
-  // (Usage) moves smoothly instead of snapping, and no room is kept for rows that aren't there.
-  const [contentHeight, setContentHeight] = useState<number | null>(null);
-  const observer = useRef<ResizeObserver | null>(null);
-  const measure = useCallback((node: HTMLDivElement | null) => {
-    observer.current?.disconnect();
-    observer.current = null;
-    if (!node || typeof ResizeObserver === "undefined") return;
-    observer.current = new ResizeObserver(() => setContentHeight(node.offsetHeight));
-    observer.current.observe(node);
-  }, []);
-  return (
-    <motion.div
-      className="-mx-2 mt-3 overflow-hidden"
-      initial={false}
-      animate={{ height: contentHeight ?? "auto" }}
-      transition={{ duration: reduceMotion ? 0 : 0.22, ease: [0.22, 1, 0.36, 1] }}
-    >
-      <div ref={measure}>
-        {/* Switching tabs fades the old rows out, then the new ones (or the tab's placeholder) in. */}
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={placeholder ? `${filter}-empty` : filter}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1, transition: fade }}
-            exit={{ opacity: 0, transition: fade }}
-            className={placeholder ? "px-2" : "grid grid-cols-2 content-start gap-x-2 gap-y-0.5"}
-          >
-            {placeholder ?? children}
-          </motion.div>
-        </AnimatePresence>
-      </div>
-    </motion.div>
+  const [shown, setShown] = useState(value);
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    if (value === shown) return;
+    if (reduceMotion) {
+      setShown(value);
+      return;
+    }
+    setHidden(true);
+    // A little after the fade out ends, so the change is never seen.
+    const timer = setTimeout(() => {
+      setShown(value);
+      setHidden(false);
+    }, TAB_FADE_MS + 50);
+    return () => clearTimeout(timer);
+  }, [value, shown, reduceMotion]);
+  return { shown, style: { opacity: hidden ? 0 : 1, transition: `opacity ${TAB_FADE_MS}ms ease` } };
+}
+
+// The rows, two columns; or, with none in this tab, its placeholder in their place.
+function ConnectionList({ children, placeholder }: { children: ReactNode; placeholder?: ReactNode }) {
+  return placeholder ? (
+    <div className="mt-3">{placeholder}</div>
+  ) : (
+    <div className="-mx-2 mt-3 grid grid-cols-2 content-start gap-x-2 gap-y-0.5">{children}</div>
   );
 }
 const SETTINGS_CONTROL_RADIUS = "rounded-lg";
@@ -1214,6 +1211,7 @@ function AppsSection() {
     setSearchParams({ app: name }, { replace: true });
   }
   const [filter, setFilter] = useState<ConnectionFilter>("all");
+  const appsFade = useTabFade(filter);
   const [query, setQuery] = useState("");
 
   return (
@@ -1242,15 +1240,17 @@ function AppsSection() {
             onQuery={setQuery}
             searchLabel={t("settings.connections.searchApps")}
           />
-          <ConnectionList filter={filter}>
-            <GithubIntegrationCard filter={filter} query={query} onClick={() => openApp("github")} />
+          <div style={appsFade.style}>
+          <ConnectionList>
+            <GithubIntegrationCard filter={appsFade.shown} query={query} onClick={() => openApp("github")} />
             {GOOGLE_APPS.map((app) =>
-              showsUnder(filter, false, query, app.name) ? (
+              showsUnder(appsFade.shown, false, query, app.name) ? (
                 // No connection flow yet, so never connected, and the row does nothing for now.
                 <AppRow key={app.id} name={app.name} description={t(app.descriptionKey)} icon={app.icon} connected={false} onClick={() => {}} />
               ) : null,
             )}
           </ConnectionList>
+          </div>
         </motion.div>
       )}
     </AnimatePresence>
@@ -1438,10 +1438,12 @@ function ProvidersSection() {
   const reportStatus = useCallback((name: string, connected: boolean) => {
     setConnections((current) => (current[name] === connected ? current : { ...current, [name]: connected }));
   }, []);
+  const tabFade = useTabFade(filter);
+  const shownFilter = tabFade.shown;
   const tabEmpty =
-    filter !== "all" &&
+    shownFilter !== "all" &&
     listed.every((provider) => connections[provider.name] !== undefined) &&
-    !listed.some((provider) => showsUnder(filter, connections[provider.name], query, provider.displayName));
+    !listed.some((provider) => showsUnder(shownFilter, connections[provider.name], query, provider.displayName));
 
   return (
     // Same crossfade AppLayout.tsx's own route transitions use (its
@@ -1467,10 +1469,10 @@ function ProvidersSection() {
                 onQuery={setQuery}
                 searchLabel={t("settings.connections.searchProviders")}
               />
+              <div style={tabFade.style}>
               <ConnectionList
-                filter={filter}
                 placeholder={
-                  !tabEmpty ? undefined : filter === "connected" ? (
+                  !tabEmpty ? undefined : shownFilter === "connected" ? (
                     <ProvidersEmptyState title={t("settings.providers.empty.connected.title")} body={t("settings.providers.empty.connected.body")} />
                   ) : (
                     <ProvidersEmptyState title={t("settings.providers.empty.available.title")} body={t("settings.providers.empty.available.body")} />
@@ -1478,13 +1480,17 @@ function ProvidersSection() {
                 }
               >
                 {listed.map((provider) => (
-                  <ProviderCard key={provider.name} provider={provider} filter={filter} query={query} onStatus={reportStatus} />
+                  <ProviderCard key={provider.name} provider={provider} filter={shownFilter} query={query} onStatus={reportStatus} />
                 ))}
               </ConnectionList>
+              </div>
             </>
           )}
-          {/* Each provider's usage, right here (it had its own page): a card each, with Filter and Sort. */}
-          <ProviderUsageSection />
+          {/* Each provider's usage, right here (it had its own page): a card each, with Filter and Sort.
+              It fades with the list when the tab changes, rather than moving. */}
+          <div style={tabFade.style}>
+            <ProviderUsageSection />
+          </div>
           {/* Real integrations (issue #287) -- moved to their own top-level
               "Apps" settings section (AppsSection, below) per explicit
               correction ("Still inside providers its meant to be settings
