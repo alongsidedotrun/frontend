@@ -19,7 +19,6 @@ import { CreateWorkspaceDialog } from "@/components/design-system/create-workspa
 import { CreateProjectDialog } from "@/components/design-system/create-project-dialog";
 import { SignInDialog } from "@/components/design-system/sign-in-dialog";
 import { ShareChatDialog } from "@/components/design-system/share-chat-dialog";
-import { JoinChatDialog } from "@/components/design-system/join-chat-dialog";
 import { JoinRequestsCard } from "@/components/design-system/join-requests-card";
 import { useShareDialogHost } from "@/lib/use-share";
 import { useSignInDialogHost } from "@/lib/use-sign-in";
@@ -243,12 +242,12 @@ export function RedesignPage() {
   // chat page's /share and Quick actions (lib/use-share.ts).
   const [shareChatId, setShareChatId] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
-  const [joinOpen, setJoinOpen] = useState(false);
   const openShare = useCallback((chatId: string) => {
     setShareChatId(chatId);
     setShareOpen(true);
   }, []);
-  const openJoin = useCallback(() => setJoinOpen(true), []);
+  // Join chat is a page (JoinChatPage.tsx).
+  const openJoin = useCallback(() => navigate("/join-chat"), [navigate]);
   useShareDialogHost(openShare, openJoin);
   const [manageWorkspacesOpen, setManageWorkspacesOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -869,7 +868,7 @@ export function RedesignPage() {
       icon: JoinChatIcon,
       keywords: ["share", "multiplayer", "code", "invite"],
       group: t("shell.commands.group.actions"),
-      onSelect: () => setJoinOpen(true),
+      onSelect: openJoin,
     },
     {
       value: "new-bot",
@@ -1123,11 +1122,11 @@ export function RedesignPage() {
               label={t("shell.quickActions")}
               shortcut="K"
               actions={quickActions(t)}
-              activeId={location.pathname === "/" ? "chats" : undefined}
+              activeId={location.pathname === "/" ? "chats" : location.pathname === "/join-chat" ? "join" : undefined}
               onOpen={() => setQuickActionsOpen(true)}
               onActionSelect={(actionId) => {
                 if (actionId === "join") {
-                  setJoinOpen(true);
+                  openJoin();
                   return;
                 }
                 if (actionId === "chats") {
@@ -1222,7 +1221,6 @@ export function RedesignPage() {
       </SidebarSurfaceTransition>
       <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} />
       <ShareChatDialog sessionId={shareChatId} open={shareOpen} onOpenChange={setShareOpen} />
-      <JoinChatDialog open={joinOpen} onOpenChange={setJoinOpen} />
       <CreateWorkspaceDialog
         open={newWorkspaceOpen}
         onOpenChange={setNewWorkspaceOpen}

@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { JoinChatDialog } from "@/components/design-system/join-chat-dialog";
+import { JoinChatPage } from "@/pages/JoinChatPage";
 import { mockFetch } from "@/test/fetch-mock";
 
 const auth = vi.hoisted(() => ({ signedIn: true }));
@@ -37,7 +37,7 @@ function renderDialog() {
   return render(
     <MemoryRouter initialEntries={["/"]}>
       <Routes>
-        <Route path="/" element={<JoinChatDialog open onOpenChange={() => {}} />} />
+        <Route path="/" element={<JoinChatPage />} />
         <Route path="/chat/:id" element={<p>chat page</p>} />
       </Routes>
     </MemoryRouter>,
@@ -54,7 +54,7 @@ beforeEach(() => {
   signIn.open.mockReset();
 });
 
-describe("Join chat dialog (#213, #459)", () => {
+describe("Join chat page (#213, #459)", () => {
   it("asks a signed-out person to sign in first", async () => {
     auth.signedIn = false;
     backend();
