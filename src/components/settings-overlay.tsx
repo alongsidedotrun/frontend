@@ -1040,16 +1040,24 @@ function useProviderSetup(binary: string, providerName: string, refetch: () => P
   return { phase, link, install, setUp, submitCode };
 }
 
-// One button per provider: its icon, name, where it stands, and a + (or a check once connected),
-// which opens its setup overlay (ProviderSetupDialog). While it installs or waits for the sign-in, a
-// spinner takes the +'s place.
+// A provider's row: its icon, name and where it stands open its setup overlay (ProviderSetupDialog).
+// Beside them, the next step, done straight away: a + that installs it (Claude, ChatGPT, Gemini), with
+// a spinner in its place while it downloads; once installed, Sign in, which starts the provider's
+// sign-in (Gemini's overlay opens by itself for the code Google shows); once signed in, Connected,
+// which opens the overlay (to disconnect). Anything else (a provider to install from its docs, a failed
+// check) opens the overlay.
 function ProviderCard({ provider, filter = "all", query = "" }: { provider: Provider; filter?: ConnectionFilter; query?: string }) {
   const { t } = useTranslation();
   const cliBinary = provider.name.toLowerCase();
   const { available, installed, error: cliCheckError, refetch: refetchAvailability } = useCliAvailability(cliBinary);
   const cliUpdate = useCliUpdate(cliBinary, installed === true, () => void refetchAvailability());
   const setup = useProviderSetup(cliBinary, provider.displayName, refetchAvailability);
+  const installable = INSTALLABLE_PROVIDERS.has(cliBinary);
   const [open, setOpen] = useState(false);
+  // Gemini's sign-in needs the code Google shows: its overlay opens for it.
+  useEffect(() => {
+    if (setup.phase === "code") setOpen(true);
+  }, [setup.phase]);
   const checking = !cliCheckError && available === undefined;
   // `available` is seeded from availabilityCache, so a failed fresh check (cliCheckError) wins over it.
   const isConnected = available === true && !cliCheckError;
@@ -1073,7 +1081,8 @@ function ProviderCard({ provider, filter = "all", query = "" }: { provider: Prov
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} aria-busy={setup.phase !== "idle"} className={CONNECTION_ROW}>
+      <div className={`flex select-none items-center gap-3 ${SETTINGS_CARD_RADIUS} p-2`}>
+      <button type="button" onClick={() => setOpen(true)} className="flex min-w-0 flex-1 select-none items-center gap-3 text-left">
         <span className={PROVIDER_ICON_FRAME}>
           <ProviderIcon model={provider} className="size-5" />
         </span>
@@ -1084,22 +1093,46 @@ function ProviderCard({ provider, filter = "all", query = "" }: { provider: Prov
           </span>
           <span className="line-clamp-2 text-[10px] font-normal text-muted-foreground"><ErrorText message={statusLabel} /></span>
         </span>
+      </button>
         {/* A newer version is out: said here, updated from the overlay. */}
         {installed && cliUpdate.updateAvailable && (
           <span className="inline-flex h-[18px] shrink-0 items-center rounded-full bg-[color-mix(in_oklab,var(--focus-accent)_12%,transparent)] px-1.5 text-[8.5px] leading-none font-medium whitespace-nowrap text-[var(--focus-accent)]">
             {t("settings.providers.updateAvailable")}
           </span>
         )}
-        <span className={isConnected ? CONNECTED_MARK : CONNECTION_ADD} aria-hidden="true">
-          {setup.phase !== "idle" ? (
-            <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
-          ) : isConnected ? (
-            <Check className="size-3.5" />
-          ) : (
-            <Plus className="size-3.5" />
-          )}
-        </span>
-      </button>
+        {isConnected && setup.phase === "idle" ? (
+          <button type="button" onClick={() => setOpen(true)} className={cn(CONNECTED_MARK, "w-auto px-2 text-[11px] font-medium")}>
+            {t("common.connected")}
+          </button>
+        ) : (
+          <button
+            type="button"
+            aria-label={installed ? t("settings.providers.signIn") : t("settings.providers.install")}
+            aria-busy={setup.phase !== "idle"}
+            disabled={setup.phase !== "idle" && setup.phase !== "code"}
+            onClick={() => {
+              if (setup.phase === "code" || cliCheckError || available === undefined) return setOpen(true);
+              if (installed) return void setup.setUp(true);
+              if (!installable) return setOpen(true);
+              void setup.install();
+            }}
+            className={cn(
+              CONNECTION_ADD,
+              // Sign in: the same bordered control, wide enough for its word.
+              installed && !cliCheckError && setup.phase === "idle" && "w-auto px-2 text-[11px] font-medium",
+              "disabled:cursor-default",
+            )}
+          >
+            {setup.phase !== "idle" ? (
+              <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+            ) : installed && !cliCheckError ? (
+              t("settings.providers.signIn")
+            ) : (
+              <Plus className="size-3.5" />
+            )}
+          </button>
+        )}
+      </div>
       <ProviderSetupDialog
         provider={provider}
         open={open}
