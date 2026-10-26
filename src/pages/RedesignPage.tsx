@@ -248,7 +248,11 @@ export function RedesignPage() {
     setShareOpen(true);
   }, []);
   // Join chat is a page (JoinChatPage.tsx).
-  const openJoin = useCallback(() => navigate("/join-chat"), [navigate]);
+  // Already there: nothing (as New on an empty new chat), rather than the same page again.
+  const openJoin = useCallback(() => {
+    if (location.pathname === "/join-chat") return;
+    navigate("/join-chat");
+  }, [location.pathname, navigate]);
   useShareDialogHost(openShare, openJoin);
   const [manageWorkspacesOpen, setManageWorkspacesOpen] = useState(false);
   const [saving, setSaving] = useState(false);
