@@ -55,7 +55,20 @@ export type SidebarSection = {
   items?: readonly SidebarSectionItem[];
   emptyLabel?: string;
   action?: SidebarSectionAction;
+  /** A drawer: its heading shows an arrow that opens and closes its rows (closed at first; what's
+   *  open is remembered on this device), and its action (+) only on hover. */
+  collapsible?: boolean;
 };
+
+const OPEN_SECTIONS_KEY = "alongside_sidebar_open_sections";
+
+function readOpenSections(): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(OPEN_SECTIONS_KEY) ?? "[]") as string[]);
+  } catch {
+    return new Set();
+  }
+}
 
 type SidebarSectionsProps = {
   sections: readonly SidebarSection[];
@@ -72,17 +85,45 @@ type SidebarSectionsProps = {
  * rows later without changing the surrounding navigation layout.
  */
 export function SidebarSections({ sections, activeItemId, onItemSelect, expandedIds, onToggleExpanded, className }: SidebarSectionsProps) {
+  const [openSections, setOpenSections] = useState<Set<string>>(readOpenSections);
+  const toggleSection = (id: string) => {
+    setOpenSections((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      try {
+        localStorage.setItem(OPEN_SECTIONS_KEY, JSON.stringify([...next]));
+      } catch {
+        // storage blocked: as toggled, for this session
+      }
+      return next;
+    });
+  };
   return (
     <div className={cn("flex flex-col gap-[var(--redesign-sidebar-section-gap)]", className)}>
       {sections.map((section) => (
         <section key={section.id} aria-labelledby={`sidebar-section-${section.id}`}>
-          <div className="flex h-[var(--redesign-quick-actions-row-height)] items-center px-[var(--redesign-quick-actions-padding)]">
-            <h2
-              id={`sidebar-section-${section.id}`}
-              className="text-[length:var(--redesign-font-size-compact)] font-medium text-muted-foreground"
-            >
-              {section.label}
-            </h2>
+          <div className="group/section-header flex h-[var(--redesign-quick-actions-row-height)] items-center px-[var(--redesign-quick-actions-padding)]">
+            {section.collapsible ? (
+              // The heading opens and closes the drawer (so does its arrow, at the end).
+              <button
+                type="button"
+                aria-expanded={openSections.has(section.id)}
+                onClick={() => toggleSection(section.id)}
+                className="flex h-full min-w-0 flex-1 items-center text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <h2 id={`sidebar-section-${section.id}`} className="truncate text-[length:var(--redesign-font-size-compact)] font-medium text-muted-foreground">
+                  {section.label}
+                </h2>
+              </button>
+            ) : (
+              <h2
+                id={`sidebar-section-${section.id}`}
+                className="text-[length:var(--redesign-font-size-compact)] font-medium text-muted-foreground"
+              >
+                {section.label}
+              </h2>
+            )}
             {section.action ? (() => {
               const Icon = section.action.icon;
               return (
@@ -90,16 +131,50 @@ export function SidebarSections({ sections, activeItemId, onItemSelect, expanded
                   type="button"
                   aria-label={section.action.label}
                   onClick={section.action.onSelect}
-                  className={cn("ml-auto flex size-[var(--redesign-quick-actions-icon-size)] items-center justify-center rounded-[var(--redesign-dropdown-row-radius)] text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", PRESS_EFFECT, ICON_PRESS)}
+                  className={cn(
+                    "ml-auto flex size-[var(--redesign-quick-actions-icon-size)] items-center justify-center rounded-[var(--redesign-dropdown-row-radius)] text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    // A drawer's + only while its heading is hovered (or reached with the keyboard).
+                    section.collapsible && "opacity-0 transition-opacity duration-150 group-hover/section-header:opacity-100 focus-visible:opacity-100",
+                    PRESS_EFFECT,
+                    ICON_PRESS,
+                  )}
                 >
                   <Icon aria-hidden="true" strokeWidth={2} className="size-[calc(var(--redesign-font-size-compact)-1px)]" />
                 </button>
               );
             })() : null}
+            {section.collapsible && (
+              // The same arrow as a project row's, turned down when open. The heading is its button for
+              // keyboards and screen readers; this one is for the pointer.
+              <button
+                type="button"
+                tabIndex={-1}
+                aria-hidden="true"
+                onClick={() => toggleSection(section.id)}
+                className={cn("flex size-[var(--redesign-quick-actions-icon-size)] shrink-0 items-center justify-center text-muted-foreground", !section.action && "ml-auto")}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={cn(
+                    "size-3.5 transform-gpu transition-[opacity,scale,rotate] duration-150 ease-out hover:opacity-70 active:scale-[0.9] motion-reduce:transition-none",
+                    openSections.has(section.id) && "rotate-90",
+                  )}
+                >
+                  <path d="M9 6L15 12L9 18" />
+                </svg>
+              </button>
+            )}
           </div>
-          {section.items ? (
-            // No flex gap: each row carries its own gap inside RowReveal, so a
-            // row collapsing to zero takes its gap with it instead of jumping.
+          <AnimatePresence initial={false}>
+          {section.items && (!section.collapsible || openSections.has(section.id)) ? (
+          <RowReveal key="rows" gap={false}>
+            {/* No flex gap: each row carries its own gap inside RowReveal, so a
+                row collapsing to zero takes its gap with it instead of jumping. */}
             <div className="mt-[calc(var(--redesign-sidebar-section-row-offset)-var(--redesign-quick-actions-row-gap))] flex flex-col">
               <AnimatePresence initial={false}>
                 {section.items.map((item) => {
@@ -149,7 +224,9 @@ export function SidebarSections({ sections, activeItemId, onItemSelect, expanded
                 ) : null}
               </AnimatePresence>
             </div>
+          </RowReveal>
           ) : null}
+          </AnimatePresence>
         </section>
       ))}
     </div>

@@ -703,6 +703,8 @@ export function RedesignPage() {
     {
       id: "chats",
       label: t("nav.chats"),
+      // Recents lists chats and bots together; Chats and Bots are drawers.
+      collapsible: true,
       // Starts a new chat, as New does (nothing when already on an empty one). Projects are made from a
       // chat's menu (New project), and list here with their chats.
       action: {
@@ -733,6 +735,7 @@ export function RedesignPage() {
     },
     {
       id: "bots",
+      collapsible: true,
       label: t("bots.title"),
       action: { label: t("bots.new"), icon: Plus, onSelect: () => { setActiveChatId(null); navigate("/?new=bot"); } },
       // Its chat's id once it has one, so the open bot chat is the selected row.
