@@ -54,12 +54,6 @@
    its 400% layer (transform only, no repaints).
    Top level, not in @theme. */
 /* Compose box: a sent message's text fading up out of the box. */
-/* A busy bot's face (bot-face.tsx's breathe): a slow swell and settle. */
-@keyframes bot-breathe {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.08); }
-}
-
 @keyframes compose-sent-out {
   from { opacity: 1; transform: translateY(0); filter: blur(0); }
   to { opacity: 0; transform: translateY(-6px); filter: blur(var(--text-swap-blur, 2px)); }
