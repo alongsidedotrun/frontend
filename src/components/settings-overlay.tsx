@@ -21,7 +21,7 @@ import {
   loadSystemUiFont,
   type ChatWidth,
 } from "@/hooks/use-appearance-settings";
-import { spring } from "@/lib/springs";
+import { fade, spring } from "@/lib/springs";
 import { modelDisplayName, PROVIDER_DISPLAY, ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
 import { effortLabel, EFFORT_LEVELS, loadDefaultEffort, saveDefaultEffort, type EffortLevel } from "@/lib/effort";
 import { loadLanguage, saveLanguage, uiLocaleFor, type LanguageValue } from "@/lib/language";
@@ -203,10 +203,9 @@ function ConnectionToolbar({
  *  a tab or search with fewer rows, or none, leaves blank space rather than moving the sections
  *  below; rows are taller when their text wraps, so a fixed height wouldn't do. */
 // Switching tabs: what's below the tabs (the list, and on Providers its Usage too) fades out, changes
-// while it's hidden, then fades back in, so nothing slides or snaps. `shown` is the tab whose content is
-// on screen; the tabs themselves follow the click at once.
-const TAB_FADE_MS = 150;
-
+// while it's hidden, then fades back in -- the app's tab-content fade (springs.ts `fade`, as Skills and
+// the New page), so nothing slides or snaps. `shown` is the tab whose content is on screen; the tabs
+// themselves follow the click at once. Each part fades with <motion.div {...tabFade.motion}>.
 function useTabFade<T>(value: T) {
   const reduceMotion = useReducedMotion();
   const [shown, setShown] = useState(value);
@@ -218,14 +217,14 @@ function useTabFade<T>(value: T) {
       return;
     }
     setHidden(true);
-    // A little after the fade out ends, so the change is never seen.
+    // Once the fade out has ended (and a moment more), so the change is never seen.
     const timer = setTimeout(() => {
       setShown(value);
       setHidden(false);
-    }, TAB_FADE_MS + 50);
+    }, fade.duration * 1000 + 50);
     return () => clearTimeout(timer);
   }, [value, shown, reduceMotion]);
-  return { shown, style: { opacity: hidden ? 0 : 1, transition: `opacity ${TAB_FADE_MS}ms ease` } };
+  return { shown, motion: { initial: false, animate: { opacity: hidden ? 0 : 1 }, transition: fade } };
 }
 
 // The rows, two columns; or, with none in this tab, its placeholder in their place.
@@ -1240,7 +1239,7 @@ function AppsSection() {
             onQuery={setQuery}
             searchLabel={t("settings.connections.searchApps")}
           />
-          <div style={appsFade.style}>
+          <motion.div {...appsFade.motion}>
           <ConnectionList>
             <GithubIntegrationCard filter={appsFade.shown} query={query} onClick={() => openApp("github")} />
             {GOOGLE_APPS.map((app) =>
@@ -1250,7 +1249,7 @@ function AppsSection() {
               ) : null,
             )}
           </ConnectionList>
-          </div>
+          </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
@@ -1469,7 +1468,7 @@ function ProvidersSection() {
                 onQuery={setQuery}
                 searchLabel={t("settings.connections.searchProviders")}
               />
-              <div style={tabFade.style}>
+              <motion.div {...tabFade.motion}>
               <ConnectionList
                 placeholder={
                   !tabEmpty ? undefined : shownFilter === "connected" ? (
@@ -1483,14 +1482,14 @@ function ProvidersSection() {
                   <ProviderCard key={provider.name} provider={provider} filter={shownFilter} query={query} onStatus={reportStatus} />
                 ))}
               </ConnectionList>
-              </div>
+              </motion.div>
             </>
           )}
           {/* Each provider's usage, right here (it had its own page): a card each, with Filter and Sort.
               It fades with the list when the tab changes, rather than moving. */}
-          <div style={tabFade.style}>
+          <motion.div {...tabFade.motion}>
             <ProviderUsageSection />
-          </div>
+          </motion.div>
           {/* Real integrations (issue #287) -- moved to their own top-level
               "Apps" settings section (AppsSection, below) per explicit
               correction ("Still inside providers its meant to be settings
