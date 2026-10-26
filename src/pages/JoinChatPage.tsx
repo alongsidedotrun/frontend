@@ -180,7 +180,7 @@ export function JoinChatPage() {
               leadingIcon={signedIn ? JoinChatIcon : undefined}
               disabled={signedIn && (!complete || busy)}
             >
-              {!signedIn ? t("shareChat.signInButton") : disclosure ? t("share.disclosure.agree") : t("joinChat.join")}
+              {!signedIn ? t("joinChat.signInButton") : disclosure ? t("share.disclosure.agree") : t("joinChat.join")}
             </Button>
           </ShapeProvider>
         </form>

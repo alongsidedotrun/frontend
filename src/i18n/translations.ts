@@ -6147,6 +6147,15 @@ export const translations = {
     zh: "输入你收到的标识符和加入码，然后由对话所有者或管理员允许你加入。你的回合在你自己的提供方上运行。",
     ja: "受け取った識別子と参加コードを入力すると、チャットのオーナーまたは管理者が参加を許可します。自分のターンは自分のプロバイダーで実行されます。",
   },
+  "joinChat.signInButton": {
+    en: "Sign in to join a chat",
+    "pt-BR": "Entre para participar de um chat",
+    es: "Inicia sesión para unirte a un chat",
+    fr: "Connectez-vous pour rejoindre un chat",
+    de: "Anmelden, um einem Chat beizutreten",
+    zh: "登录以加入对话",
+    ja: "ログインしてチャットに参加",
+  },
   "joinChat.signIn": {
     en: "You will be able to join a chat once you have created or signed in to your account.",
     "pt-BR": "Você poderá participar de um chat depois de criar sua conta ou entrar nela.",
