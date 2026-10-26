@@ -1113,8 +1113,8 @@ export function RedesignPage() {
               ) : null}
             </SidebarSurfaceTransition>
           }
-          // Invite (sharing the chat), at the right end, on a chat only.
-          actions={topBarChat ? (
+          // Invite (sharing the chat), at the right end, on a chat only: not a bot's (it's just you and it).
+          actions={topBarChat && !topBarChat.bot_id ? (
             // 24px, a notch under compact, so it sits in the 40px bar with room around it.
             <Button type="button" variant="tertiary" size="compact" className="h-6 rounded-[4px] px-2.5" onClick={() => openShare(topBarChat.id)}>
               {t("shareChat.button")}
