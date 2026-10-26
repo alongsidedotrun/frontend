@@ -18,6 +18,8 @@ export type GettingStartedStep = {
   image?: ReactNode;
   actionLabel?: string;
   complete?: boolean;
+  /** Not yet: shown dimmed, with no popover (e.g. everything but setting up a provider, until one is). */
+  disabled?: boolean;
   onSelect?: () => void;
 };
 
@@ -136,7 +138,22 @@ export function GettingStartedSummary({
       <div className={cn("grid transition-[grid-template-rows,opacity] duration-200 ease-out", expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")}>
         <div className="-mx-[var(--redesign-sidebar-footer-task-hover-bleed)] min-h-0 w-[calc(100%+2*var(--redesign-sidebar-footer-task-hover-bleed))] overflow-hidden px-[var(--redesign-sidebar-footer-task-hover-bleed)]">
           <div className="flex flex-col gap-1.5 pt-1.5">
-            {steps.map((step) => (
+            {steps.map((step) =>
+              step.disabled ? (
+                // Inactive: the same row, dimmed, doing nothing.
+                <div
+                  key={step.id}
+                  aria-disabled="true"
+                  className="-mx-[var(--redesign-sidebar-footer-task-hover-bleed)] flex h-[var(--redesign-sidebar-footer-task-row-height)] w-[calc(100%+2*var(--redesign-sidebar-footer-task-hover-bleed))] cursor-default items-center gap-[var(--redesign-quick-actions-icon-gap)] px-[var(--redesign-sidebar-footer-task-hover-bleed)] text-[length:var(--redesign-font-size-base)] font-medium text-foreground/25"
+                >
+                  {step.complete ? (
+                    <CircleCheck aria-hidden="true" strokeWidth={2} className="size-[var(--redesign-sidebar-footer-task-indicator-size)] shrink-0" />
+                  ) : (
+                    <CircleDashed aria-hidden="true" strokeWidth={2} className="size-[var(--redesign-sidebar-footer-task-indicator-size)] shrink-0" />
+                  )}
+                  <span className={cn("truncate", step.complete && "line-through")}>{step.label}</span>
+                </div>
+              ) : (
               <Popover key={step.id}>
                 <PopoverTrigger asChild>
                   <button
@@ -169,7 +186,8 @@ export function GettingStartedSummary({
                   </button>
                 </PopoverContent>
               </Popover>
-            ))}
+              ),
+            )}
             {viewAllLabel && (
               <button
                 type="button"

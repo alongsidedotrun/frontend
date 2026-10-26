@@ -179,12 +179,15 @@ const gettingStartedSteps = (
   t: Translate,
   done: Record<GettingStartedStepId, boolean>,
   open: Record<GettingStartedStepId, () => void>,
+  // No provider yet: setting one up is the only step open; the rest wait for it.
+  needsProvider = false,
 ): readonly GettingStartedStep[] =>
   GETTING_STARTED_STEP_IDS.map((id) => ({
     id,
     label: t(`shell.gettingStarted.${id}.label`),
     description: t(`shell.gettingStarted.${id}.description`),
     complete: done[id],
+    disabled: needsProvider && id !== "provider",
     onSelect: open[id],
   }));
 
@@ -1017,6 +1020,7 @@ export function RedesignPage() {
       // Sharing happens from a chat (/share there): the latest one, or a new one.
       multiplayer: () => navigate(chats[0] ? `/chat/${chats[0].id}` : "/"),
     },
+    providerReady === false,
   );
 
   return (
