@@ -144,7 +144,9 @@ const quickActions = (t: Translate): readonly QuickActionItem[] => [
 // Getting started follows the first-run journey, with each step backed by the
 // corresponding real account, provider, project, chat, workspace or relay state.
 // Setting up a provider comes first: nothing that needs a model works without one.
-const GETTING_STARTED_STEP_IDS = ["provider", "account", "project", "chat", "workspace", "multiplayer"] as const;
+// A first bot follows the first chat; projects aren't a step (they're made from a chat's menu). An
+// account is only needed to share, so it comes just before trying multiplayer.
+const GETTING_STARTED_STEP_IDS = ["provider", "chat", "bot", "workspace", "account", "multiplayer"] as const;
 const GETTING_STARTED_DONE_KEY = "alongside_getting_started_done";
 const GETTING_STARTED_DISMISSED_KEY = "alongside_getting_started_dismissed";
 
@@ -1003,8 +1005,8 @@ export function RedesignPage() {
   const liveDone: Record<GettingStartedStepId, boolean> = {
     account: identity.signedIn,
     provider: providerReady === true,
-    project: projects.length > 0,
-    chat: chats.length > 0,
+    chat: chats.some((chat) => !chat.bot_id),
+    bot: bots.length > 0,
     workspace: workspaces.some(
       (workspace) => workspace.is_personal && workspace.name.trim().toLocaleLowerCase() !== DEFAULT_WORKSPACE.name.toLocaleLowerCase(),
     ),
@@ -1047,8 +1049,9 @@ export function RedesignPage() {
     {
       account: () => (identity.signedIn ? navigate("/settings/profile") : openSignIn()),
       provider: () => navigate("/settings/provider"),
-      project: () => { setProjectError(null); setNewProjectOpen(true); },
       chat: () => navigate("/"),
+      // New, on its Bot tab.
+      bot: () => { setActiveChatId(null); navigate("/?new=bot"); },
       workspace: openManageWorkspace,
       // Sharing happens from a chat (/share there): the latest one, or a new one.
       multiplayer: () => navigate(chats[0] ? `/chat/${chats[0].id}` : "/"),
