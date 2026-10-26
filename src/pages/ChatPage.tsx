@@ -3232,7 +3232,9 @@ function ChatRowView({
   // moment, so gating this too on top of it only ever adds delay, never
   // correctness (these icons are effectively always
   // preloadProviderIcons-cached well before that reveal fires anyway).
-  const [iconLoaded, setIconLoaded] = useState(() => row.kind !== "agent" || !row.animate);
+  // A bot's own reply shows its face (drawn here, no image to wait for), so it's ready at once; waiting
+  // for an onLoad that never comes left a live bot reply streaming in invisibly.
+  const [iconLoaded, setIconLoaded] = useState(() => row.kind !== "agent" || !row.animate || Boolean(bot && !row.runBy));
   if (row.kind === "marker") {
     return <div className="text-center text-[length:var(--redesign-chat-meta)] text-muted-foreground/70"><ErrorText message={row.text} /></div>;
   }
