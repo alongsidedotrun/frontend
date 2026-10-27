@@ -296,26 +296,33 @@
   --redesign-sidebar-surface: var(--background);
   --redesign-sidebar-elevated-shadow: none;
   --redesign-sidebar-footer-onboarding-shadow: none;
-  --redesign-sidebar-overlay-surface: #212121;
+  /* Menus and popovers float two levels above the page (Fluid's offset 2). */
+  --redesign-sidebar-overlay-surface: var(--surface-4);
   /* Quick actions belongs to the sidebar base; its border and hover state
      provide separation without introducing a second resting surface. */
   --redesign-quick-actions-surface: var(--redesign-sidebar-surface);
-  --redesign-getting-started-surface: var(--redesign-sidebar-overlay-surface);
+  /* Cards resting on the page (Getting started, the compose box's strip) are the next step up
+     (Fluid's ladder); only what floats -- menus, popovers -- sits two up. */
+  --redesign-getting-started-surface: var(--surface-3);
   --redesign-compose-extension-surface: var(--redesign-getting-started-surface);
   /* Inactive accent (Getting Started ring, inactive send) in dark mode:
      the accent lightened toward white first, so it reads as a pale blue on
      the dark surface instead of a murky dark blue. */
   --redesign-progress-track: color-mix(in srgb, color-mix(in srgb, var(--focus-accent), white 55%) 45%, transparent);
-    --redesign-sidebar-border: #232323;
-    --redesign-overlay-border: #282828;
-    --surface-1: #171717;
-    --surface-2: #1E1E1E;
-    --surface-3: #252525;
-    --surface-4: #2C2C2C;
-    --surface-5: #333333;
-    --surface-6: #3A3A3A;
-    --surface-7: #414141;
-    --surface-8: #484848;
+    /* Edges follow --border, the same on every step. */
+    --redesign-sidebar-border: var(--border);
+    --redesign-overlay-border: var(--border);
+    /* Fluid Functionalism's dark ladder (fluidfunctionalism.com/docs/surfaces): even, additive white
+       steps, rebased on web/'s #0F0F0F floor (Fluid's own runs #171717 to #484848). Page = 2,
+       resting cards = page + 1, dropdowns and popovers = page + 2, dialogs = page + 4. */
+    --surface-1: #0F0F0F;
+    --surface-2: #161616;
+    --surface-3: #1D1D1D;
+    --surface-4: #242424;
+    --surface-5: #2B2B2B;
+    --surface-6: #323232;
+    --surface-7: #393939;
+    --surface-8: #404040;
     --dm-hi-base: rgba(255,255,255,0.01);
     --dm-hi-mid: rgba(255,255,255,0.02);
     --dm-hi-high: rgba(255,255,255,0.04);
@@ -832,7 +839,8 @@
     color-scheme: dark;
     /* The redesign is now the production shell. Keep legacy bg-background,
        bg-sidebar, and bg-card surfaces on the same dark surface as it. */
-    --background: #1a1a1a;
+    /* The page: the ladder's second step (#161616); surface-1 (#0F0F0F) is the floor below it. */
+    --background: var(--surface-2);
     /* This is the "active" text color -- hovered/selected menu items,
        headings, primary body text. --muted-foreground below is the
        resting/inactive one. codex's own dark "ink" value exactly, same
@@ -841,7 +849,7 @@
        :root's own comment above explains -- was #f5f5f5, before that
        #cecece. */
     --foreground: #fcfcfc;
-    --card: #1a1a1a;
+    --card: var(--background);
     --card-foreground: #fcfcfc;
     --popover: var(--background);
     --popover-foreground: var(--foreground);
@@ -884,8 +892,10 @@
        darker in dark mode"), which tracks: a lower alpha here mixes the
        border closer to the near-black background instead of standing out
        from it. Was #313131 before any of this. */
-    --border: rgba(252, 252, 252, 0.072);
-    --input: #1b1b1b;
+    /* Dark edges: white at 4% (about #1F1F1F on the page), additive so they read the same on every
+       step; web/'s 10% and then 6% read too bright. */
+    --border: rgb(255 255 255 / 0.04);
+    --input: var(--surface-3);
     --section-foreground: #6d6d6d;
     /* transparent -- see :root's --ring comment above for why. */
     --ring: transparent;
@@ -910,14 +920,17 @@
     /* --send-button-bg: no dark override any more -- :root's own value is
        the same accent blue in both themes now (per explicit request), so
        there's nothing left for .dark to override it with. */
-    --surface-1: #171717;
-    --surface-2: #1E1E1E;
-    --surface-3: #252525;
-    --surface-4: #2C2C2C;
-    --surface-5: #333333;
-    --surface-6: #3A3A3A;
-    --surface-7: #414141;
-    --surface-8: #484848;
+    /* Fluid Functionalism's dark ladder (fluidfunctionalism.com/docs/surfaces): even, additive white
+       steps, rebased on web/'s #0F0F0F floor (Fluid's own runs #171717 to #484848). Page = 2,
+       resting cards = page + 1, dropdowns and popovers = page + 2, dialogs = page + 4. */
+    --surface-1: #0F0F0F;
+    --surface-2: #161616;
+    --surface-3: #1D1D1D;
+    --surface-4: #242424;
+    --surface-5: #2B2B2B;
+    --surface-6: #323232;
+    --surface-7: #393939;
+    --surface-8: #404040;
     --dm-hi-base: rgba(255,255,255,0.01);
     --dm-hi-mid: rgba(255,255,255,0.02);
     --dm-hi-high: rgba(255,255,255,0.04);
