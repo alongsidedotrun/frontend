@@ -226,7 +226,7 @@
   --redesign-workspace-action-icon-size: 0.875rem;
   --redesign-primary-surface: var(--background);
   --redesign-sidebar-surface: var(--background);
-  --redesign-sidebar-overlay-surface: #f8f8f8;
+  --redesign-sidebar-overlay-surface: var(--surface-3);
   /* Quick actions field and Getting Started panel: pure white on the
      #FAFAFA light sidebar, per request. Dark mode keeps their old look. */
   --redesign-quick-actions-surface: #FFFFFF;
@@ -604,10 +604,10 @@
        seeds from getCodeThemeSeed("codex", variant), not the "synara"
        theme), per explicit request ("make sure we are using the codex
        color theme from synara's... i want us to use codex color theme").
-       #ffffff is codex's light "surface" value exactly. Now the sidebar's #FAFAFA, so light mode is
-       one colour across the window as dark mode is; raised things (cards, the composer, Quick actions)
-       stay white on it. */
-    --background: #FAFAFA;
+       #ffffff is codex's light "surface" value exactly. Now Fluid Functionalism's level 1 (#FAFAFA),
+       the sidebar's too, so light mode is one colour across the window as dark mode is; raised things
+       (menus, cards, the composer, Quick actions) are white on it. */
+    --background: var(--surface-1);
     /* "Active" text -- hovered/selected menu items, headings, primary
        body text. --muted-foreground below is the resting/inactive one.
        #3d3d3d matches the reference's softer charcoal for active text
@@ -615,11 +615,8 @@
     --foreground: #3D3D3D;
     --card: #ffffff;
     --card-foreground: #3D3D3D;
-    /* var() references, not their own values: dropdown/popover menus
-       (Quick chat, the profile menu) should always match the page
-       background, including automatically if --background itself changes
-       later, not just today's specific color. */
-    --popover: var(--background);
+    /* Fluid Functionalism's level for a dropdown or popover: two above the page (white in light). */
+    --popover: var(--surface-3);
     --popover-foreground: var(--foreground);
     --primary: oklch(0.205 0 0);
     --primary-foreground: oklch(0.985 0 0);
@@ -746,14 +743,18 @@
        of trying to out-white white: level 1 stays near the app's own
        background, and each further level moves into a genuinely visible
        gray, mirroring dark mode's own degree of contrast per step. */
+    /* Superseded: Fluid Functionalism's own light ladder now (references/craft.md, Surfaces): the
+       #FAFAFA floor, #FCFCFC, then white from level 3 up, each level's depth carried by its paired
+       shadow (--shadow-N) rather than by going grey. The page is level 1, dropdowns and popovers
+       level 3, dialogs level 5. */
     --surface-1: #FAFAFA;
-    --surface-2: #F5F5F5;
-    --surface-3: #F0F0F0;
-    --surface-4: #EBEBEB;
-    --surface-5: #E6E6E6;
-    --surface-6: #E0E0E0;
-    --surface-7: #DADADA;
-    --surface-8: #D4D4D4;
+    --surface-2: #FCFCFC;
+    --surface-3: #FFFFFF;
+    --surface-4: #FFFFFF;
+    --surface-5: #FFFFFF;
+    --surface-6: #FFFFFF;
+    --surface-7: #FFFFFF;
+    --surface-8: #FFFFFF;
     --shadow-color: rgb(0 0 0 / 0.06);
     --shadow-1: 0 0 0 1px var(--shadow-color);
     --shadow-2: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color);
