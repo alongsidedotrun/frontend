@@ -64,7 +64,7 @@ export function CreateWorkspaceDialog({ open, onOpenChange, onCreate, saving = f
           submit();
         }}
       >
-        <WorkspaceFields values={values} onChange={setValues} nameError={error} autoFocusName />
+        <WorkspaceFields values={values} onChange={setValues} nameError={error} autoFocusName labelsAbove={asPage} />
       </form>
     </Frame>
   );

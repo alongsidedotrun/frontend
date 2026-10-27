@@ -95,7 +95,7 @@ export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, o
         </form>
       ) : (
         <form id={formId} className="flex flex-col gap-3" onSubmit={(event) => { event.preventDefault(); if (changed && trimmedName && !saving) void onSave(change); }}>
-          <WorkspaceFields values={values} onChange={setValues} nameError={nameError} />
+          <WorkspaceFields values={values} onChange={setValues} nameError={nameError} labelsAbove={asPage} />
           {workspaceProjects.length > 0 && destinations.length > 0 && (
             <div className="flex flex-col gap-2 pt-1">
               <p className="px-1 text-[12px] font-medium text-foreground">{t("archive.workspace.moveProjects")}</p>
