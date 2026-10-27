@@ -91,11 +91,13 @@ export function botGradient(color: string) {
   return `linear-gradient(to bottom, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0) 50%), linear-gradient(to bottom, ${top}, ${bottom})`;
 }
 
-// White eyes; only the white face's are dark, or they'd vanish into it.
+// White eyes; the white and cream faces' are dark, or they'd vanish into it (cream's white eyes were
+// hard to make out at sidebar size).
 const EYE = "#FFFFFF";
 const EYE_ON_LIGHT = "#111111";
+const LIGHT_BOT_COLORS = new Set(["#FFFFFF", "#EADBC0"]);
 function isLightBotColor(color: string) {
-  return color.toUpperCase() === "#FFFFFF";
+  return LIGHT_BOT_COLORS.has(color.toUpperCase());
 }
 // Arcs draw in the eyes' colour, whatever face they're on.
 const arc = (d: string) => <path d={d} fill="none" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />;
