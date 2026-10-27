@@ -96,7 +96,7 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
   // The selected model's provider, for the 5-hour limit warning on top of the composer.
   const [modelProvider, setModelProvider] = useState<string | null>(null);
   // Below the composer here: a new chat's composer sits mid-page.
-  const limitWarning = useLimitWarning(modelProvider, "bottom");
+  const limitWarning = useLimitWarning(modelProvider);
   // ComposeBox's own "Set as default for new chat" (compose-box.tsx's own
   // onPinDefaultModel/onPinDefaultEffort props) -- there's no chat yet for
   // that to write a real per-chat default to, so it lands here instead,
@@ -380,7 +380,6 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
           onChange={setPrompt}
           onSubmit={createSession}
           initialHeight={!transitioningToChat}
-          showWorkFromFolder={!transitioningToChat}
           workFromFolderPath={workingDirectory}
           onSelectWorkFromFolder={chooseWorkingDirectory}
           contextUsage={contextUsage}
@@ -392,8 +391,6 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
           onSetAutocompact={() => {}}
           defaultModelValue={defaultModel}
           onOpenSettings={() => openSettings("provider")}
-          onOpenApps={() => openSettings("apps")}
-          onOpenProviders={() => openSettings("provider")}
           onPinDefaultModel={(value) => {
             pinnedDefaultModelRef.current = value;
           }}
@@ -409,7 +406,7 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
             selectedModelsRef.current = models;
             setModelProvider(models[0]?.provider ?? null);
           }}
-          noticeBelow={limitWarning.notice}
+          notice={limitWarning.notice}
         />
         </div>
       </div>
