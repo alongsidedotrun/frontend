@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { PANE_DIALOG_CONTENT, PANE_DIALOG_MAX_HEIGHT } from "@/components/design-system/dialog-size";
 import { WorkspaceBrandIcon } from "@/components/design-system/workspace-brand-icon";
 import { cn } from "@/lib/utils";
+import { ShapeProvider } from "@/lib/shape-context";
 
 // The 8px-looking corner for the 32px controls here (32 × 8/27, STYLE_GUIDE.md: corner radius),
 // shared by fields, cards and buttons.
@@ -177,12 +178,46 @@ export function ShellDialogActions({
   cancelLabel,
   onCancel,
   primary,
+  pills = false,
 }: {
   cancelLabel: string;
   onCancel: () => void;
   /** destructive: red, for deleting. */
   primary?: { label: string; onClick?: () => void; disabled?: boolean; loading?: boolean; type?: "button" | "submit"; form?: string; destructive?: boolean };
+  /** A page's buttons (ShellPage): round pills side by side, the secondary then the primary, as the New
+   *  bot form's Reset and Create. */
+  pills?: boolean;
 }) {
+  if (pills) {
+    return (
+      <ShapeProvider defaultShape="pill">
+        <div className="mt-2 grid w-full grid-cols-2 gap-3">
+          <Button type="button" size="compact" variant="tertiary" className="h-9 w-full px-5" onClick={onCancel}>
+            {cancelLabel}
+          </Button>
+          {primary && (
+            <Button
+              type={primary.type ?? "button"}
+              form={primary.form}
+              size="compact"
+              // Deleting is red (the same colours as the dialogs' destructive button).
+              variant={primary.destructive ? "accent" : "primary"}
+              className={cn(
+                "h-9 w-full px-5",
+                primary.destructive &&
+                  "[--send-button-bg-active:color-mix(in_oklab,var(--destructive),black_25%)] [--send-button-bg-hover:color-mix(in_oklab,var(--destructive),black_12%)] [--send-button-bg:var(--destructive)]",
+              )}
+              disabled={primary.disabled}
+              loading={primary.loading}
+              onClick={primary.onClick}
+            >
+              {primary.label}
+            </Button>
+          )}
+        </div>
+      </ShapeProvider>
+    );
+  }
   return (
     <div className="mt-auto flex flex-col gap-2 pt-1">
       <Button type="button" variant="tertiary" className={cn("h-8 w-full bg-white dark:bg-transparent", SHELL_RADIUS)} onClick={onCancel}>

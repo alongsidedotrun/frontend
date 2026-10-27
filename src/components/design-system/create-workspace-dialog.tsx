@@ -49,6 +49,7 @@ export function CreateWorkspaceDialog({ open, onOpenChange, onCreate, saving = f
       description={t("workspace.create.description")}
       actions={
         <ShellDialogActions
+          pills={asPage}
           cancelLabel={t("common.cancel")}
           onCancel={() => onOpenChange(false)}
           primary={{ label: t("workspace.create.title"), type: "submit", form: formId, disabled: !trimmed || saving, loading: saving }}

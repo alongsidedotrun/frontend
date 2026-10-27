@@ -83,9 +83,9 @@ export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, o
       title={confirmingArchive ? t("archive.workspace.title") : t("workspace.manage")}
       description={confirmingArchive ? t("archive.workspace.description") : t("workspace.manage.description")}
       actions={confirmingArchive ? (
-        <ShellDialogActions cancelLabel={t("common.cancel")} onCancel={() => setConfirmingArchive(false)} primary={{ label: t("common.archive"), type: "submit", form: formId, disabled: saving }} />
+        <ShellDialogActions pills={asPage} cancelLabel={t("common.cancel")} onCancel={() => setConfirmingArchive(false)} primary={{ label: t("common.archive"), type: "submit", form: formId, disabled: saving }} />
       ) : (
-        <ShellDialogActions cancelLabel={t("common.cancel")} onCancel={() => onOpenChange(false)} primary={{ label: t("workspace.manage.save"), type: "submit", form: formId, disabled: !changed || !trimmedName || saving, loading: saving }} />
+        <ShellDialogActions pills={asPage} cancelLabel={t("common.cancel")} onCancel={() => onOpenChange(false)} primary={{ label: t("workspace.manage.save"), type: "submit", form: formId, disabled: !changed || !trimmedName || saving, loading: saving }} />
       )}
     >
       {confirmingArchive ? (
