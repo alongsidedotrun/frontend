@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { IconComponent } from "@/lib/icon-context";
 import { cn } from "@/lib/utils";
+import { ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
 import { forcedNoProvider } from "@/lib/dev-no-provider";
 import { PROVIDERS_CHANGED } from "@/lib/providers-changed";
 import { useLocation, useNavigate, useOutlet } from "react-router-dom";
@@ -81,7 +82,32 @@ type Chat = {
   // #504: the bot this chat talks to, and when it was last active (Recents).
   bot_id?: string | null;
   last_activity?: string | null;
+  // The models it has run on, newest first (GET /sessions).
+  models?: { provider: string; model: string }[];
 };
+
+// A provider's mark, by the provider id a chat's models carry (the model's own icon when it's listed).
+const PROVIDER_MARKS: Record<string, { icon: string; invertInDark?: boolean }> = {
+  claude: { icon: "/icons/providers/claude.svg" },
+  codex: { icon: "/icons/providers/chatgpt.svg", invertInDark: true },
+  antigravity: { icon: "/icons/providers/gemini.svg" },
+  grok: { icon: "/icons/providers/grok.svg", invertInDark: true },
+};
+
+/** The marks of the providers a chat has run on, newest first (at most three). */
+function chatProviderMarks(chat: Chat) {
+  const seen = new Set<string>();
+  const marks: { value: string; icon: string; invertInDark?: boolean }[] = [];
+  for (const { provider, model } of chat.models ?? []) {
+    const id = provider.toLowerCase();
+    if (seen.has(id) || marks.length >= 3) continue;
+    seen.add(id);
+    const listed = QUICK_CHAT_MODELS.find((candidate) => candidate.value === model);
+    const mark = listed ?? (PROVIDER_MARKS[id] ? { value: model, ...PROVIDER_MARKS[id] } : null);
+    if (mark) marks.push({ value: mark.value, icon: mark.icon, invertInDark: mark.invertInDark });
+  }
+  return marks;
+}
 
 // How many chats Recents shows.
 const RECENTS_SIZE = 5;
@@ -1107,6 +1133,16 @@ export function RedesignPage() {
                       <span className="truncate text-muted-foreground">{topBarProject.name}</span>
                       <ChevronRight aria-hidden="true" className="size-3 shrink-0 text-muted-foreground" />
                     </>
+                  )}
+                  {/* The provider it runs on (each, overlapping, if it changed), as the chat header had. */}
+                  {chatProviderMarks(topBarChat).length > 0 && (
+                    <span className="mr-0.5 flex shrink-0 items-center">
+                      {chatProviderMarks(topBarChat).map((mark, index) => (
+                        <span key={mark.value} className={cn("grid size-4 place-items-center", index > 0 && "-ml-1")}>
+                          <ProviderIcon model={mark} className="size-4" />
+                        </span>
+                      ))}
+                    </span>
                   )}
                   <span className="truncate">{chatTitle(topBarChat)}</span>
                 </span>
