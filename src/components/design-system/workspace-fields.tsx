@@ -67,13 +67,13 @@ export function WorkspaceFields({ values, onChange, nameError, autoFocusName, la
       placeholder={t("workspace.fields.descriptionPlaceholder")}
       maxLength={MAX_DESCRIPTION_LENGTH}
       rows={2}
-      className="w-full resize-none appearance-none rounded-none border-0 bg-transparent p-0 text-[13px] leading-[1.5] text-foreground shadow-none outline-none placeholder:text-muted-foreground/70"
+      className="w-full resize-none appearance-none rounded-none border-0 bg-transparent p-0 text-ui leading-[1.5] text-foreground shadow-none outline-none placeholder:text-muted-foreground/70"
     />
   );
-  const nameErrorLine = nameError && <p className="px-1 text-[12px] text-destructive">{nameError}</p>;
+  const nameErrorLine = nameError && <p className="px-1 text-ui-sm text-destructive">{nameError}</p>;
 
   if (labelsAbove) {
-    const labelClass = "px-1 text-[12px] text-muted-foreground";
+    const labelClass = "px-1 text-ui-sm text-muted-foreground";
     return (
       <>
         <div className="flex flex-col gap-1.5">
@@ -100,7 +100,7 @@ export function WorkspaceFields({ values, onChange, nameError, autoFocusName, la
 
       {/* Description: a white card like the fields, its label on top. */}
       <section className={cn("flex flex-col gap-1 px-3 pt-2 pb-1", SHELL_RADIUS, SHELL_SURFACE)}>
-        <label htmlFor={descriptionId} className="text-[12px] text-muted-foreground">{t("workspace.fields.description")}</label>
+        <label htmlFor={descriptionId} className="text-ui-sm text-muted-foreground">{t("workspace.fields.description")}</label>
         {descriptionInput}
       </section>
     </>
@@ -148,7 +148,7 @@ export function WorkspaceTileMenu({ values, onChange, extra }: { values: Workspa
           />
           <BaseDropdownContent side="bottom" align="center" sideOffset={6} className="w-56 min-w-0">
             <BaseMenuItem index={0} icon={Upload} label={t("workspace.fields.uploadLogo")} className="gap-[7px]" onSelect={() => fileRef.current?.click()} />
-            <DropdownSubMenuItem index={1} icon={Palette} label={t("workspace.fields.useDefault")} chevron className="gap-[7px] text-[12px]">
+            <DropdownSubMenuItem index={1} icon={Palette} label={t("workspace.fields.useDefault")} chevron className="gap-[7px] text-ui-sm">
               <BaseDropdownLabel>{t("workspace.fields.tileColour")}</BaseDropdownLabel>
               {WORKSPACE_SWATCH_ORDER.map((index) => {
                 const swatch = WORKSPACE_PALETTE[index];
@@ -157,7 +157,7 @@ export function WorkspaceTileMenu({ values, onChange, extra }: { values: Workspa
                 return (
                   <DropdownSubItem
                     key={swatch.name}
-                    className="flex items-center gap-2 py-1.5 pl-2.5 text-[12px]"
+                    className="flex items-center gap-2 py-1.5 pl-2.5 text-ui-sm"
                     // The default tile: the name's letter on this colour, in place of any logo.
                     onClick={() => onChange({ ...values, logo: null, colorIndex: index })}
                   >
@@ -192,7 +192,7 @@ export function WorkspaceTileMenu({ values, onChange, extra }: { values: Workspa
           event.target.value = "";
         }}
       />
-      {logoError && <p className="text-[12px] text-destructive">{logoError}</p>}
+      {logoError && <p className="text-ui-sm text-destructive">{logoError}</p>}
     </div>
   );
 }

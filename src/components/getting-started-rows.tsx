@@ -14,7 +14,7 @@ type GettingStartedRowsProps = {
 };
 
 function Status({ children }: { children: string }) {
-  return <span className="ml-2 text-[10px] font-normal text-muted-foreground/60">{children}</span>;
+  return <span className="ml-2 text-ui-2xs font-normal text-muted-foreground/60">{children}</span>;
 }
 
 /** Shared action rows for both onboarding and the in-app Getting Started page. */

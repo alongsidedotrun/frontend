@@ -474,7 +474,7 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
           placeholder={t("bots.placeholder.description")}
           label={t("bots.fields.description")}
           maxLength={300}
-          className="py-1 text-[length:var(--redesign-chat-text)]"
+          className="py-1 text-chat"
         />
       </div>
       <BotFields

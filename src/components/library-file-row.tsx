@@ -90,11 +90,11 @@ export function LibraryFileMoreMenu({
               transition={{ duration: 0.12 }}
             >
               <BaseDropdownLabel>{t("common.delete")}</BaseDropdownLabel>
-              <div className="px-2 pb-2 text-[11px] font-normal text-foreground">{t("library.deleteConfirm.question")}</div>
+              <div className="px-2 pb-2 text-ui-xs font-normal text-foreground">{t("library.deleteConfirm.question")}</div>
               <div className="flex gap-1.5 px-2 pb-1.5">
                 <Button
                   variant="outline"
-                  className="h-7 flex-1 text-[11px]"
+                  className="h-7 flex-1 text-ui-xs"
                   onClick={(event) => {
                     event.stopPropagation();
                     setConfirmingDelete(false);
@@ -103,7 +103,7 @@ export function LibraryFileMoreMenu({
                   {t("common.cancel")}
                 </Button>
                 <Button
-                  className="h-7 flex-1 bg-red-600 text-[11px] text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
+                  className="h-7 flex-1 bg-red-600 text-ui-xs text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
                   onClick={(event) => {
                     event.stopPropagation();
                     onDelete();

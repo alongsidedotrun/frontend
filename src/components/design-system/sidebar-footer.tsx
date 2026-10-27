@@ -98,7 +98,7 @@ export function GettingStartedSummary({
         className={cn(
           // Full colour in both states: unlike the muted sidebar rows, this is a
           // reminder that should stand out.
-          "w-full text-[length:var(--redesign-font-size-base)] font-normal text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "w-full text-chat font-normal text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           triggerRadius,
           // One row in both states (ring, label, count), per request -- the
           // label stays beside the ring when expanded instead of wrapping under it.
@@ -117,7 +117,7 @@ export function GettingStartedSummary({
         )}
         <span className="min-w-0 flex-1 truncate text-left font-medium">{label}</span>
         {/* Room for the X (a sibling, as buttons can't nest) once all done. */}
-        {allDone && onDismiss ? <span aria-hidden="true" className="size-5 shrink-0" /> : <span className="shrink-0 text-[length:var(--redesign-font-size-compact)]">{count}</span>}
+        {allDone && onDismiss ? <span aria-hidden="true" className="size-5 shrink-0" /> : <span className="shrink-0 text-ui-xs">{count}</span>}
       </button>
       {allDone && onDismiss && (
         <button
@@ -144,7 +144,7 @@ export function GettingStartedSummary({
                 <div
                   key={step.id}
                   aria-disabled="true"
-                  className="-mx-[var(--redesign-sidebar-footer-task-hover-bleed)] flex h-[var(--redesign-sidebar-footer-task-row-height)] w-[calc(100%+2*var(--redesign-sidebar-footer-task-hover-bleed))] cursor-default items-center gap-[var(--redesign-quick-actions-icon-gap)] px-[var(--redesign-sidebar-footer-task-hover-bleed)] text-[length:var(--redesign-font-size-base)] font-medium text-foreground/25"
+                  className="-mx-[var(--redesign-sidebar-footer-task-hover-bleed)] flex h-[var(--redesign-sidebar-footer-task-row-height)] w-[calc(100%+2*var(--redesign-sidebar-footer-task-hover-bleed))] cursor-default items-center gap-[var(--redesign-quick-actions-icon-gap)] px-[var(--redesign-sidebar-footer-task-hover-bleed)] text-chat font-medium text-foreground/25"
                 >
                   {step.complete ? (
                     <CircleCheck aria-hidden="true" strokeWidth={2} className="size-[var(--redesign-sidebar-footer-task-indicator-size)] shrink-0" />
@@ -158,7 +158,7 @@ export function GettingStartedSummary({
                 <PopoverTrigger asChild>
                   <button
                     type="button"
-                    className="group -mx-[var(--redesign-sidebar-footer-task-hover-bleed)] flex h-[var(--redesign-sidebar-footer-task-row-height)] w-[calc(100%+2*var(--redesign-sidebar-footer-task-hover-bleed))] items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-sidebar-footer-task-hover-bleed)] text-left text-[length:var(--redesign-font-size-base)] font-medium text-foreground/50 transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="group -mx-[var(--redesign-sidebar-footer-task-hover-bleed)] flex h-[var(--redesign-sidebar-footer-task-row-height)] w-[calc(100%+2*var(--redesign-sidebar-footer-task-hover-bleed))] items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-sidebar-footer-task-hover-bleed)] text-left text-chat font-medium text-foreground/50 transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {step.complete ? (
                       // Done: an outlined tick and the label struck through.
@@ -174,13 +174,13 @@ export function GettingStartedSummary({
                     {step.image ?? <Backdrop />}
                   </div>
                   <div>
-                    <h3 className="text-[length:var(--redesign-font-size-md)] font-medium text-foreground">{step.label}</h3>
-                    {step.description && <p className="mt-[var(--redesign-sidebar-footer-task-description-gap)] text-[length:var(--redesign-font-size-base)] font-medium leading-relaxed text-muted-foreground">{step.description}</p>}
+                    <h3 className="text-ui-xl font-medium text-foreground">{step.label}</h3>
+                    {step.description && <p className="mt-[var(--redesign-sidebar-footer-task-description-gap)] text-chat font-medium leading-relaxed text-muted-foreground">{step.description}</p>}
                   </div>
                   <button
                     type="button"
                     onClick={step.onSelect}
-                    className="h-[var(--redesign-sidebar-footer-task-action-height)] self-start rounded-[var(--redesign-dropdown-row-radius)] bg-[var(--focus-accent)] px-[var(--redesign-sidebar-footer-upgrade-padding)] text-[length:var(--redesign-font-size-compact)] font-medium text-white transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="h-[var(--redesign-sidebar-footer-task-action-height)] self-start rounded-[var(--redesign-dropdown-row-radius)] bg-[var(--focus-accent)] px-[var(--redesign-sidebar-footer-upgrade-padding)] text-ui-xs font-medium text-white transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {step.actionLabel ?? t("shell.gettingStarted.startTask")}
                   </button>
@@ -192,7 +192,7 @@ export function GettingStartedSummary({
               <button
                 type="button"
                 onClick={onViewAll}
-                className="h-auto self-start rounded-[var(--redesign-control-radius)] pt-1.5 text-[length:var(--redesign-font-size-base)] font-medium leading-none text-[var(--focus-accent)] transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-auto self-start rounded-[var(--redesign-control-radius)] pt-1.5 text-chat font-medium leading-none text-[var(--focus-accent)] transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {viewAllLabel}
               </button>
@@ -223,7 +223,7 @@ type SidebarAccountFooterProps = {
 export function SidebarAccountFooter({ name, avatar, signedIn, onSignIn, onOpenSettings, profileSections }: SidebarAccountFooterProps) {
   const { t } = useTranslation();
   const rowButton =
-    "flex h-full min-w-0 flex-1 items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-left text-[length:var(--redesign-sidebar-primary-font-size)] font-medium text-foreground transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+    "flex h-full min-w-0 flex-1 items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-left text-chat font-medium text-foreground transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
   return (
     <div className="flex h-[var(--redesign-sidebar-footer-account-row-height)] w-full items-center gap-1">
       {signedIn ? (

@@ -80,7 +80,7 @@ export function TimezoneDropdown({ value, onChange, trigger, align = "end" }: { 
                   event.stopPropagation();
                   toggleKey(group.region);
                 }}
-                className="flex w-full items-center justify-between px-2.5 py-1.5 text-[12px] text-muted-foreground hover:text-foreground"
+                className="flex w-full items-center justify-between px-2.5 py-1.5 text-ui-sm text-muted-foreground hover:text-foreground"
               >
                 <span>{group.region}</span>
                 <ChevronRightIcon className={`size-3 shrink-0 transition-transform ${expanded ? "rotate-90" : ""}`} />
@@ -97,7 +97,7 @@ export function TimezoneDropdown({ value, onChange, trigger, align = "end" }: { 
                             event.stopPropagation();
                             toggleKey(subKey);
                           }}
-                          className="flex w-full items-center justify-between py-1.5 pr-2.5 pl-5 text-[12px] text-muted-foreground hover:text-foreground"
+                          className="flex w-full items-center justify-between py-1.5 pr-2.5 pl-5 text-ui-sm text-muted-foreground hover:text-foreground"
                         >
                           <span>{sub.name}</span>
                           <ChevronRightIcon className={`size-3 shrink-0 transition-transform ${subExpanded ? "rotate-90" : ""}`} />

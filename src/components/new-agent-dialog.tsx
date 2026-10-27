@@ -119,7 +119,7 @@ export function BotFields({
       )}
       {!bare && <ShellField label={t("agents.fields.name")} htmlFor={nameId}>
         {/* An agent is asked by @name in its chat; a bot is talked to directly, so no @. */}
-        {!forBot && <span className="text-[13px] text-muted-foreground">@</span>}
+        {!forBot && <span className="text-ui text-muted-foreground">@</span>}
         <input
           id={nameId}
           autoFocus={autoFocus}
@@ -146,7 +146,7 @@ export function BotFields({
       {/* A bot's instructions are given in its chat; only a chat's agent is told its speciality here. */}
       {!bare && !forBot && (
         <section className={cn("flex flex-col gap-1 px-3 pt-2 pb-1", SHELL_RADIUS, SHELL_SURFACE)}>
-          <label htmlFor={instructionsId} className="text-[12px] text-muted-foreground">{t("agents.fields.instructions")}</label>
+          <label htmlFor={instructionsId} className="text-ui-sm text-muted-foreground">{t("agents.fields.instructions")}</label>
           <textarea
             id={instructionsId}
             value={draft.instructions}
@@ -154,7 +154,7 @@ export function BotFields({
             placeholder={t("agents.fields.instructionsPlaceholder")}
             maxLength={8000}
             rows={5}
-            className="resize-none bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground/70"
+            className="resize-none bg-transparent text-ui text-foreground outline-none placeholder:text-muted-foreground/70"
           />
         </section>
       )}

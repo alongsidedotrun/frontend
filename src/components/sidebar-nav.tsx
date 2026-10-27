@@ -109,7 +109,7 @@ export const SIDEBAR_EASING = "cubic-bezier(0.16, 1, 0.3, 1)";
 
 // Real nav destinations, ported from app-sidebar.tsx's old `data.navMain`.
 // Welcome renders on its own, above New Chat -- see GlideGroup usage below.
-// size-[14px], not 18 -- paired with the row's own text-[12px] label, and
+// size-[14px], not 18 -- paired with the row's own text-ui-sm label, and
 // 16px is the recommended icon size at that text scale (roughly a 1.3x
 // icon-to-font ratio; 18px is the pairing for an 18-20px text scale not
 // used here), so the icon no longer reads as oversized next to the label.
@@ -275,7 +275,7 @@ function SidebarSearchPopover({
           }}
           placeholder="Search"
           aria-label="Search previous chats and files"
-          className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-ink-3"
+          className="min-w-0 flex-1 bg-transparent text-ui text-foreground outline-none placeholder:text-ink-3"
         />
         <button
           type="button"
@@ -297,10 +297,10 @@ function SidebarSearchPopover({
                 data-menu-row
                 type="button"
                 onClick={() => onPick(result)}
-                className="relative z-10 flex min-h-8 w-full flex-col justify-center rounded-[6px] px-2 py-1 text-left text-[13px] text-foreground hover:bg-hover-2/50"
+                className="relative z-10 flex min-h-8 w-full flex-col justify-center rounded-[6px] px-2 py-1 text-left text-ui text-foreground hover:bg-hover-2/50"
               >
                 <span className="truncate">{result.label}</span>
-                {result.snippet && <span className="truncate text-[11px] text-ink-3">{result.snippet}</span>}
+                {result.snippet && <span className="truncate text-ui-xs text-ink-3">{result.snippet}</span>}
               </button>
             ))}
           </GlideMenu>
@@ -437,9 +437,9 @@ function SidebarSearch({
         // button's own icon size too (both dropped from 16px to 14px
         // together, per the "designer compact" icon token below, so this
         // parity holds), instead of visibly growing on collapse.
-        // md:text-[12px]: Input's own base classes (ui/input.tsx) carry
+        // md:text-ui-sm: Input's own base classes (ui/input.tsx) carry
         // "text-base md:text-sm" -- both scoped variants distinct from this
-        // plain "text-[12px]" in twMerge's eyes (different breakpoint
+        // plain "text-ui-sm" in twMerge's eyes (different breakpoint
         // groups don't get merged away), and md:text-sm's own media query
         // wins the cascade at this app's actual sidebar widths (always
         // well past the md breakpoint), rendering at 14px instead of the
@@ -470,7 +470,7 @@ function SidebarSearch({
         // *shared utility class* is what actually matters for "consistent"
         // and "responsive" here (it scales with the root font-size the same
         // way dray's own token does), not chasing dray's exact 13px via a
-        // one-off text-[0.8125rem] arbitrary value that isn't a real shared
+        // one-off text-ui arbitrary value that isn't a real shared
         // token in this app at all. md:text-xs alongside the bare text-xs
         // -- ui/input.tsx's own base classes carry a competing md:text-sm
         // that otherwise wins the cascade at this app's real widths (always
@@ -577,7 +577,7 @@ function SidebarSearch({
             {/* Combined chip ("⌘F"/"Ctrl+F") -- per explicit request
                 ("remove the command k border and make then together but
                 also smaller font size"): border-none (was border
-                border-border) and text-2xs (10px, was text-[12px]) --
+                border-border) and text-2xs (10px, was text-ui-sm) --
                 smaller than the sidebar's own row text size now,
                 deliberately, since this reads as a light hint next to Find's
                 own placeholder. */}
@@ -907,7 +907,7 @@ function ProjectRow({
                     same font color as new chat or rename, is looks like is
                     not our active color"), matching every row's own always-
                     foreground color (menu-item.tsx's own app-wide fix). */}
-                <div className="px-2 pb-2 text-[11px] font-normal text-foreground">
+                <div className="px-2 pb-2 text-ui-xs font-normal text-foreground">
                   Would you like to delete this project?
                 </div>
                 {/* mt-auto -- per explicit follow-up ("move cancel and
@@ -920,7 +920,7 @@ function ProjectRow({
                 <div className="mt-auto flex gap-1.5 px-2 pb-1.5">
                   <Button
                     variant="outline"
-                    className="h-7 flex-1 text-[11px]"
+                    className="h-7 flex-1 text-ui-xs"
                     onClick={(event) => {
                       event.stopPropagation();
                       setConfirmingDelete(false);
@@ -929,7 +929,7 @@ function ProjectRow({
                     Cancel
                   </Button>
                   <Button
-                    className="h-7 flex-1 bg-red-600 text-[11px] text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
+                    className="h-7 flex-1 bg-red-600 text-ui-xs text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
                     onClick={(event) => {
                       event.stopPropagation();
                       onDeleteRequest();
@@ -1038,7 +1038,7 @@ export function SidebarModelStack({ models }: { models: { provider: string; mode
       })}
       {models.length > 4 && (
         <span
-          className="flex size-4.5 shrink-0 items-center justify-center rounded-full bg-hover-2 text-[9px] font-medium text-muted-foreground ring-1 ring-background"
+          className="flex size-4.5 shrink-0 items-center justify-center rounded-full bg-hover-2 text-ui-2xs font-medium text-muted-foreground ring-1 ring-background"
           style={{ zIndex: 0 }}
         >
           {models.length}
@@ -1201,7 +1201,7 @@ function ChatRow({
                 <BaseDropdownLabel>{t("common.delete")}</BaseDropdownLabel>
                 {/* text-foreground, not text-muted-foreground -- see
                     ProjectRow's own identical fix/comment. */}
-                <div className="px-2 pb-2 text-[11px] font-normal text-foreground">
+                <div className="px-2 pb-2 text-ui-xs font-normal text-foreground">
                   {isNonOwnerHostedDelete
                     ? "This chat will be removed from your device only. Other participants will not be affected."
                     : "Would you like to delete this chat?"}
@@ -1212,7 +1212,7 @@ function ChatRow({
                 <div className="mt-auto flex gap-1.5 px-2 pb-1.5">
                   <Button
                     variant="outline"
-                    className="h-7 flex-1 text-[11px]"
+                    className="h-7 flex-1 text-ui-xs"
                     onClick={(event) => {
                       event.stopPropagation();
                       setConfirmingDelete(false);
@@ -1221,7 +1221,7 @@ function ChatRow({
                     Cancel
                   </Button>
                   <Button
-                    className="h-7 flex-1 bg-red-600 text-[11px] text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
+                    className="h-7 flex-1 bg-red-600 text-ui-xs text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
                     onClick={(event) => {
                       event.stopPropagation();
                       onDeleteRequest();
@@ -1255,12 +1255,12 @@ function ChatRow({
                     onSelect={() => onAssignToProject(null)}
                   />
                 ) : projects.length > 0 ? (
-                  <DropdownSubMenuItem index={0} icon={FolderIcon} label={t("nav.chat.addToProject")} className="gap-[7px] text-[12px]">
+                  <DropdownSubMenuItem index={0} icon={FolderIcon} label={t("nav.chat.addToProject")} className="gap-[7px] text-ui-sm">
                     <BaseDropdownLabel>{t("nav.projects")}</BaseDropdownLabel>
                     {projects.map((project) => (
                       <DropdownSubItem
                         key={project.id}
-                        className="py-1.5 pl-2.5 text-[12px]"
+                        className="py-1.5 pl-2.5 text-ui-sm"
                         onClick={() => onAssignToProject(project.id)}
                       >
                         {project.label}
@@ -2351,7 +2351,7 @@ export default function SidebarNav({
           {searching && !searchOpen ? (
             <div className="mx-2 flex flex-col gap-0.5">
               {searchResults.length === 0 ? (
-                <p className="px-2 py-2 text-[12px] font-normal text-muted-foreground opacity-50">
+                <p className="px-2 py-2 text-ui-sm font-normal text-muted-foreground opacity-50">
                   No results
                 </p>
               ) : (
@@ -2376,7 +2376,7 @@ export default function SidebarNav({
                       // room a single-line title-only row never had to make for.
                       className="flex h-auto w-full flex-col items-start gap-0.5 rounded-[7px] px-2 py-1.5 text-left transition-colors hover:bg-hover-2/50"
                     >
-                      <span className="flex items-center gap-1.5 text-[10px] font-normal text-muted-foreground">
+                      <span className="flex items-center gap-1.5 text-ui-2xs font-normal text-muted-foreground">
                         {item.kind === "model" && item.model ? (
                           <ProviderIcon model={item.model} className="size-3 shrink-0" />
                         ) : describerLabel === "Project" ? (
@@ -2395,7 +2395,7 @@ export default function SidebarNav({
                           where via codex is written"), so a message match
                           explains *why* it matched, not just which chat. */}
                       {item.snippet && (
-                        <span className="w-full min-w-0 truncate pl-[19px] text-[11px] font-normal text-muted-foreground">
+                        <span className="w-full min-w-0 truncate pl-[19px] text-ui-xs font-normal text-muted-foreground">
                           {item.snippet}
                         </span>
                       )}
@@ -2429,7 +2429,7 @@ export default function SidebarNav({
               one -- since "Projects will show here" is describing an empty
               state, not itself an active/selected thing. text-xs (12px
               nominal, rem-
-              based/responsive) -- briefly tried a raw text-[10px], then
+              based/responsive) -- briefly tried a raw text-ui-2xs, then
               index.css's own new text-2xs token (0.625rem, still
               responsive), both reverted back to plain text-xs per later
               requests. font-normal, not font-medium -- per
@@ -2541,11 +2541,11 @@ export default function SidebarNav({
                     />
                   </div>
                   <div className="flex gap-1.5 px-2 pb-1.5">
-                    <Button variant="outline" className="h-7 flex-1 text-[11px]" onClick={handleDismissProject}>
+                    <Button variant="outline" className="h-7 flex-1 text-ui-xs" onClick={handleDismissProject}>
                       Cancel
                     </Button>
                     <Button
-                      className="h-7 flex-1 text-[11px]"
+                      className="h-7 flex-1 text-ui-xs"
                       disabled={!newProjectName.trim() || creatingProject}
                       onClick={() => void handleCreateProject()}
                     >

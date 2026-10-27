@@ -648,7 +648,7 @@ const CardTitle = forwardRef<HTMLSpanElement, HTMLAttributes<HTMLSpanElement>>(
         data-slot="card-title"
         className={cn(
           "inline-grid grid-cols-[minmax(0,1fr)] leading-snug",
-          compact ? "text-[12px]" : "text-[14px]",
+          compact ? "text-ui-sm" : "text-ui-lg",
           className
         )}
         {...props}
@@ -696,7 +696,7 @@ const CardDescription = forwardRef<
       data-slot="card-description"
       className={cn(
         "leading-normal text-muted-foreground",
-        compact ? "text-[11px]" : "text-[14px]",
+        compact ? "text-ui-xs" : "text-ui-lg",
         className
       )}
       {...props}
@@ -904,7 +904,7 @@ const CardEyebrow = forwardRef<HTMLSpanElement, HTMLAttributes<HTMLSpanElement>>
         ref={ref}
         data-slot="card-eyebrow"
         className={cn(
-          compact ? "text-[11px]" : "text-[12px]",
+          compact ? "text-ui-xs" : "text-ui-sm",
           "uppercase tracking-wide text-muted-foreground",
           className
         )}
@@ -956,7 +956,7 @@ function CardFeature({ icon: Icon, title, description }: CardFeatureProps) {
           <span
             className={cn(
               "leading-relaxed text-muted-foreground",
-              compact ? "text-[11px]" : "text-[12px]"
+              compact ? "text-ui-xs" : "text-ui-sm"
             )}
           >
             {description}
@@ -1034,7 +1034,7 @@ function CardButton({
 
   const classes = cn(
     "group/action relative z-30 inline-flex items-center justify-center gap-1.5 h-7 px-2.5 cursor-pointer outline-none",
-    compact ? "text-[11px]" : "text-[12px]",
+    compact ? "text-ui-xs" : "text-ui-sm",
     "transition-colors duration-80",
     "focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
     "disabled:opacity-50 disabled:pointer-events-none",

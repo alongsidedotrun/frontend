@@ -90,17 +90,17 @@ export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, o
     >
       {confirmingArchive ? (
         <form id={formId} className="flex flex-col gap-2" onSubmit={(event) => { event.preventDefault(); if (!saving) void onArchive(); }}>
-          <p className="px-1 text-[12px] text-muted-foreground">{t("archive.workspace.projectsHint")}</p>
-          {error && <p className="px-1 text-[12px] text-destructive">{error}</p>}
+          <p className="px-1 text-ui-sm text-muted-foreground">{t("archive.workspace.projectsHint")}</p>
+          {error && <p className="px-1 text-ui-sm text-destructive">{error}</p>}
         </form>
       ) : (
         <form id={formId} className="flex flex-col gap-3" onSubmit={(event) => { event.preventDefault(); if (changed && trimmedName && !saving) void onSave(change); }}>
           <WorkspaceFields values={values} onChange={setValues} nameError={nameError} labelsAbove={asPage} />
           {workspaceProjects.length > 0 && destinations.length > 0 && (
             <div className="flex flex-col gap-2 pt-1">
-              <p className="px-1 text-[12px] font-medium text-foreground">{t("archive.workspace.moveProjects")}</p>
+              <p className="px-1 text-ui-sm font-medium text-foreground">{t("archive.workspace.moveProjects")}</p>
               {workspaceProjects.map((project) => (
-                <label key={project.id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2 text-[12px]">
+                <label key={project.id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2 text-ui-sm">
                   <span className="truncate">{project.name}</span>
                   <select className="max-w-40 rounded-md border border-border bg-background px-2 py-1" defaultValue="" onChange={(event) => { if (event.target.value) void onMoveProject?.(project.id, event.target.value); }}>
                     <option value="" disabled>{t("archive.workspace.moveTo")}</option>
@@ -110,7 +110,7 @@ export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, o
               ))}
             </div>
           )}
-          {error && <p className="px-1 text-[12px] text-destructive">{error}</p>}
+          {error && <p className="px-1 text-ui-sm text-destructive">{error}</p>}
         </form>
       )}
     </Frame>

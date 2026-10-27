@@ -132,8 +132,8 @@ export function SkillsSection() {
     <div className="@container flex flex-col">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h2 className="text-[16px] font-semibold text-foreground">{t("settings.nav.skills")}</h2>
-          <p className="mt-0.5 text-[13px] font-normal text-muted-foreground">{t("settings.nav.subtitle.skills")}</p>
+          <h2 className="text-ui-xl font-semibold text-foreground">{t("settings.nav.skills")}</h2>
+          <p className="mt-0.5 text-ui font-normal text-muted-foreground">{t("settings.nav.subtitle.skills")}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <input
@@ -162,7 +162,7 @@ export function SkillsSection() {
         </div>
       </div>
 
-      {fileError && <p className="mt-2 text-[12px] text-destructive">{t("skills.mdOnly")}</p>}
+      {fileError && <p className="mt-2 text-ui-sm text-destructive">{t("skills.mdOnly")}</p>}
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
         <ShapeProvider defaultShape="pill">
@@ -192,10 +192,10 @@ export function SkillsSection() {
               // Focused, typed text starts at the left edge straight away (no slide); the icon and
               // the placeholder (drawn below, in place) fade out where they are. The native
               // placeholder stays for screen readers, just not painted.
-              className="h-7 border border-border pl-8 text-[length:var(--redesign-chat-meta)] shadow-none transition-[border-color] duration-200 placeholder:text-transparent focus:pl-2.5 focus-visible:border-focus-accent dark:border-border dark:focus-visible:border-focus-accent"
+              className="h-7 border border-border pl-8 text-chat-meta shadow-none transition-[border-color] duration-200 placeholder:text-transparent focus:pl-2.5 focus-visible:border-focus-accent dark:border-border dark:focus-visible:border-focus-accent"
             />
             {!query && (
-              <span aria-hidden="true" className="pointer-events-none absolute top-1/2 left-8 -translate-y-1/2 truncate text-[length:var(--redesign-chat-meta)] text-muted-foreground transition-opacity duration-200 ease-in-out group-focus-within/skills-search:opacity-0 motion-reduce:transition-none">
+              <span aria-hidden="true" className="pointer-events-none absolute top-1/2 left-8 -translate-y-1/2 truncate text-chat-meta text-muted-foreground transition-opacity duration-200 ease-in-out group-focus-within/skills-search:opacity-0 motion-reduce:transition-none">
                 {t("skills.search")}
               </span>
             )}
@@ -240,7 +240,7 @@ export function SkillsSection() {
             null
           ) : results !== null ? (
             <section className="mt-8">
-              <h3 className="mb-2.5 text-[length:var(--redesign-font-size-compact)] text-muted-foreground">{t("skills.results")}</h3>
+              <h3 className="mb-2.5 text-ui-xs text-muted-foreground">{t("skills.results")}</h3>
               {shownResults === "error" ? (
                 <EmptyState>{t("skills.browse.error")}</EmptyState>
               ) : !searching && Array.isArray(shownResults) && shownResults.length === 0 ? (
@@ -314,8 +314,8 @@ function SectionHeader({ title, page }: { title: string; page: string }) {
   const { t } = useTranslation();
   return (
     <div className="mb-2.5 flex items-center justify-between">
-      <h3 className="text-[length:var(--redesign-font-size-compact)] text-muted-foreground">{title}</h3>
-      <a href={`${SKILLS_SH}/${page}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 text-[length:var(--redesign-font-size-compact)] text-muted-foreground transition-colors hover:text-foreground">
+      <h3 className="text-ui-xs text-muted-foreground">{title}</h3>
+      <a href={`${SKILLS_SH}/${page}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 text-ui-xs text-muted-foreground transition-colors hover:text-foreground">
         {t("skills.seeAll")}
         <ArrowUpRight aria-hidden="true" className="size-3" />
       </a>
@@ -342,22 +342,22 @@ function OfficialCompanyCard({
     <article className={CARD}>
       <div className="flex items-center gap-2">
         <OwnerMark source={company.repo} size="md" />
-        <a href={`${SKILLS_SH}/${company.owner}`} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-[length:var(--redesign-chat-text)] font-medium text-foreground hover:underline">
+        <a href={`${SKILLS_SH}/${company.owner}`} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-chat font-medium text-foreground hover:underline">
           {company.owner}
         </a>
-        <span className="shrink-0 text-[length:var(--redesign-chat-meta)] text-muted-foreground">{t("skills.browse.installs", { formatted: compactCount(company.totalInstalls) })}</span>
+        <span className="shrink-0 text-chat-meta text-muted-foreground">{t("skills.browse.installs", { formatted: compactCount(company.totalInstalls) })}</span>
       </div>
-      <a href={`${SKILLS_SH}/${company.repo}`} target="_blank" rel="noreferrer" className="mt-1 truncate text-[length:var(--redesign-chat-meta)] text-muted-foreground hover:underline">
+      <a href={`${SKILLS_SH}/${company.repo}`} target="_blank" rel="noreferrer" className="mt-1 truncate text-chat-meta text-muted-foreground hover:underline">
         {company.repo}
       </a>
       <ul className="mt-2 flex flex-col gap-1">
         {company.skills.map((skill) => (
           <li key={skill.id} className="flex items-center gap-2">
             <Stars02 aria-hidden="true" className="size-3 shrink-0 text-muted-foreground" />
-            <a href={`${SKILLS_SH}/${skill.id}`} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-[length:var(--redesign-chat-meta)] text-foreground hover:underline">
+            <a href={`${SKILLS_SH}/${skill.id}`} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-chat-meta text-foreground hover:underline">
               {skill.name}
             </a>
-            <span className="shrink-0 text-[length:var(--redesign-chat-meta)] text-muted-foreground">{compactCount(skill.installs)}</span>
+            <span className="shrink-0 text-chat-meta text-muted-foreground">{compactCount(skill.installs)}</span>
             <AddToggle name={skill.name} added={isAdded(skill)} busy={state[skill.id] === "adding"} failed={state[skill.id] === "error"} onAdd={() => onAdd(skill)} onRemove={() => onRemove(skill)} />
           </li>
         ))}
@@ -373,7 +373,7 @@ function SkillGrid({ children }: { children: React.ReactNode }) {
 
 function EmptyState({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mt-2 flex flex-col items-center gap-3 rounded-xl border border-border bg-card px-4 py-10 text-center text-[length:var(--redesign-chat-text)] text-muted-foreground">
+    <div className="mt-2 flex flex-col items-center gap-3 rounded-xl border border-border bg-card px-4 py-10 text-center text-chat text-muted-foreground">
       {children}
     </div>
   );
@@ -448,14 +448,14 @@ function RemoteSkillCard({ skill, added, state, onAdd, onRemove }: { skill: Remo
     <article className={CARD}>
       <div className="flex items-center gap-2">
         <Stars02 aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-        <a href={`${SKILLS_SH}/${skill.id}`} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-[length:var(--redesign-chat-text)] font-medium text-foreground hover:underline">
+        <a href={`${SKILLS_SH}/${skill.id}`} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-chat font-medium text-foreground hover:underline">
           {skill.name}
         </a>
-        {skill.isOfficial && <span className="shrink-0 rounded-full bg-muted px-1.5 text-[10px] text-muted-foreground">{t("skills.official")}</span>}
+        {skill.isOfficial && <span className="shrink-0 rounded-full bg-muted px-1.5 text-ui-2xs text-muted-foreground">{t("skills.official")}</span>}
         <AddToggle name={skill.name} added={added} busy={state === "adding"} failed={state === "error"} onAdd={onAdd} onRemove={onRemove} />
       </div>
-      <p className="mt-1.5 truncate text-[length:var(--redesign-chat-meta)] text-muted-foreground">{skill.source}</p>
-      <div className="mt-auto flex items-center gap-1.5 pt-2.5 text-[length:var(--redesign-chat-meta)]">
+      <p className="mt-1.5 truncate text-chat-meta text-muted-foreground">{skill.source}</p>
+      <div className="mt-auto flex items-center gap-1.5 pt-2.5 text-chat-meta">
         <span className="text-muted-foreground">{t("skills.by")}</span>
         <OwnerMark source={skill.source} />
         <span className="min-w-0 truncate text-foreground">{skillOwner(skill)}</span>
@@ -471,11 +471,11 @@ function InstalledSkillCard({ skill, onRemove }: { skill: Skill; onRemove: () =>
     <article className={CARD}>
       <div className="flex items-center gap-2">
         <Stars02 aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-        <h4 className="min-w-0 flex-1 truncate text-[length:var(--redesign-chat-text)] font-medium text-foreground">{skill.name}</h4>
+        <h4 className="min-w-0 flex-1 truncate text-chat font-medium text-foreground">{skill.name}</h4>
         <AddToggle name={skill.name} added onAdd={() => {}} onRemove={onRemove} />
       </div>
-      <p className="mt-1.5 line-clamp-2 text-[length:var(--redesign-chat-meta)] leading-[1.5] text-muted-foreground">{skill.description}</p>
-      <div className="mt-auto flex items-center gap-1.5 pt-2.5 text-[length:var(--redesign-chat-meta)]">
+      <p className="mt-1.5 line-clamp-2 text-chat-meta leading-[1.5] text-muted-foreground">{skill.description}</p>
+      <div className="mt-auto flex items-center gap-1.5 pt-2.5 text-chat-meta">
         <span className="text-muted-foreground">{t("skills.by")}</span>
         {skill.source ? <OwnerMark source={skill.source} /> : <LetterMark name={skill.publisher.name} />}
         <span className="truncate text-foreground">{skill.publisher.name}</span>
@@ -503,7 +503,7 @@ function OwnerMark({ source, size = "sm" }: { source: string; size?: "sm" | "md"
 
 function LetterMark({ name, size = "sm" }: { name: string; size?: "sm" | "md" }) {
   return (
-    <span aria-hidden="true" className={cn("grid shrink-0 place-items-center bg-muted font-medium text-foreground", size === "md" ? "size-5 rounded-[5px] text-[11px]" : "size-3.5 rounded-[3px] text-[9px]")}>
+    <span aria-hidden="true" className={cn("grid shrink-0 place-items-center bg-muted font-medium text-foreground", size === "md" ? "size-5 rounded-[5px] text-ui-xs" : "size-3.5 rounded-[3px] text-ui-2xs")}>
       {name.charAt(0).toUpperCase()}
     </span>
   );
@@ -566,7 +566,7 @@ function AddSkillDialog({
         </ShellField>
         {/* Description: a white card like the fields, its label on top (as in workspaces). */}
         <section className={cn("flex flex-col gap-1 px-3 pt-2 pb-1", SHELL_RADIUS, SHELL_SURFACE)}>
-          <label htmlFor={descriptionId} className="text-[12px] text-muted-foreground">{t("skills.fields.description")}</label>
+          <label htmlFor={descriptionId} className="text-ui-sm text-muted-foreground">{t("skills.fields.description")}</label>
           <textarea
             id={descriptionId}
             autoFocus
@@ -575,11 +575,11 @@ function AddSkillDialog({
             placeholder={t("skills.fields.descriptionPlaceholder")}
             maxLength={160}
             rows={2}
-            className="resize-none bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground/70"
+            className="resize-none bg-transparent text-ui text-foreground outline-none placeholder:text-muted-foreground/70"
           />
         </section>
         {/* The picked file, which becomes the instructions. */}
-        <div className={cn("flex h-8 items-center gap-2 px-3 text-[12px] text-muted-foreground", SHELL_RADIUS, SHELL_SURFACE)}>
+        <div className={cn("flex h-8 items-center gap-2 px-3 text-ui-sm text-muted-foreground", SHELL_RADIUS, SHELL_SURFACE)}>
           <File02 aria-hidden="true" className="size-3.5 shrink-0" />
           <span className="min-w-0 truncate text-foreground">{draft?.fileName}</span>
           <span className="ml-auto shrink-0">{t("skills.fields.instructions")}</span>

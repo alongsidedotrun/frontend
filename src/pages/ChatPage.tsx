@@ -2710,10 +2710,10 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                     setChatHeaderRenaming(false);
                   }
                 }}
-                className="h-5 w-44 rounded-sm border border-border bg-transparent px-1 text-[12px] font-normal text-foreground outline-none focus:border-ring"
+                className="h-5 w-44 rounded-sm border border-border bg-transparent px-1 text-ui-sm font-normal text-foreground outline-none focus:border-ring"
               />
             ) : (
-              <h1 className="max-w-56 truncate text-[12px] font-normal text-muted-foreground/60 transition-colors duration-150 group-hover/chat-context:text-foreground group-focus-within/chat-context:text-foreground">
+              <h1 className="max-w-56 truncate text-ui-sm font-normal text-muted-foreground/60 transition-colors duration-150 group-hover/chat-context:text-foreground group-focus-within/chat-context:text-foreground">
                 {contextLabel}
               </h1>
             )}
@@ -2730,7 +2730,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               <BaseDropdownContent side="bottom" align="start" className="w-40 overflow-hidden">
                 <BaseDropdownLabel>Chat</BaseDropdownLabel>
                 <DropdownSubItem
-                  className="gap-2 text-[12px]"
+                  className="gap-2 text-ui-sm"
                   onClick={() => {
                     setChatHeaderMenuOpen(false);
                     setChatHeaderRenaming(true);
@@ -2740,12 +2740,12 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                   Rename
                 </DropdownSubItem>
                 {headerProjects.length > 0 ? (
-                  <DropdownSubMenuItem index={1} icon={FolderIcon} label={t("nav.chat.addToProject")} className="gap-[7px] text-[12px]">
+                  <DropdownSubMenuItem index={1} icon={FolderIcon} label={t("nav.chat.addToProject")} className="gap-[7px] text-ui-sm">
                     <BaseDropdownLabel>{t("nav.projects")}</BaseDropdownLabel>
                     {headerProjects.map((project) => (
                       <DropdownSubItem
                         key={project.id}
-                        className="py-1.5 pl-2.5 text-[12px]"
+                        className="py-1.5 pl-2.5 text-ui-sm"
                         onClick={() => void assignChatHeaderProject(project.id)}
                       >
                         {project.name}
@@ -2753,7 +2753,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                     ))}
                   </DropdownSubMenuItem>
                 ) : (
-                  <DropdownSubItem className="gap-2 text-[12px]" disabled>
+                  <DropdownSubItem className="gap-2 text-ui-sm" disabled>
                     <FolderIcon className="size-3.5" />
                     {t("nav.chat.addToProject")}
                   </DropdownSubItem>
@@ -3059,7 +3059,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         </AnimatePresence>
         {sessionId && <JoinRequests sessionId={sessionId} requests={joinRequests} onDecided={(id) => setJoinRequests((current) => current.filter((r) => r.id !== id))} />}
         {commenterChat ? (
-          <p className="mb-2 text-center text-[12px] text-muted-foreground">{t("chat.agentMode.commenterOnly")}</p>
+          <p className="mb-2 text-center text-ui-sm text-muted-foreground">{t("chat.agentMode.commenterOnly")}</p>
         ) : sharedChat ? (
           <AgentModeSwitch justChat={justChat} onChange={setJustChat} />
         ) : null}
@@ -3213,7 +3213,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
 function MessageTime({ time }: { time: string }) {
   return (
     // The compact size (as section headings), a step under the sender's name.
-    <p className="px-1 text-[length:var(--redesign-font-size-compact)] text-muted-foreground">
+    <p className="px-1 text-ui-xs text-muted-foreground">
       {time}
     </p>
   );
@@ -3323,7 +3323,7 @@ function ChatRowView({
   // for an onLoad that never comes left a live bot reply streaming in invisibly.
   const [iconLoaded, setIconLoaded] = useState(() => row.kind !== "agent" || !row.animate || Boolean(bot && !row.runBy));
   if (row.kind === "marker") {
-    return <div className="text-center text-[length:var(--redesign-chat-meta)] text-muted-foreground/70"><ErrorText message={row.text} /></div>;
+    return <div className="text-center text-chat-meta text-muted-foreground/70"><ErrorText message={row.text} /></div>;
   }
 
   if (row.kind === "tool") {
@@ -3456,7 +3456,7 @@ function ChatRowView({
               --foreground comment has the full history), so this is now a literal
               shared token rather than two colors that happened to match. */}
           <div
-            className={`relative rounded-[var(--redesign-chat-bubble-radius)] px-[var(--redesign-chat-bubble-padding-x)] py-[var(--redesign-chat-bubble-padding-y)] text-[length:var(--redesign-chat-text)] leading-relaxed whitespace-pre-wrap text-foreground ${
+            className={`relative rounded-[var(--redesign-chat-bubble-radius)] px-[var(--redesign-chat-bubble-padding-x)] py-[var(--redesign-chat-bubble-padding-y)] text-chat leading-relaxed whitespace-pre-wrap text-foreground ${
               row.failed ? "border border-destructive/40" : ""
             } ${row.reaction ? "mb-3" : ""} bg-accent`}
           >
@@ -3469,7 +3469,7 @@ function ChatRowView({
                   <span
                     tabIndex={0}
                     aria-label={bot ? t("chat.reactedBy", { name: bot.name, emoji: row.reaction }) : row.reaction}
-                    className={`absolute -bottom-3.5 flex h-6 min-w-6 cursor-default items-center justify-center rounded-full border border-border bg-background px-1 text-[13px] leading-none shadow-[0_1px_2px_rgb(0_0_0_/_0.08)] outline-none focus-visible:ring-2 focus-visible:ring-ring ${isSelf ? "left-2" : "right-2"}`}
+                    className={`absolute -bottom-3.5 flex h-6 min-w-6 cursor-default items-center justify-center rounded-full border border-border bg-background px-1 text-ui leading-none shadow-[0_1px_2px_rgb(0_0_0_/_0.08)] outline-none focus-visible:ring-2 focus-visible:ring-ring ${isSelf ? "left-2" : "right-2"}`}
                   >
                     {row.reaction}
                   </span>
@@ -3500,11 +3500,11 @@ function ChatRowView({
           // see sendMessage's own comment (above) for why this row exists
           // at all instead of the window.alert() it replaced.
           <div className="flex items-center gap-2 px-1">
-            <span className="text-[length:var(--redesign-chat-meta)] text-destructive"><ErrorText message={row.failed.errorText} /></span>
+            <span className="text-chat-meta text-destructive"><ErrorText message={row.failed.errorText} /></span>
             <button
               type="button"
               onClick={() => onRetryFailedMessage(row)}
-              className="text-[length:var(--redesign-chat-meta)] font-medium text-muted-foreground underline hover:text-foreground"
+              className="text-chat-meta font-medium text-muted-foreground underline hover:text-foreground"
             >
               {t("common.retry")}
             </button>
@@ -3525,7 +3525,7 @@ function ChatRowView({
                   ever been edited, but total stays 1 until a second branch
                   genuinely exists) -- most messages never show this. */}
               {row.branch && row.branch.total > 1 && (
-                <div className="flex items-center gap-0.5 text-[length:var(--redesign-chat-meta)] text-muted-foreground">
+                <div className="flex items-center gap-0.5 text-chat-meta text-muted-foreground">
                   <button
                     type="button"
                     disabled={row.branch.index <= 0}
@@ -3634,12 +3634,12 @@ function ChatRowView({
               label (row.displayName above) exactly: both are identity labels above
               a message, and this one read larger/bolder than its symmetric
               counterpart for no reason tied to anything on screen. */}
-          <span className="text-[length:var(--redesign-chat-meta)] text-muted-foreground">Alongside</span>
+          <span className="text-chat-meta text-muted-foreground">Alongside</span>
         </div>
         {/* max-w-[95%], matching the agent row's own reply width below (not
             the human bubble's 80%) -- this is Alongside's own /share reply,
             not a human message. */}
-        <div className="max-w-[95%] px-1 text-[length:var(--redesign-chat-text)] whitespace-pre-wrap transition-[max-width] duration-200"><ErrorText message={row.text} /></div>
+        <div className="max-w-[95%] px-1 text-chat whitespace-pre-wrap transition-[max-width] duration-200"><ErrorText message={row.text} /></div>
         <MessageTime time={row.time} />
       </div>
     );
@@ -3700,7 +3700,7 @@ function ChatRowView({
       <div className="flex items-center gap-1.5 px-1">
         {/* size-4 (16px; was size-5) -- per explicit request ("make sure
             that both icons are size 5 to match the size of the font at
-            the messages"), matching the row's own text-[length:var(--redesign-chat-meta)] label next to
+            the messages"), matching the row's own text-chat-meta label next to
             it instead of running larger than it. */}
         {bot && !row.runBy ? (
           // #504: a bot's own reply -- the bot, then the model that answered for it.
@@ -3712,11 +3712,11 @@ function ChatRowView({
               animated={latestReply}
               className="size-4"
             />
-            <span className="text-[length:var(--redesign-chat-meta)] text-foreground">{bot.name}</span>
+            <span className="text-chat-meta text-foreground">{bot.name}</span>
             {/* The model that answered for it, with its provider's mark, as any reply shows. */}
-            <span className="text-[length:var(--redesign-chat-meta)] text-muted-foreground">·</span>
+            <span className="text-chat-meta text-muted-foreground">·</span>
             {row.model.value !== AUTO_BOT_MODEL.value && <ProviderIcon model={row.model} className="size-3.5" />}
-            <span className="text-[length:var(--redesign-chat-meta)] text-muted-foreground">{row.modelLabel}</span>
+            <span className="text-chat-meta text-muted-foreground">{row.modelLabel}</span>
           </>
         ) : (
           <>
@@ -3724,7 +3724,7 @@ function ChatRowView({
             {/* text-xs, no font-medium -- same fix as the "command" row's own
                 "Alongside" label just above: matches the "human" row's sender-name
                 label exactly, its real symmetric counterpart. */}
-            <span className="text-[length:var(--redesign-chat-meta)] text-muted-foreground">{row.modelLabel}</span>
+            <span className="text-chat-meta text-muted-foreground">{row.modelLabel}</span>
           </>
         )}
       </div>
@@ -3740,7 +3740,7 @@ function ChatRowView({
           the human bubble used -- the two should read differently now, an
           AI reply spans nearly the full column while a human message stays
           visually distinct as a bubble. */}
-      <div className="max-w-[95%] px-1 text-[length:var(--redesign-chat-text)] leading-relaxed transition-[max-width] duration-200">
+      <div className="max-w-[95%] px-1 text-chat leading-relaxed transition-[max-width] duration-200">
         {/* A live run from someone else (#462) grows in place; StreamingText keeps its first text, so it's
             remounted on each update (without animation). */}
         <StreamingText key={row.relayRunId ? row.text : undefined} text={row.text} animate={row.animate} onDone={() => setActionsVisible(true)} />
@@ -3839,7 +3839,7 @@ function ToolRow({ name, summary, input }: { name: string; summary: string | nul
         type="button"
         disabled={!hasInput}
         onClick={() => setOpen((prev) => !prev)}
-        className="flex items-center gap-1 text-[length:var(--redesign-chat-meta)] text-muted-foreground italic disabled:cursor-default"
+        className="flex items-center gap-1 text-chat-meta text-muted-foreground italic disabled:cursor-default"
       >
         <span>
           {name}
@@ -3850,7 +3850,7 @@ function ToolRow({ name, summary, input }: { name: string; summary: string | nul
         )}
       </button>
       {open && (
-        <pre className="mt-1 max-w-full overflow-x-auto rounded-lg bg-muted px-2.5 py-2 text-[length:var(--redesign-chat-meta)] whitespace-pre-wrap text-muted-foreground">
+        <pre className="mt-1 max-w-full overflow-x-auto rounded-lg bg-muted px-2.5 py-2 text-chat-meta whitespace-pre-wrap text-muted-foreground">
           {JSON.stringify(input, null, 2)}
         </pre>
       )}
@@ -3949,8 +3949,8 @@ function SourceLink({ source }: { source: { label: string; href: string } }) {
           onError={() => setFaviconFailed(true)}
         />
       )}
-      <span className="min-w-0 text-[length:var(--redesign-chat-meta)] text-foreground">
-        {source.label || hostname} <span className="font-mono text-[length:var(--redesign-chat-meta)] text-muted-foreground opacity-50">{hostname}</span>
+      <span className="min-w-0 text-chat-meta text-foreground">
+        {source.label || hostname} <span className="font-mono text-chat-meta text-muted-foreground opacity-50">{hostname}</span>
       </span>
     </a>
   );
@@ -3996,7 +3996,7 @@ function TurnWorkDisclosure({
   // Plain, non-interactive label instead, exactly like Claude's own replies
   // that genuinely didn't use extended thinking this turn.
   if (!trimmedDetail && !hasToolLines) {
-    const labelEl = live ? <ThinkingState text={label} /> : <span className="text-[length:var(--redesign-chat-meta)] text-muted-foreground">{label}</span>;
+    const labelEl = live ? <ThinkingState text={label} /> : <span className="text-chat-meta text-muted-foreground">{label}</span>;
     return <div className="px-1">{labelEl}</div>;
   }
   // ThinkingReasoning (per explicit request, adopted from
@@ -4139,7 +4139,7 @@ function PermissionCard({
             ? t("chat.perm.deniedNoResponse")
             : t("chat.perm.denied");
     return (
-      <div className="flex items-center gap-1.5 px-1 text-[length:var(--redesign-chat-meta)] text-muted-foreground">
+      <div className="flex items-center gap-1.5 px-1 text-chat-meta text-muted-foreground">
         {status === "allow" ? <CheckIcon className="size-3.5 shrink-0" /> : <XIcon className="size-3.5 shrink-0" />}
         <span>
           {toolName}: {label}
@@ -4153,7 +4153,7 @@ function PermissionCard({
       {/* No icon beside the title any more -- per explicit follow-up
           ("we should have no icons there at the title"). */}
       <div className="flex items-center gap-2">
-        <p className="min-w-0 flex-1 truncate text-[length:var(--redesign-chat-text)] font-medium text-foreground">{t("chat.perm.allowToRun", { tool: toolName })}</p>
+        <p className="min-w-0 flex-1 truncate text-chat font-medium text-foreground">{t("chat.perm.allowToRun", { tool: toolName })}</p>
         {/* Per explicit follow-up ("is missing the x at the right top to
             cancel it and fully stop the command") -- denies this specific
             permission (the same real endpoint Deny already calls) and
@@ -4174,7 +4174,7 @@ function PermissionCard({
         </button>
       </div>
       {commandText && (
-        <pre className="max-w-full overflow-x-auto rounded-lg bg-muted px-2.5 py-2 text-[length:var(--redesign-chat-meta)] whitespace-pre-wrap text-foreground">
+        <pre className="max-w-full overflow-x-auto rounded-lg bg-muted px-2.5 py-2 text-chat-meta whitespace-pre-wrap text-foreground">
           {commandText}
         </pre>
       )}
@@ -4206,7 +4206,7 @@ function PermissionCard({
         )}
         <PermissionOptionRow number={commandText ? 3 : 2} label={t("common.no")} onClick={() => void answer("deny")} disabled={submitting} />
         <div className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-1.5">
-          <span className="flex size-4 shrink-0 items-center justify-center rounded bg-hover-2/50 text-[10px] font-semibold text-muted-foreground">
+          <span className="flex size-4 shrink-0 items-center justify-center rounded bg-hover-2/50 text-ui-2xs font-semibold text-muted-foreground">
             4
           </span>
           <input
@@ -4218,11 +4218,11 @@ function PermissionCard({
               if (event.key === "Enter" && otherText.trim()) void answer("deny", otherText.trim());
             }}
             placeholder={t("chat.perm.other")}
-            className="min-w-0 flex-1 bg-transparent text-[length:var(--redesign-chat-text)] text-foreground outline-none placeholder:text-muted-foreground"
+            className="min-w-0 flex-1 bg-transparent text-chat text-foreground outline-none placeholder:text-muted-foreground"
           />
         </div>
       </div>
-      <p className="px-2.5 text-[length:var(--redesign-chat-meta)] text-muted-foreground">{t("chat.perm.escToCancel")}</p>
+      <p className="px-2.5 text-chat-meta text-muted-foreground">{t("chat.perm.escToCancel")}</p>
     </div>
   );
 }
@@ -4246,9 +4246,9 @@ function PermissionOptionRow({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 text-left text-[length:var(--redesign-chat-text)] text-foreground transition-colors hover:bg-hover-2/50 disabled:opacity-50"
+      className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 text-left text-chat text-foreground transition-colors hover:bg-hover-2/50 disabled:opacity-50"
     >
-      <span className="flex size-4 shrink-0 items-center justify-center rounded bg-hover-2/50 text-[10px] font-semibold text-muted-foreground">
+      <span className="flex size-4 shrink-0 items-center justify-center rounded bg-hover-2/50 text-ui-2xs font-semibold text-muted-foreground">
         {number}
       </span>
       <span className="min-w-0 flex-1 truncate">{label}</span>
@@ -4415,7 +4415,7 @@ function AgentMessageActions({
           having a graph that we can only see when we hover bc is not
           clear"): the graph on its own read as decorative until you
           hovered it, unlike every other real value on this row. */}
-      {effort && <span className="px-1 text-[length:var(--redesign-chat-meta)] text-muted-foreground">{effortLabel(effort)} effort</span>}
+      {effort && <span className="px-1 text-chat-meta text-muted-foreground">{effortLabel(effort)} effort</span>}
       {/* Sources -- same row as every other action, after effort, per explicit
           request (was its own separate block below the row before). A real
           dropdown trigger now, not a hover tooltip -- per explicit request:
@@ -4432,7 +4432,7 @@ function AgentMessageActions({
           className={`${iconButtonClass(sourcesOpen)} w-auto gap-1 px-1.5`}
         >
           <ResearchIcon className="size-3 shrink-0" />
-          <span className="text-[length:var(--redesign-chat-meta)]">{t("chat.sources", { count: sources.length })}</span>
+          <span className="text-chat-meta">{t("chat.sources", { count: sources.length })}</span>
           <ChevronDownIcon className={`size-3 shrink-0 transition-transform ${sourcesOpen ? "rotate-180" : ""}`} />
         </button>
       )}
@@ -4487,7 +4487,7 @@ function AgentMessageActions({
 function AgentModeSwitch({ justChat, onChange }: { justChat: boolean; onChange: (justChat: boolean) => void }) {
   const { t } = useTranslation();
   const option = (active: boolean) =>
-    `h-6 rounded-md px-2.5 text-[12px] transition-colors ${active ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"}`;
+    `h-6 rounded-md px-2.5 text-ui-sm transition-colors ${active ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"}`;
   return (
     <div role="radiogroup" aria-label={t("chat.agentMode.label")} className="mb-2 inline-flex items-center gap-0.5 self-start rounded-lg bg-muted/60 p-0.5">
       <button type="button" role="radio" aria-checked={!justChat} className={option(!justChat)} onClick={() => onChange(false)}>
@@ -4528,7 +4528,7 @@ export function AttachmentView({ sessionId, file, sender, mine }: { sessionId: s
       cancelled = true;
     };
   }, [url]);
-  const chip = "flex max-w-64 flex-col gap-0.5 rounded-[var(--redesign-chat-bubble-radius)] border border-[var(--redesign-sidebar-border)] px-3 py-2 text-[12px]";
+  const chip = "flex max-w-64 flex-col gap-0.5 rounded-[var(--redesign-chat-bubble-radius)] border border-[var(--redesign-sidebar-border)] px-3 py-2 text-ui-sm";
   if (state === "ready" && file.media_type.startsWith("image/")) {
     return <img src={url} alt={file.name} className="max-h-64 max-w-64 rounded-[var(--redesign-chat-bubble-radius)] object-contain" />;
   }

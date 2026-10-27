@@ -137,7 +137,7 @@ export function PrimarySidebar({ collapsed, onOpenSettings, onNavigate }: Primar
               disabled
               badgeInline
               badge={
-                <span className="ml-2 shrink-0 text-[10px] font-normal text-muted-foreground/60">
+                <span className="ml-2 shrink-0 text-ui-2xs font-normal text-muted-foreground/60">
                   Coming Soon
                 </span>
               }
@@ -149,7 +149,7 @@ export function PrimarySidebar({ collapsed, onOpenSettings, onNavigate }: Primar
               disabled
               badgeInline
               badge={
-                <span className="ml-2 shrink-0 text-[10px] font-normal text-muted-foreground/60">
+                <span className="ml-2 shrink-0 text-ui-2xs font-normal text-muted-foreground/60">
                   Coming Soon
                 </span>
               }

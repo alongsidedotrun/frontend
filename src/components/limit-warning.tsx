@@ -43,7 +43,7 @@ export function LimitWarningStrip({ reading, onDismiss, placement = "top" }: { r
         >
           <div
             className={cn(
-              "flex min-h-7 items-center gap-2 px-4 text-[length:var(--redesign-chat-meta)]",
+              "flex min-h-7 items-center gap-2 px-4 text-chat-meta",
               // Below: the row's own spacing (px-4 pb-1, a min-h-7 line), so the text sits on its line.
               placement === "top" ? "pt-1.5 pb-[calc(var(--compose-shell-radius)+0.375rem)]" : "mb-1 pr-4 pl-5",
             )}
@@ -66,8 +66,8 @@ export function LimitWarningStrip({ reading, onDismiss, placement = "top" }: { r
                 className="w-80 gap-0 rounded-xl border border-[var(--redesign-sidebar-elevated-border)] !bg-[var(--redesign-sidebar-overlay-surface)] p-1 !shadow-[var(--redesign-sidebar-elevated-shadow)] ring-0"
               >
                 <div className="px-2 pt-1.5 pb-1">
-                  <p className="text-[12px] font-medium text-foreground">{t("limits.reminders.title")}</p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">{t("limits.reminders.hint")}</p>
+                  <p className="text-ui-sm font-medium text-foreground">{t("limits.reminders.title")}</p>
+                  <p className="mt-0.5 text-ui-xs text-muted-foreground">{t("limits.reminders.hint")}</p>
                 </div>
                 <LimitReminderRows variant="popover" />
               </PopoverContent>

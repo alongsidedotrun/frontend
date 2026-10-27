@@ -359,6 +359,18 @@
        Sidebar's own "describer" text (Projects/Recents section labels,
        sidebar-nav.tsx) is the first real caller. */
     --text-2xs: 0.625rem;
+    /* The app's text sizes: one scale, used as text-ui-* / text-chat* classes, never as text-[Npx]
+       (src/text-size-scale.test.ts fails on those). Chat sizes are fluid, between their two ends. */
+    --text-ui-2xs: 0.625rem;
+    --text-ui-xs: 0.6875rem;
+    --text-ui-sm: 0.75rem;
+    --text-ui: 0.8125rem;
+    --text-ui-lg: 0.875rem;
+    --text-ui-xl: 1rem;
+    --text-ui-2xl: 1.125rem;
+    --text-ui-display: 1.5rem;
+    --text-chat: var(--redesign-chat-text);
+    --text-chat-meta: var(--redesign-chat-meta);
     --font-heading: var(--font-sans);
     /* Native system font stack, not a bundled web font -- per explicit
        request ("the reason synara's looks so crisp is because of these

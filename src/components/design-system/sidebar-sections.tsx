@@ -112,14 +112,14 @@ export function SidebarSections({ sections, activeItemId, onItemSelect, expanded
                 onClick={() => toggleSection(section.id)}
                 className="flex h-full min-w-0 flex-1 items-center text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <h2 id={`sidebar-section-${section.id}`} className="truncate text-[length:var(--redesign-font-size-compact)] font-medium text-muted-foreground">
+                <h2 id={`sidebar-section-${section.id}`} className="truncate text-ui-xs font-medium text-muted-foreground">
                   {section.label}
                 </h2>
               </button>
             ) : (
               <h2
                 id={`sidebar-section-${section.id}`}
-                className="text-[length:var(--redesign-font-size-compact)] font-medium text-muted-foreground"
+                className="text-ui-xs font-medium text-muted-foreground"
               >
                 {section.label}
               </h2>
@@ -202,7 +202,7 @@ export function SidebarSections({ sections, activeItemId, onItemSelect, expanded
                                 ))
                               ) : item.childrenEmptyLabel ? (
                                 <RowReveal key="empty">
-                                  <p className="flex h-[var(--redesign-quick-actions-row-height)] items-center pr-[var(--redesign-quick-actions-padding)] pl-[calc(var(--redesign-quick-actions-padding)+12px)] text-[length:var(--redesign-font-size-base)] font-medium text-muted-foreground opacity-70">
+                                  <p className="flex h-[var(--redesign-quick-actions-row-height)] items-center pr-[var(--redesign-quick-actions-padding)] pl-[calc(var(--redesign-quick-actions-padding)+12px)] text-chat font-medium text-muted-foreground opacity-70">
                                     {item.childrenEmptyLabel}
                                   </p>
                                 </RowReveal>
@@ -217,7 +217,7 @@ export function SidebarSections({ sections, activeItemId, onItemSelect, expanded
                 {/* In the same list, so the last row leaving cross-fades into it. */}
                 {!section.items.length && section.emptyLabel ? (
                   <RowReveal key="__empty">
-                    <p className="flex h-[var(--redesign-quick-actions-row-height)] items-center px-[var(--redesign-quick-actions-padding)] text-[length:var(--redesign-font-size-base)] font-medium text-muted-foreground opacity-70">
+                    <p className="flex h-[var(--redesign-quick-actions-row-height)] items-center px-[var(--redesign-quick-actions-padding)] text-chat font-medium text-muted-foreground opacity-70">
                       {section.emptyLabel}
                     </p>
                   </RowReveal>
@@ -311,7 +311,7 @@ function SidebarRow({
   // A child row without its own icon (a chat inside a project) gets a bullet in its place.
   const bullet = nested && !Icon && <span aria-hidden="true" className="size-1 shrink-0 rounded-full bg-current opacity-60" />;
   const rowClass = cn(
-    "flex h-[var(--redesign-quick-actions-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-left text-[length:var(--redesign-sidebar-primary-font-size)] font-normal text-muted-foreground transition-colors",
+    "flex h-[var(--redesign-quick-actions-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-left text-chat font-normal text-muted-foreground transition-colors",
     // Only the open chat looks selected; opening a row's "..." menu doesn't.
     active && "bg-muted font-medium text-foreground",
     // Children sit indented under their parent, behind a bullet.
@@ -418,9 +418,9 @@ function SidebarRow({
               if (entry.kind === "separator") return <DropdownSeparator key={entry.id} />;
               if (entry.kind === "submenu") {
                 return (
-                  <DropdownSubMenuItem key={entry.id} index={index++} icon={entry.icon} label={entry.label} chevron className="text-[12px]">
+                  <DropdownSubMenuItem key={entry.id} index={index++} icon={entry.icon} label={entry.label} chevron className="text-ui-sm">
                     {entry.entries.map((sub) => (
-                      <DropdownSubItem key={sub.id} className="justify-between gap-2 py-1.5 pl-2.5 text-[12px]" onClick={sub.onSelect}>
+                      <DropdownSubItem key={sub.id} className="justify-between gap-2 py-1.5 pl-2.5 text-ui-sm" onClick={sub.onSelect}>
                         <span className="truncate">{sub.label}</span>
                         {sub.checked && (
                           <svg aria-hidden="true" viewBox="0 0 24 24" className="size-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -439,7 +439,7 @@ function SidebarRow({
                   icon={entry.icon}
                   label={entry.label}
                   destructive={entry.kind === "action" && entry.destructive}
-                  className="text-[12px]"
+                  className="text-ui-sm"
                   onSelect={() => {
                     if (entry.kind === "rename") {
                       setDraft(item.label);

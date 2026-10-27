@@ -33,7 +33,7 @@ export function FileExtensionBadge({ name, className }: { name: string; classNam
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span className={`shrink-0 rounded-[4px] bg-hover-2 px-1 py-0.5 text-[10px] font-normal text-muted-foreground ${className ?? ""}`}>
+        <span className={`shrink-0 rounded-[4px] bg-hover-2 px-1 py-0.5 text-ui-2xs font-normal text-muted-foreground ${className ?? ""}`}>
           {ext.toUpperCase()}
         </span>
       </TooltipTrigger>

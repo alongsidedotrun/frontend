@@ -36,7 +36,7 @@ function renderWithInlineCode(text: string) {
   const parts = text.split(/`([^`]+)`/g);
   return parts.map((part, i) =>
     i % 2 === 1 ? (
-      <code key={i} className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">
+      <code key={i} className="rounded bg-muted px-1 py-0.5 font-mono text-ui-xs">
         {part}
       </code>
     ) : (
@@ -83,7 +83,7 @@ function UsageLimitRow({ limit }: { limit: ProviderUsageLimit }) {
           style={{ width: `${remainingPercent}%` }}
         />
       </div>
-      <div className="flex items-center justify-between text-[11px] tabular-nums text-muted-foreground">
+      <div className="flex items-center justify-between text-ui-xs tabular-nums text-muted-foreground">
         <span>{t("models.percentLeft", { percent: Math.round(remainingPercent) })}</span>
         {limit.resets_at && <span>{formatResetCountdown(limit.resets_at)}</span>}
       </div>
@@ -186,10 +186,10 @@ function UsageRows({ snapshot }: { snapshot: ProviderUsageSnapshot }) {
       )}
       <div className="flex flex-col gap-2">
         {lines.map((line) => (
-          <div key={line.label} className="flex items-center justify-between text-[12px]">
+          <div key={line.label} className="flex items-center justify-between text-ui-sm">
             <div>
               <div className="font-medium text-foreground">{line.label}</div>
-              {line.subtitle && <div className="text-[11px] font-normal text-muted-foreground">{line.subtitle}</div>}
+              {line.subtitle && <div className="text-ui-xs font-normal text-muted-foreground">{line.subtitle}</div>}
             </div>
             <span className="font-medium text-foreground">{line.value}</span>
           </div>
@@ -291,8 +291,8 @@ export function ProvidersEmptyState({ title, body }: { title: string; body: stri
         ))}
       </div>
       <div>
-        <p className="text-[length:var(--redesign-chat-text)] font-medium text-foreground">{title}</p>
-        <p className="mt-1 text-[length:var(--redesign-chat-meta)] text-muted-foreground">{body}</p>
+        <p className="text-chat font-medium text-foreground">{title}</p>
+        <p className="mt-1 text-chat-meta text-muted-foreground">{body}</p>
       </div>
     </div>
   );
@@ -343,7 +343,7 @@ export function ProviderUsageSection() {
     // SettingsSection's heading (settings-overlay.tsx), with the two menus at its right end.
     <section className="flex flex-col gap-1.5" style={{ marginTop: "0.875rem" }}>
       <div className="flex items-center justify-between gap-2 px-2 py-1">
-        <h3 className="text-[12px] font-normal text-muted-foreground/60">{t("settings.providers.usage")}</h3>
+        <h3 className="text-ui-sm font-normal text-muted-foreground/60">{t("settings.providers.usage")}</h3>
         <div className={cn("flex items-center gap-1", (noneConnected || !known) && "invisible")}>
           <DropdownMenu size="compact">
             <DropdownTrigger render={<Button size="compact" variant="tertiary" leadingIcon={FilterLines} active={!showsAll}>{t("usage.filter")}</Button>} />
@@ -388,7 +388,7 @@ export function ProviderUsageSection() {
                       <ProviderIcon model={model} className="size-5" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="text-[12px] font-medium text-foreground">
+                      <div className="text-ui-sm font-medium text-foreground">
                         {display ? (
                           <>
                             {display.primary} <span className="text-muted-foreground">{display.caption}</span>
@@ -419,7 +419,7 @@ export function ProviderUsageSection() {
                         Per-provider now, matching the real state the card's
                         own body below already renders from that same
                         snapshot. */}
-                    <span className="text-[11px] font-normal text-muted-foreground">
+                    <span className="text-ui-xs font-normal text-muted-foreground">
                       {usageError || snapshot?.status === "needs_auth" || snapshot?.status === "error"
                         ? t("common.disconnected")
                         : t("common.connected")}
@@ -435,7 +435,7 @@ export function ProviderUsageSection() {
                     // already surfaces for /usage) was indistinguishable
                     // from "still loading" here and never resolved.
                     <div className="flex flex-col gap-3">
-                      <p className="text-[12px] font-normal text-muted-foreground">
+                      <p className="text-ui-sm font-normal text-muted-foreground">
                         {t("settings.providers.noConnection")}
                       </p>
                       {/* Static, not pulsing -- per explicit request ("that
@@ -453,7 +453,7 @@ export function ProviderUsageSection() {
                       {snapshot && (snapshot.status === "needs_auth" ? (
                         // No reading yet: the message, over the bars' resting placeholder so the card keeps its shape.
                         <div className="flex flex-col gap-3">
-                          <p className="text-[12px] font-normal text-muted-foreground">
+                          <p className="text-ui-sm font-normal text-muted-foreground">
                             {renderWithInlineCode(
                               snapshot.detail ?? t("models.needsSignIn", { provider: display?.primary ?? model.provider })
                             )}
@@ -469,7 +469,7 @@ export function ProviderUsageSection() {
                         </div>
                       ) : snapshot.status === "error" ? (
                         <div className="flex flex-col gap-3">
-                          <p className="text-[12px] font-normal text-muted-foreground">
+                          <p className="text-ui-sm font-normal text-muted-foreground">
                             {/* Same reasoning as ChatPage.tsx's own ws.onerror
                                 handler (that file's own comment has the full
                                 history): a fetch failure reads identically
@@ -501,7 +501,7 @@ export function ProviderUsageSection() {
                       ) : (
                         <div className="flex flex-col gap-4">
                           {snapshot.limits.length === 0 && snapshot.usage_lines.length === 0 && (
-                            <p className="text-[12px] font-normal text-muted-foreground">{t("models.noUsage")}</p>
+                            <p className="text-ui-sm font-normal text-muted-foreground">{t("models.noUsage")}</p>
                           )}
                           {snapshot.limits.length > 0 && (
                             <div className="flex flex-col gap-3">
@@ -511,7 +511,7 @@ export function ProviderUsageSection() {
                               {/* Not checked live (the live check would need a login from the macOS Keychain):
                                   the reading saved from a reply, or the CLI's own cached check (Claude Code's). */}
                               {snapshot.as_of && (
-                                <p className="text-[11px] font-normal text-muted-foreground">
+                                <p className="text-ui-xs font-normal text-muted-foreground">
                                   {t("models.usageAsOf", {
                                     time: new Date(snapshot.as_of).toLocaleString(undefined, { hour: "numeric", minute: "2-digit", month: "short", day: "numeric" }),
                                   })}
