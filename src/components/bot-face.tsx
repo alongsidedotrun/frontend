@@ -79,14 +79,19 @@ export function isSolidBotColor(color: string) {
   return SOLID.has(color.toUpperCase());
 }
 
+// The white face is drawn in --bot-face-white (index.css): the sidebar's grey in light mode, white in dark.
+function solidFill(color: string) {
+  return color.toUpperCase() === "#FFFFFF" ? "var(--bot-face-white)" : color;
+}
+
 export function botShades(color: string) {
-  if (isSolidBotColor(color)) return { top: color, bottom: color };
+  if (isSolidBotColor(color)) return { top: solidFill(color), bottom: solidFill(color) };
   return { top: mix(color, 255, 0.18), bottom: mix(color, 0, 0.12) };
 }
 
 /** A colour's gradient as a CSS background, for its swatch. */
 export function botGradient(color: string) {
-  if (isSolidBotColor(color)) return color;
+  if (isSolidBotColor(color)) return solidFill(color);
   const { top, bottom } = botShades(color);
   return `linear-gradient(to bottom, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0) 50%), linear-gradient(to bottom, ${top}, ${bottom})`;
 }
@@ -323,8 +328,8 @@ export function BotFace({
     >
       <defs>
         <linearGradient id={gradientId} x1="0" y1="4" x2="0" y2="124" gradientUnits="userSpaceOnUse">
-          <stop stopColor={top} />
-          <stop offset="1" stopColor={bottom} />
+          <stop style={{ stopColor: top }} />
+          <stop offset="1" style={{ stopColor: bottom }} />
         </linearGradient>
         <linearGradient id={`${gradientId}-sheen`} x1="0" y1="4" x2="0" y2="64" gradientUnits="userSpaceOnUse">
           <stop stopColor="white" stopOpacity="0.14" />

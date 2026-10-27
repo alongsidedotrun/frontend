@@ -226,6 +226,8 @@
   --redesign-workspace-action-icon-size: 0.875rem;
   --redesign-primary-surface: var(--background);
   --redesign-sidebar-surface: #FAFAFA;
+  /* The white bot's face: the sidebar's grey in light mode, where plain white vanishes into the page. */
+  --bot-face-white: var(--redesign-sidebar-surface);
   --redesign-sidebar-overlay-surface: #f8f8f8;
   /* Quick actions field and Getting Started panel: pure white on the
      #FAFAFA light sidebar, per request. Dark mode keeps their old look. */
@@ -294,6 +296,7 @@
 .dark {
   --redesign-primary-surface: var(--background);
   --redesign-sidebar-surface: var(--background);
+  --bot-face-white: #FFFFFF;
   --redesign-sidebar-elevated-shadow: none;
   --redesign-sidebar-footer-onboarding-shadow: none;
   --redesign-sidebar-overlay-surface: #212121;
