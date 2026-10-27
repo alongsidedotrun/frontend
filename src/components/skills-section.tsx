@@ -14,6 +14,7 @@ import { readSkillFile, SKILLS_SH, useSkills, type Skill } from "@/lib/skills";
 import { cachedSkillsShSearch, compactCount, installedIdFor, loadSkillsShList, loadSkillsShOfficial, searchSkillsSh, skillOwner, useAddRemoteSkill, type OfficialCompany, type RemoteSkill, type SkillsShView } from "@/lib/skills-sh";
 import { cn } from "@/lib/utils";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
+import { ListEmptyState } from "@/components/provider-usage";
 
 // Discover's sections after Official, from skills.sh's own lists (and its pages, for See all).
 const SECTIONS: readonly { view: SkillsShView; titleKey: string; page: string }[] = [
@@ -236,8 +237,16 @@ export function SkillsSection() {
                   ))}
                 </SkillGrid>
               </section>
-            ) : // Nothing installed (or nothing matching): left empty, no note or button.
-            null
+            ) : (
+              // Nothing installed yet, or nothing matching the search or filter.
+              <section className="mt-8">
+                <ListEmptyState
+                  marks={[0, 1, 2].map((row) => ({ key: String(row), mark: <Stars02 className="size-3.5 shrink-0 text-muted-foreground" /> }))}
+                  title={skills.installed.length === 0 ? t("skills.empty.installed.title") : t("skills.empty.noMatch.title")}
+                  body={skills.installed.length === 0 ? t("skills.empty.installed.body") : t("skills.empty.noMatch.body")}
+                />
+              </section>
+            )
           ) : results !== null ? (
             <section className="mt-8">
               <h3 className="mb-2.5 text-ui-xs text-muted-foreground">{t("skills.results")}</h3>

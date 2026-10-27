@@ -1,5 +1,5 @@
 import { modelNameFromId } from "@/lib/quick-chat-models";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { FilterLines, SwitchVertical01 } from "@untitledui/icons";
 import { Button } from "@/components/ui/button";
@@ -269,11 +269,23 @@ function UsageEmptyState() {
  *  a title and what will fill it. */
 export function ProvidersEmptyState({ title, body }: { title: string; body: string }) {
   return (
+    <ListEmptyState
+      marks={EMPTY_STATE_ICONS.map((model) => ({ key: model.value, mark: <ProviderIcon model={model} className="size-3.5 shrink-0 grayscale" /> }))}
+      title={title}
+      body={body}
+    />
+  );
+}
+
+/** An empty list or tab (Providers, Skills, Apps): rows of what it will hold, drawn faintly with their
+ *  marks, then a title and what will fill it. */
+export function ListEmptyState({ marks, title, body }: { marks: { key: string; mark: ReactNode }[]; title: string; body: string }) {
+  return (
     <div className="flex flex-col items-center gap-6 rounded-xl border border-border bg-foreground/[0.02] px-4 py-10 text-center">
       <div className="flex w-full max-w-[220px] flex-col gap-2" aria-hidden="true">
-        {EMPTY_STATE_ICONS.map((model) => (
-          <div key={model.value} className="flex items-center gap-2.5 rounded-lg border border-border px-2.5 py-2 opacity-60">
-            <ProviderIcon model={model} className="size-3.5 shrink-0 grayscale" />
+        {marks.map(({ key, mark }) => (
+          <div key={key} className="flex items-center gap-2.5 rounded-lg border border-border px-2.5 py-2 opacity-60">
+            {mark}
             <span className="h-1.5 flex-1 rounded-full bg-foreground/10" />
           </div>
         ))}

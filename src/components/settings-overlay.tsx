@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { ShapeProvider } from "@/lib/shape-context";
-import { ProvidersEmptyState, ProviderUsageSection } from "@/components/provider-usage";
+import { ListEmptyState, ProvidersEmptyState, ProviderUsageSection } from "@/components/provider-usage";
 import { forcedNoProvider } from "@/lib/dev-no-provider";
 import { providersChanged } from "@/lib/providers-changed";
 import { resizeImageFile } from "@/lib/resize-image";
@@ -1211,6 +1211,22 @@ function AppsSection() {
   const [filter, setFilter] = useState<ConnectionFilter>("all");
   const appsFade = useTabFade(filter);
   const [query, setQuery] = useState("");
+  // GitHub's connection, known once /integrations answers (the Google apps can't connect yet). Connected
+  // or Available with no app in it then gets a placeholder instead of an empty space.
+  const [githubUser, setGithubUser] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    fetch("/integrations")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((rows: { provider: string; connected_username: string | null }[]) => {
+        setGithubUser(rows.find((r) => r.provider === "github")?.connected_username ?? null);
+      })
+      .catch(() => setGithubUser(null));
+  }, []);
+  const appsTabEmpty =
+    appsFade.shown !== "all" &&
+    githubUser !== undefined &&
+    !showsUnder(appsFade.shown, githubUser !== null, query, "GitHub") &&
+    !GOOGLE_APPS.some((app) => showsUnder(appsFade.shown, false, query, app.name));
 
   return (
     <AnimatePresence mode="wait" initial={false}>
@@ -1239,8 +1255,21 @@ function AppsSection() {
             searchLabel={t("settings.connections.searchApps")}
           />
           <motion.div {...appsFade.motion}>
-          <ConnectionList>
-            <GithubIntegrationCard filter={appsFade.shown} query={query} onClick={() => openApp("github")} />
+          <ConnectionList
+            placeholder={
+              !appsTabEmpty ? undefined : (
+                <ListEmptyState
+                  marks={[
+                    { key: "github", mark: <img src="/icons/providers/github.svg" alt="" className="size-3.5 shrink-0 grayscale dark:invert" /> },
+                    ...GOOGLE_APPS.map((app) => ({ key: app.id, mark: <img src={`/icons/google-${app.id}.svg`} alt="" className="size-3.5 shrink-0 object-contain grayscale" /> })),
+                  ]}
+                  title={appsFade.shown === "connected" ? t("settings.apps.empty.connected.title") : t("settings.apps.empty.available.title")}
+                  body={appsFade.shown === "connected" ? t("settings.apps.empty.connected.body") : t("settings.apps.empty.available.body")}
+                />
+              )
+            }
+          >
+            <GithubIntegrationCard connectedUsername={githubUser ?? null} filter={appsFade.shown} query={query} onClick={() => openApp("github")} />
             {GOOGLE_APPS.map((app) =>
               showsUnder(appsFade.shown, false, query, app.name) ? (
                 // No connection flow yet, so never connected, and the row does nothing for now.
@@ -1280,18 +1309,18 @@ const GOOGLE_APPS = (["drive", "docs", "sheets"] as const).map((id) => ({
   icon: <img src={`/icons/google-${id}.svg`} alt="" className="size-5 object-contain" />,
 }));
 
-function GithubIntegrationCard({ onClick, filter = "all", query = "" }: { onClick: () => void; filter?: ConnectionFilter; query?: string }) {
+function GithubIntegrationCard({
+  connectedUsername,
+  onClick,
+  filter = "all",
+  query = "",
+}: {
+  connectedUsername: string | null;
+  onClick: () => void;
+  filter?: ConnectionFilter;
+  query?: string;
+}) {
   const { t } = useTranslation();
-  const [connectedUsername, setConnectedUsername] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch("/integrations")
-      .then((res) => (res.ok ? res.json() : []))
-      .then((rows: { provider: string; connected_username: string | null }[]) => {
-        setConnectedUsername(rows.find((r) => r.provider === "github")?.connected_username ?? null);
-      });
-  }, []);
-
   const isConnected = connectedUsername !== null;
   if (!showsUnder(filter, isConnected, query, "GitHub")) return null;
 
