@@ -67,7 +67,7 @@ export function WorkspaceFields({ values, onChange, nameError, autoFocusName, la
       placeholder={t("workspace.fields.descriptionPlaceholder")}
       maxLength={MAX_DESCRIPTION_LENGTH}
       rows={2}
-      className="resize-none bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground/70"
+      className="w-full resize-none appearance-none rounded-none border-0 bg-transparent p-0 text-[13px] leading-[1.5] text-foreground shadow-none outline-none placeholder:text-muted-foreground/70"
     />
   );
   const nameErrorLine = nameError && <p className="px-1 text-[12px] text-destructive">{nameError}</p>;
