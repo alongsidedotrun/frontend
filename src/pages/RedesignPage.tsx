@@ -124,6 +124,17 @@ function botRowIcon(avatar: BotAvatar | null): IconComponent {
   return icon;
 }
 
+// A provider's mark as a sidebar row icon, one component per mark so rows don't remount on every render.
+const providerIcons = new Map<string, IconComponent>();
+function providerRowIcon(mark: { value: string; icon: string; invertInDark?: boolean }): IconComponent {
+  let icon = providerIcons.get(mark.icon);
+  if (!icon) {
+    icon = ({ className }: { className?: string }) => <ProviderIcon model={mark} className={className} />;
+    providerIcons.set(mark.icon, icon);
+  }
+  return icon;
+}
+
 const DEFAULT_WORKSPACE: WorkspaceRecord = {
   id: "personal",
   name: "Alongside",
@@ -693,12 +704,17 @@ export function RedesignPage() {
     { kind: "action", id: "archive", label: t("common.archive"), icon: ArchiveIcon, onSelect: () => setProjectToArchive(project) },
   ];
 
-  const chatRow = (chat: Chat): SidebarSectionItem => ({
+  const chatRow = (chat: Chat): SidebarSectionItem => {
+    // The provider it runs on now (the top bar shows each, if it switched); none before its first reply.
+    const mark = chatProviderMarks(chat)[0];
+    return {
     id: chat.id,
     label: chat.name,
+    icon: mark ? providerRowIcon(mark) : undefined,
     menu: chatMenu(chat),
     onRename: (name: string) => void renameChat(chat.id, name),
-  });
+    };
+  };
 
   // #504: Recents (chats and bot chats, newest first), Chats (a project is a row that opens to its
   // chats) and Bots (each one opens its own chat).
