@@ -563,7 +563,7 @@ function AgentRunLog({ chatId }: { chatId: string }) {
           {!run.parent_run_id && run.status !== "running" && (
             <div className="mt-2 border-t border-border/60 pt-2">
               <button type="button" disabled={reviewing === run.id} onClick={() => void securityReview(run)} className="rounded-md border border-border px-2 py-1 text-[10px] text-foreground hover:bg-hover-2/50 disabled:opacity-50">
-                {reviewing === run.id ? "Starting review…" : "Security review"}
+                {reviewing === run.id ? "Starting review" : "Security review"}
               </button>
             </div>
           )}

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { IconComponent } from "@/lib/icon-context";
 import { cn } from "@/lib/utils";
+import { ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
 import { forcedNoProvider } from "@/lib/dev-no-provider";
+import { PROVIDERS_CHANGED } from "@/lib/providers-changed";
 import { useLocation, useNavigate, useOutlet } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -18,7 +20,6 @@ import { CreateWorkspaceDialog } from "@/components/design-system/create-workspa
 import { CreateProjectDialog } from "@/components/design-system/create-project-dialog";
 import { SignInDialog } from "@/components/design-system/sign-in-dialog";
 import { ShareChatDialog } from "@/components/design-system/share-chat-dialog";
-import { JoinChatDialog } from "@/components/design-system/join-chat-dialog";
 import { JoinRequestsCard } from "@/components/design-system/join-requests-card";
 import { useShareDialogHost } from "@/lib/use-share";
 import { useSignInDialogHost } from "@/lib/use-sign-in";
@@ -81,7 +82,32 @@ type Chat = {
   // #504: the bot this chat talks to, and when it was last active (Recents).
   bot_id?: string | null;
   last_activity?: string | null;
+  // The models it has run on, newest first (GET /sessions).
+  models?: { provider: string; model: string }[];
 };
+
+// A provider's mark, by the provider id a chat's models carry (the model's own icon when it's listed).
+const PROVIDER_MARKS: Record<string, { icon: string; invertInDark?: boolean }> = {
+  claude: { icon: "/icons/providers/claude.svg" },
+  codex: { icon: "/icons/providers/chatgpt.svg", invertInDark: true },
+  antigravity: { icon: "/icons/providers/gemini.svg" },
+  grok: { icon: "/icons/providers/grok.svg", invertInDark: true },
+};
+
+/** The marks of the providers a chat has run on, newest first (at most three). */
+function chatProviderMarks(chat: Chat) {
+  const seen = new Set<string>();
+  const marks: { value: string; icon: string; invertInDark?: boolean }[] = [];
+  for (const { provider, model } of chat.models ?? []) {
+    const id = provider.toLowerCase();
+    if (seen.has(id) || marks.length >= 3) continue;
+    seen.add(id);
+    const listed = QUICK_CHAT_MODELS.find((candidate) => candidate.value === model);
+    const mark = listed ?? (PROVIDER_MARKS[id] ? { value: model, ...PROVIDER_MARKS[id] } : null);
+    if (mark) marks.push({ value: mark.value, icon: mark.icon, invertInDark: mark.invertInDark });
+  }
+  return marks;
+}
 
 // How many chats Recents shows.
 const RECENTS_SIZE = 5;
@@ -94,6 +120,17 @@ function botRowIcon(avatar: BotAvatar | null): IconComponent {
   if (!icon) {
     icon = ({ className }: { className?: string }) => <BotFace avatar={avatar ?? undefined} className={className} />;
     botIcons.set(key, icon);
+  }
+  return icon;
+}
+
+// A provider's mark as a sidebar row icon, one component per mark so rows don't remount on every render.
+const providerIcons = new Map<string, IconComponent>();
+function providerRowIcon(mark: { value: string; icon: string; invertInDark?: boolean }): IconComponent {
+  let icon = providerIcons.get(mark.icon);
+  if (!icon) {
+    icon = ({ className }: { className?: string }) => <ProviderIcon model={mark} className={className} />;
+    providerIcons.set(mark.icon, icon);
   }
   return icon;
 }
@@ -144,7 +181,9 @@ const quickActions = (t: Translate): readonly QuickActionItem[] => [
 // Getting started follows the first-run journey, with each step backed by the
 // corresponding real account, provider, project, chat, workspace or relay state.
 // Setting up a provider comes first: nothing that needs a model works without one.
-const GETTING_STARTED_STEP_IDS = ["provider", "account", "project", "chat", "workspace", "multiplayer"] as const;
+// A first bot follows the first chat; projects aren't a step (they're made from a chat's menu). An
+// account is only needed to share, so it comes just before trying multiplayer.
+const GETTING_STARTED_STEP_IDS = ["provider", "chat", "bot", "workspace", "account", "multiplayer"] as const;
 const GETTING_STARTED_DONE_KEY = "alongside_getting_started_done";
 const GETTING_STARTED_DISMISSED_KEY = "alongside_getting_started_dismissed";
 
@@ -178,12 +217,15 @@ const gettingStartedSteps = (
   t: Translate,
   done: Record<GettingStartedStepId, boolean>,
   open: Record<GettingStartedStepId, () => void>,
+  // No provider yet: setting one up is the only step open; the rest wait for it.
+  needsProvider = false,
 ): readonly GettingStartedStep[] =>
   GETTING_STARTED_STEP_IDS.map((id) => ({
     id,
     label: t(`shell.gettingStarted.${id}.label`),
     description: t(`shell.gettingStarted.${id}.description`),
     complete: done[id],
+    disabled: needsProvider && id !== "provider",
     onSelect: open[id],
   }));
 
@@ -193,9 +235,9 @@ const gettingStartedSteps = (
 const SETTINGS_COMMANDS: readonly { section: SettingsSection; labelKey: string; icon: IconComponent; keywords: string[] }[] = [
   { section: "general", labelKey: "settings.nav.general", icon: SettingsIcon, keywords: ["language", "timezone", "notifications", "tips"] },
   { section: "appearance", labelKey: "settings.nav.appearance", icon: PaletteIcon, keywords: ["theme", "dark", "light", "font", "transparency"] },
-  { section: "chat", labelKey: "settings.nav.chat", icon: BubbleChatIcon, keywords: ["provider", "effort", "usage"] },
+  { section: "chat", labelKey: "settings.nav.chat", icon: BubbleChatIcon, keywords: ["model", "effort", "spelling"] },
   { section: "profile", labelKey: "settings.nav.profile", icon: UserIcon, keywords: ["account", "picture", "sign in", "log out"] },
-  { section: "provider", labelKey: "settings.nav.provider", icon: ProvidersIcon, keywords: ["models", "api key", "ai"] },
+  { section: "provider", labelKey: "settings.nav.provider", icon: ProvidersIcon, keywords: ["ai", "models", "connect", "sign in", "install", "usage", "claude", "chatgpt", "codex", "gemini", "antigravity", "grok"] },
   { section: "apps", labelKey: "settings.nav.apps", icon: IntegrationsIcon, keywords: ["integrations", "connect"] },
   { section: "skills", labelKey: "settings.nav.skills", icon: SkillIcon, keywords: ["skill", "add skill", "import", "instructions"] },
   { section: "archived-workspaces", labelKey: "settings.archived.workspaces.title", icon: WorkspacesIcon, keywords: ["archived", "restore", "delete", "workspace"] },
@@ -207,7 +249,8 @@ const SETTINGS_SECTIONS: readonly SettingsSection[] = ["profile", "general", "ap
 
 function quickActionForPath(pathname: string) {
   if (pathname === "/overview") return "overview";
-  if (pathname.startsWith("/chat/") || pathname === "/") return "chats";
+  // Join chat (a page of its own) keeps the chats sidebar.
+  if (pathname.startsWith("/chat/") || pathname === "/" || pathname === "/join-chat" || pathname.startsWith("/workspace/")) return "chats";
   if (pathname === "/apps") return "apps";
   if (pathname === "/agents") return "agents";
   return "inbox";
@@ -228,7 +271,6 @@ export function RedesignPage() {
   const [, setAppHistoryVersion] = useState(0);
   const [workspaces, setWorkspaces] = useState<WorkspaceRecord[]>([DEFAULT_WORKSPACE]);
   const [workspaceId, setWorkspaceId] = useState(DEFAULT_WORKSPACE.id);
-  const [newWorkspaceOpen, setNewWorkspaceOpen] = useState(false);
   // Sign-in is a dialog over the shell (also opened from Settings via
   // openSignInDialog in lib/use-sign-in.ts).
   const [signInOpen, setSignInOpen] = useState(false);
@@ -239,14 +281,23 @@ export function RedesignPage() {
   // chat page's /share and Quick actions (lib/use-share.ts).
   const [shareChatId, setShareChatId] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
-  const [joinOpen, setJoinOpen] = useState(false);
   const openShare = useCallback((chatId: string) => {
     setShareChatId(chatId);
     setShareOpen(true);
   }, []);
-  const openJoin = useCallback(() => setJoinOpen(true), []);
+  // Join chat is a page (JoinChatPage.tsx).
+  // Already there: nothing (as New on an empty new chat), rather than the same page again.
+  const openJoin = useCallback(() => {
+    if (location.pathname === "/join-chat") return;
+    navigate("/join-chat");
+  }, [location.pathname, navigate]);
   useShareDialogHost(openShare, openJoin);
-  const [manageWorkspacesOpen, setManageWorkspacesOpen] = useState(false);
+  // New and Manage workspace are pages in the main area (not overlays): leaving one goes back to where
+  // it was opened from, or to a new chat.
+  const workspacePath = location.pathname === "/workspace/new" || location.pathname === "/workspace/manage" ? location.pathname : null;
+  const leaveWorkspacePage = () => (appHistoryIndexRef.current > 0 ? goBackInApp() : navigate("/"));
+  const openNewWorkspace = () => { setWorkspaceError(null); navigate("/workspace/new"); };
+  const openManageWorkspace = () => { setWorkspaceError(null); setWorkspaceNameTaken(false); navigate("/workspace/manage"); };
   const [saving, setSaving] = useState(false);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   // Whether workspaceError is about the name (shown under the Name field)
@@ -261,12 +312,17 @@ export function RedesignPage() {
   // shared or joined through the relay. Re-read on each navigation; both are cheap local calls.
   // Whether any provider is connected: null until the first check answers, so nothing is gated on a guess.
   const [providerReady, setProviderReady] = useState<boolean | null>(null);
-  // Checked again when the window comes back into focus (a provider connected in a terminal, say).
+  // Checked again when the window comes back into focus (a provider connected in a terminal, say), and
+  // when Settings sees one connect or disconnect.
   const [providerCheck, setProviderCheck] = useState(0);
   useEffect(() => {
     const recheck = () => setProviderCheck((count) => count + 1);
     window.addEventListener("focus", recheck);
-    return () => window.removeEventListener("focus", recheck);
+    window.addEventListener(PROVIDERS_CHANGED, recheck);
+    return () => {
+      window.removeEventListener("focus", recheck);
+      window.removeEventListener(PROVIDERS_CHANGED, recheck);
+    };
   }, []);
   // Sidebar row menus: the project awaiting delete confirmation, and the chat
   // to add to the project being created from its "New project…" entry.
@@ -648,12 +704,17 @@ export function RedesignPage() {
     { kind: "action", id: "archive", label: t("common.archive"), icon: ArchiveIcon, onSelect: () => setProjectToArchive(project) },
   ];
 
-  const chatRow = (chat: Chat): SidebarSectionItem => ({
+  const chatRow = (chat: Chat): SidebarSectionItem => {
+    // The provider it runs on now (the top bar shows each, if it switched); none before its first reply.
+    const mark = chatProviderMarks(chat)[0];
+    return {
     id: chat.id,
     label: chat.name,
+    icon: mark ? providerRowIcon(mark) : undefined,
     menu: chatMenu(chat),
     onRename: (name: string) => void renameChat(chat.id, name),
-  });
+    };
+  };
 
   // #504: Recents (chats and bot chats, newest first), Chats (a project is a row that opens to its
   // chats) and Bots (each one opens its own chat).
@@ -679,13 +740,24 @@ export function RedesignPage() {
         const bot = chat.bot_id ? botsById.get(chat.bot_id) : undefined;
         return bot ? botRow(bot, chat.id) : chatRow(chat);
       }),
-      emptyLabel: t("shell.sections.noChats"),
+      emptyLabel: t("shell.sections.noRecents"),
     },
     {
       id: "chats",
       label: t("nav.chats"),
-      // New (above) starts a chat; this adds a project, which then lists here with its chats.
-      action: { label: t("nav.newProject.ariaLabel"), icon: Plus, onSelect: () => { setProjectError(null); setNewProjectOpen(true); } },
+      // Recents lists chats and bots together; Chats and Bots are drawers.
+      collapsible: true,
+      // Starts a new chat, as New does (nothing when already on an empty one). Projects are made from a
+      // chat's menu (New project), and list here with their chats.
+      action: {
+        label: t("common.newChat"),
+        icon: Plus,
+        onSelect: () => {
+          if (location.pathname === "/" && !location.search && !activeChatId) return;
+          setActiveChatId(null);
+          navigate("/");
+        },
+      },
       items: [
         ...workspaceProjects.map((project) => ({
         id: project.id,
@@ -705,6 +777,7 @@ export function RedesignPage() {
     },
     {
       id: "bots",
+      collapsible: true,
       label: t("bots.title"),
       action: { label: t("bots.new"), icon: Plus, onSelect: () => { setActiveChatId(null); navigate("/?new=bot"); } },
       // Its chat's id once it has one, so the open bot chat is the selected row.
@@ -723,7 +796,9 @@ export function RedesignPage() {
   // out and in on top of that one -- the doubled fade opening a provider's setup.
   const surfaceIdentity = location.pathname.startsWith("/settings") ? location.pathname : `${location.pathname}:${location.key}`;
   const surfaceKeyRef = useRef(surfaceIdentity);
-  if (!(location.state as { composeHandoff?: boolean } | null)?.composeHandoff) {
+  // Nor for New's Chat | Bot switch (newTab): the tabs stay and only the form under them fades.
+  const surfaceState = location.state as { composeHandoff?: boolean; newTab?: boolean } | null;
+  if (!surfaceState?.composeHandoff && !surfaceState?.newTab) {
     surfaceKeyRef.current = surfaceIdentity;
   }
   const redesignSurfaceKey = surfaceKeyRef.current;
@@ -772,7 +847,7 @@ export function RedesignPage() {
       const workspace = await response.json() as WorkspaceRecord;
       syncWorkspaces([...workspaces, workspace]);
       setWorkspaceId(workspace.id);
-      setNewWorkspaceOpen(false);
+      navigate("/");
     } catch (error) {
       setWorkspaceError(error instanceof Error ? error.message : t("workspace.errors.create"));
     } finally {
@@ -796,7 +871,7 @@ export function RedesignPage() {
       if (response.status === 409) throw new Error(t("workspace.errors.nameTaken"));
       if (!response.ok) throw new Error(t("workspace.errors.save"));
       syncWorkspaces(workspaces.map((item) => item.id === workspace.id ? { ...item, ...change, name: change.name ?? item.name } : item));
-      setManageWorkspacesOpen(false);
+      leaveWorkspacePage();
     } catch (error) {
       setWorkspaceError(error instanceof Error ? error.message : t("workspace.errors.save"));
     } finally {
@@ -816,7 +891,7 @@ export function RedesignPage() {
       syncWorkspaces(workspaces.filter((item) => item.id !== workspace.id));
       setProjects((current) => current.filter((project) => project.workspace_id !== workspace.id));
       setChats((current) => current.filter((chat) => chat.workspace_id !== workspace.id));
-      setManageWorkspacesOpen(false);
+      leaveWorkspacePage();
     } catch (error) {
       setWorkspaceError(error instanceof Error ? error.message : t("archive.workspace.error"));
     } finally {
@@ -836,9 +911,12 @@ export function RedesignPage() {
   }
 
   const workspaceSectionActions: readonly WorkspaceMenuAction[] = [
-    { id: "new-workspace", label: t("workspace.new"), icon: Plus, onSelect: () => { setWorkspaceError(null); setNewWorkspaceOpen(true); } },
-    { id: "manage-workspace", label: t("workspace.manage"), icon: Settings01Icon, onSelect: () => { setWorkspaceError(null); setWorkspaceNameTaken(false); setManageWorkspacesOpen(true); } },
+    { id: "new-workspace", label: t("workspace.new"), icon: Plus, onSelect: openNewWorkspace },
+    { id: "manage-workspace", label: t("workspace.manage"), icon: Settings01Icon, onSelect: openManageWorkspace },
   ];
+  // Opening a bot's chat from Quick actions: the sidebar's own openBot, current on every render.
+  const openBotRef = useRef(openBot);
+  openBotRef.current = openBot;
   const commandMenuItems = useMemo<CommandMenuItemData[]>(() => [
     {
       value: "new-chat",
@@ -848,7 +926,9 @@ export function RedesignPage() {
       shortcut: "mod+n",
       keywords: ["compose", "start", "conversation"],
       group: t("shell.commands.group.actions"),
+      // Already on an empty new chat: nothing, as the sidebar's New.
       onSelect: () => {
+        if (location.pathname === "/" && !location.search && !activeChatId) return;
         setActiveChatId(null);
         navigate("/");
       },
@@ -860,7 +940,7 @@ export function RedesignPage() {
       icon: JoinChatIcon,
       keywords: ["share", "multiplayer", "code", "invite"],
       group: t("shell.commands.group.actions"),
-      onSelect: () => setJoinOpen(true),
+      onSelect: openJoin,
     },
     {
       value: "new-bot",
@@ -906,7 +986,18 @@ export function RedesignPage() {
       group: t("nav.settings"),
       onSelect: () => navigate(`/settings/${section}`),
     })),
-    ...chats.map((chat) => ({
+    // Your bots, each opening its one chat (as in the sidebar's Bots).
+    ...bots.map((bot) => ({
+      value: `bot-${bot.id}`,
+      label: bot.name,
+      description: bot.description || t("shell.commands.openBot"),
+      icon: botRowIcon(bot.avatar),
+      keywords: ["bot", "agent"],
+      group: t("bots.title"),
+      onSelect: () => void openBotRef.current(bot),
+    })),
+    // Chats; a bot's chat is listed with its bot above.
+    ...chats.filter((chat) => !chat.bot_id).map((chat) => ({
       value: `chat-${chat.id}`,
       label: chat.name,
       description: t("shell.commands.openChat"),
@@ -920,7 +1011,7 @@ export function RedesignPage() {
         navigate(`/chat/${chat.id}`);
       },
     })),
-  ], [activeChatId, chats, navigate, routeChatId, t]);
+  ], [activeChatId, bots, chats, location.pathname, location.search, navigate, openJoin, routeChatId, t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -961,8 +1052,8 @@ export function RedesignPage() {
   const liveDone: Record<GettingStartedStepId, boolean> = {
     account: identity.signedIn,
     provider: providerReady === true,
-    project: projects.length > 0,
-    chat: chats.length > 0,
+    chat: chats.some((chat) => !chat.bot_id),
+    bot: bots.length > 0,
     workspace: workspaces.some(
       (workspace) => workspace.is_personal && workspace.name.trim().toLocaleLowerCase() !== DEFAULT_WORKSPACE.name.toLocaleLowerCase(),
     ),
@@ -1005,12 +1096,14 @@ export function RedesignPage() {
     {
       account: () => (identity.signedIn ? navigate("/settings/profile") : openSignIn()),
       provider: () => navigate("/settings/provider"),
-      project: () => { setProjectError(null); setNewProjectOpen(true); },
       chat: () => navigate("/"),
-      workspace: () => { setWorkspaceError(null); setWorkspaceNameTaken(false); setManageWorkspacesOpen(true); },
+      // New, on its Bot tab.
+      bot: () => { setActiveChatId(null); navigate("/?new=bot"); },
+      workspace: openManageWorkspace,
       // Sharing happens from a chat (/share there): the latest one, or a new one.
       multiplayer: () => navigate(chats[0] ? `/chat/${chats[0].id}` : "/"),
     },
+    providerReady === false,
   );
 
   return (
@@ -1057,13 +1150,23 @@ export function RedesignPage() {
                       <ChevronRight aria-hidden="true" className="size-3 shrink-0 text-muted-foreground" />
                     </>
                   )}
+                  {/* The provider it runs on (each, overlapping, if it changed), as the chat header had. */}
+                  {chatProviderMarks(topBarChat).length > 0 && (
+                    <span className="mr-0.5 flex shrink-0 items-center">
+                      {chatProviderMarks(topBarChat).map((mark, index) => (
+                        <span key={mark.value} className={cn("grid size-4 place-items-center", index > 0 && "-ml-1")}>
+                          <ProviderIcon model={mark} className="size-4" />
+                        </span>
+                      ))}
+                    </span>
+                  )}
                   <span className="truncate">{chatTitle(topBarChat)}</span>
                 </span>
               ) : null}
             </SidebarSurfaceTransition>
           }
-          // Invite (sharing the chat), at the right end, on a chat only.
-          actions={topBarChat ? (
+          // Invite (sharing the chat), at the right end, on a chat only: not a bot's (it's just you and it).
+          actions={topBarChat && !topBarChat.bot_id ? (
             // 24px, a notch under compact, so it sits in the 40px bar with room around it.
             <Button type="button" variant="tertiary" size="compact" className="h-6 rounded-[4px] px-2.5" onClick={() => openShare(topBarChat.id)}>
               {t("shareChat.button")}
@@ -1113,11 +1216,13 @@ export function RedesignPage() {
               label={t("shell.quickActions")}
               shortcut="K"
               actions={quickActions(t)}
-              activeId={location.pathname === "/" ? "chats" : undefined}
+              activeId={location.pathname === "/" ? "chats" : location.pathname === "/join-chat" ? "join" : undefined}
               onOpen={() => setQuickActionsOpen(true)}
+              // No provider yet: nothing in it can be used, so it waits (as Getting started's steps do).
+              disabled={providerReady === false}
               onActionSelect={(actionId) => {
                 if (actionId === "join") {
-                  setJoinOpen(true);
+                  openJoin();
                   return;
                 }
                 if (actionId === "chats") {
@@ -1200,7 +1305,25 @@ export function RedesignPage() {
         contentClassName="flex min-h-0 w-full flex-1 bg-background"
         surfaceKey={redesignSurfaceKey}
       >
-        {routedContent ?? (activeQuickAction === "chats" && activeChat && redesignChatContext ? (
+        {workspacePath === "/workspace/new" ? (
+          <CreateWorkspaceDialog asPage open onOpenChange={() => leaveWorkspacePage()} onCreate={createWorkspace} saving={saving} error={workspaceError} />
+        ) : workspacePath === "/workspace/manage" ? (
+          <ManageWorkspaceDialog
+            asPage
+            open
+            onOpenChange={() => leaveWorkspacePage()}
+            workspace={activeWorkspace}
+            onSave={(change) => updateWorkspace(activeWorkspace, change)}
+            onArchive={() => archiveWorkspace(activeWorkspace)}
+            canArchive={workspaces.length > 1}
+            projects={projects}
+            workspaces={workspaces}
+            onMoveProject={moveProjectToWorkspace}
+            saving={saving}
+            error={workspaceNameTaken ? null : workspaceError}
+            nameError={workspaceNameTaken ? workspaceError : null}
+          />
+        ) : routedContent ?? (activeQuickAction === "chats" && activeChat && redesignChatContext ? (
           <ChatPage key={activeChat.id} sessionIdOverride={activeChat.id} shellContextOverride={redesignChatContext} />
         ) : activeQuickAction === "chats" ? (
           <HomePage shellContextOverride={redesignHomeContext} onSessionCreated={openCreatedChat} onBotCreated={(bot) => void openBot(bot)} />
@@ -1212,28 +1335,6 @@ export function RedesignPage() {
       </SidebarSurfaceTransition>
       <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} />
       <ShareChatDialog sessionId={shareChatId} open={shareOpen} onOpenChange={setShareOpen} />
-      <JoinChatDialog open={joinOpen} onOpenChange={setJoinOpen} />
-      <CreateWorkspaceDialog
-        open={newWorkspaceOpen}
-        onOpenChange={setNewWorkspaceOpen}
-        onCreate={createWorkspace}
-        saving={saving}
-        error={workspaceError}
-      />
-      <ManageWorkspaceDialog
-        open={manageWorkspacesOpen}
-        onOpenChange={setManageWorkspacesOpen}
-        workspace={activeWorkspace}
-        onSave={(change) => updateWorkspace(activeWorkspace, change)}
-        onArchive={() => archiveWorkspace(activeWorkspace)}
-        canArchive={workspaces.length > 1}
-        projects={projects}
-        workspaces={workspaces}
-        onMoveProject={moveProjectToWorkspace}
-        saving={saving}
-        error={workspaceNameTaken ? null : workspaceError}
-        nameError={workspaceNameTaken ? workspaceError : null}
-      />
       <Dialog open={projectToArchive !== null} onOpenChange={(open) => { if (!open) setProjectToArchive(null); }} backdropClassName="!z-[120]">
         <DialogContent className="!z-[120]">
           <DialogHeader>
@@ -1274,6 +1375,7 @@ export function RedesignPage() {
       open={quickActionsOpen}
       onOpenChange={setQuickActionsOpen}
       items={commandMenuItems}
+      disabled={providerReady === false}
     />
     </>
   );

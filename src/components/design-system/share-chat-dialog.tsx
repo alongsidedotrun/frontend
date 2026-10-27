@@ -294,9 +294,9 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
           <ShapeProvider defaultShape="pill">
             <Tabs size="compact" value={tab} onValueChange={(value) => setTab(value as "invite" | "manage")} className="self-center">
               {/* The selected tab (the list's first child) as a white pill with a light shadow, like Library / Recents. */}
-              <TabsList className="[&>div:first-child]:!bg-background [&>div:first-child]:!shadow-[0_1px_2px_rgba(0,0,0,0.12),0_0_0_0.5px_rgba(0,0,0,0.08)] dark:[&>div:first-child]:!bg-white/12">
-                <TabItem value="invite" label={t("shareChat.tabs.invite")} className={TAB_CLASS} />
-                <TabItem value="manage" label={t("shareChat.tabs.manage")} className={TAB_CLASS} />
+              <TabsList>
+                <TabItem value="invite" label={t("shareChat.tabs.invite")} />
+                <TabItem value="manage" label={t("shareChat.tabs.manage")} />
               </TabsList>
             </Tabs>
           </ShapeProvider>
@@ -405,7 +405,6 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
 const PAGE_CLASS = "col-start-1 row-start-1 flex min-w-0 flex-col gap-3 transition-opacity duration-200 ease-out";
 
 // A notch under the compact tabs: 22px, 12px text.
-const TAB_CLASS = "h-[22px] px-2.5 [&>span]:!text-[12px] [&>span]:!leading-none";
 
 // Lowest first: each role includes the ones below it.
 const ROLES: Role[] = ["reader", "participant", "editor", "admin"];

@@ -7,6 +7,7 @@ import { MenuItem } from "@/components/ui/menu-item";
 import { ErrorText } from "@/lib/error-code";
 import { cn } from "@/lib/utils";
 import { forcedNoProvider } from "@/lib/dev-no-provider";
+import { PROVIDERS_CHANGED } from "@/lib/providers-changed";
 import { PROVIDER_DISPLAY, ProviderIcon } from "@/lib/quick-chat-models";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { ShapeProvider } from "@/lib/shape-context";
@@ -156,7 +157,6 @@ function modelLabel(id: string) {
   return first.toLowerCase() === "gpt" ? `GPT-${rest.join(" ")}` : [first, ...rest].join(" ");
 }
 
-const MODEL_TAB_CLASS = "h-[22px] shrink-0 px-2.5 [&>span]:!text-[12px] [&>span]:!leading-none";
 
 /** A card's 24h/7d/30d rows, under All and a tab for each model used this calendar month (since the
  *  1st, in the viewer's time zone). With one model there are no tabs: it would repeat All. */
@@ -175,10 +175,10 @@ function UsageRows({ snapshot }: { snapshot: ProviderUsageSnapshot }) {
       {tabs.length > 1 && (
         <ShapeProvider defaultShape="pill">
           <Tabs size="compact" value={picked ? selected : "all"} onValueChange={(value) => setSelected(String(value))}>
-            <TabsList className="max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>div:first-child]:!bg-background [&>div:first-child]:!shadow-[0_1px_2px_rgba(0,0,0,0.12),0_0_0_0.5px_rgba(0,0,0,0.08)] dark:[&>div:first-child]:!bg-white/12">
-              <TabItem value="all" label={t("usage.models.all")} className={MODEL_TAB_CLASS} />
+            <TabsList className="max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <TabItem value="all" label={t("usage.models.all")} />
               {tabs.map((tab) => (
-                <TabItem key={tab.id} value={tab.id} label={tab.label} className={MODEL_TAB_CLASS} />
+                <TabItem key={tab.id} value={tab.id} label={tab.label} />
               ))}
             </TabsList>
           </Tabs>
@@ -229,16 +229,28 @@ function leastLeft(snapshot: ProviderUsageSnapshot | null | undefined) {
 /** Settings > Providers' Usage: a card per provider, with Filter (which providers to show) and Sort
  *  (by name or most used) beside the heading, like Skills' toolbar. */
 // Which providers are connected (their CLI there and signed in), by provider name; absent until known.
+// The last answers, so reopening Settings shows the right thing at once.
+const lastConnected: Record<string, boolean> = {};
+
 function useConnectedProviders(providers: readonly string[]): Record<string, boolean> {
-  const [connected, setConnected] = useState<Record<string, boolean>>({});
+  const [connected, setConnected] = useState<Record<string, boolean>>(() => ({ ...lastConnected }));
   const key = providers.join(",");
+  // Checked again when one is connected or disconnected (the + above, say).
+  const [changes, setChanges] = useState(0);
+  useEffect(() => {
+    const recheck = () => setChanges((count) => count + 1);
+    window.addEventListener(PROVIDERS_CHANGED, recheck);
+    return () => window.removeEventListener(PROVIDERS_CHANGED, recheck);
+  }, []);
   useEffect(() => {
     let cancelled = false;
     for (const provider of providers) {
       void fetch(`/cli/${encodeURIComponent(provider.toLowerCase())}/available`)
         .then((response) => (response.ok ? (response.json() as Promise<{ available?: boolean }>) : null))
         .then((data) => {
-          if (!cancelled && data) setConnected((current) => ({ ...current, [provider]: Boolean(data.available) && !forcedNoProvider() }));
+          if (cancelled || !data) return;
+          lastConnected[provider] = Boolean(data.available) && !forcedNoProvider();
+          setConnected((current) => ({ ...current, [provider]: lastConnected[provider] }));
         })
         .catch(() => {});
     }
@@ -246,7 +258,7 @@ function useConnectedProviders(providers: readonly string[]): Record<string, boo
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, changes]);
   return connected;
 }
 
@@ -262,6 +274,12 @@ const EMPTY_STATE_ICONS = [
 /** No provider connected: what the section will hold, drawn faintly, and what to do. */
 function UsageEmptyState() {
   const { t } = useTranslation();
+  return <ProvidersEmptyState title={t("usage.empty.title")} body={t("usage.empty.body")} />;
+}
+
+/** Nothing to list yet (Usage, or Providers' Connected and Available tabs): the providers drawn faintly,
+ *  a title and what will fill it. */
+export function ProvidersEmptyState({ title, body }: { title: string; body: string }) {
   return (
     <div className="flex flex-col items-center gap-6 rounded-xl border border-border bg-foreground/[0.02] px-4 py-10 text-center">
       <div className="flex w-full max-w-[220px] flex-col gap-2" aria-hidden="true">
@@ -273,8 +291,8 @@ function UsageEmptyState() {
         ))}
       </div>
       <div>
-        <p className="text-[length:var(--redesign-chat-text)] font-medium text-foreground">{t("usage.empty.title")}</p>
-        <p className="mt-1 text-[length:var(--redesign-chat-meta)] text-muted-foreground">{t("usage.empty.body")}</p>
+        <p className="text-[length:var(--redesign-chat-text)] font-medium text-foreground">{title}</p>
+        <p className="mt-1 text-[length:var(--redesign-chat-meta)] text-muted-foreground">{body}</p>
       </div>
     </div>
   );
@@ -286,6 +304,8 @@ export function ProviderUsageSection() {
   // Only connected providers have usage to show: the rest are left out, and with none, an empty state.
   const connected = useConnectedProviders(USAGE_PROVIDERS.map((model) => model.provider));
   const noneConnected = USAGE_PROVIDERS.every((model) => connected[model.provider] === false);
+  // Nothing until every provider has answered: no cards that then give way to the empty state.
+  const known = USAGE_PROVIDERS.every((model) => connected[model.provider] !== undefined);
   const { error: usageError } = useUsageStats();
   const [picked, setPicked] = useState<string[]>(() => {
     try {
@@ -313,7 +333,7 @@ export function ProviderUsageSection() {
     store(USAGE_SORT_KEY, next);
   };
   const byName = [...USAGE_PROVIDERS]
-    .filter((model) => connected[model.provider] !== false)
+    .filter((model) => connected[model.provider] === true)
     .sort((a, b) => nameOf(a.provider).localeCompare(nameOf(b.provider)));
   const shown = byName
     .filter((model) => showsAll || picked.includes(model.provider))
@@ -324,7 +344,7 @@ export function ProviderUsageSection() {
     <section className="flex flex-col gap-1.5" style={{ marginTop: "0.875rem" }}>
       <div className="flex items-center justify-between gap-2 px-2 py-1">
         <h3 className="text-[12px] font-normal text-muted-foreground/60">{t("settings.providers.usage")}</h3>
-        <div className={cn("flex items-center gap-1", noneConnected && "invisible")}>
+        <div className={cn("flex items-center gap-1", (noneConnected || !known) && "invisible")}>
           <DropdownMenu size="compact">
             <DropdownTrigger render={<Button size="compact" variant="tertiary" leadingIcon={FilterLines} active={!showsAll}>{t("usage.filter")}</Button>} />
             <DropdownContent align="end" className="w-52 min-w-0">
@@ -351,7 +371,7 @@ export function ProviderUsageSection() {
           </DropdownMenu>
         </div>
       </div>
-      {noneConnected ? <UsageEmptyState /> : (
+      {!known ? null : noneConnected ? <UsageEmptyState /> : (
       <div className="flex flex-col gap-2">
             {shown.map((model) => {
               const snapshot = snapshots[model.provider];

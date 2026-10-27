@@ -211,7 +211,7 @@ const DropdownSearch = forwardRef<HTMLInputElement, DropdownSearchProps>(
     {
       value,
       onValueChange,
-      placeholder = "Search…",
+      placeholder = "Search",
       clearOnClose = true,
       autoFocus = true,
       className,

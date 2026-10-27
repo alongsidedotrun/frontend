@@ -516,7 +516,7 @@ function CodeDrawingTextarea({
               readOnly={readOnly}
               className="m-0 h-full w-full resize-none overflow-auto border-0 bg-transparent p-0 font-mono text-sm outline-none"
               style={{ minHeight: `${DEFAULT_MIN_HEIGHT}px` }}
-              placeholder="Enter your code here..."
+              placeholder="Enter your code here"
               spellCheck={false}
             />
           </code>
@@ -571,7 +571,7 @@ function CodeDrawingPreviewArea({
             'flex flex-1 items-center justify-center rounded-md bg-muted/30 p-4'
           }
         >
-          {loading && <div className="text-muted-foreground">Loading...</div>}
+          {loading && <div className="text-muted-foreground">Loading</div>}
           {!loading && image && (
             <img
               src={image}

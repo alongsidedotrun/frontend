@@ -1,7 +1,7 @@
 import { useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ArchiveWorkspaceItem, WorkspaceFields, WorkspaceTileMenu, WorkspaceTilePreview, type WorkspaceFieldValues } from "@/components/design-system/workspace-fields";
-import { ShellDialog, ShellDialogActions } from "@/components/design-system/shell-dialog";
+import { ShellDialog, ShellDialogActions, ShellPage } from "@/components/design-system/shell-dialog";
 
 export type ManagedWorkspace = {
   id: string;
@@ -34,13 +34,16 @@ type ManageWorkspaceDialogProps = {
   saving?: boolean;
   error?: string | null;
   nameError?: string | null;
+  /** In the main area (the sidebar's Manage workspace), not over it; Cancel calls onOpenChange(false). */
+  asPage?: boolean;
 };
 
 function valuesOf(workspace: ManagedWorkspace): WorkspaceFieldValues {
   return { name: workspace.name, description: workspace.description ?? "", logo: workspace.logo ?? null, colorIndex: workspace.color ?? null };
 }
 
-export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, onArchive, canArchive = false, projects = [], workspaces = [], onMoveProject, saving = false, error, nameError }: ManageWorkspaceDialogProps) {
+export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, onArchive, canArchive = false, projects = [], workspaces = [], onMoveProject, saving = false, error, nameError, asPage = false }: ManageWorkspaceDialogProps) {
+  const Frame = asPage ? ShellPage : ShellDialog;
   const { t } = useTranslation();
   const [values, setValues] = useState<WorkspaceFieldValues>(() => valuesOf(workspace));
   const [confirmingArchive, setConfirmingArchive] = useState(false);
@@ -66,7 +69,7 @@ export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, o
   const destinations = workspaces.filter((item) => item.id !== workspace.id);
 
   return (
-    <ShellDialog
+    <Frame
       centered
       open={open}
       onOpenChange={onOpenChange}
@@ -80,9 +83,9 @@ export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, o
       title={confirmingArchive ? t("archive.workspace.title") : t("workspace.manage")}
       description={confirmingArchive ? t("archive.workspace.description") : t("workspace.manage.description")}
       actions={confirmingArchive ? (
-        <ShellDialogActions cancelLabel={t("common.cancel")} onCancel={() => setConfirmingArchive(false)} primary={{ label: t("common.archive"), type: "submit", form: formId, disabled: saving }} />
+        <ShellDialogActions pills={asPage} cancelLabel={t("common.cancel")} onCancel={() => setConfirmingArchive(false)} primary={{ label: t("common.archive"), type: "submit", form: formId, disabled: saving }} />
       ) : (
-        <ShellDialogActions cancelLabel={t("common.cancel")} onCancel={() => onOpenChange(false)} primary={{ label: t("workspace.manage.save"), type: "submit", form: formId, disabled: !changed || !trimmedName || saving, loading: saving }} />
+        <ShellDialogActions pills={asPage} cancelLabel={t("common.cancel")} onCancel={() => onOpenChange(false)} primary={{ label: t("workspace.manage.save"), type: "submit", form: formId, disabled: !changed || !trimmedName || saving, loading: saving }} />
       )}
     >
       {confirmingArchive ? (
@@ -92,7 +95,7 @@ export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, o
         </form>
       ) : (
         <form id={formId} className="flex flex-col gap-3" onSubmit={(event) => { event.preventDefault(); if (changed && trimmedName && !saving) void onSave(change); }}>
-          <WorkspaceFields values={values} onChange={setValues} nameError={nameError} />
+          <WorkspaceFields values={values} onChange={setValues} nameError={nameError} labelsAbove={asPage} />
           {workspaceProjects.length > 0 && destinations.length > 0 && (
             <div className="flex flex-col gap-2 pt-1">
               <p className="px-1 text-[12px] font-medium text-foreground">{t("archive.workspace.moveProjects")}</p>
@@ -110,6 +113,6 @@ export function ManageWorkspaceDialog({ open, onOpenChange, workspace, onSave, o
           {error && <p className="px-1 text-[12px] text-destructive">{error}</p>}
         </form>
       )}
-    </ShellDialog>
+    </Frame>
   );
 }

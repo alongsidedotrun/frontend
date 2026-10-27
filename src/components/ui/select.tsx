@@ -275,7 +275,7 @@ const SelectTrigger = forwardRef<HTMLButtonElement, SelectTriggerProps>(
       className,
       variant,
       icon: Icon,
-      placeholder = "Select…",
+      placeholder = "Select",
       error,
       size,
       children: _children,

@@ -52,7 +52,6 @@ type HomePageProps = {
 };
 
 // Same pill segmented control as Settings > Skills.
-const TAB_CLASS = "h-[22px] px-2.5 [&>span]:!text-[12px] [&>span]:!leading-none";
 
 export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated }: HomePageProps = {}) {
   const { t } = useTranslation();
@@ -322,10 +321,15 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
       {!transitioningToChat && (
         <div className="absolute inset-x-0 top-5 z-20 flex justify-center">
           <ShapeProvider defaultShape="pill">
-            <Tabs size="compact" value={mode} onValueChange={(next) => setSearchParams(next === "bot" ? { new: "bot" } : {}, { replace: true })}>
-              <TabsList className="[&>div:first-child]:!bg-background [&>div:first-child]:!shadow-[0_1px_2px_rgba(0,0,0,0.12),0_0_0_0.5px_rgba(0,0,0,0.08)] dark:[&>div:first-child]:!bg-white/12">
-                <TabItem value="chat" label={t("new.chat")} className={TAB_CLASS} />
-                <TabItem value="bot" label={t("new.bot")} className={TAB_CLASS} />
+            <Tabs
+              size="compact"
+              value={mode}
+              // newTab: the shell keeps the page (and these tabs) in place; only the form below fades.
+              onValueChange={(next) => setSearchParams(next === "bot" ? { new: "bot" } : {}, { replace: true, state: { newTab: true } })}
+            >
+              <TabsList>
+                <TabItem value="chat" label={t("new.chat")} />
+                <TabItem value="bot" label={t("new.bot")} />
               </TabsList>
             </Tabs>
           </ShapeProvider>

@@ -18,6 +18,8 @@ type QuickActionsProps = {
   activeId?: string;
   onActionSelect?: (actionId: string) => void;
   onOpen?: () => void;
+  /** The search field can't be used yet (no provider set up): dimmed, not clickable. */
+  disabled?: boolean;
   className?: string;
 };
 
@@ -25,7 +27,7 @@ type QuickActionsProps = {
  * Reusable compact navigation for a sidebar. Its actions and command handler
  * are supplied by the owning surface so this primitive never owns routes.
  */
-export function QuickActions({ label, shortcut, actions, activeId, onActionSelect, onOpen, className }: QuickActionsProps) {
+export function QuickActions({ label, shortcut, actions, activeId, onActionSelect, onOpen, disabled = false, className }: QuickActionsProps) {
   const size = useSize();
   // h-7 (28px), matching the sidebar rows -- slimmer, per request.
   const searchFieldHeight = "h-7";
@@ -35,8 +37,9 @@ export function QuickActions({ label, shortcut, actions, activeId, onActionSelec
       <button
         type="button"
         onClick={onOpen}
+        disabled={disabled}
         className={cn(
-          "group/quick-actions-trigger flex w-full items-center rounded-[var(--redesign-control-radius)] border border-[var(--redesign-sidebar-border)] bg-[var(--redesign-quick-actions-surface)] px-3 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "group/quick-actions-trigger flex w-full items-center disabled:pointer-events-none disabled:opacity-50 rounded-[var(--redesign-control-radius)] border border-[var(--redesign-sidebar-border)] bg-[var(--redesign-quick-actions-surface)] px-3 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           searchFieldHeight,
           size.text,
         )}

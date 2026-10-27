@@ -12,6 +12,7 @@ import { HelpPage } from "@/pages/HelpPage";
 import { HomePage } from "@/pages/HomePage";
 import { InboxPage } from "@/pages/InboxPage";
 import { JoinPage } from "@/pages/JoinPage";
+import { JoinChatPage } from "@/pages/JoinChatPage";
 import { LibraryPage } from "@/pages/LibraryPage";
 import { OnboardingPage } from "@/pages/OnboardingPage";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
@@ -59,6 +60,11 @@ const ROUTES: RouteObject[] = [
       { path: "/chat/:sessionId", element: <ChatPage /> },
       // Joining a chat someone else hosts, from an invite link (JoinPage.tsx).
       { path: "/join", element: <JoinPage /> },
+      // Joining a chat with the chat ID and join code someone gave you (the sidebar's Join chat).
+      { path: "/join-chat", element: <JoinChatPage /> },
+      // New and Manage workspace: drawn by the shell (RedesignPage), which holds the workspaces.
+      { path: "/workspace/new", element: null },
+      { path: "/workspace/manage", element: null },
       { path: "/projects", element: <ProjectsPage /> },
       { path: "/apps", element: <AppsPage /> },
       // Full page now, not a modal -- per explicit request ("i want a

@@ -5,6 +5,7 @@ import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { AUTO_BOT_MODEL, PROVIDER_DISPLAY, ProviderIcon, QUICK_CHAT_MODELS, modelDisplayName } from "@/lib/quick-chat-models";
+import { BotFace, type BotAvatar } from "@/components/bot-face";
 import { defaultEffortFor, effortLabel, EFFORT_LEVELS, type EffortLevel } from "@/lib/effort";
 import { loadLastEffort, saveLastEffort, type PermissionMode } from "@/lib/last-used";
 import { ClipboardCheck, Hand, ShieldTick, ShieldZap, Target04 } from "@untitledui/icons";
@@ -759,6 +760,7 @@ export function ComposeBox({
   defaultModelValue,
   onModelsChange,
   allowBotChoice = false,
+  botAvatar,
   contextUsage,
   onOpenSettings,
   chatId,
@@ -881,6 +883,8 @@ export function ComposeBox({
   noticeBelow?: ReactNode;
   /** A bot's chat (#504): "Let the bot choose" heads the model menu, and can be the default model. */
   allowBotChoice?: boolean;
+  /** The bot whose chat this is: "Let the bot choose" shows its own face. */
+  botAvatar?: BotAvatar | null;
   queue?: {
     items: QueuedMessage[];
     onAdd: (message: Omit<QueuedMessage, "id">) => void;
@@ -2509,7 +2513,12 @@ export function ComposeBox({
                   the new icon and name fade in. */}
               <SwapLabel swapKey={selectedModels.map((m) => m.value).join(",")}>
                 <span className="inline-flex w-max items-center gap-1">
-                  {selectedModels.length === 1 && <ProviderIcon model={selectedModels[0]} className="size-[var(--compose-provider-icon)] shrink-0" />}
+                  {selectedModels.length === 1 &&
+                    (selectedModels[0].value === AUTO_BOT_MODEL.value && botAvatar ? (
+                      <BotFace avatar={botAvatar} className="size-[var(--compose-provider-icon)] shrink-0" />
+                    ) : (
+                      <ProviderIcon model={selectedModels[0]} className="size-[var(--compose-provider-icon)] shrink-0" />
+                    ))}
                   <span className="max-w-[110px] truncate whitespace-nowrap">{modelSelectionLabel(selectedModels)}</span>
                 </span>
               </SwapLabel>
@@ -2584,7 +2593,7 @@ export function ComposeBox({
                   onClick={() => selectModel(AUTO_BOT_MODEL)}
                 >
                   <span className="flex items-center gap-1.5">
-                    <ProviderIcon model={AUTO_BOT_MODEL} className="size-3.5 shrink-0" />
+                    {botAvatar ? <BotFace avatar={botAvatar} className="size-3.5 shrink-0" /> : <ProviderIcon model={AUTO_BOT_MODEL} className="size-3.5 shrink-0" />}
                     {t("compose.botChooses")}
                   </span>
                 </DropdownSubItem>
@@ -2602,7 +2611,8 @@ export function ComposeBox({
                 className="text-[12px]"
                 popupClassName="pb-[5px]"
               >
-                <BaseDropdownLabel>{provider}</BaseDropdownLabel>
+                {/* "Models" over the list (the provider is the row that opened it). */}
+                <BaseDropdownLabel>{t("compose.models")}</BaseDropdownLabel>
                 <div className="relative overflow-hidden">
                 <div
                   ref={modelListRefCallback}
