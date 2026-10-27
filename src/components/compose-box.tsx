@@ -2611,7 +2611,8 @@ export function ComposeBox({
                 className="text-[12px]"
                 popupClassName="pb-[5px]"
               >
-                <BaseDropdownLabel>{provider}</BaseDropdownLabel>
+                {/* "Models" over the list (the provider is the row that opened it). */}
+                <BaseDropdownLabel>{t("compose.models")}</BaseDropdownLabel>
                 <div className="relative overflow-hidden">
                 <div
                   ref={modelListRefCallback}
