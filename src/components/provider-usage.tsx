@@ -1,3 +1,4 @@
+import { modelNameFromId } from "@/lib/quick-chat-models";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FilterLines, SwitchVertical01 } from "@untitledui/icons";
@@ -143,19 +144,6 @@ function UsageCardSkeleton({ active = true, barsOnly = false, still = false }: {
 }
 
 /** One row per provider (inside a settings card, which draws the dividers). */
-// A model id as people know it, the same way for every provider (their own lists label models in
-// different styles: "Opus 5.5", "GPT-5.6-Luna"): "claude-opus-5-5" -> "Claude Opus 5.5",
-// "gpt-5.6-luna" -> "GPT-5.6 Luna", release dates dropped.
-function modelLabel(id: string) {
-  const words: string[] = [];
-  for (const part of id.split("-").filter((p) => p && !/^\d{8}$/.test(p))) {
-    const previous = words[words.length - 1];
-    if (/^\d+$/.test(part) && previous && /^\d+(\.\d+)*$/.test(previous)) words[words.length - 1] = `${previous}.${part}`;
-    else words.push(/^\d/.test(part) ? part : part[0].toUpperCase() + part.slice(1));
-  }
-  const [first = id, ...rest] = words;
-  return first.toLowerCase() === "gpt" ? `GPT-${rest.join(" ")}` : [first, ...rest].join(" ");
-}
 
 
 /** A card's 24h/7d/30d rows, under All and a tab for each model used this calendar month (since the
@@ -167,7 +155,7 @@ function UsageRows({ snapshot }: { snapshot: ProviderUsageSnapshot }) {
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).getTime();
   const tabs = (snapshot.models ?? [])
     .filter((entry) => entry.last_used_at === undefined || entry.last_used_at >= monthStart)
-    .map((entry) => ({ id: entry.model, label: modelLabel(entry.model), lines: entry.usage_lines }));
+    .map((entry) => ({ id: entry.model, label: modelNameFromId(entry.model), lines: entry.usage_lines }));
   const picked = tabs.find((tab) => tab.id === selected);
   const lines = picked ? picked.lines : snapshot.usage_lines;
   return (

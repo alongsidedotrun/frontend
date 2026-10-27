@@ -2316,3 +2316,52 @@ html.transitioning *, html.transitioning *::before, html.transitioning *::after 
   vector-effect: non-scaling-stroke;
   stroke-width: 1px;
 }
+
+/* Code in a reply: one card, as wide as the reply, its language and copy button in a header row on
+   the same surface. Streamdown draws a bordered card around a second bordered body; these flatten
+   that to one. Unlayered, so they win over Streamdown's own utility classes. */
+[data-streamdown="code-block"] {
+  margin: 0 0 0.75rem;
+  padding: 0;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: color-mix(in oklab, var(--foreground) 3%, var(--background));
+  overflow: hidden;
+}
+[data-streamdown="code-block"]:last-child {
+  margin-bottom: 0;
+}
+[data-streamdown="code-block-header"] {
+  height: 2rem;
+  padding: 0 0.5rem 0 0.75rem;
+  font-size: var(--text-ui-sm);
+}
+[data-streamdown="code-block-header"] > span {
+  margin-left: 0;
+}
+[data-streamdown="code-block-body"] {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0 0.75rem 0.75rem;
+  font-size: var(--text-ui-sm);
+  line-height: 1.6;
+}
+/* The copy button rides the header row: Streamdown pulls its sticky strip up by its own padding, so
+   it's pulled up by our header's height instead. */
+[data-streamdown="code-block"] > div:has(> [data-streamdown="code-block-actions"]) {
+  margin-top: -2rem;
+  top: 0;
+}
+[data-streamdown="code-block-actions"] {
+  padding: 0 0.25rem;
+  border: 0;
+  background: transparent;
+  backdrop-filter: none;
+}
+/* Inline code a touch under the sentence it sits in, as monospace runs large at the same size. */
+[data-streamdown="inline-code"] {
+  font-size: 0.875em;
+  padding: 0.1em 0.35em;
+}

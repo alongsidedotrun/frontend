@@ -2323,6 +2323,15 @@ export const translations = {
     zh: "强度",
     ja: "エフォート",
   },
+  "chat.effortUsed": {
+    en: "{{level}} effort",
+    "pt-BR": "Esforço: {{level}}",
+    es: "Esfuerzo: {{level}}",
+    fr: "Effort : {{level}}",
+    de: "Aufwand: {{level}}",
+    zh: "强度：{{level}}",
+    ja: "エフォート：{{level}}",
+  },
   "compose.effortRevert": {
     en: "Back to {{level}}",
     "pt-BR": "Voltar para {{level}}",

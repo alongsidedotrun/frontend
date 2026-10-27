@@ -239,3 +239,35 @@ export function ProviderIcon({
   }
   return <img src={model.icon} alt="" className={cn(className, model.invertInDark && "dark:invert")} style={style} onLoad={onLoad} />;
 }
+
+// A model id as people know it, the same way for every provider (their own lists label models in
+// different styles: "Opus 5.5", "GPT-5.6-Luna"): "claude-opus-5-5" -> "Claude Opus 5.5",
+// "gpt-5.6-luna" -> "GPT-5.6 Luna", release dates dropped.
+export function modelNameFromId(id: string) {
+  const words: string[] = [];
+  for (const part of id.split("-").filter((p) => p && !/^\d{8}$/.test(p))) {
+    const previous = words[words.length - 1];
+    if (/^\d+$/.test(part) && previous && /^\d+(\.\d+)*$/.test(previous)) words[words.length - 1] = `${previous}.${part}`;
+    else words.push(/^\d/.test(part) ? part : part[0].toUpperCase() + part.slice(1));
+  }
+  const [first = id, ...rest] = words;
+  return first.toLowerCase() === "gpt" ? `GPT-${rest.join(" ")}` : [first, ...rest].join(" ");
+}
+
+// Which provider a model id belongs to, by its family's prefix.
+const ID_PROVIDERS: { prefix: RegExp; provider: string; look: Pick<QuickChatModel, "icon" | "invertInDark" | "iconScale"> }[] = [
+  { prefix: /^claude-/, provider: "Claude", look: { icon: "/icons/providers/claude.svg" } },
+  { prefix: /^(gpt-|o\d|codex)/, provider: "Codex", look: { icon: "/icons/providers/chatgpt.svg", invertInDark: true, iconScale: 0.82 } },
+  { prefix: /^gemini-/, provider: "Antigravity", look: { icon: "/icons/providers/gemini.svg", iconScale: 0.89 } },
+  { prefix: /^grok-/, provider: "Grok", look: { icon: "/icons/providers/grok.svg", invertInDark: true } },
+];
+
+/** The model a reply names: the listed one, else one made from the id itself (a model the picker's
+ *  list doesn't have yet, or no longer has), so a reply never borrows the composer's model's name. */
+export function modelFor(id: string): QuickChatModel | undefined {
+  const listed = QUICK_CHAT_MODELS.find((model) => model.value === id);
+  if (listed) return listed;
+  const family = ID_PROVIDERS.find((entry) => entry.prefix.test(id));
+  if (!family) return undefined;
+  return { value: id, label: modelNameFromId(id), provider: family.provider, ...family.look, configured: false };
+}

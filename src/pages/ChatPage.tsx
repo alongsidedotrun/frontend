@@ -50,7 +50,7 @@ import {
   Volume2Icon,
   XIcon,
 } from "@/components/icons/untitled-ui";
-import { AUTO_BOT_MODEL, ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
+import { AUTO_BOT_MODEL, modelFor, ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
 import { RELAY_JOIN_REQUESTED_EVENT } from "@/lib/use-share";
 
 // A file in a shared chat (#460), as a message refers to it.
@@ -2005,7 +2005,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               // historical reply silently showed whichever model the
               // compose box currently has selected instead of the one that
               // actually generated it.
-              const eventModel = typeof event.model === "string" ? QUICK_CHAT_MODELS.find((m) => m.value === event.model) : undefined;
+              const eventModel = typeof event.model === "string" ? modelFor(event.model) : undefined;
               const rowModel = eventModel ?? modelRef.current;
               lastReplyModelRef.current = rowModel;
               sawRealReplyRef.current = true;
@@ -3740,7 +3740,7 @@ function ChatRowView({
           the human bubble used -- the two should read differently now, an
           AI reply spans nearly the full column while a human message stays
           visually distinct as a bubble. */}
-      <div className="max-w-[95%] px-1 text-chat leading-relaxed transition-[max-width] duration-160">
+      <div className="w-full max-w-[95%] px-1 text-chat leading-relaxed transition-[max-width] duration-160">
         {/* A live run from someone else (#462) grows in place; StreamingText keeps its first text, so it's
             remounted on each update (without animation). */}
         <StreamingText key={row.relayRunId ? row.text : undefined} text={row.text} animate={row.animate} onDone={() => setActionsVisible(true)} />
@@ -3766,8 +3766,7 @@ function ChatRowView({
         <div className="t-row-in flex w-full flex-col items-start gap-1">
           {/* #462: someone else's run -- their effort isn't known here, and retrying would rerun it as
               this person's own turn. */}
-          <AgentMessageActions text={row.text} onRetry={row.runBy ? undefined : onRetry} effort={row.runBy ? undefined : row.effort} />
-          <MessageTime time={row.time} />
+          <AgentMessageActions text={row.text} onRetry={row.runBy ? undefined : onRetry} effort={row.runBy ? undefined : row.effort} time={row.time} />
         </div>
       )}
     </div>
@@ -4260,7 +4259,10 @@ function AgentMessageActions({
   text,
   onRetry,
   effort,
+  time,
 }: {
+  // On the same line as the actions, after them, rather than a line of its own under them.
+  time?: string;
   text: string;
   onRetry?: () => void;
   effort?: EffortLevel;
@@ -4415,7 +4417,7 @@ function AgentMessageActions({
           having a graph that we can only see when we hover bc is not
           clear"): the graph on its own read as decorative until you
           hovered it, unlike every other real value on this row. */}
-      {effort && <span className="px-1 text-chat-meta text-muted-foreground">{effortLabel(effort)} effort</span>}
+      {effort && <span className="px-1 text-chat-meta text-muted-foreground">{t("chat.effortUsed", { level: effortLabel(effort) })}</span>}
       {/* Sources -- same row as every other action, after effort, per explicit
           request (was its own separate block below the row before). A real
           dropdown trigger now, not a hover tooltip -- per explicit request:
@@ -4436,6 +4438,7 @@ function AgentMessageActions({
           <ChevronDownIcon className={`size-3 shrink-0 transition-transform ${sourcesOpen ? "rotate-180" : ""}`} />
         </button>
       )}
+      {time && <MessageTime time={time} />}
       </div>
       {sources.length > 0 && (
         // Always mounted (gated on sources.length, not sourcesOpen) so the

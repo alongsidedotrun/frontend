@@ -173,6 +173,15 @@ function UnorderedList({ children, ...props }: React.ComponentProps<"ul"> & Extr
     </ul>
   );
 }
+// Streamdown's own list items carry py-1 on top of the list's space-y-1, which spread a short list
+// further apart than the paragraphs around it.
+function ListItem({ children, ...props }: React.ComponentProps<"li"> & ExtraProps) {
+  return (
+    <li className="[&>p]:inline" {...props}>
+      {children}
+    </li>
+  );
+}
 function OrderedList({ children, ...props }: React.ComponentProps<"ol"> & ExtraProps) {
   return (
     <ol className="mb-3 list-decimal space-y-1 pl-5 text-chat leading-relaxed last:mb-0" {...props}>
@@ -201,6 +210,28 @@ const FILE_LINK_PATTERN = /\[([^\]]+)\]\(file:\/\/[^\s)]+\)/g;
 function stripFileLinks(text: string): string {
   return text.replace(FILE_LINK_PATTERN, "$1");
 }
+
+// Both renderers (history and live) draw a reply the same way, so a reply doesn't change look on reload.
+const MARKDOWN_COMPONENTS = {
+  a: CitationLink,
+  p: Paragraph,
+  h1: Heading,
+  h2: Heading,
+  h3: Heading,
+  h4: Heading,
+  h5: Heading,
+  h6: Heading,
+  table: Table,
+  th: TableHeaderCell,
+  td: TableCell,
+  ul: UnorderedList,
+  ol: OrderedList,
+  li: ListItem,
+};
+// Copy on code blocks only.
+const MARKDOWN_CONTROLS = { code: { copy: true, download: false }, table: false, mermaid: false } as const;
+// Streamdown spaces its blocks with space-y-4 on top of their own margins; our blocks set their own.
+const MARKDOWN_CLASS = "space-y-0";
 
 export function StreamingText({ text: rawText, animate, onDone }: { text: string; animate: boolean; onDone?: () => void }) {
   const text = useRef(stripFileLinks(rawText)).current;
@@ -251,22 +282,9 @@ export function StreamingText({ text: rawText, animate, onDone }: { text: string
     return (
       <Streamdown
         mode="static"
-        controls={false}
-        components={{
-          a: CitationLink,
-          p: Paragraph,
-          h1: Heading,
-          h2: Heading,
-          h3: Heading,
-          h4: Heading,
-          h5: Heading,
-          h6: Heading,
-          table: Table,
-          th: TableHeaderCell,
-          td: TableCell,
-          ul: UnorderedList,
-          ol: OrderedList,
-        }}
+        className={MARKDOWN_CLASS}
+        controls={MARKDOWN_CONTROLS}
+        components={MARKDOWN_COMPONENTS}
       >
         {text}
       </Streamdown>
@@ -291,21 +309,9 @@ export function StreamingText({ text: rawText, animate, onDone }: { text: string
     <Streamdown
       mode="streaming"
       animated={false}
-      controls={false}
-      components={{
-        a: CitationLink,
-        h1: Heading,
-        h2: Heading,
-        h3: Heading,
-        h4: Heading,
-        h5: Heading,
-        h6: Heading,
-        table: Table,
-        th: TableHeaderCell,
-        td: TableCell,
-        ul: UnorderedList,
-        ol: OrderedList,
-      }}
+      className={MARKDOWN_CLASS}
+      controls={MARKDOWN_CONTROLS}
+      components={MARKDOWN_COMPONENTS}
     >
       {revealed}
     </Streamdown>
