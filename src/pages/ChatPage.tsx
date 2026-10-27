@@ -2787,7 +2787,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             at all -- scrollToBottomIfNear (this file, called from pushRow)
             and the replay_complete handler's own scrollTop = scrollHeight
             already handle it in JS, the exact same pattern dray uses. */}
-        <div ref={chatContentRef} className="t-chat-width mx-auto flex w-full flex-1 flex-col gap-3 pt-16 pb-3 [&_p]:font-[inherit] [&_p]:tracking-[inherit]" style={{ maxWidth: "var(--chat-max-width)" }}>
+        <div ref={chatContentRef} className="t-chat-width mx-auto flex w-full flex-1 flex-col gap-3 pt-16 pb-3" style={{ maxWidth: "var(--chat-max-width)" }}>
           {/* t-row-in -- per explicit request ("coming in very quickly, is there a
               transition like fade in"): every LIVE row mounting (human, agent, tool,
               reasoning, marker, command, permission alike) fades/slides in once,
