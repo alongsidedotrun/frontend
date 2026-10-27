@@ -1,4 +1,4 @@
-import { useState, type ComponentType, type ReactNode } from "react";
+import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
@@ -237,15 +237,49 @@ export function SidebarSections({ sections, activeItemId, onItemSelect, expanded
 const REVEAL = { type: "spring" as const, duration: 0.26, bounce: 0 };
 const REVEAL_EXIT = { duration: 0.18, ease: [0.4, 0, 0.2, 1] as const };
 
+const SMOOTH_FRAME_MS = 34;
+const SETTLE_MAX_MS = 800;
+
+/** True once two frames in a row have come quickly (the page isn't busy), or after SETTLE_MAX_MS. */
+function useSmoothFrames() {
+  const [smooth, setSmooth] = useState(false);
+  useEffect(() => {
+    let frame = 0;
+    let last = performance.now();
+    let quick = 0;
+    const started = last;
+    const tick = (now: number) => {
+      quick = now - last < SMOOTH_FRAME_MS ? quick + 1 : 0;
+      last = now;
+      if (quick >= 2 || now - started > SETTLE_MAX_MS) {
+        setSmooth(true);
+        return;
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  return smooth;
+}
+
 /** Grows a row (or a project's drawer) open from zero height while fading
  *  it in, and the reverse on the way out. Clipping is only on while moving,
  *  so focus rings aren't cut off at rest. */
 function RowReveal({ children, gap = true }: { children: ReactNode; gap?: boolean }) {
   const reduceMotion = useReducedMotion();
+  // A row usually arrives while the page is busy (a new chat or bot opening): frames 100-400ms apart, so
+  // an animation started then jumps to its end. It waits, closed, until frames run smoothly again (at
+  // most SETTLE_MAX_MS), then opens. A row already there when the list first shows doesn't animate.
+  const settled = useSmoothFrames();
   return (
     <motion.div
       initial={{ height: 0, opacity: 0, overflow: "hidden" }}
-      animate={{ height: "auto", opacity: 1, transition: reduceMotion ? { duration: 0 } : REVEAL, transitionEnd: { overflow: "visible" } }}
+      animate={
+        settled || reduceMotion
+          ? { height: "auto", opacity: 1, transition: reduceMotion ? { duration: 0 } : REVEAL, transitionEnd: { overflow: "visible" } }
+          : { height: 0, opacity: 0, overflow: "hidden" }
+      }
       exit={{ height: 0, opacity: 0, overflow: "hidden", transition: reduceMotion ? { duration: 0 } : REVEAL_EXIT }}
       className={cn("flex flex-col", gap && "pt-[var(--redesign-quick-actions-row-gap)]")}
     >
