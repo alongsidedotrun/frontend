@@ -3713,7 +3713,10 @@ function ChatRowView({
               className="size-4"
             />
             <span className="text-[length:var(--redesign-chat-meta)] text-foreground">{bot.name}</span>
-            <span className="text-[length:var(--redesign-chat-meta)] text-muted-foreground">· {row.modelLabel}</span>
+            {/* The model that answered for it, with its provider's mark, as any reply shows. */}
+            <span className="text-[length:var(--redesign-chat-meta)] text-muted-foreground">·</span>
+            {row.model.value !== AUTO_BOT_MODEL.value && <ProviderIcon model={row.model} className="size-3.5" />}
+            <span className="text-[length:var(--redesign-chat-meta)] text-muted-foreground">{row.modelLabel}</span>
           </>
         ) : (
           <>
