@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -5,7 +6,7 @@ import { describe, expect, it } from "vitest";
 // Transitions run at the tiers in lib/springs.ts, so a hover or a fade feels the same everywhere.
 // 280ms is the sidebar collapse (in step with its width), 500/700ms are whole-screen scene changes.
 const TIERS = new Set(["0", "80", "160", "240", "[280ms]", "360", "400", "500", "700"]);
-const ROOT = join(__dirname);
+const ROOT = __dirname;
 const DURATION = /\bduration-(\[[^\]]+\]|[0-9]+)(?![\w[])/g;
 
 function sourceFiles(dir: string): string[] {
