@@ -1933,7 +1933,7 @@ export function AppLayout() {
           // primary sidebar sit outside this boundary and never fade.
           <div
             aria-hidden="true"
-            className={`pointer-events-none absolute inset-0 z-[210] bg-background transition-opacity duration-300 ease-in-out ${navigationCurtainVisible ? "opacity-100" : "opacity-0"}`}
+            className={`pointer-events-none absolute inset-0 z-[210] bg-background transition-opacity duration-240 ease-in-out ${navigationCurtainVisible ? "opacity-100" : "opacity-0"}`}
           />
         )}
         {showWorkspaceChildren && <>

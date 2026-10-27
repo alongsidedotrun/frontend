@@ -243,7 +243,7 @@ function ValueDisplay({
   return (
     <span
       className={cn(
-        "inline-grid shrink-0 text-ui leading-none text-muted-foreground transition-[font-variation-settings] duration-100",
+        "inline-grid shrink-0 text-ui leading-none text-muted-foreground transition-[font-variation-settings] duration-80",
         "tabular-nums"
       )}
       style={{

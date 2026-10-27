@@ -135,7 +135,7 @@ export function GettingStartedSummary({
         </button>
       )}
       </div>
-      <div className={cn("grid transition-[grid-template-rows,opacity] duration-200 ease-out", expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")}>
+      <div className={cn("grid transition-[grid-template-rows,opacity] duration-160 ease-out", expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")}>
         <div className="-mx-[var(--redesign-sidebar-footer-task-hover-bleed)] min-h-0 w-[calc(100%+2*var(--redesign-sidebar-footer-task-hover-bleed))] overflow-hidden px-[var(--redesign-sidebar-footer-task-hover-bleed)]">
           <div className="flex flex-col gap-1.5 pt-1.5">
             {steps.map((step) =>

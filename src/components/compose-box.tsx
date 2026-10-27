@@ -63,7 +63,7 @@ const CONNECT_PROVIDER_ICONS = [
   { src: "/icons/providers/gemini.svg" },
   { src: "/icons/providers/grok.svg", invertInDark: true },
 ];
-const appIconTileClass = "flex size-6 shrink-0 items-center justify-center rounded-[calc(24px*8/27)] border border-border bg-white shadow-[0_1px_2px_rgb(0_0_0_/_0.06)] transition-[background-color,border-color,box-shadow,translate] duration-150 hover:-translate-y-px hover:border-foreground/30 hover:bg-hover-2 hover:shadow-[0_2px_5px_rgb(0_0_0_/_0.12)] dark:bg-[#242424] dark:hover:bg-[#343434]";
+const appIconTileClass = "flex size-6 shrink-0 items-center justify-center rounded-[calc(24px*8/27)] border border-border bg-white shadow-[0_1px_2px_rgb(0_0_0_/_0.06)] transition-[background-color,border-color,box-shadow,translate] duration-160 hover:-translate-y-px hover:border-foreground/30 hover:bg-hover-2 hover:shadow-[0_2px_5px_rgb(0_0_0_/_0.12)] dark:bg-[#242424] dark:hover:bg-[#343434]";
 
 type SpeechRecognitionLike = {
   start: () => void;
@@ -566,7 +566,7 @@ function ContextDropdown({
           <button
             type="button"
             aria-label={t("compose.context.ariaLabel", { used: compactTokenCount(used) })}
-            className={`flex shrink-0 items-center gap-1 rounded-full px-1 text-ui-xs text-ink-3 transition-opacity duration-300 hover:text-foreground focus:outline-none ${mounted ? "opacity-100" : "opacity-0"}`}
+            className={`flex shrink-0 items-center gap-1 rounded-full px-1 text-ui-xs text-ink-3 transition-opacity duration-240 hover:text-foreground focus:outline-none ${mounted ? "opacity-100" : "opacity-0"}`}
           >
             <ContextRing
               fraction={used / (compactThreshold * Math.max(1, modelCount))}
@@ -1868,7 +1868,7 @@ export function ComposeBox({
           void addImageFiles(event.dataTransfer.files);
         }}
         className={cn(
-          "relative z-10 flex flex-col rounded-[var(--compose-shell-radius)] border border-border bg-background px-2 pt-2 pb-[7px] transition-[min-height,padding,border-color] duration-200 [contain:layout_style] @[420px]:px-3 @[420px]:pt-3 @[420px]:pb-1.5",
+          "relative z-10 flex flex-col rounded-[var(--compose-shell-radius)] border border-border bg-background px-2 pt-2 pb-[7px] transition-[min-height,padding,border-color] duration-160 [contain:layout_style] @[420px]:px-3 @[420px]:pt-3 @[420px]:pb-1.5",
           initialHeight && "min-h-[120px] justify-between",
           dragActive && "border-ring",
           // border-focus-accent -- matches the sidebar/inbox search inputs'
@@ -1944,7 +1944,7 @@ export function ComposeBox({
             // center line the real Textarea (below) and the mic/send
             // buttons share.
             <div
-              className={`pointer-events-none absolute inset-0 flex items-center px-1 text-chat transition-opacity duration-300 ${value || textareaFocused ? "opacity-0" : "opacity-100"}`}
+              className={`pointer-events-none absolute inset-0 flex items-center px-1 text-chat transition-opacity duration-240 ${value || textareaFocused ? "opacity-0" : "opacity-100"}`}
             >
               <AnimatedPlaceholder messages={[placeholder, ...placeholderCycle]} />
             </div>
@@ -2046,7 +2046,7 @@ export function ComposeBox({
           // height then add a scrollbar"), replacing the old flat max-h-40
           // (160px, unrelated to viewport size) with a real percentage cap;
           // the auto-grow effect above measures/sets height against this
-          // exact same 40vh value. transition-[height] duration-150, not a
+          // exact same 40vh value. transition-[height] duration-160, not a
           // plain height jump -- per explicit request ("should smoothly
           // increase the height").
           // [field-sizing:fixed] overrides ui/textarea.tsx's own base
@@ -2057,7 +2057,7 @@ export function ComposeBox({
           // practice. Fixed instead, so the JS effect above (which works
           // identically everywhere) is the one real mechanism, not competing
           // with a native behavior that may or may not be applying.
-          className="max-h-[40vh] min-h-0 resize-none overflow-y-auto border-none bg-transparent px-1 py-1 text-chat font-normal shadow-none transition-[height] duration-150 ease-out [field-sizing:fixed] placeholder:text-ink-3 placeholder:opacity-100 placeholder:transition-opacity placeholder:duration-200 focus:placeholder:opacity-0 dark:bg-transparent"
+          className="max-h-[40vh] min-h-0 resize-none overflow-y-auto border-none bg-transparent px-1 py-1 text-chat font-normal shadow-none transition-[height] duration-160 ease-out [field-sizing:fixed] placeholder:text-ink-3 placeholder:opacity-100 placeholder:transition-opacity placeholder:duration-160 focus:placeholder:opacity-0 dark:bg-transparent"
         />
         {sentGhost && (
           // Same Textarea and classes as the real one, so the text sits
@@ -2173,7 +2173,7 @@ export function ComposeBox({
                   <span className="shrink-0">{t("compose.skills")}</span>
                   <span className="min-w-0 truncate text-ui-sm text-ink-3">{t("compose.skillsDescription")}</span>
                 </span>
-                <ChevronDownIcon aria-hidden="true" className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform duration-150", skillsOpen && "rotate-180")} />
+                <ChevronDownIcon aria-hidden="true" className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform duration-160", skillsOpen && "rotate-180")} />
               </DropdownSubItem>
               {/* Slides open under the row (height and fade), not a snap. */}
               <AnimatePresence initial={false}>
@@ -2209,7 +2209,7 @@ export function ComposeBox({
                     <span className="shrink-0">{t("compose.agents")}</span>
                     <span className="min-w-0 truncate text-ui-sm text-ink-3">{t("compose.agentsDescription")}</span>
                   </span>
-                  <ChevronDownIcon aria-hidden="true" className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform duration-150", agentsOpen && "rotate-180")} />
+                  <ChevronDownIcon aria-hidden="true" className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform duration-160", agentsOpen && "rotate-180")} />
                 </DropdownSubItem>
               )}
               <AnimatePresence initial={false}>
@@ -2284,7 +2284,7 @@ export function ComposeBox({
             opens asking before every action rather than something more
             permissive. */}
         {hasModel && (
-        <div className={`${modeFade ? "transition-opacity duration-300" : ""} ${modeVisible ? "opacity-100" : "opacity-0"}`}>
+        <div className={`${modeFade ? "transition-opacity duration-240" : ""} ${modeVisible ? "opacity-100" : "opacity-0"}`}>
         {/* size="compact" -- matches the app's own 28px row height
             everywhere else (BaseMenuItem's own useSize() would otherwise
             default to the reference's 36px "default" step). */}
@@ -2810,7 +2810,7 @@ export function ComposeBox({
             // missing. Text without a model stays clickable: the click shakes
             // the Model picker (above) to point at it.
             className={cn(
-              "relative size-[var(--compose-action-size)] rounded-full [&_svg]:!size-[var(--compose-send-icon)] transition-colors duration-300 ease-in-out disabled:opacity-100",
+              "relative size-[var(--compose-action-size)] rounded-full [&_svg]:!size-[var(--compose-send-icon)] transition-colors duration-240 ease-in-out disabled:opacity-100",
               value.trim() && selectedModels.length > 0
                 ? "bg-[var(--send-button-bg)] hover:bg-[var(--send-button-bg-hover)] active:bg-[var(--send-button-bg-active)]"
                 : "bg-[var(--redesign-progress-track)]",

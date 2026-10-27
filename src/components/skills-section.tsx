@@ -180,7 +180,7 @@ export function SkillsSection() {
             <SearchMd
               aria-hidden="true"
               className={cn(
-                "pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground transition-opacity duration-200 ease-in-out group-focus-within/skills-search:opacity-0 motion-reduce:transition-none",
+                "pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground transition-opacity duration-160 ease-in-out group-focus-within/skills-search:opacity-0 motion-reduce:transition-none",
                 searching && "opacity-0",
               )}
             />
@@ -192,10 +192,10 @@ export function SkillsSection() {
               // Focused, typed text starts at the left edge straight away (no slide); the icon and
               // the placeholder (drawn below, in place) fade out where they are. The native
               // placeholder stays for screen readers, just not painted.
-              className="h-7 border border-border pl-8 text-chat-meta shadow-none transition-[border-color] duration-200 placeholder:text-transparent focus:pl-2.5 focus-visible:border-focus-accent dark:border-border dark:focus-visible:border-focus-accent"
+              className="h-7 border border-border pl-8 text-chat-meta shadow-none transition-[border-color] duration-160 placeholder:text-transparent focus:pl-2.5 focus-visible:border-focus-accent dark:border-border dark:focus-visible:border-focus-accent"
             />
             {!query && (
-              <span aria-hidden="true" className="pointer-events-none absolute top-1/2 left-8 -translate-y-1/2 truncate text-chat-meta text-muted-foreground transition-opacity duration-200 ease-in-out group-focus-within/skills-search:opacity-0 motion-reduce:transition-none">
+              <span aria-hidden="true" className="pointer-events-none absolute top-1/2 left-8 -translate-y-1/2 truncate text-chat-meta text-muted-foreground transition-opacity duration-160 ease-in-out group-focus-within/skills-search:opacity-0 motion-reduce:transition-none">
                 {t("skills.search")}
               </span>
             )}
@@ -248,7 +248,7 @@ export function SkillsSection() {
               ) : (
                 <SkeletonReveal loading={shownResults === "loading" || !shownResults || (searching && shownResults.length === 0)} skeleton={<SkeletonGrid count={6} />}>
                   {Array.isArray(shownResults) && (
-                    <div className={cn("transition-opacity duration-150", searching && "opacity-70")}>
+                    <div className={cn("transition-opacity duration-160", searching && "opacity-70")}>
                       <SkillGrid>{sortSkills(shownResults, sort).map(remoteCard)}</SkillGrid>
                     </div>
                   )}

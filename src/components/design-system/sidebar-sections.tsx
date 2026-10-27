@@ -134,7 +134,7 @@ export function SidebarSections({ sections, activeItemId, onItemSelect, expanded
                   className={cn(
                     "ml-auto flex size-[var(--redesign-quick-actions-icon-size)] items-center justify-center rounded-[var(--redesign-dropdown-row-radius)] text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     // A drawer's + only while its heading is hovered (or reached with the keyboard).
-                    section.collapsible && "opacity-0 transition-opacity duration-150 group-hover/section-header:opacity-100 focus-visible:opacity-100",
+                    section.collapsible && "opacity-0 transition-opacity duration-160 group-hover/section-header:opacity-100 focus-visible:opacity-100",
                     PRESS_EFFECT,
                     ICON_PRESS,
                   )}
@@ -161,7 +161,7 @@ export function SidebarSections({ sections, activeItemId, onItemSelect, expanded
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   className={cn(
-                    "size-3.5 transform-gpu transition-[opacity,scale,rotate] duration-150 ease-out hover:opacity-70 active:scale-[0.9] motion-reduce:transition-none",
+                    "size-3.5 transform-gpu transition-[opacity,scale,rotate] duration-160 ease-out hover:opacity-70 active:scale-[0.9] motion-reduce:transition-none",
                     openSections.has(section.id) && "rotate-90",
                   )}
                 >
@@ -329,7 +329,7 @@ function SidebarRow({
       // The cog's press feedback: fades on hover, dips when pressed (on it or
       // anywhere on the row, since the whole row toggles).
       className={cn(
-        "ml-auto size-3.5 shrink-0 text-muted-foreground transform-gpu transition-[opacity,scale,rotate] duration-150 ease-out hover:opacity-70 active:scale-[0.9] group-active/row-button:scale-[0.9] motion-reduce:transition-none motion-reduce:active:scale-100",
+        "ml-auto size-3.5 shrink-0 text-muted-foreground transform-gpu transition-[opacity,scale,rotate] duration-160 ease-out hover:opacity-70 active:scale-[0.9] group-active/row-button:scale-[0.9] motion-reduce:transition-none motion-reduce:active:scale-100",
         expanded && "rotate-90",
       )}
     >
@@ -396,7 +396,7 @@ function SidebarRow({
               (PRESS_EFFECT, like the cog) doesn't fight it. */}
           <div
             className={cn(
-              "absolute top-1/2 flex -translate-y-1/2 transition-opacity duration-150",
+              "absolute top-1/2 flex -translate-y-1/2 transition-opacity duration-160",
               // Past the chevron (14px) and a small gap, or at the edge when there's none.
               menuBeforeChevron ? "right-[calc(var(--redesign-quick-actions-padding)+18px)]" : "right-1.5",
               menuOpen ? "opacity-100" : "opacity-0 group-hover/sidebar-row:opacity-100 group-has-[:focus-visible]/sidebar-row:opacity-100",

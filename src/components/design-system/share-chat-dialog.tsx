@@ -402,7 +402,7 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
 }
 
 // A tab's page: both share one grid cell and cross-fade when switching.
-const PAGE_CLASS = "col-start-1 row-start-1 flex min-w-0 flex-col gap-3 transition-opacity duration-200 ease-out";
+const PAGE_CLASS = "col-start-1 row-start-1 flex min-w-0 flex-col gap-3 transition-opacity duration-160 ease-out";
 
 // A notch under the compact tabs: 22px, 12px text.
 

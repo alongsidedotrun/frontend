@@ -399,7 +399,7 @@ function SidebarSearch({
         // *width*, matching SIDEBAR_COLLAPSED_ROW_WIDTH like every other
         // collapsed row's own width does; only the height was ever the
         // mismatch.
-        className="mx-2 flex h-7 w-8 shrink-0 transform-gpu items-center justify-center rounded-[var(--row-radius)] text-foreground transition-[opacity,background-color,color] duration-150 hover:bg-hover-2/50 active:scale-[0.98]"
+        className="mx-2 flex h-7 w-8 shrink-0 transform-gpu items-center justify-center rounded-[var(--row-radius)] text-foreground transition-[opacity,background-color,color] duration-160 hover:bg-hover-2/50 active:scale-[0.98]"
       >
         <SearchIcon className="size-[14px]" />
       </button>
@@ -510,7 +510,7 @@ function SidebarSearch({
         // placeholder:text-foreground too now, not text-muted-foreground --
         // per explicit follow-up ("the search and command f should be
         // updated to the new color").
-        className="h-7 rounded-[var(--row-radius-sm)] border-0 bg-transparent pl-[30px] text-xs font-normal text-foreground placeholder:text-foreground placeholder:opacity-100 placeholder:transition-opacity placeholder:duration-200 focus:placeholder:opacity-0 focus-visible:border-0 md:text-xs"
+        className="h-7 rounded-[var(--row-radius-sm)] border-0 bg-transparent pl-[30px] text-xs font-normal text-foreground placeholder:text-foreground placeholder:opacity-100 placeholder:transition-opacity placeholder:duration-160 focus:placeholder:opacity-0 focus-visible:border-0 md:text-xs"
       />
       {/* left-[9px], not left-1.5 -- matches RailButton's own icon
           *visible* left edge exactly, recomputed for its own current
@@ -768,7 +768,7 @@ function ProjectRow({
       onMouseEnter={positionFixedTooltip}
       onFocus={positionFixedTooltip}
     >
-      <span className="t-tt-trigger relative z-10 flex h-7 w-full transform-gpu items-center rounded-[var(--row-radius)] px-2 pr-12 text-left transition-[background-color,color,transform] duration-150 select-none">
+      <span className="t-tt-trigger relative z-10 flex h-7 w-full transform-gpu items-center rounded-[var(--row-radius)] px-2 pr-12 text-left transition-[background-color,color,transform] duration-160 select-none">
         {editing ? (
           <Input
             autoFocus
@@ -1137,7 +1137,7 @@ function ChatRow({
         type="button"
         aria-describedby={`recent-tt-${item.id}`}
         onClick={onSelect}
-        className={`t-tt-trigger relative z-10 flex h-7 w-full transform-gpu items-center rounded-[var(--row-radius)] px-2 pr-7 text-left transition-[background-color,color,transform] duration-150 select-none active:scale-[0.98] ${active ? "bg-accent" : ""}`}
+        className={`t-tt-trigger relative z-10 flex h-7 w-full transform-gpu items-center rounded-[var(--row-radius)] px-2 pr-7 text-left transition-[background-color,color,transform] duration-160 select-none active:scale-[0.98] ${active ? "bg-accent" : ""}`}
       >
         {/* text-foreground always now, not muted while inactive -- per
             explicit request ("our entire sidebar font color items apart
@@ -2161,7 +2161,7 @@ export default function SidebarNav({
             type="button"
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             onClick={() => toggleCollapsed(!collapsed)}
-            className={`${hideTopBar ? "ml-auto" : collapsed ? "ml-1" : "ml-auto"} flex size-7 shrink-0 transform-gpu items-center justify-center rounded-[6px] text-foreground transition-[background-color,color] duration-150 hover:bg-hover-2/50 active:scale-[0.98]`}
+            className={`${hideTopBar ? "ml-auto" : collapsed ? "ml-1" : "ml-auto"} flex size-7 shrink-0 transform-gpu items-center justify-center rounded-[6px] text-foreground transition-[background-color,color] duration-160 hover:bg-hover-2/50 active:scale-[0.98]`}
           >
             <SidebarLeftIcon className="size-[14px]" />
           </button>
@@ -2200,7 +2200,7 @@ export default function SidebarNav({
               aria-label={t("nav.goBack.ariaLabel")}
               disabled={!canGoBack}
               onClick={goBack}
-              className="flex size-5 shrink-0 transform-gpu items-center justify-center rounded-[6px] text-foreground transition-[background-color,color] duration-150 hover:bg-hover-2/50 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-30"
+              className="flex size-5 shrink-0 transform-gpu items-center justify-center rounded-[6px] text-foreground transition-[background-color,color] duration-160 hover:bg-hover-2/50 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-30"
             >
               <ChevronLeftIcon className="size-[14px]" />
             </button>
@@ -2209,7 +2209,7 @@ export default function SidebarNav({
               aria-label={t("nav.goForward.ariaLabel")}
               disabled={!canGoForward}
               onClick={goForward}
-              className="flex size-5 shrink-0 transform-gpu items-center justify-center rounded-[6px] text-foreground transition-[background-color,color] duration-150 hover:bg-hover-2/50 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-30"
+              className="flex size-5 shrink-0 transform-gpu items-center justify-center rounded-[6px] text-foreground transition-[background-color,color] duration-160 hover:bg-hover-2/50 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-30"
             >
               <ChevronRightIcon className="size-[14px]" />
             </button>
@@ -2506,7 +2506,7 @@ export default function SidebarNav({
                       // icon and not active by default"): only reveal on hover of
                       // the row (group-hover), not sitting there dimmed-but-visible
                       // at rest. Full strength on the button's own direct hover.
-                      className="flex size-4 shrink-0 items-center justify-center rounded-[4px] text-foreground opacity-0 transition-[color,opacity] duration-150 group-hover:opacity-50 hover:text-ink hover:opacity-100"
+                      className="flex size-4 shrink-0 items-center justify-center rounded-[4px] text-foreground opacity-0 transition-[color,opacity] duration-160 group-hover:opacity-50 hover:text-ink hover:opacity-100"
                     >
                       <PlusIcon className="size-[12px]" />
                     </button>
@@ -2683,7 +2683,7 @@ export default function SidebarNav({
                     type="button"
                     aria-label={t("common.newChat")}
                     onClick={() => navigateAndClose(() => onNewChat?.())}
-                    className="flex size-4 shrink-0 items-center justify-center rounded-[4px] text-foreground opacity-0 transition-[color,opacity] duration-150 group-hover:opacity-50 hover:text-ink hover:opacity-100"
+                    className="flex size-4 shrink-0 items-center justify-center rounded-[4px] text-foreground opacity-0 transition-[color,opacity] duration-160 group-hover:opacity-50 hover:text-ink hover:opacity-100"
                   >
                     <PlusIcon className="size-[12px]" />
                   </button>
@@ -2825,7 +2825,7 @@ export default function SidebarNav({
                   // instant snap to an eased, clearly-animated slide).
                   // transition-[background-color] alone is enough now that
                   // transform isn't part of what's being transitioned.
-                  className="flex h-7 flex-1 min-w-0 shrink-0 transform-gpu items-center gap-2 rounded-[var(--row-radius)] px-1.5 text-left transition-[background-color] duration-150 hover:bg-hover-2/50"
+                  className="flex h-7 flex-1 min-w-0 shrink-0 transform-gpu items-center gap-2 rounded-[var(--row-radius)] px-1.5 text-left transition-[background-color] duration-160 hover:bg-hover-2/50"
                 >
                   {/* DefaultAvatar (ui/avatar.tsx), not a hand-rolled flat
                       black/white badge -- real bug, confirmed directly
@@ -2956,7 +2956,7 @@ export default function SidebarNav({
                     // just moved to text-foreground (this file's own
                     // comment on that fix), leaving this one the sole
                     // remaining muted holdout.
-                    className="flex h-7 w-7 shrink-0 transform-gpu items-center justify-center rounded-[var(--row-radius)] text-foreground transition-colors duration-150 hover:text-ink data-[popup-open]:text-ink"
+                    className="flex h-7 w-7 shrink-0 transform-gpu items-center justify-center rounded-[var(--row-radius)] text-foreground transition-colors duration-160 hover:text-ink data-[popup-open]:text-ink"
                   >
                     {/* Default strokeWidth (2), same as every other icon
                         here -- the earlier 2.5 override (tried first for a

@@ -172,17 +172,17 @@ function ConnectionToolbar({
           <div className="group/connection-search relative w-48 min-w-0">
             <SearchMd
               aria-hidden="true"
-              className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground transition-opacity duration-200 ease-in-out group-focus-within/connection-search:opacity-0 motion-reduce:transition-none"
+              className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground transition-opacity duration-160 ease-in-out group-focus-within/connection-search:opacity-0 motion-reduce:transition-none"
             />
             <Input
               value={query}
               onChange={(event) => onQuery(event.target.value)}
               placeholder={searchLabel}
               aria-label={searchLabel}
-              className="h-7 border border-border pl-8 text-chat-meta shadow-none transition-[border-color] duration-200 placeholder:text-transparent focus:pl-2.5 focus-visible:border-focus-accent dark:border-border dark:focus-visible:border-focus-accent"
+              className="h-7 border border-border pl-8 text-chat-meta shadow-none transition-[border-color] duration-160 placeholder:text-transparent focus:pl-2.5 focus-visible:border-focus-accent dark:border-border dark:focus-visible:border-focus-accent"
             />
             {!query && (
-              <span aria-hidden="true" className="pointer-events-none absolute top-1/2 left-8 -translate-y-1/2 truncate text-chat-meta text-muted-foreground transition-opacity duration-200 ease-in-out group-focus-within/connection-search:opacity-0 motion-reduce:transition-none">
+              <span aria-hidden="true" className="pointer-events-none absolute top-1/2 left-8 -translate-y-1/2 truncate text-chat-meta text-muted-foreground transition-opacity duration-160 ease-in-out group-focus-within/connection-search:opacity-0 motion-reduce:transition-none">
                 {searchLabel}
               </span>
             )}
@@ -755,7 +755,7 @@ function ConnectionBadge({ state }: { state: ConnectionState | undefined }) {
         : "rounded-full px-2 py-0.5 text-ui-2xs font-medium bg-muted/50 text-muted-foreground";
 
   return (
-    <span className={`shrink-0 transition-opacity duration-150 ${tone} ${visible ? "opacity-100" : "opacity-0"}`}>
+    <span className={`shrink-0 transition-opacity duration-160 ${tone} ${visible ? "opacity-100" : "opacity-0"}`}>
       <ErrorText message={label} />
     </span>
   );
@@ -2355,7 +2355,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
           <div className="group/settings-search relative mb-[var(--redesign-quick-actions-gap)] h-[var(--redesign-quick-actions-trigger-height)] w-full">
             <span
               aria-hidden
-              className="pointer-events-none absolute top-1/2 left-[var(--redesign-quick-actions-padding)] z-10 flex -translate-y-1/2 items-center gap-[var(--redesign-quick-actions-shortcut-gap)] text-chat text-muted-foreground transition-opacity duration-200 group-focus-within/settings-search:opacity-0"
+              className="pointer-events-none absolute top-1/2 left-[var(--redesign-quick-actions-padding)] z-10 flex -translate-y-1/2 items-center gap-[var(--redesign-quick-actions-shortcut-gap)] text-chat text-muted-foreground transition-opacity duration-160 group-focus-within/settings-search:opacity-0"
             >
               <Command strokeWidth={2} className="size-[var(--redesign-quick-actions-command-icon-size)]" />
               <span>F</span>
@@ -2372,14 +2372,14 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
                 }
               }}
               placeholder={t("settings.search.placeholder")}
-              className="h-full rounded-[var(--redesign-control-radius)] border-[var(--redesign-sidebar-border)] bg-transparent pr-[var(--redesign-quick-actions-padding)] pl-[calc(var(--redesign-quick-actions-padding)+var(--redesign-quick-actions-command-icon-size)+var(--redesign-quick-actions-shortcut-gap)+0.5rem+var(--redesign-quick-actions-icon-gap))] text-chat font-normal text-foreground hover:bg-muted/50 transition-[border-color,background-color] duration-200 placeholder:text-transparent focus:pl-[var(--redesign-quick-actions-padding)] focus-visible:border-focus-accent md:text-chat"
+              className="h-full rounded-[var(--redesign-control-radius)] border-[var(--redesign-sidebar-border)] bg-transparent pr-[var(--redesign-quick-actions-padding)] pl-[calc(var(--redesign-quick-actions-padding)+var(--redesign-quick-actions-command-icon-size)+var(--redesign-quick-actions-shortcut-gap)+0.5rem+var(--redesign-quick-actions-icon-gap))] text-chat font-normal text-foreground hover:bg-muted/50 transition-[border-color,background-color] duration-160 placeholder:text-transparent focus:pl-[var(--redesign-quick-actions-padding)] focus-visible:border-focus-accent md:text-chat"
             />
             {/* The placeholder, drawn in place so it fades out where it is (with the ⌘F hint) while
                 typed text starts at the left straight away. */}
             {!query && (
               <span
                 aria-hidden
-                className="pointer-events-none absolute top-1/2 left-[calc(var(--redesign-quick-actions-padding)+var(--redesign-quick-actions-command-icon-size)+var(--redesign-quick-actions-shortcut-gap)+0.5rem+var(--redesign-quick-actions-icon-gap))] -translate-y-1/2 truncate text-chat text-muted-foreground transition-opacity duration-200 ease-in-out group-focus-within/settings-search:opacity-0 motion-reduce:transition-none"
+                className="pointer-events-none absolute top-1/2 left-[calc(var(--redesign-quick-actions-padding)+var(--redesign-quick-actions-command-icon-size)+var(--redesign-quick-actions-shortcut-gap)+0.5rem+var(--redesign-quick-actions-icon-gap))] -translate-y-1/2 truncate text-chat text-muted-foreground transition-opacity duration-160 ease-in-out group-focus-within/settings-search:opacity-0 motion-reduce:transition-none"
               >
                 {t("settings.search.placeholder")}
               </span>
@@ -2575,7 +2575,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
               }
             }}
             placeholder={t("settings.search.placeholder")}
-            className="h-7 rounded-[var(--row-radius-sm)] border border-border bg-transparent pl-[30px] text-xs font-normal text-foreground placeholder:text-foreground placeholder:opacity-100 placeholder:transition-opacity placeholder:duration-200 focus:placeholder:opacity-0 focus-visible:border-focus-accent md:text-xs"
+            className="h-7 rounded-[var(--row-radius-sm)] border border-border bg-transparent pl-[30px] text-xs font-normal text-foreground placeholder:text-foreground placeholder:opacity-100 placeholder:transition-opacity placeholder:duration-160 focus:placeholder:opacity-0 focus-visible:border-focus-accent md:text-xs"
           />
           {!query && (
             <span
@@ -2721,7 +2721,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
                   ref={accountTriggerRef}
                   type="button"
                   aria-label={t("nav.account.ariaLabel")}
-                  className="flex h-7 flex-1 min-w-0 shrink-0 transform-gpu items-center gap-2 rounded-[var(--row-radius)] px-1.5 text-left transition-[background-color] duration-150 hover:bg-hover-2/50"
+                  className="flex h-7 flex-1 min-w-0 shrink-0 transform-gpu items-center gap-2 rounded-[var(--row-radius)] px-1.5 text-left transition-[background-color] duration-160 hover:bg-hover-2/50"
                 >
                   {/* DefaultAvatar (ui/avatar.tsx), not a hand-rolled flat
                       black/white badge -- same fix as sidebar-nav.tsx's own
@@ -2785,7 +2785,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
                   // text-foreground -- same fix as sidebar-nav.tsx's own
                   // identical Help trigger (that one's own comment has the
                   // full reasoning).
-                  className="flex h-7 w-7 shrink-0 transform-gpu items-center justify-center rounded-[var(--row-radius)] text-foreground transition-colors duration-150 hover:text-ink data-[popup-open]:text-ink"
+                  className="flex h-7 w-7 shrink-0 transform-gpu items-center justify-center rounded-[var(--row-radius)] text-foreground transition-colors duration-160 hover:text-ink data-[popup-open]:text-ink"
                 >
                   {/* Default strokeWidth -- same fix as sidebar-nav.tsx's
                       own identical Help trigger (that one's own comment

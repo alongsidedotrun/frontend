@@ -2713,7 +2713,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                 className="h-5 w-44 rounded-sm border border-border bg-transparent px-1 text-ui-sm font-normal text-foreground outline-none focus:border-ring"
               />
             ) : (
-              <h1 className="max-w-56 truncate text-ui-sm font-normal text-muted-foreground/60 transition-colors duration-150 group-hover/chat-context:text-foreground group-focus-within/chat-context:text-foreground">
+              <h1 className="max-w-56 truncate text-ui-sm font-normal text-muted-foreground/60 transition-colors duration-160 group-hover/chat-context:text-foreground group-focus-within/chat-context:text-foreground">
                 {contextLabel}
               </h1>
             )}
@@ -2899,7 +2899,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               : !historicalRowsRevealed
                 ? "opacity-0"
                 : viewportVisibleRowIds.has(row.id)
-                  ? "opacity-100 transition-opacity duration-200"
+                  ? "opacity-100 transition-opacity duration-160"
                   : "opacity-100";
             // index > (not >=) -- confirmed directly as a real bug ("The
             // cancel button is not working"): the edited row itself is
@@ -3430,7 +3430,7 @@ function ChatRowView({
             max-w-[85%]) and the margin push is a plain, unambiguous CSS
             mechanism that doesn't depend on flex cross-axis sizing at all. */}
         <div
-          className={`flex w-fit max-w-[85%] items-center gap-2.5 transition-[max-width] duration-200 ${isSelf ? "ml-auto" : "mr-auto"}`}
+          className={`flex w-fit max-w-[85%] items-center gap-2.5 transition-[max-width] duration-160 ${isSelf ? "ml-auto" : "mr-auto"}`}
         >
           {/* --redesign-chat-text leading-relaxed -- matches the agent reply's own text exactly
               (the block below this one's own comment has the same values), was text-sm
@@ -3570,7 +3570,7 @@ function ChatRowView({
                     <button
                       type="button"
                       onClick={onCancelEdit}
-                      className="flex size-5 items-center justify-center rounded-md text-muted-foreground outline-hidden transition-transform duration-100 ease-out hover:bg-hover-2/50 hover:text-foreground active:scale-[0.97]"
+                      className="flex size-5 items-center justify-center rounded-md text-muted-foreground outline-hidden transition-transform duration-80 ease-out hover:bg-hover-2/50 hover:text-foreground active:scale-[0.97]"
                     >
                       <XIcon className="size-3" />
                     </button>
@@ -3588,7 +3588,7 @@ function ChatRowView({
                       <button
                         type="button"
                         onClick={() => onResendMessage(row)}
-                        className="flex size-5 items-center justify-center rounded-md text-muted-foreground outline-hidden transition-transform duration-100 ease-out hover:bg-hover-2/50 hover:text-foreground active:scale-[0.97]"
+                        className="flex size-5 items-center justify-center rounded-md text-muted-foreground outline-hidden transition-transform duration-80 ease-out hover:bg-hover-2/50 hover:text-foreground active:scale-[0.97]"
                       >
                         <RotateCcwIcon className="size-3" />
                       </button>
@@ -3600,7 +3600,7 @@ function ChatRowView({
                       <button
                         type="button"
                         onClick={() => onEditMessage(row)}
-                        className="flex size-5 items-center justify-center rounded-md text-muted-foreground outline-hidden transition-transform duration-100 ease-out hover:bg-hover-2/50 hover:text-foreground active:scale-[0.97]"
+                        className="flex size-5 items-center justify-center rounded-md text-muted-foreground outline-hidden transition-transform duration-80 ease-out hover:bg-hover-2/50 hover:text-foreground active:scale-[0.97]"
                       >
                         <EditIcon className="size-3" />
                       </button>
@@ -3639,7 +3639,7 @@ function ChatRowView({
         {/* max-w-[95%], matching the agent row's own reply width below (not
             the human bubble's 80%) -- this is Alongside's own /share reply,
             not a human message. */}
-        <div className="max-w-[95%] px-1 text-chat whitespace-pre-wrap transition-[max-width] duration-200"><ErrorText message={row.text} /></div>
+        <div className="max-w-[95%] px-1 text-chat whitespace-pre-wrap transition-[max-width] duration-160"><ErrorText message={row.text} /></div>
         <MessageTime time={row.time} />
       </div>
     );
@@ -3740,7 +3740,7 @@ function ChatRowView({
           the human bubble used -- the two should read differently now, an
           AI reply spans nearly the full column while a human message stays
           visually distinct as a bubble. */}
-      <div className="max-w-[95%] px-1 text-chat leading-relaxed transition-[max-width] duration-200">
+      <div className="max-w-[95%] px-1 text-chat leading-relaxed transition-[max-width] duration-160">
         {/* A live run from someone else (#462) grows in place; StreamingText keeps its first text, so it's
             remounted on each update (without animation). */}
         <StreamingText key={row.relayRunId ? row.text : undefined} text={row.text} animate={row.animate} onDone={() => setActionsVisible(true)} />
@@ -4338,7 +4338,7 @@ function AgentMessageActions({
   // the human row's own Resend/Edit/Cancel buttons (ChatRowView's own
   // comment on those has the matching note).
   const iconButtonClass = (active: boolean) =>
-    `flex size-5 items-center justify-center rounded-md text-muted-foreground outline-hidden transition-transform duration-100 ease-out hover:bg-hover-2/50 hover:text-foreground active:scale-[0.97] ${active ? "bg-hover-2/50 text-foreground" : ""}`;
+    `flex size-5 items-center justify-center rounded-md text-muted-foreground outline-hidden transition-transform duration-80 ease-out hover:bg-hover-2/50 hover:text-foreground active:scale-[0.97] ${active ? "bg-hover-2/50 text-foreground" : ""}`;
 
   return (
     // Outer flex-col: the sources panel (below) is a real block sibling under
@@ -4447,7 +4447,7 @@ function AgentMessageActions({
         // guessed cap, and this drawer's real height already varies with
         // however many sources a given reply cited.
         <div
-          className={`grid transition-[grid-template-rows] duration-200 ease-out ${sourcesOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+          className={`grid transition-[grid-template-rows] duration-160 ease-out ${sourcesOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
         >
           <div className="overflow-hidden">
             {/* marginLeft measured to the Source button's own real position

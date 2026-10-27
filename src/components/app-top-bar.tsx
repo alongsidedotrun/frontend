@@ -88,7 +88,7 @@ export function AppTopBar({
               <button
                 type="button"
                 aria-label={t("settings.general.notifications")}
-                className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-hover-2/50 hover:text-foreground"
+                className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-160 hover:bg-hover-2/50 hover:text-foreground"
               >
                 <BellIcon className="size-[14px]" />
               </button>

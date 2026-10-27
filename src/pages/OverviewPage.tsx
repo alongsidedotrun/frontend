@@ -346,7 +346,7 @@ export function OverviewPage() {
                   <PopoverTrigger asChild>
                     <button type="button" className="ml-auto flex h-7 shrink-0 items-center gap-1 rounded-[var(--redesign-hover-radius)] px-1.5 text-ui-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                       <span>{laterTaskDue ? formatLaterDue(laterTaskDue, i18n.language) : t("overview.due")}</span>
-                      <ChevronDown aria-hidden="true" className={`size-3 transition-transform duration-200 ${laterDueOpen ? "rotate-180" : ""}`} />
+                      <ChevronDown aria-hidden="true" className={`size-3 transition-transform duration-160 ${laterDueOpen ? "rotate-180" : ""}`} />
                     </button>
                   </PopoverTrigger>
                   <PopoverContent align="end" sideOffset={4} className="w-auto p-0">

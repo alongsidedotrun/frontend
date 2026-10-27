@@ -363,7 +363,7 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
               a 20px icon at ~450px. Icon size rounds to even pixels so the
               brand tile stays crisp; the name truncates rather than spill. */}
           <div
-            className={`flex items-center justify-center gap-[clamp(6px,calc(4.36px+0.364cqw),8px)] overflow-hidden text-center transition-[max-height,margin,transform] duration-200 ${transitioningToChat ? "pointer-events-none invisible mb-0 max-h-0 -translate-y-2" : "mb-5 max-h-8 translate-y-0"}`}
+            className={`flex items-center justify-center gap-[clamp(6px,calc(4.36px+0.364cqw),8px)] overflow-hidden text-center transition-[max-height,margin,transform] duration-160 ${transitioningToChat ? "pointer-events-none invisible mb-0 max-h-0 -translate-y-2" : "mb-5 max-h-8 translate-y-0"}`}
           >
             <h1 className="shrink-0 text-[length:clamp(15px,calc(12.55px+0.545cqw),18px)] font-normal text-foreground">{t("home.workspacePrompt")}</h1>
             {/* The workspace's own tile: its logo, or its letter on its colour. */}
@@ -543,7 +543,7 @@ function CenteredInput({
       aria-label={label}
       maxLength={maxLength}
       className={cn(
-        "block w-full rounded-none bg-transparent px-4 text-center font-normal text-foreground outline-none placeholder:text-ink-3 placeholder:transition-opacity placeholder:duration-200 focus:placeholder:opacity-0",
+        "block w-full rounded-none bg-transparent px-4 text-center font-normal text-foreground outline-none placeholder:text-ink-3 placeholder:transition-opacity placeholder:duration-160 focus:placeholder:opacity-0",
         className,
       )}
     />

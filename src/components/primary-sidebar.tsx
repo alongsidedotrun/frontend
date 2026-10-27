@@ -45,7 +45,7 @@ function RailItem({
       type="button"
       aria-label={label}
       onClick={onClick}
-      className={`flex size-7 items-center justify-center rounded-xl text-white transition-colors duration-150 ${
+      className={`flex size-7 items-center justify-center rounded-xl text-white transition-colors duration-160 ${
         active ? "bg-hover-2/70 text-white" : "text-white hover:bg-hover-2/50"
       }`}
     >
@@ -87,7 +87,7 @@ export function PrimarySidebar({ collapsed, onOpenSettings, onNavigate }: Primar
                   type="button"
                   aria-label="Getting started"
                   onClick={() => navigateTo("/getting-started")}
-                  className={`flex size-7 shrink-0 items-center justify-center rounded-xl text-white transition-colors duration-150 hover:bg-hover-2/50 ${location.pathname === "/getting-started" ? "bg-hover-2/70" : ""}`}
+                  className={`flex size-7 shrink-0 items-center justify-center rounded-xl text-white transition-colors duration-160 hover:bg-hover-2/50 ${location.pathname === "/getting-started" ? "bg-hover-2/70" : ""}`}
                 >
                   <AlongsideLogo className="size-[14px]" />
                 </button>
@@ -116,7 +116,7 @@ export function PrimarySidebar({ collapsed, onOpenSettings, onNavigate }: Primar
               <button
                 type="button"
                 aria-label="Settings and help"
-                className={`flex size-7 items-center justify-center rounded-xl text-white transition-colors duration-150 hover:bg-hover-2/50 ${location.pathname.startsWith("/settings") ? "bg-hover-2/70" : ""}`}
+                className={`flex size-7 items-center justify-center rounded-xl text-white transition-colors duration-160 hover:bg-hover-2/50 ${location.pathname.startsWith("/settings") ? "bg-hover-2/70" : ""}`}
               >
                 <SettingsIcon className="size-[14px]" />
               </button>
