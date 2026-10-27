@@ -225,7 +225,7 @@
   --redesign-workspace-checkmark-size: 0.5rem;
   --redesign-workspace-action-icon-size: 0.875rem;
   --redesign-primary-surface: var(--background);
-  --redesign-sidebar-surface: #FAFAFA;
+  --redesign-sidebar-surface: var(--background);
   --redesign-sidebar-overlay-surface: #f8f8f8;
   /* Quick actions field and Getting Started panel: pure white on the
      #FAFAFA light sidebar, per request. Dark mode keeps their old look. */
@@ -604,8 +604,10 @@
        seeds from getCodeThemeSeed("codex", variant), not the "synara"
        theme), per explicit request ("make sure we are using the codex
        color theme from synara's... i want us to use codex color theme").
-       #ffffff is codex's light "surface" value exactly. */
-    --background: #ffffff;
+       #ffffff is codex's light "surface" value exactly. Now the sidebar's #FAFAFA, so light mode is
+       one colour across the window as dark mode is; raised things (cards, the composer, Quick actions)
+       stay white on it. */
+    --background: #FAFAFA;
     /* "Active" text -- hovered/selected menu items, headings, primary
        body text. --muted-foreground below is the resting/inactive one.
        #3d3d3d matches the reference's softer charcoal for active text
