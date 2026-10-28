@@ -78,7 +78,7 @@ export function AppTopBar({
         </button>
       </div>
       <div className="pointer-events-auto flex items-center gap-2">
-        {title && <span className={cn("max-w-56 truncate text-[length:var(--redesign-chat-text)] font-medium text-foreground", titleClassName)}>{title}</span>}
+        {title && <span className={cn("max-w-56 truncate text-chat font-medium text-foreground", titleClassName)}>{title}</span>}
         {/* Pinned to the right end: the shell positions the controls and the
             title absolutely, so nothing else here pushes this over. */}
         {actions && <div className="absolute right-3 flex items-center gap-2">{actions}</div>}
@@ -88,7 +88,7 @@ export function AppTopBar({
               <button
                 type="button"
                 aria-label={t("settings.general.notifications")}
-                className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-hover-2/50 hover:text-foreground"
+                className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-160 hover:bg-hover-2/50 hover:text-foreground"
               >
                 <BellIcon className="size-[14px]" />
               </button>

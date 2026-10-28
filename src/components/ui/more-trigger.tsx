@@ -42,7 +42,7 @@ export function moreTriggerClassName({
     // sets that attribute itself) are the two different "this trigger's own
     // popup is open" signals across this app's two different "..." popup
     // mechanisms -- both handled here so neither caller needs its own copy.
-    "flex shrink-0 items-center justify-center transition-[color,opacity] duration-150 outline-none aria-expanded:opacity-100 data-[popup-open]:opacity-100",
+    "flex shrink-0 items-center justify-center transition-[color,opacity] duration-160 outline-none aria-expanded:opacity-100 data-[popup-open]:opacity-100",
     size === "md" ? "size-7 rounded-[10px]" : "size-5 rounded-[6px]",
     // Resting color depends on autoHide, not on `bg`: a row trigger that's
     // invisible until hover (autoHide) rests at text-muted-foreground same

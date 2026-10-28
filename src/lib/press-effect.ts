@@ -8,7 +8,7 @@
 // !transition: .t-input (Model's trigger) is unlayered CSS that would
 // otherwise win over this utility; border-color kept for its error shake.
 export const PRESS_EFFECT =
-  "transform-gpu !transition-[color,opacity,scale,border-color] duration-150 ease-out hover:opacity-70 active:scale-[0.96] data-[pressed]:animate-[press-tap_220ms_ease-out] motion-reduce:active:scale-100 motion-reduce:animate-none";
+  "transform-gpu !transition-[color,opacity,scale,border-color] duration-160 ease-out hover:opacity-70 active:scale-[0.96] data-[pressed]:animate-[press-tap_220ms_ease-out] motion-reduce:active:scale-100 motion-reduce:animate-none";
 
 // Icon-only controls dip deeper, since 96% of a small glyph is barely visible.
 // Goes after PRESS_EFFECT so cn() keeps these.

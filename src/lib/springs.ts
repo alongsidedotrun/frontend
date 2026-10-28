@@ -1,3 +1,6 @@
+// The app's motion tiers. CSS transitions use the same steps as Tailwind classes: duration-80 (hover,
+// press), duration-160 (colour and opacity changes), duration-240 (larger fades), duration-400 (a view
+// swapped in place, `fade` below). src/motion-tiers.test.ts holds class durations to these.
 export const spring = {
   fast: {
     type: "spring" as const,

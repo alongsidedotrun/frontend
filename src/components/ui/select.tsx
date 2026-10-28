@@ -338,7 +338,7 @@ const SelectTrigger = forwardRef<HTMLButtonElement, SelectTriggerProps>(
           </svg>
         </SelectPrimitive.Trigger>
         {error && (
-          <span className="text-[length:var(--fs-caption,12px)] leading-[var(--lh-caption,16px)] text-destructive pl-3">{error}</span>
+          <span className="text-ui-sm leading-[var(--lh-caption,16px)] text-destructive pl-3">{error}</span>
         )}
       </div>
     );

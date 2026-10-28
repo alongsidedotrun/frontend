@@ -81,15 +81,15 @@ export function WelcomePage() {
         <AlongsideLogo className="mx-auto size-[32px] text-black dark:text-white" />
         {/* Heading + subheading -- per explicit request ("Getting started
             should have a heading and subheading so for Heading do A few
-            things before getting started"), same text-[18px]/text-[13px]
+            things before getting started"), same text-ui-2xl/text-ui
             heading/subheading treatment HomePage.tsx's own "Ask anything"
             uses, so this page reads consistently with the rest of the app
             instead of jumping straight from the logo to the row list.
             max-w-[390px] -- keeps the heading readable without making the
             page feel overly narrow. */}
         <div className="mx-auto mt-6 max-w-[390px] text-center">
-          <h1 className="text-[18px] font-normal text-foreground">{t("welcome.heading")}</h1>
-          <p className="mt-2 text-[13px] font-normal text-muted-foreground">
+          <h1 className="text-ui-2xl font-normal text-foreground">{t("welcome.heading")}</h1>
+          <p className="mt-2 text-ui font-normal text-muted-foreground">
             {t("welcome.subheading")}
           </p>
         </div>

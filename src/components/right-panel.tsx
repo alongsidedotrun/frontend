@@ -341,14 +341,14 @@ function ChatFileListPanel({
             SidebarRightIcon, also size-3.5), confirmed directly -- per
             explicit request ("The library and terminal icon should be
             the same size as the collapse right sidebar icon size").
-            text-[11px], down from 12px, to sit better proportionally
+            text-ui-xs, down from 12px, to sit better proportionally
             next to that icon size -- per the same follow-up ("reduce the
             font size to match the new size of the icons"). */}
         <div className="flex min-w-0 flex-1 items-center gap-1">
           <button
             type="button"
             onClick={() => setActiveTab("library")}
-            className={`flex items-center gap-1 truncate rounded-md px-2 py-1 text-[11px] font-medium ${activeTab === "library" ? "bg-hover-2/50 text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            className={`flex items-center gap-1 truncate rounded-md px-2 py-1 text-ui-xs font-medium ${activeTab === "library" ? "bg-hover-2/50 text-foreground" : "text-muted-foreground hover:text-foreground"}`}
           >
             <FolderIcon className="size-3.5 shrink-0" />
             {t("library.title")}
@@ -356,14 +356,14 @@ function ChatFileListPanel({
           <button
             type="button"
             onClick={() => setActiveTab("runs")}
-            className={`flex items-center gap-1 truncate rounded-md px-2 py-1 text-[11px] font-medium ${activeTab === "runs" ? "bg-hover-2/50 text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            className={`flex items-center gap-1 truncate rounded-md px-2 py-1 text-ui-xs font-medium ${activeTab === "runs" ? "bg-hover-2/50 text-foreground" : "text-muted-foreground hover:text-foreground"}`}
           >
             <ClockIcon className="size-3.5 shrink-0" />
             {t("rightPanel.runs")}
           </button>
           <span
             aria-disabled
-            className="flex cursor-not-allowed items-center gap-1 truncate rounded-md px-2 py-1 text-[11px] text-muted-foreground opacity-50"
+            className="flex cursor-not-allowed items-center gap-1 truncate rounded-md px-2 py-1 text-ui-xs text-muted-foreground opacity-50"
           >
             <TerminalIcon className="size-3.5 shrink-0" />
             {t("rightPanel.terminal")}
@@ -384,11 +384,11 @@ function ChatFileListPanel({
         {activeTab === "runs" ? (
           <AgentRunLog chatId={chatId} />
         ) : error ? (
-          <p className="p-2 text-[13px] text-muted-foreground">{error}</p>
+          <p className="p-2 text-ui text-muted-foreground">{error}</p>
         ) : files === null ? (
-          <p className="p-2 text-[13px] text-muted-foreground">{t("rightPanel.loading")}</p>
+          <p className="p-2 text-ui text-muted-foreground">{t("rightPanel.loading")}</p>
         ) : files.length === 0 ? (
-          <p className="p-2 text-[13px] text-muted-foreground">{t("rightPanel.noFiles")}</p>
+          <p className="p-2 text-ui text-muted-foreground">{t("rightPanel.noFiles")}</p>
         ) : (
           <div className="flex flex-col gap-0.5">
             {files.map((file) => (
@@ -521,39 +521,39 @@ function AgentRunLog({ chatId }: { chatId: string }) {
     }
   }
 
-  if (error) return <p className="p-2 text-[13px] text-muted-foreground">{t("rightPanel.loadRunsFailed")}</p>;
-  if (runs === null) return <p className="p-2 text-[13px] text-muted-foreground">{t("rightPanel.loading")}</p>;
-  if (runs.length === 0) return <p className="p-2 text-[13px] text-muted-foreground">{t("rightPanel.noRuns")}</p>;
+  if (error) return <p className="p-2 text-ui text-muted-foreground">{t("rightPanel.loadRunsFailed")}</p>;
+  if (runs === null) return <p className="p-2 text-ui text-muted-foreground">{t("rightPanel.loading")}</p>;
+  if (runs.length === 0) return <p className="p-2 text-ui text-muted-foreground">{t("rightPanel.noRuns")}</p>;
 
   return (
     <div className="flex flex-col gap-1">
-      {gitError && <p className="rounded-[6px] border border-destructive/30 px-2.5 py-2 text-[10px] text-destructive">{gitError}</p>}
+      {gitError && <p className="rounded-[6px] border border-destructive/30 px-2.5 py-2 text-ui-2xs text-destructive">{gitError}</p>}
       {runs.map((run) => (
         <div key={run.id} className="rounded-[6px] border border-border/70 px-2.5 py-2">
           <div className="flex items-center justify-between gap-2">
             <span className="truncate text-xs font-medium text-foreground">{run.model || run.provider}</span>
-            <span className={`shrink-0 text-[10px] capitalize ${run.status === "completed" ? "text-emerald-500" : run.status === "running" ? "text-blue-500" : "text-muted-foreground"}`}>
+            <span className={`shrink-0 text-ui-2xs capitalize ${run.status === "completed" ? "text-emerald-500" : run.status === "running" ? "text-blue-500" : "text-muted-foreground"}`}>
               {run.status}
             </span>
           </div>
-          <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
+          <div className="mt-1 flex items-center justify-between gap-2 text-ui-2xs text-muted-foreground">
             <span className="capitalize">{run.provider}</span>
             <span>{formatRelativeTime(run.started_at)}</span>
           </div>
-          {run.stop_reason && <p className="mt-1.5 line-clamp-2 text-[10px] text-muted-foreground">{run.stop_reason}</p>}
+          {run.stop_reason && <p className="mt-1.5 line-clamp-2 text-ui-2xs text-muted-foreground">{run.stop_reason}</p>}
           {run.changed_files.length > 0 && (
             <div className="mt-2 border-t border-border/60 pt-2">
-              <p className="truncate text-[10px] text-muted-foreground">
+              <p className="truncate text-ui-2xs text-muted-foreground">
                 {t("rightPanel.changedFiles", { count: run.changed_files.length })}
               </p>
               {run.commit_sha ? (
-                <p className="mt-1 font-mono text-[10px] text-muted-foreground">{run.commit_sha.slice(0, 8)}</p>
+                <p className="mt-1 font-mono text-ui-2xs text-muted-foreground">{run.commit_sha.slice(0, 8)}</p>
               ) : run.status !== "running" ? (
                 <div className="mt-1.5 flex gap-1.5">
-                  <button type="button" disabled={committing === run.id} onClick={() => void commitRun(run, false)} className="rounded-md border border-border px-2 py-1 text-[10px] text-foreground hover:bg-hover-2/50 disabled:opacity-50">
+                  <button type="button" disabled={committing === run.id} onClick={() => void commitRun(run, false)} className="rounded-md border border-border px-2 py-1 text-ui-2xs text-foreground hover:bg-hover-2/50 disabled:opacity-50">
                     {t("rightPanel.commit")}
                   </button>
-                  <button type="button" disabled={committing === run.id} onClick={() => void commitRun(run, true)} className="rounded-md border border-border px-2 py-1 text-[10px] text-foreground hover:bg-hover-2/50 disabled:opacity-50">
+                  <button type="button" disabled={committing === run.id} onClick={() => void commitRun(run, true)} className="rounded-md border border-border px-2 py-1 text-ui-2xs text-foreground hover:bg-hover-2/50 disabled:opacity-50">
                     {t("rightPanel.commitAndPush")}
                   </button>
                 </div>
@@ -562,7 +562,7 @@ function AgentRunLog({ chatId }: { chatId: string }) {
           )}
           {!run.parent_run_id && run.status !== "running" && (
             <div className="mt-2 border-t border-border/60 pt-2">
-              <button type="button" disabled={reviewing === run.id} onClick={() => void securityReview(run)} className="rounded-md border border-border px-2 py-1 text-[10px] text-foreground hover:bg-hover-2/50 disabled:opacity-50">
+              <button type="button" disabled={reviewing === run.id} onClick={() => void securityReview(run)} className="rounded-md border border-border px-2 py-1 text-ui-2xs text-foreground hover:bg-hover-2/50 disabled:opacity-50">
                 {reviewing === run.id ? "Starting review" : "Security review"}
               </button>
             </div>
@@ -693,7 +693,7 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
             title (splitTitle, below) can differ from that guess once the
             file's own first heading is read, so showing the guess first
             was a real, if brief, wrong-title flash on every open. */}
-        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
+        <span className="min-w-0 flex-1 truncate text-ui font-medium text-foreground">
           {content !== null ? (isMarkdown ? title : fileName(path)) : ""}
         </span>
         {navButtons}
@@ -740,7 +740,7 @@ function FileEditorPanel({ path, onClose, navButtons }: { path: string; onClose:
           vw-based size would react to the wrong dimension. */}
       <div className="min-h-0 flex-1 overflow-auto [container-type:inline-size]">
         {error ? (
-          <p className="p-3 text-[13px] text-muted-foreground">{error}</p>
+          <p className="p-3 text-ui text-muted-foreground">{error}</p>
         ) : content === null ? (
           // Blank, not a "Loading..." placeholder -- per explicit request
           // ("we should show no text until actual text is available"),

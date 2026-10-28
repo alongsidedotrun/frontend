@@ -46,7 +46,7 @@ export function CodeInput({ value, onChange, length = 6, id, autoFocus, disabled
             <div
               key={index}
               className={cn(
-                "grid size-9 place-items-center text-[15px] font-medium tabular-nums text-foreground",
+                "grid size-9 place-items-center text-ui-xl font-medium tabular-nums text-foreground",
                 index > 0 && (invalid ? "border-l border-destructive" : "border-l border-[var(--redesign-sidebar-border)]"),
               )}
             >

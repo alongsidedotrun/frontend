@@ -17,28 +17,16 @@
    package (that app's own Markdown.tsx). */
 @import "streamdown/styles.css";
 
-@font-face {
-  font-family: "Geist";
-  src: url("/fonts/Geist-Medium.woff2") format("woff2");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
 @layer base {
+  /* One font everywhere: the UI font from Settings (--font-sans), at its own spacing. Headings and
+     paragraphs used to force Geist and a tightened Inter, so a page mixed three faces. */
   h1,
   h2,
   h3,
   h4,
   h5,
   h6 {
-    font-family: "Geist", var(--font-sans);
     font-weight: 500;
-  }
-
-  p {
-    font-family: "Inter Variable", sans-serif;
-    letter-spacing: -0.03em;
   }
   :focus-visible {
     outline: 1px solid var(--focus-ring, #6B97FF);
@@ -237,12 +225,13 @@
   --redesign-workspace-checkmark-size: 0.5rem;
   --redesign-workspace-action-icon-size: 0.875rem;
   --redesign-primary-surface: var(--background);
-  --redesign-sidebar-surface: #FAFAFA;
-  --redesign-sidebar-overlay-surface: #f8f8f8;
+  --redesign-sidebar-surface: var(--background);
+  --redesign-sidebar-overlay-surface: var(--surface-3);
   /* Quick actions field and Getting Started panel: pure white on the
      #FAFAFA light sidebar, per request. Dark mode keeps their old look. */
   --redesign-quick-actions-surface: #FFFFFF;
-  --redesign-compose-extension-surface: var(--redesign-sidebar-surface);
+  /* Strips attached to the composer (Work from folder, queued messages): Fluid Functionalism's level 2. */
+  --redesign-compose-extension-surface: var(--surface-2);
   --redesign-getting-started-surface: #FFFFFF;
   --redesign-overlay-border: #EBEBEB;
   --redesign-progress-track: color-mix(in srgb, var(--focus-accent) 30%, transparent);
@@ -371,7 +360,19 @@
        Sidebar's own "describer" text (Projects/Recents section labels,
        sidebar-nav.tsx) is the first real caller. */
     --text-2xs: 0.625rem;
-    --font-heading: "Geist", var(--font-sans);
+    /* The app's text sizes: one scale, used as text-ui-* / text-chat* classes, never as text-[Npx]
+       (src/text-size-scale.test.ts fails on those). Chat sizes are fluid, between their two ends. */
+    --text-ui-2xs: 0.625rem;
+    --text-ui-xs: 0.6875rem;
+    --text-ui-sm: 0.75rem;
+    --text-ui: 0.8125rem;
+    --text-ui-lg: 0.875rem;
+    --text-ui-xl: 1rem;
+    --text-ui-2xl: 1.125rem;
+    --text-ui-display: 1.5rem;
+    --text-chat: var(--redesign-chat-text);
+    --text-chat-meta: var(--redesign-chat-meta);
+    --font-heading: var(--font-sans);
     /* Native system font stack, not a bundled web font -- per explicit
        request ("the reason synara's looks so crisp is because of these
        settings"), matching a setting Synara's own Settings ->
@@ -604,8 +605,10 @@
        seeds from getCodeThemeSeed("codex", variant), not the "synara"
        theme), per explicit request ("make sure we are using the codex
        color theme from synara's... i want us to use codex color theme").
-       #ffffff is codex's light "surface" value exactly. */
-    --background: #ffffff;
+       #ffffff is codex's light "surface" value exactly. Now Fluid Functionalism's level 1 (#FAFAFA),
+       the sidebar's too, so light mode is one colour across the window as dark mode is; raised things
+       (menus, cards, the composer, Quick actions) are white on it. */
+    --background: var(--surface-1);
     /* "Active" text -- hovered/selected menu items, headings, primary
        body text. --muted-foreground below is the resting/inactive one.
        #3d3d3d matches the reference's softer charcoal for active text
@@ -613,11 +616,8 @@
     --foreground: #3D3D3D;
     --card: #ffffff;
     --card-foreground: #3D3D3D;
-    /* var() references, not their own values: dropdown/popover menus
-       (Quick chat, the profile menu) should always match the page
-       background, including automatically if --background itself changes
-       later, not just today's specific color. */
-    --popover: var(--background);
+    /* Fluid Functionalism's level for a dropdown or popover: two above the page (white in light). */
+    --popover: var(--surface-3);
     --popover-foreground: var(--foreground);
     --primary: oklch(0.205 0 0);
     --primary-foreground: oklch(0.985 0 0);
@@ -744,14 +744,18 @@
        of trying to out-white white: level 1 stays near the app's own
        background, and each further level moves into a genuinely visible
        gray, mirroring dark mode's own degree of contrast per step. */
+    /* Superseded: Fluid Functionalism's own light ladder now (references/craft.md, Surfaces): the
+       #FAFAFA floor, #FCFCFC, then white from level 3 up, each level's depth carried by its paired
+       shadow (--shadow-N) rather than by going grey. The page is level 1, dropdowns and popovers
+       level 3, dialogs level 5. */
     --surface-1: #FAFAFA;
-    --surface-2: #F5F5F5;
-    --surface-3: #F0F0F0;
-    --surface-4: #EBEBEB;
-    --surface-5: #E6E6E6;
-    --surface-6: #E0E0E0;
-    --surface-7: #DADADA;
-    --surface-8: #D4D4D4;
+    --surface-2: #FCFCFC;
+    --surface-3: #FFFFFF;
+    --surface-4: #FFFFFF;
+    --surface-5: #FFFFFF;
+    --surface-6: #FFFFFF;
+    --surface-7: #FFFFFF;
+    --surface-8: #FFFFFF;
     --shadow-color: rgb(0 0 0 / 0.06);
     --shadow-1: 0 0 0 1px var(--shadow-color);
     --shadow-2: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color);
@@ -2315,4 +2319,53 @@ html.transitioning *, html.transitioning *::before, html.transitioning *::after 
 :is([data-icon-stroke], [data-compose-box], [role="menu"]) svg :is(path, line, polyline, polygon, circle, ellipse, rect) {
   vector-effect: non-scaling-stroke;
   stroke-width: 1px;
+}
+
+/* Code in a reply: one card, as wide as the reply, its language and copy button in a header row on
+   the same surface. Streamdown draws a bordered card around a second bordered body; these flatten
+   that to one. Unlayered, so they win over Streamdown's own utility classes. */
+[data-streamdown="code-block"] {
+  margin: 0 0 0.75rem;
+  padding: 0;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: color-mix(in oklab, var(--foreground) 3%, var(--background));
+  overflow: hidden;
+}
+[data-streamdown="code-block"]:last-child {
+  margin-bottom: 0;
+}
+[data-streamdown="code-block-header"] {
+  height: 2rem;
+  padding: 0 0.5rem 0 0.75rem;
+  font-size: var(--text-ui-sm);
+}
+[data-streamdown="code-block-header"] > span {
+  margin-left: 0;
+}
+[data-streamdown="code-block-body"] {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0 0.75rem 0.75rem;
+  font-size: var(--text-ui-sm);
+  line-height: 1.6;
+}
+/* The copy button rides the header row: Streamdown pulls its sticky strip up by its own padding, so
+   it's pulled up by our header's height instead. */
+[data-streamdown="code-block"] > div:has(> [data-streamdown="code-block-actions"]) {
+  margin-top: -2rem;
+  top: 0;
+}
+[data-streamdown="code-block-actions"] {
+  padding: 0 0.25rem;
+  border: 0;
+  background: transparent;
+  backdrop-filter: none;
+}
+/* Inline code a touch under the sentence it sits in, as monospace runs large at the same size. */
+[data-streamdown="inline-code"] {
+  font-size: 0.875em;
+  padding: 0.1em 0.35em;
 }

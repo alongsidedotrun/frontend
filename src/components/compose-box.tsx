@@ -15,7 +15,7 @@ import { getUserDisplayName } from "@/lib/user";
 import { Button } from "@/components/ui/button";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { AnimatePresence, motion } from "motion/react";
-import { fade, spring } from "@/lib/springs";
+import { fade } from "@/lib/springs";
 // The fluidfunctionalism.com reference dropdown (Base UI Menu +
 // proximity-hover animated backgrounds) -- this file's one dropdown
 // system now, per explicit request ("Lets keep all base ui").
@@ -54,16 +54,6 @@ import {
   TaskIcon,
   XIcon,
 } from "@/components/icons/untitled-ui";
-
-const styledFolderIcon = "/icons/styled-folder.svg";
-// The providers "Connect to your Providers" shows; the black marks invert in dark mode.
-const CONNECT_PROVIDER_ICONS = [
-  { src: "/icons/providers/chatgpt.svg", invertInDark: true },
-  { src: "/icons/providers/claude.svg" },
-  { src: "/icons/providers/gemini.svg" },
-  { src: "/icons/providers/grok.svg", invertInDark: true },
-];
-const appIconTileClass = "flex size-6 shrink-0 items-center justify-center rounded-[calc(24px*8/27)] border border-border bg-white shadow-[0_1px_2px_rgb(0_0_0_/_0.06)] transition-[background-color,border-color,box-shadow,translate] duration-150 hover:-translate-y-px hover:border-foreground/30 hover:bg-hover-2 hover:shadow-[0_2px_5px_rgb(0_0_0_/_0.12)] dark:bg-[#242424] dark:hover:bg-[#343434]";
 
 type SpeechRecognitionLike = {
   start: () => void;
@@ -154,7 +144,7 @@ const NO_HOVER_SURFACE = "[&>span:first-child]:hidden [&_svg]:!stroke-[1.5]";
 function ComposerMenuKeyboardHints() {
   const { t } = useTranslation();
   return (
-    <div className="flex h-9 shrink-0 items-center justify-between border-t border-border px-3 text-[11px] font-normal text-ink-3">
+    <div className="flex h-9 shrink-0 items-center justify-between border-t border-border px-3 text-ui-xs font-normal text-ink-3">
       <div className="flex items-center gap-4">
         <span className="flex items-center gap-1.5">
           <span>{t("compose.menu.select")}</span>
@@ -319,7 +309,7 @@ function withLeadingCommand(text: string, current: { prefix: string } | null, co
 /** The chip a leading command shows as: its icon and name, in the accent blue. */
 export function CommandChip({ icon, label, className }: { icon: ReactNode; label: string; className?: string }) {
   return (
-    <span className={cn("inline-flex h-5 items-center gap-1 rounded-[calc(20px*8/27)] bg-[color-mix(in_oklab,var(--focus-accent)_12%,transparent)] px-1.5 align-middle text-[12px] leading-none font-medium whitespace-nowrap text-[var(--focus-accent)] [&_svg]:size-3.5", className)}>
+    <span className={cn("inline-flex h-5 items-center gap-1 rounded-[calc(20px*8/27)] bg-[color-mix(in_oklab,var(--focus-accent)_12%,transparent)] px-1.5 align-middle text-ui-sm leading-none font-medium whitespace-nowrap text-[var(--focus-accent)] [&_svg]:size-3.5", className)}>
       {icon}
       {label}
     </span>
@@ -425,7 +415,7 @@ function AnimatedPlaceholder({ messages }: { messages: string[] }) {
     <span
       ref={ref}
       aria-hidden="true"
-      className="t-text-swap pointer-events-none block truncate text-[13px] font-normal text-ink-3"
+      className="t-text-swap pointer-events-none block truncate text-ui font-normal text-ink-3"
     >
       {messages[0]}
     </span>
@@ -566,7 +556,7 @@ function ContextDropdown({
           <button
             type="button"
             aria-label={t("compose.context.ariaLabel", { used: compactTokenCount(used) })}
-            className={`flex shrink-0 items-center gap-1 rounded-full px-1 text-[11px] text-ink-3 transition-opacity duration-300 hover:text-foreground focus:outline-none ${mounted ? "opacity-100" : "opacity-0"}`}
+            className={`flex shrink-0 items-center gap-1 rounded-full px-1 text-ui-xs text-ink-3 transition-opacity duration-240 hover:text-foreground focus:outline-none ${mounted ? "opacity-100" : "opacity-0"}`}
           >
             <ContextRing
               fraction={used / (compactThreshold * Math.max(1, modelCount))}
@@ -585,7 +575,7 @@ function ContextDropdown({
             threshold is a per-chat setting now, not tied to any one provider's
             identity, so showing a provider mark next to it implied a scoping that
             no longer exists. */}
-        <div className="px-2.5 py-1.5 text-[12px] text-muted-foreground">
+        <div className="px-2.5 py-1.5 text-ui-sm text-muted-foreground">
           {t("compose.context.usage", { used: compactTokenCount(used), total: compactTokenCount(compactThreshold * Math.max(1, modelCount)) })}
         </div>
         {(canCompact || canAutoCompact) && (
@@ -656,7 +646,7 @@ function EffortSliderPanel({
         {/* No trailing chevron any more -- per explicit request. This value
             isn't a nested nav target (nothing expands from clicking it), so
             the arrow was implying an affordance that didn't exist. */}
-        <span className="text-[12px] font-medium text-[var(--send-button-bg)]">{effortLabel(effort)}</span>
+        <span className="text-ui-sm font-medium text-[var(--send-button-bg)]">{effortLabel(effort)}</span>
         {/* Kept in place while hidden, so the level stays centred. stopPropagation on pointerDown,
             like the slider: Menu.Popup would otherwise treat the press as leaving the menu. */}
         <button
@@ -747,13 +737,10 @@ export function ComposeBox({
   placeholder,
   placeholderCycle,
   initialHeight,
-  showWorkFromFolder,
   workFromFolderPath,
   onSelectWorkFromFolder,
   chatAgents,
   onNewAgent,
-  onOpenApps,
-  onOpenProviders,
   autoFocus,
   awaitingReply,
   onStop,
@@ -772,7 +759,6 @@ export function ComposeBox({
   onSteer,
   queue,
   notice,
-  noticeBelow,
   autocompactValue,
   onSetAutocompact,
 }: {
@@ -802,17 +788,11 @@ export function ComposeBox({
   // New-chat only: gives the centred composer a more generous writing area
   // before it transitions into the standard compact chat composer.
   initialHeight?: boolean;
-  // New-chat only. Exit when HomePage starts handing the composer to ChatPage;
-  // an existing chat never renders this pre-chat action.
-  showWorkFromFolder?: boolean;
   workFromFolderPath?: string | null;
   onSelectWorkFromFolder?: () => void;
   // #507: the chat's agents, asked with "@name" (a chat only; a new chat has none yet).
   chatAgents?: { name: string }[];
   onNewAgent?: () => void;
-  onOpenApps?: () => void;
-  /** "Connect to your Providers", shown instead of the apps once no provider is set up. */
-  onOpenProviders?: () => void;
   autoFocus?: boolean;
   // Chat-only: while true, the send button becomes a stop button.
   awaitingReply?: boolean;
@@ -878,9 +858,6 @@ export function ComposeBox({
   // ChatPage-only: a strip attached to the top of the composer, above any queued messages
   // (the 5-hour limit warning).
   notice?: ReactNode;
-  // HomePage-only: the same below the composer (a new chat's composer sits mid-page), laid over
-  // the Work from folder row, which stays underneath and shows again once it's closed.
-  noticeBelow?: ReactNode;
   /** A bot's chat (#504): "Let the bot choose" heads the model menu, and can be the default model. */
   allowBotChoice?: boolean;
   /** The bot whose chat this is: "Let the bot choose" shows its own face. */
@@ -1572,9 +1549,6 @@ export function ComposeBox({
     return () => window.removeEventListener("keydown", onKeyDown, { capture: true });
   }, []);
 
-  // Every provider checked and none set up: the row under the composer offers providers before apps.
-  // Not while a check is still running, so the row doesn't flip back and forth on load.
-  const noProviders = MODEL_PROVIDERS.length > 0 && MODEL_PROVIDERS.every((provider) => cliAvailability[provider] === false);
 
   // Sorted by provider's own display name -- pulled out of the render
   // below so checkedIndex (the model dropdown's own BaseDropdownContent,
@@ -1736,7 +1710,7 @@ export function ComposeBox({
               in the footer below, matching the Quick actions menu's visual
               order without introducing a second text field while the
               composer itself already owns the query. */}
-          <div className="shrink-0 border-b border-border px-3 py-2 text-[11px] font-normal text-ink-3/50">{t("compose.menu.searchCommands")}</div>
+          <div className="shrink-0 border-b border-border px-3 py-2 text-ui-xs font-normal text-ink-3/50">{t("compose.menu.searchCommands")}</div>
           {/* ScrollArea, like Quick actions (ui/command-menu.tsx), for the same thin
               scrollbar. A flex column with a min-h-0 viewport, not the viewport's
               own height:100%, which can't resolve under a max-height alone (why
@@ -1767,12 +1741,12 @@ export function ComposeBox({
                     {/* font-normal/text-ink-2, not font-medium/text-ink -- matches
                         the search dropdown's own row text exactly (top-bar.tsx,
                         TopBarSearch's results.map), per explicit request. */}
-                    <span className={cn("shrink-0 truncate text-[12px] font-normal transition-colors", i === active ? "text-foreground" : "text-ink-2")}>{t(row.labelKey)}</span>
-                    <span className="min-w-0 flex-1 truncate text-[12px] text-ink-3">{row.descKey ? t(row.descKey) : row.desc}</span>
+                    <span className={cn("shrink-0 truncate text-ui-sm font-normal transition-colors", i === active ? "text-foreground" : "text-ink-2")}>{t(row.labelKey)}</span>
+                    <span className="min-w-0 flex-1 truncate text-ui-sm text-ink-3">{row.descKey ? t(row.descKey) : row.desc}</span>
                   </button>
                 ))}
                 {rows.length === 0 && (
-                  <div className="flex h-8 items-center px-2 text-[12px] text-ink-3">No matches for "{query}"</div>
+                  <div className="flex h-8 items-center px-2 text-ui-sm text-ink-3">No matches for "{query}"</div>
                 )}
               </GlideMenu>
             </div>
@@ -1868,7 +1842,7 @@ export function ComposeBox({
           void addImageFiles(event.dataTransfer.files);
         }}
         className={cn(
-          "relative z-10 flex flex-col rounded-[var(--compose-shell-radius)] border border-border bg-background px-2 pt-2 pb-[7px] transition-[min-height,padding,border-color] duration-200 [contain:layout_style] @[420px]:px-3 @[420px]:pt-3 @[420px]:pb-1.5",
+          "relative z-10 flex flex-col rounded-[var(--compose-shell-radius)] border border-border bg-background px-2 pt-2 pb-[7px] dark:bg-surface-1 transition-[min-height,padding,border-color] duration-160 [contain:layout_style] @[420px]:px-3 @[420px]:pt-3 @[420px]:pb-1.5",
           initialHeight && "min-h-[120px] justify-between",
           dragActive && "border-ring",
           // border-focus-accent -- matches the sidebar/inbox search inputs'
@@ -1944,7 +1918,7 @@ export function ComposeBox({
             // center line the real Textarea (below) and the mic/send
             // buttons share.
             <div
-              className={`pointer-events-none absolute inset-0 flex items-center px-1 text-[length:var(--redesign-chat-text)] transition-opacity duration-300 ${value || textareaFocused ? "opacity-0" : "opacity-100"}`}
+              className={`pointer-events-none absolute inset-0 flex items-center px-1 text-chat transition-opacity duration-240 ${value || textareaFocused ? "opacity-0" : "opacity-100"}`}
             >
               <AnimatedPlaceholder messages={[placeholder, ...placeholderCycle]} />
             </div>
@@ -2046,7 +2020,7 @@ export function ComposeBox({
           // height then add a scrollbar"), replacing the old flat max-h-40
           // (160px, unrelated to viewport size) with a real percentage cap;
           // the auto-grow effect above measures/sets height against this
-          // exact same 40vh value. transition-[height] duration-150, not a
+          // exact same 40vh value. transition-[height] duration-160, not a
           // plain height jump -- per explicit request ("should smoothly
           // increase the height").
           // [field-sizing:fixed] overrides ui/textarea.tsx's own base
@@ -2057,7 +2031,7 @@ export function ComposeBox({
           // practice. Fixed instead, so the JS effect above (which works
           // identically everywhere) is the one real mechanism, not competing
           // with a native behavior that may or may not be applying.
-          className="max-h-[40vh] min-h-0 resize-none overflow-y-auto border-none bg-transparent px-1 py-1 text-[length:var(--redesign-chat-text)] font-normal shadow-none transition-[height] duration-150 ease-out [field-sizing:fixed] placeholder:text-ink-3 placeholder:opacity-100 placeholder:transition-opacity placeholder:duration-200 focus:placeholder:opacity-0 dark:bg-transparent"
+          className="max-h-[40vh] min-h-0 resize-none overflow-y-auto border-none bg-transparent px-1 py-1 text-chat font-normal shadow-none transition-[height] duration-160 ease-out [field-sizing:fixed] placeholder:text-ink-3 placeholder:opacity-100 placeholder:transition-opacity placeholder:duration-160 focus:placeholder:opacity-0 dark:bg-transparent"
         />
         {sentGhost && (
           // Same Textarea and classes as the real one, so the text sits
@@ -2069,7 +2043,7 @@ export function ComposeBox({
             readOnly
             value={sentGhost.text}
             onAnimationEnd={() => setSentGhost(null)}
-            className="pointer-events-none absolute inset-0 h-full min-h-0 resize-none overflow-hidden border-none bg-transparent px-1 py-1 text-[length:var(--redesign-chat-text)] font-normal shadow-none dark:bg-transparent animate-[compose-sent-out_260ms_ease-out_forwards] motion-reduce:animate-[compose-sent-out_1ms_forwards]"
+            className="pointer-events-none absolute inset-0 h-full min-h-0 resize-none overflow-hidden border-none bg-transparent px-1 py-1 text-chat font-normal shadow-none dark:bg-transparent animate-[compose-sent-out_260ms_ease-out_forwards] motion-reduce:animate-[compose-sent-out_1ms_forwards]"
           />
         )}
         </div>
@@ -2142,23 +2116,23 @@ export function ComposeBox({
           >
             <div className="w-full overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
               <BaseDropdownLabel>{t("common.add")}</BaseDropdownLabel>
-              <DropdownSubItem className="h-8 items-center gap-2.5 text-[12px] text-ink-2 transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground" onClick={openFilePicker}>
+              <DropdownSubItem className="h-8 items-center gap-2.5 text-ui-sm text-ink-2 transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground" onClick={openFilePicker}>
                 <AttachmentIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="flex min-w-0 flex-1 items-baseline gap-3">
                   <span className="shrink-0">{t("compose.files")}</span>
-                  <span className="min-w-0 truncate text-[12px] text-ink-3">
+                  <span className="min-w-0 truncate text-ui-sm text-ink-3">
                     {t(isMultiplayer ? "compose.filesMultiplayerDescription" : "compose.filesDescription")}
                   </span>
                 </span>
               </DropdownSubItem>
-              {/* The same folder pick as the Work from folder row under the composer, here too
+              {/* Where a folder is picked for the chat to work in (Work from folder)
                   for anyone who skipped that row: the folder's name once one is picked. */}
               {onSelectWorkFromFolder && (
-                <DropdownSubItem className="h-8 items-center gap-2.5 text-[12px] text-ink-2 transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground" onClick={onSelectWorkFromFolder}>
+                <DropdownSubItem className="h-8 items-center gap-2.5 text-ui-sm text-ink-2 transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground" onClick={onSelectWorkFromFolder}>
                   <FolderIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                   <span className="flex min-w-0 flex-1 items-baseline gap-3">
                     <span className="shrink-0">{t("compose.workFromFolder")}</span>
-                    <span className="min-w-0 truncate text-[12px] text-ink-3">
+                    <span className="min-w-0 truncate text-ui-sm text-ink-3">
                       {workFromFolderPath ? workFromFolderPath.split(/[\\/]/).filter(Boolean).pop() : t("compose.workFromFolderDescription")}
                     </span>
                   </span>
@@ -2167,13 +2141,13 @@ export function ComposeBox({
               {/* Skills opens in place (the panel is as wide as the composer, so a side
                   submenu has nowhere to go): the installed ones to use in this message,
                   then the way to Settings > Skills. */}
-              <DropdownSubItem closeOnClick={false} aria-expanded={skillsOpen} className="flex h-8 items-center gap-2.5 text-[12px] text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground" onClick={() => setSkillsOpen((open) => !open)}>
+              <DropdownSubItem closeOnClick={false} aria-expanded={skillsOpen} className="flex h-8 items-center gap-2.5 text-ui-sm text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground" onClick={() => setSkillsOpen((open) => !open)}>
                 <SkillIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="flex min-w-0 flex-1 items-baseline gap-3">
                   <span className="shrink-0">{t("compose.skills")}</span>
-                  <span className="min-w-0 truncate text-[12px] text-ink-3">{t("compose.skillsDescription")}</span>
+                  <span className="min-w-0 truncate text-ui-sm text-ink-3">{t("compose.skillsDescription")}</span>
                 </span>
-                <ChevronDownIcon aria-hidden="true" className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform duration-150", skillsOpen && "rotate-180")} />
+                <ChevronDownIcon aria-hidden="true" className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform duration-160", skillsOpen && "rotate-180")} />
               </DropdownSubItem>
               {/* Slides open under the row (height and fade), not a snap. */}
               <AnimatePresence initial={false}>
@@ -2186,15 +2160,15 @@ export function ComposeBox({
                   className="overflow-hidden"
                 >
                   {installedSkills.length === 0 ? (
-                    <div className="flex h-8 items-center pl-[34px] text-[12px] text-ink-3">{t("compose.skills.none")}</div>
+                    <div className="flex h-8 items-center pl-[34px] text-ui-sm text-ink-3">{t("compose.skills.none")}</div>
                   ) : (
                     installedSkills.map((skill) => (
-                      <DropdownSubItem key={skill.id} className="flex h-8 items-center gap-2.5 text-[12px] text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground pl-[34px]" onClick={() => insertSkill(skill.name)}>
+                      <DropdownSubItem key={skill.id} className="flex h-8 items-center gap-2.5 text-ui-sm text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground pl-[34px]" onClick={() => insertSkill(skill.name)}>
                         <span className="truncate">{skill.name}</span>
                       </DropdownSubItem>
                     ))
                   )}
-                  <DropdownSubItem className="flex h-8 items-center gap-2.5 text-[12px] text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground pl-[34px]" onClick={() => navigate("/settings/skills")}>
+                  <DropdownSubItem className="flex h-8 items-center gap-2.5 text-ui-sm text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground pl-[34px]" onClick={() => navigate("/settings/skills")}>
                     {t("compose.skills.browse")}
                   </DropdownSubItem>
                 </motion.div>
@@ -2203,13 +2177,13 @@ export function ComposeBox({
               {/* #507: the chat's specialised agents -- pick one to ask it ("@name ..."); it works in the
                   background while the chat goes on. Opens in place, like Skills. */}
               {chatAgents && (
-                <DropdownSubItem closeOnClick={false} aria-expanded={agentsOpen} className="flex h-8 items-center gap-2.5 text-[12px] text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground" onClick={() => setAgentsOpen((open) => !open)}>
+                <DropdownSubItem closeOnClick={false} aria-expanded={agentsOpen} className="flex h-8 items-center gap-2.5 text-ui-sm text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground" onClick={() => setAgentsOpen((open) => !open)}>
                   <Bot aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                   <span className="flex min-w-0 flex-1 items-baseline gap-3">
                     <span className="shrink-0">{t("compose.agents")}</span>
-                    <span className="min-w-0 truncate text-[12px] text-ink-3">{t("compose.agentsDescription")}</span>
+                    <span className="min-w-0 truncate text-ui-sm text-ink-3">{t("compose.agentsDescription")}</span>
                   </span>
-                  <ChevronDownIcon aria-hidden="true" className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform duration-150", agentsOpen && "rotate-180")} />
+                  <ChevronDownIcon aria-hidden="true" className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform duration-160", agentsOpen && "rotate-180")} />
                 </DropdownSubItem>
               )}
               <AnimatePresence initial={false}>
@@ -2222,38 +2196,38 @@ export function ComposeBox({
                   className="overflow-hidden"
                 >
                   {chatAgents.map((agent) => (
-                    <DropdownSubItem key={agent.name} className="flex h-8 items-center gap-2.5 text-[12px] text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground pl-[34px]" onClick={() => insertAgent(agent.name)}>
+                    <DropdownSubItem key={agent.name} className="flex h-8 items-center gap-2.5 text-ui-sm text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground pl-[34px]" onClick={() => insertAgent(agent.name)}>
                       <span className="truncate">@{agent.name}</span>
                     </DropdownSubItem>
                   ))}
                   {onNewAgent && (
-                    <DropdownSubItem className="flex h-8 items-center gap-2.5 text-[12px] text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground pl-[34px]" onClick={onNewAgent}>
+                    <DropdownSubItem className="flex h-8 items-center gap-2.5 text-ui-sm text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground pl-[34px]" onClick={onNewAgent}>
                       {t("agents.new")}
                     </DropdownSubItem>
                   )}
                 </motion.div>
               )}
               </AnimatePresence>
-              <DropdownSubItem className="h-8 items-center gap-2.5 text-[12px] text-ink-2 transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground" onClick={insertTask}>
+              <DropdownSubItem className="h-8 items-center gap-2.5 text-ui-sm text-ink-2 transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground" onClick={insertTask}>
                 <TaskIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="flex min-w-0 flex-1 items-baseline gap-3">
                   <span className="shrink-0">{t("compose.command.task")}</span>
-                  <span className="min-w-0 truncate text-[12px] text-ink-3">{t("compose.taskDescription")}</span>
+                  <span className="min-w-0 truncate text-ui-sm text-ink-3">{t("compose.taskDescription")}</span>
                 </span>
               </DropdownSubItem>
-              <DropdownSubItem className="h-8 items-center gap-2.5 text-[12px] text-ink-2 transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground" onClick={insertGoal}>
+              <DropdownSubItem className="h-8 items-center gap-2.5 text-ui-sm text-ink-2 transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground" onClick={insertGoal}>
                 <Target04 aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="flex min-w-0 flex-1 items-baseline gap-3">
                   <span className="shrink-0">{t("compose.goal")}</span>
-                  <span className="min-w-0 truncate text-[12px] text-ink-3">{t("compose.goalDescription")}</span>
+                  <span className="min-w-0 truncate text-ui-sm text-ink-3">{t("compose.goalDescription")}</span>
                 </span>
               </DropdownSubItem>
               {planSupported && (
-                <DropdownSubItem className="flex h-8 items-center gap-2.5 text-[12px] text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground" onClick={() => setPlanMode((on) => !on)}>
+                <DropdownSubItem className="flex h-8 items-center gap-2.5 text-ui-sm text-ink-2 whitespace-nowrap transition-colors data-[highlighted]:text-foreground [&>svg]:transition-colors [&[data-highlighted]>svg]:text-foreground" onClick={() => setPlanMode((on) => !on)}>
                   <ClipboardCheck aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                   <span className="flex min-w-0 flex-1 items-baseline gap-3">
                     <span className="shrink-0">{t("compose.planMode")}</span>
-                    <span className="min-w-0 truncate text-[12px] text-ink-3">{planMode ? t("compose.planModeOff") : t("compose.planModeOn")}</span>
+                    <span className="min-w-0 truncate text-ui-sm text-ink-3">{planMode ? t("compose.planModeOff") : t("compose.planModeOn")}</span>
                   </span>
                   {planMode && <CheckIcon aria-hidden="true" className="size-3.5 shrink-0 text-foreground/70" />}
                 </DropdownSubItem>
@@ -2284,7 +2258,7 @@ export function ComposeBox({
             opens asking before every action rather than something more
             permissive. */}
         {hasModel && (
-        <div className={`${modeFade ? "transition-opacity duration-300" : ""} ${modeVisible ? "opacity-100" : "opacity-0"}`}>
+        <div className={`${modeFade ? "transition-opacity duration-240" : ""} ${modeVisible ? "opacity-100" : "opacity-0"}`}>
         {/* size="compact" -- matches the app's own 28px row height
             everywhere else (BaseMenuItem's own useSize() would otherwise
             default to the reference's 36px "default" step). */}
@@ -2362,7 +2336,7 @@ export function ComposeBox({
                 <DropdownSubItem
                   key={m.value}
                   className={cn(
-                    "grid h-auto grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-x-3 py-2 pr-2.5 pl-2.5 text-[12px]",
+                    "grid h-auto grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-x-3 py-2 pr-2.5 pl-2.5 text-ui-sm",
                     active && "bg-hover-2",
                     m.value === "auto" && "text-orange-500",
                     m.value === "ask" && "text-[var(--send-button-bg)]"
@@ -2381,7 +2355,7 @@ export function ComposeBox({
                   </span>
                   <span className="flex min-w-0 flex-col gap-0.5">
                     <span className="font-medium">{t(m.labelKey)}</span>
-                    <span className={cn("text-[11px] leading-snug font-normal whitespace-normal", m.value === "auto" || m.value === "ask" ? "text-current" : "text-muted-foreground")}>{t(m.descriptionKey)}</span>
+                    <span className={cn("text-ui-xs leading-snug font-normal whitespace-normal", m.value === "auto" || m.value === "ask" ? "text-current" : "text-muted-foreground")}>{t(m.descriptionKey)}</span>
                   </span>
                 </DropdownSubItem>
               );
@@ -2589,7 +2563,7 @@ export function ComposeBox({
             {allowBotChoice && (
               <>
                 <DropdownSubItem
-                  className={cn("py-1.5 pr-2.5 pl-2.5 text-[12px] whitespace-nowrap", selectedModels[0]?.value === AUTO_BOT_MODEL.value && "bg-hover-2")}
+                  className={cn("py-1.5 pr-2.5 pl-2.5 text-ui-sm whitespace-nowrap", selectedModels[0]?.value === AUTO_BOT_MODEL.value && "bg-hover-2")}
                   onClick={() => selectModel(AUTO_BOT_MODEL)}
                 >
                   <span className="flex items-center gap-1.5">
@@ -2608,7 +2582,7 @@ export function ComposeBox({
                 icon={providerIcons[provider]}
                 label={provider}
                 chevron
-                className="text-[12px]"
+                className="text-ui-sm"
                 popupClassName="pb-[5px]"
               >
                 {/* "Models" over the list (the provider is the row that opened it). */}
@@ -2636,7 +2610,7 @@ export function ComposeBox({
                         // longer left enough breathing room between it and the
                         // "..." trigger just inside it.
                         className={cn(
-                          "group/model-row relative py-1.5 pr-11 pl-2.5 text-[12px] whitespace-nowrap",
+                          "group/model-row relative py-1.5 pr-11 pl-2.5 text-ui-sm whitespace-nowrap",
                           isSelected && "bg-hover-2"
                         )}
                         onClick={() => selectModel(m)}
@@ -2677,7 +2651,7 @@ export function ComposeBox({
                           triggerClassName="absolute top-1/2 right-3 -translate-y-1/2 opacity-0 transition-opacity group-hover/model-row:opacity-100"
                         >
                           <DropdownRowActionItem
-                            className="py-1.5 pr-2.5 pl-2.5 text-[12px] whitespace-nowrap"
+                            className="py-1.5 pr-2.5 pl-2.5 text-ui-sm whitespace-nowrap"
                             onClick={() => void setAsDefaultModel(m)}
                           >
                             {chatId ? t("compose.setDefault.chat") : t("compose.setDefault.newChat")}
@@ -2719,7 +2693,7 @@ export function ComposeBox({
               index={providerGroups.length}
               icon={PlusIcon}
               label={t("compose.addModel")}
-              className="text-[12px]"
+              className="text-ui-sm"
               onSelect={() => onOpenSettings?.()}
             />
           </BaseDropdownContent>
@@ -2810,7 +2784,7 @@ export function ComposeBox({
             // missing. Text without a model stays clickable: the click shakes
             // the Model picker (above) to point at it.
             className={cn(
-              "relative size-[var(--compose-action-size)] rounded-full [&_svg]:!size-[var(--compose-send-icon)] transition-colors duration-300 ease-in-out disabled:opacity-100",
+              "relative size-[var(--compose-action-size)] rounded-full [&_svg]:!size-[var(--compose-send-icon)] transition-colors duration-240 ease-in-out disabled:opacity-100",
               value.trim() && selectedModels.length > 0
                 ? "bg-[var(--send-button-bg)] hover:bg-[var(--send-button-bg-hover)] active:bg-[var(--send-button-bg-active)]"
                 : "bg-[var(--redesign-progress-track)]",
@@ -2824,47 +2798,6 @@ export function ComposeBox({
       </div>
     </div>
     </div>
-    <AnimatePresence initial={false}>
-      {showWorkFromFolder && (
-        <motion.div
-          key="work-from-folder"
-          exit={{ opacity: 0, transition: spring.moderate.exit }}
-          className="relative -mt-[var(--compose-shell-radius)] rounded-b-[var(--compose-shell-radius)] border border-t-0 border-border bg-[var(--redesign-compose-extension-surface)] px-4 pt-[calc(var(--compose-shell-radius)+0.25rem)] pb-1"
-        >
-          <div className="flex min-h-7 items-center justify-between gap-3 px-1 text-[11px] text-foreground/75">
-            <button type="button" aria-label={t("compose.workFromFolder")} onClick={onSelectWorkFromFolder} className="-ml-1 flex h-6 min-w-0 items-center gap-1 rounded-[calc(24px*8/27)] px-1 text-left transition-colors hover:bg-hover-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/10">
-              <img src={styledFolderIcon} alt="" aria-hidden="true" className="size-3.5 shrink-0 object-contain" />
-              <span className="@max-[300px]:hidden truncate">{workFromFolderPath ? workFromFolderPath.split(/[\\/]/).filter(Boolean).pop() : t("compose.workFromFolder")}</span>
-            </button>
-            {noProviders ? (
-              <button type="button" aria-label={t("compose.connectProviders")} onClick={onOpenProviders} className="-mr-1 flex min-h-7 shrink-0 items-center gap-2 rounded-[calc(28px*8/27)] px-1 text-right focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <span className="@max-[420px]:hidden">{t("compose.connectProviders")}</span>
-                {/* ChatGPT, Claude, Gemini and Grok (Grok isn't set up yet: alongsidedotrun/private#480). */}
-                {CONNECT_PROVIDER_ICONS.map((icon) => (
-                  <span key={icon.src} className={appIconTileClass}>
-                    <img src={icon.src} alt="" aria-hidden="true" className={cn("size-3.5 object-contain", icon.invertInDark && "dark:invert")} />
-                  </span>
-                ))}
-              </button>
-            ) : (
-              <button type="button" aria-label={t("compose.connectApps")} onClick={onOpenApps} className="-mr-1 flex min-h-7 shrink-0 items-center gap-2 rounded-[calc(28px*8/27)] px-1 text-right focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <span className="@max-[420px]:hidden">{t("compose.connectApps")}</span>
-                <span className={appIconTileClass}>
-                  <img src="/icons/providers/github.svg" alt="" aria-hidden="true" className="size-3.5 object-contain dark:invert" />
-                </span>
-                {(["drive", "docs", "sheets"] as const).map((app) => (
-                  <span key={app} aria-label={`Google ${app[0].toUpperCase()}${app.slice(1)} — ${t("settings.apps.comingSoon")}`} className={appIconTileClass}>
-                    <img src={`/icons/google-${app}.svg`} alt="" aria-hidden="true" className="size-[18px] object-contain" />
-                  </span>
-                ))}
-              </button>
-            )}
-          </div>
-          {/* The limit warning, laid over this row (which stays underneath). */}
-          {noticeBelow}
-        </motion.div>
-      )}
-    </AnimatePresence>
     </div>
   );
 }

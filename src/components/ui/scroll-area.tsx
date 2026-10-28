@@ -135,7 +135,7 @@ const ScrollBar = forwardRef<
         // Show immediately; on hide, wait out the 160ms thumb shrink before
         // fading so the thumb visibly narrows back first instead of the fade
         // masking it.
-        "opacity-0 transition-opacity duration-120 ease-out delay-160",
+        "opacity-0 transition-opacity duration-80 ease-out delay-160",
         "data-[hovering]:duration-160 data-[scrolling]:duration-160",
         "data-[hovering]:opacity-100 data-[scrolling]:opacity-100",
         "data-[hovering]:delay-0 data-[scrolling]:delay-0",

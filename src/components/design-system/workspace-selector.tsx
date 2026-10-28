@@ -56,7 +56,7 @@ export function WorkspaceSelector({
           type="button"
           aria-label={ariaLabel}
           className={cn(
-            "flex h-[round(var(--redesign-workspace-trigger-height),2px)] w-[var(--redesign-workspace-trigger-width)] max-w-full items-center gap-[var(--redesign-workspace-trigger-gap)] px-[round(var(--redesign-workspace-trigger-padding),1px)] text-left text-[length:var(--redesign-sidebar-primary-font-size)] font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "flex h-[round(var(--redesign-workspace-trigger-height),2px)] w-[var(--redesign-workspace-trigger-width)] max-w-full items-center gap-[var(--redesign-workspace-trigger-gap)] px-[round(var(--redesign-workspace-trigger-padding),1px)] text-left text-chat font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring",
             className,
           )}
         >
@@ -77,7 +77,7 @@ export function WorkspaceSelector({
                   <DropdownMenuItem
                     key={workspace.id}
                     onSelect={() => onValueChange(workspace.id)}
-                    className="h-[round(var(--redesign-sidebar-footer-task-row-height),2px)] gap-[var(--redesign-workspace-trigger-gap)] rounded-[var(--redesign-dropdown-row-radius)] px-[round(var(--redesign-menu-horizontal-padding),1px)] text-[length:var(--redesign-sidebar-primary-font-size)] font-medium text-foreground/70"
+                    className="h-[round(var(--redesign-sidebar-footer-task-row-height),2px)] gap-[var(--redesign-workspace-trigger-gap)] rounded-[var(--redesign-dropdown-row-radius)] px-[round(var(--redesign-menu-horizontal-padding),1px)] text-chat font-medium text-foreground/70"
                   >
                     <WorkspaceAvatar
                       icon={workspace.icon}

@@ -42,7 +42,7 @@ export function OnboardingPage() {
           >
             <AlongsideLogo className="size-7 text-foreground" />
           </div>
-          <h1 className="text-2xl font-medium tracking-[0] text-foreground sm:text-3xl" style={{ fontFamily: '"Geist", var(--font-sans)' }}>
+          <h1 className="text-2xl font-medium tracking-[0] text-foreground sm:text-3xl">
             <span className="block">
               {INTRO_WORDS.slice(0, 2).map((word) => (
                 <span key={word.text} className="mr-[0.25em] inline-block" style={wordStyle(word.delay)}>

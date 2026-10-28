@@ -96,7 +96,7 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
   // The selected model's provider, for the 5-hour limit warning on top of the composer.
   const [modelProvider, setModelProvider] = useState<string | null>(null);
   // Below the composer here: a new chat's composer sits mid-page.
-  const limitWarning = useLimitWarning(modelProvider, "bottom");
+  const limitWarning = useLimitWarning(modelProvider);
   // ComposeBox's own "Set as default for new chat" (compose-box.tsx's own
   // onPinDefaultModel/onPinDefaultEffort props) -- there's no chat yet for
   // that to write a real per-chat default to, so it lands here instead,
@@ -363,7 +363,7 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
               a 20px icon at ~450px. Icon size rounds to even pixels so the
               brand tile stays crisp; the name truncates rather than spill. */}
           <div
-            className={`flex items-center justify-center gap-[clamp(6px,calc(4.36px+0.364cqw),8px)] overflow-hidden text-center transition-[max-height,margin,transform] duration-200 ${transitioningToChat ? "pointer-events-none invisible mb-0 max-h-0 -translate-y-2" : "mb-5 max-h-8 translate-y-0"}`}
+            className={`flex items-center justify-center gap-[clamp(6px,calc(4.36px+0.364cqw),8px)] overflow-hidden text-center transition-[max-height,margin,transform] duration-160 ${transitioningToChat ? "pointer-events-none invisible mb-0 max-h-0 -translate-y-2" : "mb-5 max-h-8 translate-y-0"}`}
           >
             <h1 className="shrink-0 text-[length:clamp(15px,calc(12.55px+0.545cqw),18px)] font-normal text-foreground">{t("home.workspacePrompt")}</h1>
             {/* The workspace's own tile: its logo, or its letter on its colour. */}
@@ -380,7 +380,6 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
           onChange={setPrompt}
           onSubmit={createSession}
           initialHeight={!transitioningToChat}
-          showWorkFromFolder={!transitioningToChat}
           workFromFolderPath={workingDirectory}
           onSelectWorkFromFolder={chooseWorkingDirectory}
           contextUsage={contextUsage}
@@ -392,8 +391,6 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
           onSetAutocompact={() => {}}
           defaultModelValue={defaultModel}
           onOpenSettings={() => openSettings("provider")}
-          onOpenApps={() => openSettings("apps")}
-          onOpenProviders={() => openSettings("provider")}
           onPinDefaultModel={(value) => {
             pinnedDefaultModelRef.current = value;
           }}
@@ -409,7 +406,7 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
             selectedModelsRef.current = models;
             setModelProvider(models[0]?.provider ?? null);
           }}
-          noticeBelow={limitWarning.notice}
+          notice={limitWarning.notice}
         />
         </div>
       </div>
@@ -474,7 +471,7 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
           placeholder={t("bots.placeholder.description")}
           label={t("bots.fields.description")}
           maxLength={300}
-          className="py-1 text-[length:var(--redesign-chat-text)]"
+          className="py-1 text-chat"
         />
       </div>
       <BotFields
@@ -543,7 +540,7 @@ function CenteredInput({
       aria-label={label}
       maxLength={maxLength}
       className={cn(
-        "block w-full rounded-none bg-transparent px-4 text-center font-normal text-foreground outline-none placeholder:text-ink-3 placeholder:transition-opacity placeholder:duration-200 focus:placeholder:opacity-0",
+        "block w-full rounded-none bg-transparent px-4 text-center font-normal text-foreground outline-none placeholder:text-ink-3 placeholder:transition-opacity placeholder:duration-160 focus:placeholder:opacity-0",
         className,
       )}
     />

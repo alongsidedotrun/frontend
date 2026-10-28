@@ -668,7 +668,7 @@ export function AILoadingBar() {
     return (
       <div
         className={cn(
-          '-translate-x-1/2 absolute bottom-4 left-1/2 z-20 flex items-center gap-3 rounded-md border border-border bg-muted px-3 py-1.5 text-muted-foreground text-sm shadow-md transition-all duration-300'
+          '-translate-x-1/2 absolute bottom-4 left-1/2 z-20 flex items-center gap-3 rounded-md border border-border bg-muted px-3 py-1.5 text-muted-foreground text-sm shadow-md transition-all duration-240'
         )}
       >
         <span className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
@@ -681,7 +681,7 @@ export function AILoadingBar() {
         >
           <PauseIcon className="h-4 w-4" />
           Stop
-          <kbd className="ml-1 rounded bg-border px-1 font-mono text-[10px] text-muted-foreground shadow-sm">
+          <kbd className="ml-1 rounded bg-border px-1 font-mono text-ui-2xs text-muted-foreground shadow-sm">
             Esc
           </kbd>
         </Button>

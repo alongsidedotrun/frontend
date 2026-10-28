@@ -94,7 +94,7 @@ function initials(name: string) {
 }
 
 function TaskCount({ count }: { count: number }) {
-  return <span className="rounded-md border border-border px-1.5 py-px text-[11px] text-muted-foreground">{count}</span>;
+  return <span className="rounded-md border border-border px-1.5 py-px text-ui-xs text-muted-foreground">{count}</span>;
 }
 
 function TaskSectionContent({ open, children }: { open: boolean; children: React.ReactNode }) {
@@ -231,13 +231,13 @@ export function OverviewPage() {
         key={task.id}
         type="button"
         onClick={() => toggleTask(task.id)}
-        className="flex h-8 w-full items-center gap-1.5 border-t border-border px-2 text-left text-[13px] transition-colors hover:bg-muted/40"
+        className="flex h-8 w-full items-center gap-1.5 border-t border-border px-2 text-left text-ui transition-colors hover:bg-muted/40"
       >
         {task.completed
           ? <span className="flex size-3.5 shrink-0 items-center justify-center rounded-full bg-foreground text-background"><Check className="size-2" strokeWidth={2.5} /></span>
           : <Circle className="size-3.5 shrink-0 text-muted-foreground/55" strokeWidth={1.8} />}
         <span className={`min-w-0 truncate ${task.completed ? "text-muted-foreground line-through" : "text-foreground"}`}>{task.title}</span>
-        {task.due && <span className="ml-auto shrink-0 text-[10px] text-muted-foreground/70">{weekdayLabel(task.due, i18n.language)}</span>}
+        {task.due && <span className="ml-auto shrink-0 text-ui-2xs text-muted-foreground/70">{weekdayLabel(task.due, i18n.language)}</span>}
       </button>
     ));
   }
@@ -245,24 +245,24 @@ export function OverviewPage() {
   return (
     <main className="flex min-h-0 flex-1 overflow-y-auto bg-background">
       <div className="mx-auto flex w-full max-w-[46rem] flex-col px-4 pt-4 pb-10 sm:px-7 sm:pt-6">
-        <h1 className="text-[17px] tracking-normal text-foreground">
+        <h1 className="text-ui-2xl tracking-normal text-foreground">
           {/* Signed out there's no name to greet, just the time of day. */}
           {userName === GUEST_NAME
             ? t(`${greetingKeyForHour(now.getHours())}Plain`)
             : t(greetingKeyForHour(now.getHours()), { name: userName })}
         </h1>
         <div className="mt-0.5 flex items-baseline gap-1.5">
-          <p className="text-[12px] text-muted-foreground">{dateLabel}</p>
-          <span aria-hidden="true" className="text-[12px] text-muted-foreground/70">·</span>
-          <p className="text-[12px] text-muted-foreground/70">
+          <p className="text-ui-sm text-muted-foreground">{dateLabel}</p>
+          <span aria-hidden="true" className="text-ui-sm text-muted-foreground/70">·</span>
+          <p className="text-ui-sm text-muted-foreground/70">
             {tasksDueToday === 0 ? t("overview.noTasksToday") : t("overview.tasksDueToday", { count: tasksDueToday })}
           </p>
         </div>
 
         <section className="mt-6" aria-labelledby="overview-tasks-heading">
-          <h2 id="overview-tasks-heading" className="text-[16px] tracking-normal text-foreground">{t("overview.myTasks")}</h2>
+          <h2 id="overview-tasks-heading" className="text-ui-xl tracking-normal text-foreground">{t("overview.myTasks")}</h2>
           <div className="mt-2 overflow-hidden rounded-xl border border-border">
-            <button type="button" onClick={() => setTodayOpen((open) => !open)} className="flex h-8 w-full items-center gap-1.5 px-2 text-left text-[14px] hover:bg-muted/30">
+            <button type="button" onClick={() => setTodayOpen((open) => !open)} className="flex h-8 w-full items-center gap-1.5 px-2 text-left text-ui-lg hover:bg-muted/30">
               <ChevronDown className={`size-3 text-muted-foreground transition-transform ${todayOpen ? "" : "-rotate-90"}`} />
               <span className="flex-1">{t("overview.today")}</span>
               <TaskCount count={todayTasks.filter((task) => !task.completed).length} />
@@ -275,12 +275,12 @@ export function OverviewPage() {
                   onChange={(event) => setTaskTitle(event.target.value)}
                   onKeyDown={(event) => { if (event.key === "Enter") addTodayTask(); }}
                   placeholder={t("overview.addToday")}
-                  className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground/60"
+                  className="min-w-0 flex-1 bg-transparent text-ui text-foreground outline-none placeholder:text-muted-foreground/60"
                 />
               </div>
               {taskRows(todayTasks)}
             </TaskSectionContent>
-            <button type="button" onClick={() => setWeekOpen((open) => !open)} className="flex h-8 w-full items-center gap-1.5 border-t border-border px-2 text-left text-[14px] hover:bg-muted/30">
+            <button type="button" onClick={() => setWeekOpen((open) => !open)} className="flex h-8 w-full items-center gap-1.5 border-t border-border px-2 text-left text-ui-lg hover:bg-muted/30">
               <ChevronRight className={`size-3 text-muted-foreground transition-transform ${weekOpen ? "rotate-90" : ""}`} />
               <span className="flex-1">{t("overview.thisWeek")}</span>
               <TaskCount count={weekTasks.filter((task) => !task.completed).length} />
@@ -293,12 +293,12 @@ export function OverviewPage() {
                   onChange={(event) => setWeekTaskTitle(event.target.value)}
                   onKeyDown={(event) => { if (event.key === "Enter") addWeekTask(); }}
                   placeholder={t("overview.addThisWeek")}
-                  className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground/60"
+                  className="min-w-0 flex-1 bg-transparent text-ui text-foreground outline-none placeholder:text-muted-foreground/60"
                 />
                 <BaseDropdownMenu size="compact">
                   <BaseDropdownTrigger
                     render={
-                      <button type="button" className="flex shrink-0 items-center gap-1 rounded-[var(--redesign-hover-radius)] px-1.5 py-1 text-[12px] text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                      <button type="button" className="flex shrink-0 items-center gap-1 rounded-[var(--redesign-hover-radius)] px-1.5 py-1 text-ui-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                         <span>{weekTaskDue ? weekdayLabel(weekTaskDue, i18n.language) : t("overview.due")}</span>
                         <ChevronDown aria-hidden="true" className="size-3" />
                       </button>
@@ -327,7 +327,7 @@ export function OverviewPage() {
               </div>
               {taskRows(weekTasks)}
             </TaskSectionContent>
-            <button type="button" onClick={() => setLaterOpen((open) => !open)} className="flex h-8 w-full items-center gap-1.5 border-t border-border px-2 text-left text-[14px] hover:bg-muted/30">
+            <button type="button" onClick={() => setLaterOpen((open) => !open)} className="flex h-8 w-full items-center gap-1.5 border-t border-border px-2 text-left text-ui-lg hover:bg-muted/30">
               <ChevronRight className={`size-3 text-muted-foreground transition-transform ${laterOpen ? "rotate-90" : ""}`} />
               <span className="flex-1">{t("overview.later")}</span>
               <TaskCount count={laterTasks.filter((task) => !task.completed).length} />
@@ -340,13 +340,13 @@ export function OverviewPage() {
                   onChange={(event) => setLaterTaskTitle(event.target.value)}
                   onKeyDown={(event) => { if (event.key === "Enter") addLaterTask(); }}
                   placeholder={t("overview.addLater")}
-                  className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground/60"
+                  className="min-w-0 flex-1 bg-transparent text-ui text-foreground outline-none placeholder:text-muted-foreground/60"
                 />
                 <Popover open={laterDueOpen} onOpenChange={setLaterDuePickerOpen}>
                   <PopoverTrigger asChild>
-                    <button type="button" className="ml-auto flex h-7 shrink-0 items-center gap-1 rounded-[var(--redesign-hover-radius)] px-1.5 text-[12px] text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <button type="button" className="ml-auto flex h-7 shrink-0 items-center gap-1 rounded-[var(--redesign-hover-radius)] px-1.5 text-ui-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                       <span>{laterTaskDue ? formatLaterDue(laterTaskDue, i18n.language) : t("overview.due")}</span>
-                      <ChevronDown aria-hidden="true" className={`size-3 transition-transform duration-200 ${laterDueOpen ? "rotate-180" : ""}`} />
+                      <ChevronDown aria-hidden="true" className={`size-3 transition-transform duration-160 ${laterDueOpen ? "rotate-180" : ""}`} />
                     </button>
                   </PopoverTrigger>
                   <PopoverContent align="end" sideOffset={4} className="w-auto p-0">
@@ -372,35 +372,35 @@ export function OverviewPage() {
         </section>
 
         <section className="mt-6" aria-labelledby="overview-recent-heading">
-          <h2 id="overview-recent-heading" className="text-[16px] tracking-normal text-foreground">{t("overview.recentlyVisited")}</h2>
+          <h2 id="overview-recent-heading" className="text-ui-xl tracking-normal text-foreground">{t("overview.recentlyVisited")}</h2>
           {recentSessions.length > 0 ? (
             <div className="mt-2 flex gap-2.5 overflow-x-auto pb-1">
               {recentSessions.map((session) => (
                 <button key={session.id} type="button" onClick={() => navigate(`/chat/${session.id}`)} className="w-[13rem] shrink-0 rounded-xl border border-border p-2.5 text-left transition-colors hover:bg-muted/30">
-                  <span className="flex size-6 items-center justify-center rounded-md bg-focus-accent/15 text-[12px] font-medium text-focus-accent">{session.name.slice(0, 1).toUpperCase()}</span>
-                  <p className="mt-3 truncate text-[14px] text-foreground">{session.name}</p>
-                  <p className="mt-0.5 text-[12px] text-muted-foreground/70">{t("settings.nav.chat")}</p>
+                  <span className="flex size-6 items-center justify-center rounded-md bg-focus-accent/15 text-ui-sm font-medium text-focus-accent">{session.name.slice(0, 1).toUpperCase()}</span>
+                  <p className="mt-3 truncate text-ui-lg text-foreground">{session.name}</p>
+                  <p className="mt-0.5 text-ui-sm text-muted-foreground/70">{t("settings.nav.chat")}</p>
                 </button>
               ))}
             </div>
-          ) : <p className="mt-2 text-[12px] text-muted-foreground/70">{t("overview.recentlyVisitedEmpty")}</p>}
+          ) : <p className="mt-2 text-ui-sm text-muted-foreground/70">{t("overview.recentlyVisitedEmpty")}</p>}
         </section>
 
         <section className="mt-6" aria-labelledby="overview-mentions-heading">
-          <h2 id="overview-mentions-heading" className="text-[16px] tracking-normal text-foreground">{t("overview.recentMentions")}</h2>
+          <h2 id="overview-mentions-heading" className="text-ui-xl tracking-normal text-foreground">{t("overview.recentMentions")}</h2>
           {mentions.length > 0 ? (
             <div className="mt-2 overflow-hidden rounded-xl border border-border">
               {mentions.map((mention, index) => (
                 <button key={mention.id} type="button" onClick={() => navigate(`/chat/${mention.chat_id}`)} className={`flex w-full items-center gap-2 p-2.5 text-left transition-colors hover:bg-muted/30 ${index ? "border-t border-border" : ""}`}>
-                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-focus-accent/15 text-[11px] text-focus-accent">{initials(mention.sender)}</span>
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-focus-accent/15 text-ui-xs text-focus-accent">{initials(mention.sender)}</span>
                   <span className="min-w-0">
-                    <span className="block truncate text-[13px] text-foreground">{t("overview.mentionIn", { sender: mention.sender, chat: mention.chat_name })}</span>
-                    <span className="mt-px block truncate text-[12px] text-muted-foreground/70">{mention.content}</span>
+                    <span className="block truncate text-ui text-foreground">{t("overview.mentionIn", { sender: mention.sender, chat: mention.chat_name })}</span>
+                    <span className="mt-px block truncate text-ui-sm text-muted-foreground/70">{mention.content}</span>
                   </span>
                 </button>
               ))}
             </div>
-          ) : <p className="mt-2 text-[12px] text-muted-foreground/70">{t("overview.recentMentionsEmpty")}</p>}
+          ) : <p className="mt-2 text-ui-sm text-muted-foreground/70">{t("overview.recentMentionsEmpty")}</p>}
         </section>
       </div>
     </main>

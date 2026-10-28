@@ -93,7 +93,7 @@ export function NavUserMenuItems({ onOpenSettings }: { onOpenSettings?: () => vo
 
   return (
     <>
-      {/* text-[12px] font-normal text-muted-foreground: same resting/
+      {/* text-ui-sm font-normal text-muted-foreground: same resting/
           "inactive" row style the sidebar itself uses (RailButton,
           sidebar-nav.tsx) -- size/weight/color all matched, not just the
           font-normal picked up earlier from DropdownMenuContent's own
@@ -162,7 +162,7 @@ export function NavUserMenuItems({ onOpenSettings }: { onOpenSettings?: () => vo
           index={4 + i}
           label={model.provider}
           onSelect={() => navigate("/settings/provider")}
-          className="relative z-10 flex h-7 shrink-0 items-center gap-1 rounded-[7px] px-1.5 text-[12px] font-normal text-muted-foreground cursor-pointer"
+          className="relative z-10 flex h-7 shrink-0 items-center gap-1 rounded-[7px] px-1.5 text-ui-sm font-normal text-muted-foreground cursor-pointer"
         >
           {/* size-3.5 (14px), not size-4 (16px) -- per an app-wide
               compact-scale audit, matching every other icon in this menu
@@ -239,7 +239,7 @@ export function NotificationsMenuItems() {
           <button
             type="button"
             onClick={() => dismissAllTurnNotifications()}
-            className="text-[11px] font-normal text-muted-foreground hover:text-foreground"
+            className="text-ui-xs font-normal text-muted-foreground hover:text-foreground"
           >
             {t("nav.notifications.dismissAll")}
           </button>
@@ -260,7 +260,7 @@ export function NotificationsMenuItems() {
         // still picked the nearest *registered* row (Sign in/Log out)
         // while hovering empty space above it.
         <div
-          className="flex h-9 items-center px-2 text-[12px] font-normal text-muted-foreground opacity-50"
+          className="flex h-9 items-center px-2 text-ui-sm font-normal text-muted-foreground opacity-50"
           onMouseEnter={() => setActiveIndex?.(null)}
           onMouseMove={(event) => event.stopPropagation()}
         >
@@ -353,7 +353,7 @@ export function AccountMenuItems({
 function ComingSoonBadge() {
   const { t } = useTranslation()
   return (
-    <span className="ml-1.5 shrink-0 rounded-[4px] bg-hover-2 px-1 py-0.5 text-[10px] font-normal text-muted-foreground">
+    <span className="ml-1.5 shrink-0 rounded-[4px] bg-hover-2 px-1 py-0.5 text-ui-2xs font-normal text-muted-foreground">
       {t("compose.soon")}
     </span>
   )
