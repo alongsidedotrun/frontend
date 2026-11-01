@@ -288,9 +288,12 @@ export function ShellDialogActions({
   onCancel,
   primary,
   pills = false,
+  cancelDisabled = false,
 }: {
   cancelLabel: string;
   onCancel: () => void;
+  /** E.g. New bot's Reset, with nothing to reset yet. */
+  cancelDisabled?: boolean;
   /** destructive: red, for deleting. */
   primary?: { label: string; onClick?: () => void; disabled?: boolean; loading?: boolean; type?: "button" | "submit"; form?: string; destructive?: boolean };
   /** A page's buttons (ShellPage): round pills side by side, the secondary then the primary, as the New
@@ -304,7 +307,7 @@ export function ShellDialogActions({
       <ShapeProvider defaultShape="pill">
         <div className={cn("mt-2 grid w-full gap-3", primary ? "grid-cols-2" : "grid-cols-1")}>
           {/* Cancel first (outlined), then the main action (filled). */}
-          <Button type="button" size="compact" variant="tertiary" className={cn("w-full px-5", card ? "h-10" : "h-9")} onClick={onCancel}>
+          <Button type="button" size="compact" variant="tertiary" className={cn("w-full px-5", card ? "h-10" : "h-9")} disabled={cancelDisabled} onClick={onCancel}>
             {cancelLabel}
           </Button>
           {primary && (
