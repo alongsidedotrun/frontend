@@ -732,6 +732,12 @@ export function RedesignPage() {
     .sort((a, b) => !a.last_activity ? -1 : !b.last_activity ? 1 : b.last_activity.localeCompare(a.last_activity))
     .slice(0, RECENTS_SIZE);
 
+  // Starts a new chat, as New does (nothing when already on an empty one).
+  const startNewChat = () => {
+    if (location.pathname === "/" && !location.search && !activeChatId) return;
+    setActiveChatId(null);
+    navigate("/");
+  };
   const chatsSidebarSections: readonly SidebarSection[] = [
     {
       id: "recents",
@@ -747,17 +753,22 @@ export function RedesignPage() {
       label: t("nav.chats"),
       // Recents lists chats and bots together; Chats and Bots are drawers.
       collapsible: true,
-      // Starts a new chat, as New does (nothing when already on an empty one). Projects are made from a
-      // chat's menu (New project), and list here with their chats.
-      action: {
-        label: t("common.newChat"),
-        icon: Plus,
-        onSelect: () => {
-          if (location.pathname === "/" && !location.search && !activeChatId) return;
-          setActiveChatId(null);
-          navigate("/");
+      // Projects list here with their chats.
+      action: { label: t("common.newChat"), icon: Plus, onSelect: startNewChat },
+      // What can be created here, beside the +: a chat, or a project to gather chats in.
+      menu: [
+        { id: "new-chat", label: t("common.newChat"), icon: BubbleChatIcon, onSelect: startNewChat },
+        {
+          id: "new-project",
+          label: t("shell.rowMenu.newProject"),
+          icon: FolderIcon,
+          onSelect: () => {
+            setChatForNewProject(null);
+            setProjectError(null);
+            setNewProjectOpen(true);
+          },
         },
-      },
+      ],
       items: [
         ...workspaceProjects.map((project) => ({
         id: project.id,
