@@ -250,7 +250,7 @@ const SETTINGS_SECTIONS: readonly SettingsSection[] = ["profile", "general", "ap
 function quickActionForPath(pathname: string) {
   if (pathname === "/overview") return "overview";
   // Join chat (a page of its own) keeps the chats sidebar.
-  if (pathname.startsWith("/chat/") || pathname === "/" || pathname === "/join-chat" || pathname.startsWith("/workspace/")) return "chats";
+  if (pathname.startsWith("/chat/") || pathname === "/" || pathname === "/join-chat" || pathname.startsWith("/workspace/") || pathname === "/sign-in") return "chats";
   if (pathname === "/apps") return "apps";
   if (pathname === "/agents") return "agents";
   return "inbox";
@@ -271,10 +271,11 @@ export function RedesignPage() {
   const [, setAppHistoryVersion] = useState(0);
   const [workspaces, setWorkspaces] = useState<WorkspaceRecord[]>([DEFAULT_WORKSPACE]);
   const [workspaceId, setWorkspaceId] = useState(DEFAULT_WORKSPACE.id);
-  // Sign-in is a dialog over the shell (also opened from Settings via
-  // openSignInDialog in lib/use-sign-in.ts).
-  const [signInOpen, setSignInOpen] = useState(false);
-  const openSignIn = useCallback(() => setSignInOpen(true), []);
+  // Sign in is a page (/sign-in) like New workspace, opened from anywhere via openSignInDialog in
+  // lib/use-sign-in.ts; leaving it goes back the way the workspace pages do.
+  const openSignIn = useCallback(() => {
+    if (window.location.pathname !== "/sign-in") navigate("/sign-in");
+  }, [navigate]);
   const identity = useIdentity();
   useSignInDialogHost(openSignIn);
   // Share (for the chat it was opened on) and Join chat, also opened from the
@@ -1316,7 +1317,9 @@ export function RedesignPage() {
         contentClassName="flex min-h-0 w-full flex-1 bg-background"
         surfaceKey={redesignSurfaceKey}
       >
-        {workspacePath === "/workspace/new" ? (
+        {location.pathname === "/sign-in" ? (
+          <SignInDialog asPage open onOpenChange={() => leaveWorkspacePage()} />
+        ) : workspacePath === "/workspace/new" ? (
           <CreateWorkspaceDialog asPage open onOpenChange={() => leaveWorkspacePage()} onCreate={createWorkspace} saving={saving} error={workspaceError} />
         ) : workspacePath === "/workspace/manage" ? (
           <ManageWorkspaceDialog
@@ -1344,7 +1347,6 @@ export function RedesignPage() {
           </div>
         ))}
       </SidebarSurfaceTransition>
-      <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} />
       <ShareChatDialog sessionId={shareChatId} open={shareOpen} onOpenChange={setShareOpen} />
       <Dialog open={projectToArchive !== null} onOpenChange={(open) => { if (!open) setProjectToArchive(null); }} backdropClassName="!z-[120]">
         <DialogContent className="!z-[120]">

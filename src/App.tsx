@@ -65,6 +65,8 @@ const ROUTES: RouteObject[] = [
       // New and Manage workspace: drawn by the shell (RedesignPage), which holds the workspaces.
       { path: "/workspace/new", element: null },
       { path: "/workspace/manage", element: null },
+      // Sign in: a page drawn by the shell too (RedesignPage), opened from anywhere via openSignInDialog().
+      { path: "/sign-in", element: null },
       { path: "/projects", element: <ProjectsPage /> },
       { path: "/apps", element: <AppsPage /> },
       // Full page now, not a modal -- per explicit request ("i want a
