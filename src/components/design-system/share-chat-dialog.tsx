@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
@@ -246,6 +246,31 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
     await refreshAccess();
   }
 
+  // New code: replaces the chat's join code (the old one stops working at once; a chat has one live
+  // code), for the role picked, without copying an invite as Invite does.
+  async function newCode() {
+    if (!sessionId || !sharing) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(`/sessions/${sessionId}/relay/code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+      });
+      if (!response.ok) {
+        setError(t(await errorKeyOf(response, "shareChat.errors.code")));
+        return;
+      }
+      const made = (await response.json()) as { code: string; expires_at: number; role?: Role };
+      setCode({ code: made.code, status: "active", expires_at: made.expires_at, role: made.role ?? role });
+    } catch {
+      setError(t("shareChat.errors.code"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function revokeCode() {
     if (!sessionId) return;
     await fetch(`/sessions/${sessionId}/relay/code`, { method: "DELETE" }).catch(() => null);
@@ -340,7 +365,7 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-2">
             <CopyField label={t("shareChat.chatId")} value={null} placeholder={t("shareChat.signedOutPlaceholder")} copied={false} onCopy={() => {}} />
-            <CopyField label={t("shareChat.joinCode")} value={null} placeholder={t("shareChat.signedOutPlaceholder")} copied={false} onCopy={() => {}} />
+            <CopyField label={t("shareChat.joinCode")} value={null} copied={false} onCopy={() => {}} onNewCode={() => {}} newCodeDisabled />
           </div>
           <RolePicker role={role} onChange={setRole} />
         </div>
@@ -368,6 +393,9 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
               placeholder={t("shareChat.joinCodePending")}
               copied={copied === "code"}
               onCopy={(value) => copy("code", value)}
+              // Once Invite has made a code: replace it (the old one is dropped).
+              onNewCode={() => void newCode()}
+              newCodeDisabled={!sharing || !code || busy}
             />
           </div>
           {sharing && codeActive && code?.code ? (
@@ -461,15 +489,39 @@ function RolePicker({ role, onChange }: { role: Role; onChange: (role: Role) => 
 }
 
 /** The identifier or join code, labelled, with a copy button; a placeholder until there is one. */
-function CopyField({ label, value, placeholder, copied, onCopy }: { label: string; value: string | null; placeholder?: string; copied: boolean; onCopy: (value: string) => void }) {
+function CopyField({
+  label,
+  value,
+  placeholder,
+  copied,
+  onCopy,
+  onNewCode,
+  newCodeDisabled = false,
+}: {
+  label: string;
+  value: string | null;
+  placeholder?: string;
+  copied: boolean;
+  onCopy: (value: string) => void;
+  /** The join code's New code button, left of copy. */
+  onNewCode?: () => void;
+  newCodeDisabled?: boolean;
+}) {
   const { t } = useTranslation();
   return (
     <ShellField
       label={label}
       trailing={
-        <Button type="button" variant="ghost" size="icon-compact" className="size-6" disabled={!value} aria-label={copied ? t("shareChat.copied") : t("shareChat.copy", { what: label })} onClick={() => value && onCopy(value)}>
-          {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
-        </Button>
+        <span className="flex items-center gap-0.5">
+          {onNewCode && (
+            <Button type="button" variant="ghost" size="icon-compact" className="size-6" disabled={newCodeDisabled} aria-label={t("shareChat.newCode")} title={t("shareChat.newCode")} onClick={onNewCode}>
+              <RefreshCw aria-hidden="true" />
+            </Button>
+          )}
+          <Button type="button" variant="ghost" size="icon-compact" className="size-6" disabled={!value} aria-label={copied ? t("shareChat.copied") : t("shareChat.copy", { what: label })} onClick={() => value && onCopy(value)}>
+            {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
+          </Button>
+        </span>
       }
     >
       {value ? (
