@@ -200,8 +200,47 @@ export function ShellPage({
   icon,
   transitionKey,
   footnote,
+  look = "panel",
 }: Parameters<typeof ShellDialog>[0]) {
   const reduceMotion = useReducedMotion();
+  if (look === "card") {
+    // The card look as a page: the Alongside mark above the card, centred in the main area (Sign in).
+    return (
+      <ShellLookContext.Provider value="card">
+        <div className="relative flex min-h-0 flex-1 overflow-y-auto bg-background">
+          <div className="m-auto flex w-full max-w-[480px] flex-col px-4 py-16">
+            <div className="mb-5 flex items-center justify-center gap-2.5">
+              <WorkspaceBrandIcon size={32} imageSrc="/alongside-mark.svg" />
+              <span className="text-[19px] font-semibold tracking-[-0.02em] text-foreground">Alongside</span>
+            </div>
+            <div className="rounded-[20px] border border-[var(--redesign-sidebar-border)] bg-white p-[clamp(24px,5vw,36px)] dark:bg-[#171717]">
+              {top && <div className="mb-4 flex flex-col">{top}</div>}
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={transitionKey}
+                  className="flex flex-col gap-4"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1, transition: { duration: reduceMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] } }}
+                  exit={{ opacity: 0, transition: { duration: reduceMotion ? 0 : 0.12, ease: [0.4, 0, 1, 1] } }}
+                >
+                  <div className="flex flex-col gap-1.5 text-left">
+                    <div className="flex items-center gap-2">
+                      <h1 className="text-[22px] leading-tight font-semibold tracking-[-0.02em] text-foreground">{title}</h1>
+                      {badge}
+                    </div>
+                    <p className="text-[13px] leading-relaxed text-muted-foreground">{description}</p>
+                  </div>
+                  {children}
+                  {actions}
+                  {footnote}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          </div>
+        </div>
+      </ShellLookContext.Provider>
+    );
+  }
   return (
     <div className="relative flex min-h-0 flex-1 overflow-y-auto bg-background">
       <div className="m-auto flex w-full max-w-[400px] flex-col gap-3 px-4 py-16">
@@ -256,7 +295,8 @@ export function ShellDialogActions({
     return (
       <ShapeProvider defaultShape="pill">
         <div className="mt-2 grid w-full grid-cols-2 gap-3">
-          <Button type="button" size="compact" variant="tertiary" className="h-9 w-full px-5" onClick={onCancel}>
+          {/* The card look puts the main action first, as the waitlist pages do; a page keeps Cancel first. */}
+          <Button type="button" size="compact" variant="tertiary" className={cn("w-full px-5", card ? "order-last h-10" : "h-9")} onClick={onCancel}>
             {cancelLabel}
           </Button>
           {primary && (
@@ -267,7 +307,8 @@ export function ShellDialogActions({
               // Deleting is red (the same colours as the dialogs' destructive button).
               variant={primary.destructive ? "accent" : "primary"}
               className={cn(
-                "h-9 w-full px-5",
+                "w-full px-5",
+                card ? "h-10" : "h-9",
                 primary.destructive &&
                   "[--send-button-bg-active:color-mix(in_oklab,var(--destructive),black_25%)] [--send-button-bg-hover:color-mix(in_oklab,var(--destructive),black_12%)] [--send-button-bg:var(--destructive)]",
               )}

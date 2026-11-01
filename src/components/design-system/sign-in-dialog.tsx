@@ -5,7 +5,7 @@ import { loadLanguage, saveLanguage, uiLocaleFor, type LanguageValue } from "@/l
 import { loadTimezone, saveTimezone } from "@/lib/timezones";
 import { LanguageDropdown, TimezoneDropdown } from "@/components/locale-dropdowns";
 import { SurfaceProvider } from "@/lib/surface-context";
-import { ShellDialog, ShellDialogActions, ShellField, ShellPage, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
+import { ShellDialog, ShellDialogActions, ShellField, ShellPage, SHELL_FIELD_INPUT } from "@/components/design-system/shell-dialog";
 import { GitHubMarkIcon, GoogleIcon } from "@/components/icons/brand-icons";
 import { Button } from "@/components/ui/button";
 import { showErrorToast } from "@/components/ui/app-toast";
@@ -25,7 +25,7 @@ const CODE_LENGTH = 6;
 // A dropdown's trigger in the look of a ShellField: the label, the current value and a chevron.
 const DropdownField = forwardRef<HTMLButtonElement, { label: string; value: string } & ButtonHTMLAttributes<HTMLButtonElement>>(function DropdownField({ label, value, className, ...props }, ref) {
   return (
-    <button ref={ref} type="button" className={cn("flex h-8 w-full items-center gap-2 pr-2 pl-3 text-left text-ui outline-none focus-visible:ring-2 focus-visible:ring-ring", SHELL_RADIUS, SHELL_SURFACE, className)} {...props}>
+    <button ref={ref} type="button" className={cn("flex h-10 w-full items-center gap-2 rounded-full border border-[var(--redesign-sidebar-border)] bg-black/[0.02] pr-3 pl-4 text-left text-ui outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-white/[0.03]", className)} {...props}>
       <span className="w-[72px] shrink-0 truncate text-ui-sm text-muted-foreground">{label}</span>
       <span className="min-w-0 flex-1 truncate text-foreground">{value}</span>
       <ChevronDown aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
@@ -115,7 +115,8 @@ export function SignInDialog({ open, onOpenChange, asPage = false }: SignInDialo
 
   const providerLabel = provider === "github" ? t("auth.continueWithGitHub") : t("auth.continueWithGoogle");
   // A white, full-width button on the dialog's surface (Google, GitHub, open again).
-  const providerButton = cn("h-8 w-full bg-white dark:bg-transparent", SHELL_RADIUS);
+  // Sign in uses the card look (ShellLook): Google and GitHub as full-width pills.
+  const providerButton = "h-10 w-full rounded-full bg-transparent";
 
   const heading =
     stepKey === "waiting"
@@ -154,6 +155,7 @@ export function SignInDialog({ open, onOpenChange, asPage = false }: SignInDialo
   const Frame = asPage ? ShellPage : ShellDialog;
   return (
     <Frame
+      look="card"
       centered
       transitionKey={stepKey}
       footnote={
