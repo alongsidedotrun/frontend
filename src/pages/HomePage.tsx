@@ -452,8 +452,9 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
       onOpenChange={() => {}}
       brand={false}
       icon={<BotFace avatar={draft.avatar} expression={mood} animated className="size-12" />}
-      title={t("bots.new")}
-      description={t("bots.subtitle")}
+      // The bot as it's made: its name and description replace the heading as they're typed.
+      title={<span className="break-all">{draft.name.trim() || t("bots.new")}</span>}
+      description={<span className="line-clamp-2 break-words">{draft.description.trim() || t("bots.subtitle")}</span>}
       actions={
         <ShellDialogActions
           cancelLabel={t("bots.reset")}
