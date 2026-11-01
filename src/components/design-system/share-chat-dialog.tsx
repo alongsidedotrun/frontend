@@ -313,6 +313,7 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
     // The waitlist pages' card style (ShellLook): the Alongside mark above a rounded card, pill fields and buttons.
     <ShellDialog
       look="card"
+      headerAlign="left"
       open={open}
       onOpenChange={onOpenChange}
       top={

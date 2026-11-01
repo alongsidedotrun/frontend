@@ -46,6 +46,7 @@ export function ShellDialog({
   transitionKey,
   footnote,
   look = "card",
+  headerAlign = "center",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -69,6 +70,8 @@ export function ShellDialog({
   footnote?: ReactNode;
   /** "card": the waitlist pages' style (see ShellLook). */
   look?: ShellLook;
+  /** The card's tile, title and description: centred (the default), or left (Sign in, Invite members). */
+  headerAlign?: "left" | "center";
 }) {
   const reduceMotion = useReducedMotion();
   // The content's own height, which the dialog animates to.
@@ -106,9 +109,9 @@ export function ShellDialog({
               className={cn("relative flex flex-col gap-4 overflow-y-auto rounded-[20px] border border-[var(--redesign-sidebar-border)] bg-white p-[clamp(24px,5vw,36px)] outline-none dark:bg-[#171717]", PANE_DIALOG_MAX_HEIGHT)}
             >
               {top && <div className="flex flex-col">{top}</div>}
-              <div className="flex flex-col gap-1.5 text-left">
+              <div className={cn("flex flex-col gap-1.5", headerAlign === "center" ? "items-center text-center text-balance" : "text-left")}>
                 {/* The dialog's own tile (a workspace's logo menu, a bot), above its title. */}
-                {icon && <div className="mb-2 self-start">{icon}</div>}
+                {icon && <div className={cn("mb-2", headerAlign === "left" && "self-start")}>{icon}</div>}
                 <div className="flex items-center gap-2">
                   <DialogTitle className="text-ui-display leading-tight font-semibold tracking-[-0.02em] text-foreground">{title}</DialogTitle>
                   {badge}
@@ -204,6 +207,7 @@ export function ShellPage({
   transitionKey,
   footnote,
   look = "card",
+  headerAlign = "center",
 }: Parameters<typeof ShellDialog>[0]) {
   const reduceMotion = useReducedMotion();
   if (look === "card") {
@@ -226,8 +230,8 @@ export function ShellPage({
                   animate={{ opacity: 1, transition: { duration: reduceMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] } }}
                   exit={{ opacity: 0, transition: { duration: reduceMotion ? 0 : 0.12, ease: [0.4, 0, 1, 1] } }}
                 >
-                  <div className="flex flex-col gap-1.5 text-left">
-                    {icon && <div className="mb-2 self-start">{icon}</div>}
+                  <div className={cn("flex flex-col gap-1.5", headerAlign === "center" ? "items-center text-center text-balance" : "text-left")}>
+                    {icon && <div className={cn("mb-2", headerAlign === "left" && "self-start")}>{icon}</div>}
                     <div className="flex items-center gap-2">
                       <h1 className="text-ui-display leading-tight font-semibold tracking-[-0.02em] text-foreground">{title}</h1>
                       {badge}
