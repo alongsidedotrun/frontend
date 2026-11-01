@@ -59,7 +59,7 @@ export function CreateProjectDialog({ open, onOpenChange, name, onNameChange, on
             className={SHELL_FIELD_INPUT}
           />
         </ShellField>
-        {error && <p className="px-1 text-[12px] text-destructive">{error}</p>}
+        {error && <p className="px-1 text-ui-sm text-destructive">{error}</p>}
       </form>
     </ShellDialog>
   );

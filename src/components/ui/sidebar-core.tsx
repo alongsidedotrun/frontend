@@ -888,7 +888,7 @@ export type SidebarTriggerProps = ButtonProps;
 /** Keystroke chip rendered inside the (inverted) tooltip surface. */
 function ShortcutKbd({ children }: { children: ReactNode }) {
   return (
-    <kbd className="-my-1 flex h-4 min-w-4 items-center justify-center rounded border border-background/30 px-1 font-sans text-[length:var(--fs-micro-compact,10px)] leading-[var(--lh-micro-compact,12px)] text-background">
+    <kbd className="-my-1 flex h-4 min-w-4 items-center justify-center rounded border border-background/30 px-1 font-sans text-ui-2xs leading-[var(--lh-micro-compact,12px)] text-background">
       {children}
     </kbd>
   );

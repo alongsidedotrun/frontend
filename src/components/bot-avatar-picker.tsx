@@ -63,7 +63,7 @@ export function BotAvatarPicker({ value, onChange, onClose }: { value: BotAvatar
           >
             {value.kind === "image" ? <BotFace avatar={value} className="size-20" /> : <Upload01 aria-hidden="true" className="size-5" />}
           </button>
-          <p className="text-center text-[12px] text-muted-foreground">{error ? t("bots.avatar.uploadFailed") : t("bots.avatar.uploadHint")}</p>
+          <p className="text-center text-ui-sm text-muted-foreground">{error ? t("bots.avatar.uploadFailed") : t("bots.avatar.uploadHint")}</p>
           <input
             ref={fileRef}
             type="file"
@@ -128,7 +128,7 @@ export function BotEyesPicker({
         >
           <span
             className={cn(
-              "grid size-[calc(var(--swatch)+4px)] place-items-center rounded-full transition-[box-shadow,scale] duration-150 group-hover/eyes:scale-105",
+              "grid size-[calc(var(--swatch)+4px)] place-items-center rounded-full transition-[box-shadow,scale] duration-160 group-hover/eyes:scale-105",
               eyes === current && cn("ring-2 ring-foreground/40 ring-offset-2", ringOffset),
             )}
           >
@@ -137,7 +137,7 @@ export function BotEyesPicker({
           <span
             className={cn(
               "whitespace-nowrap px-0.5 leading-none transition-colors",
-              compact ? "text-[10px]" : "text-[length:var(--redesign-chat-meta)]",
+              compact ? "text-ui-2xs" : "text-chat-meta",
               eyes === current ? "text-foreground" : "text-muted-foreground group-hover/eyes:text-foreground",
             )}
           >
@@ -175,7 +175,7 @@ export function BotSwatches({
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState(false);
   const swatchClass = (selected: boolean, grows = true) => cn(
-    "grid size-[calc(var(--swatch)+4px)] place-items-center rounded-full transition-[box-shadow,scale] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+    "grid size-[calc(var(--swatch)+4px)] place-items-center rounded-full transition-[box-shadow,scale] duration-160 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
     grows && "hover:scale-105",
     selected && cn("ring-2 ring-foreground/40 ring-offset-2", ringOffset),
   );
@@ -227,7 +227,7 @@ export function BotSwatches({
           </button>
         )}
       </div>
-      {withUpload && error && <p className="text-[12px] text-destructive">{t("bots.avatar.uploadFailed")}</p>}
+      {withUpload && error && <p className="text-ui-sm text-destructive">{t("bots.avatar.uploadFailed")}</p>}
       {withUpload && (
         <input
           ref={fileRef}

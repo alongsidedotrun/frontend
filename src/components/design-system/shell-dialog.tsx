@@ -71,10 +71,10 @@ export function ShellDialog({
       {/* The Alongside mark on a workspace-style tile, unless the dialog brings its own. */}
       <div className="mb-2">{icon ?? <WorkspaceBrandIcon size={32} />}</div>
       <div className="flex items-center gap-2">
-        <DialogTitle className="text-[15px] font-medium text-foreground">{title}</DialogTitle>
+        <DialogTitle className="text-ui-xl font-medium text-foreground">{title}</DialogTitle>
         {badge}
       </div>
-      <DialogDescription className="text-[12px] text-muted-foreground">{description}</DialogDescription>
+      <DialogDescription className="text-ui-sm text-muted-foreground">{description}</DialogDescription>
     </div>
   );
   return (
@@ -155,10 +155,10 @@ export function ShellPage({
             <div className="flex flex-col items-center gap-0.5 pb-3 text-center">
               <div className="mb-2">{icon ?? <WorkspaceBrandIcon size={32} />}</div>
               <div className="flex items-center gap-2">
-                <h1 className="text-[15px] font-medium text-foreground">{title}</h1>
+                <h1 className="text-ui-xl font-medium text-foreground">{title}</h1>
                 {badge}
               </div>
-              <p className="text-[12px] text-muted-foreground">{description}</p>
+              <p className="text-ui-sm text-muted-foreground">{description}</p>
             </div>
             {children}
             {actions}
@@ -253,8 +253,8 @@ export function ShellDialogActions({
  */
 export function ShellField({ label, htmlFor, children, trailing, className }: { label: string; htmlFor?: string; children: ReactNode; trailing?: ReactNode; className?: string }) {
   return (
-    <div className={cn("flex h-8 items-center gap-2 pr-0.5 pl-3 text-[13px]", SHELL_RADIUS, SHELL_SURFACE, className)}>
-      <label htmlFor={htmlFor} className="w-[72px] shrink-0 truncate text-[12px] text-muted-foreground">
+    <div className={cn("flex h-8 items-center gap-2 pr-0.5 pl-3 text-ui", SHELL_RADIUS, SHELL_SURFACE, className)}>
+      <label htmlFor={htmlFor} className="w-[72px] shrink-0 truncate text-ui-sm text-muted-foreground">
         {label}
       </label>
       <div className="flex min-w-0 flex-1 items-center">{children}</div>
@@ -265,4 +265,4 @@ export function ShellField({ label, htmlFor, children, trailing, className }: { 
 
 // An input inside a ShellField: transparent, with no border, radius or padding of its own (the
 // field around it has them), and room for descenders (an explicit height and line height, not h-full).
-export const SHELL_FIELD_INPUT = "h-7 w-full min-w-0 flex-1 appearance-none rounded-none border-0 bg-transparent p-0 text-[13px] leading-[1.5] text-foreground shadow-none outline-none placeholder:text-muted-foreground/70";
+export const SHELL_FIELD_INPUT = "h-7 w-full min-w-0 flex-1 appearance-none rounded-none border-0 bg-transparent p-0 text-ui leading-[1.5] text-foreground shadow-none outline-none placeholder:text-muted-foreground/70";

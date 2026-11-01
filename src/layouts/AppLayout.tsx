@@ -186,12 +186,12 @@ function PageBreadcrumb({
   if (location.pathname === "/getting-started") {
     content = (
       <Breadcrumb>
-        {/* text-[13px]: matches dray's own --text-ui token (0.8125rem =
+        {/* text-ui: matches dray's own --text-ui token (0.8125rem =
             13px) -- their session-header row (SessionHeader.tsx) sets this
             once on the whole row rather than per-segment, per explicit
             request to match their font size. Overrides BreadcrumbList's
             own default text-sm (14px). */}
-        <BreadcrumbList className="text-[13px]">
+        <BreadcrumbList className="text-ui">
           <BreadcrumbItem>
             <BreadcrumbPage>{t("breadcrumb.home")}</BreadcrumbPage>
           </BreadcrumbItem>
@@ -219,7 +219,7 @@ function PageBreadcrumb({
             labels sit at px-2 (the column) + px-2 (the label row) = 16px
             from the page edge, while this title otherwise only had the
             header's own 8px. */}
-        <BreadcrumbList className="pl-2 text-[11px]">
+        <BreadcrumbList className="pl-2 text-ui-xs">
           <BreadcrumbItem>
             <BreadcrumbPage>{t("library.title")}</BreadcrumbPage>
           </BreadcrumbItem>
@@ -238,12 +238,12 @@ function PageBreadcrumb({
           regardless. Just the title itself now, same as a chat that *does*
           belong to a real project would still show past its own project's
           name once that assignment exists. */}
-      {/* text-[11px], down from 13px -- per explicit follow-up ("the chat
+      {/* text-ui-xs, down from 13px -- per explicit follow-up ("the chat
           name should be reduce to match the font size at icon + library
           and icon + terminal"): matches the right panel's own Library/
           Terminal pill labels (right-panel.tsx, reduced to 11px in the
           same pass). */}
-      <BreadcrumbList className="text-[11px]">
+      <BreadcrumbList className="text-ui-xs">
         <BreadcrumbItem>
           {/* Model icon stack -- per explicit request ("we need to add
               the model at the chat name like the name of the sidebar has
@@ -298,7 +298,7 @@ function PageBreadcrumb({
                   })}
                   {models.length > 4 && (
                     <span
-                      className="flex size-4.5 shrink-0 items-center justify-center rounded-full bg-hover-2 text-[9px] font-medium text-muted-foreground ring-1 ring-background"
+                      className="flex size-4.5 shrink-0 items-center justify-center rounded-full bg-hover-2 text-ui-2xs font-medium text-muted-foreground ring-1 ring-background"
                       style={{ zIndex: 0 }}
                     >
                       {models.length}
@@ -367,9 +367,9 @@ function PageBreadcrumb({
                       cancel();
                     }
                   }}
-                  // md:text-[13px], not just text-[13px] -- ui/input.tsx's own base
+                  // md:text-ui, not just text-ui -- ui/input.tsx's own base
                   // classes carry md:text-sm (14px), which wins over a plain
-                  // text-[13px] at this app's real widths (always past md) since
+                  // text-ui at this app's real widths (always past md) since
                   // twMerge doesn't collapse a bare utility against a differently-
                   // scoped md: variant. Same bug/fix as sidebar-nav.tsx's own
                   // search input (that file's own comment has the full reasoning) --
@@ -377,13 +377,13 @@ function PageBreadcrumb({
                   // chat title (14px, md:text-sm winning) rendered at visibly
                   // different sizes.
                   // dark:bg-transparent, not just bg-transparent -- same bug/fix as the
-                  // md:text-[13px] above: ui/input.tsx's own base classes carry
+                  // md:text-ui above: ui/input.tsx's own base classes carry
                   // dark:bg-input/30, which wins over a plain bg-transparent in dark
                   // mode since twMerge doesn't collapse a bare utility against a
                   // differently-scoped dark: variant. Confirmed directly as the real
                   // cause of a visible background color on this input specifically in
                   // dark mode.
-                  className="h-6 w-48 border-none bg-transparent px-1 text-[11px] font-normal text-foreground shadow-none focus-visible:ring-0 md:text-[11px] dark:bg-transparent"
+                  className="h-6 w-48 border-none bg-transparent px-1 text-ui-xs font-normal text-foreground shadow-none focus-visible:ring-0 md:text-ui-xs dark:bg-transparent"
                 />
                 <button
                   type="button"
@@ -410,17 +410,17 @@ function PageBreadcrumb({
               // a plain button instead, matching the editing Input's own
               // size/padding so nothing shifts position when toggling
               // between the two.
-              // text-[11px], not 13px -- real bug, confirmed directly via
+              // text-ui-xs, not 13px -- real bug, confirmed directly via
               // a follow-up screenshot ("The chat name still pretty big
               // compared to library and terminal"): this button's own
-              // explicit text-[13px] overrode the parent BreadcrumbList's
-              // text-[11px] (above) outright, since it's set directly on
+              // explicit text-ui overrode the parent BreadcrumbList's
+              // text-ui-xs (above) outright, since it's set directly on
               // the element rather than inherited -- reducing the parent
               // alone was never going to reach this.
               <button
                 type="button"
                 onClick={startEditing}
-                className="h-6 max-w-48 truncate rounded px-1 text-left text-[11px] font-normal text-foreground hover:bg-hover-2/50"
+                className="h-6 max-w-48 truncate rounded px-1 text-left text-ui-xs font-normal text-foreground hover:bg-hover-2/50"
               >
                 {/* key={sessionId} -- confirmed directly as a real bug
                     ("switching from new chat to an existing chat quickly
@@ -1711,12 +1711,12 @@ export function AppLayout() {
                           onSelect={() => void assignChatToProject(null)}
                         />
                       ) : sidebarProjects.length > 0 ? (
-                        <DropdownSubMenuItem index={2} icon={FolderIcon} label={t("nav.chat.addToProject")} className="gap-[7px] text-[12px]">
+                        <DropdownSubMenuItem index={2} icon={FolderIcon} label={t("nav.chat.addToProject")} className="gap-[7px] text-ui-sm">
                           <BaseDropdownLabel>{t("nav.projects")}</BaseDropdownLabel>
                           {sidebarProjects.map((project) => (
                             <DropdownSubItem
                               key={project.id}
-                              className="py-1.5 pl-2.5 text-[12px]"
+                              className="py-1.5 pl-2.5 text-ui-sm"
                               onClick={() => void assignChatToProject(project.id)}
                             >
                               {project.label}
@@ -1933,7 +1933,7 @@ export function AppLayout() {
           // primary sidebar sit outside this boundary and never fade.
           <div
             aria-hidden="true"
-            className={`pointer-events-none absolute inset-0 z-[210] bg-background transition-opacity duration-300 ease-in-out ${navigationCurtainVisible ? "opacity-100" : "opacity-0"}`}
+            className={`pointer-events-none absolute inset-0 z-[210] bg-background transition-opacity duration-240 ease-in-out ${navigationCurtainVisible ? "opacity-100" : "opacity-0"}`}
           />
         )}
         {showWorkspaceChildren && <>

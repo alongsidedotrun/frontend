@@ -26,7 +26,7 @@ export function LimitReminderRows({ variant }: { variant: "settings" | "popover"
           <div key={isDefault ? "default" : level} className={row}>
             {isDefault ? (
               // The fields' own box, without its border, so the numbers line up.
-              <span className="flex shrink-0 items-center gap-0.5 text-[12px] font-medium text-foreground">
+              <span className="flex shrink-0 items-center gap-0.5 text-ui-sm font-medium text-foreground">
                 <span className="flex h-6 w-9 items-center justify-end rounded-md border border-transparent px-1.5 tabular-nums">{level}</span>
                 <span>%</span>
               </span>
@@ -42,7 +42,7 @@ export function LimitReminderRows({ variant }: { variant: "settings" | "popover"
             )}
             <NoteField level={level} note={reminders.noteFor(level)} onCommit={(note) => reminders.setNote(level, note)} />
             {isDefault ? (
-              <span className="shrink-0 text-[12px] text-muted-foreground">{t("limits.reminders.default")}</span>
+              <span className="shrink-0 text-ui-sm text-muted-foreground">{t("limits.reminders.default")}</span>
             ) : (
               <button
                 type="button"
@@ -60,7 +60,7 @@ export function LimitReminderRows({ variant }: { variant: "settings" | "popover"
         <button
           type="button"
           onClick={() => setAdded(reminders.add())}
-          className="-ml-1 flex h-6 items-center gap-1.5 rounded-md px-1 text-[12px] text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="-ml-1 flex h-6 items-center gap-1.5 rounded-md px-1 text-ui-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Plus aria-hidden="true" className="size-3.5" />
           {t("limits.reminders.add")}
@@ -85,7 +85,7 @@ function LevelField({ level, autoFocus, onCommit }: { level: number; autoFocus: 
     if (to === level || !onCommit(to)) setDraft(String(level));
   };
   return (
-    <label className="flex shrink-0 items-center gap-0.5 text-[12px] font-medium text-foreground">
+    <label className="flex shrink-0 items-center gap-0.5 text-ui-sm font-medium text-foreground">
       <input
         ref={ref}
         value={draft}
@@ -136,7 +136,7 @@ function NoteField({ level, note, onCommit }: { level: number; note: string; onC
           requestAnimationFrame(() => ref.current?.blur());
         }
       }}
-      className="h-6 min-w-0 flex-1 truncate rounded-md border border-transparent bg-transparent px-1.5 text-[12px] text-foreground outline-none placeholder:text-muted-foreground/60 hover:border-border focus-visible:border-focus-accent"
+      className="h-6 min-w-0 flex-1 truncate rounded-md border border-transparent bg-transparent px-1.5 text-ui-sm text-foreground outline-none placeholder:text-muted-foreground/60 hover:border-border focus-visible:border-focus-accent"
     />
   );
 }

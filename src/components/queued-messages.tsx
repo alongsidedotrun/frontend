@@ -56,14 +56,14 @@ export function QueuedMessages({
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0, transition: { duration: 0.12 } }}
-                  className="flex h-8 items-center gap-2 text-[13px]"
+                  className="flex h-8 items-center gap-2 text-ui"
                 >
                   <List aria-hidden="true" className="size-3.5 shrink-0 text-ink-3" />
                   <span className="min-w-0 flex-1 truncate text-foreground/85">{item.text}</span>
                   {item.images.length > 0 && <Paperclip aria-label={t("compose.queue.withImages")} className="size-3.5 shrink-0 text-ink-3" />}
                   {/* Steering sends text only, so a message with images waits for its own turn. */}
                   {onSteer && item.images.length === 0 && (
-                    <button type="button" onClick={() => onSteer(item)} className={cn(ROW_BUTTON, "px-1.5 text-[12px]")}>
+                    <button type="button" onClick={() => onSteer(item)} className={cn(ROW_BUTTON, "px-1.5 text-ui-sm")}>
                       <CornerDownRight aria-hidden="true" className="size-3.5" />
                       {t("compose.queue.steer")}
                     </button>

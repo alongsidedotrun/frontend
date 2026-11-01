@@ -30,11 +30,11 @@ export function JoinRequestsCard({ enabled }: { enabled: boolean }) {
       className="mb-[var(--redesign-sidebar-section-gap)] flex flex-col gap-2 rounded-[var(--redesign-sidebar-footer-onboarding-radius)] border border-[var(--redesign-sidebar-footer-onboarding-border)] px-[var(--redesign-quick-actions-padding)] pt-2 pb-2.5 shadow-[var(--redesign-sidebar-footer-onboarding-shadow)]"
       style={{ backgroundColor: "var(--redesign-getting-started-surface)" }}
     >
-      <h2 className="text-[length:var(--redesign-font-size-base)] font-medium text-foreground">{t("joinRequests.title")}</h2>
+      <h2 className="text-chat font-medium text-foreground">{t("joinRequests.title")}</h2>
       <ul className="flex flex-col gap-2">
         {requests.map((request) => (
           <li key={request.request_id} className="flex flex-col gap-1.5">
-            <p className="text-[12px] leading-snug text-muted-foreground">
+            <p className="text-ui-sm leading-snug text-muted-foreground">
               {t("joinRequests.wantsToJoin", { name: request.name, chat: request.chat_name || t("shell.untitledChat") })}
             </p>
             <div className="flex items-center gap-1.5">
@@ -49,7 +49,7 @@ export function JoinRequestsCard({ enabled }: { enabled: boolean }) {
         ))}
       </ul>
       {failed && (
-        <p role="alert" className="text-[12px] text-destructive">
+        <p role="alert" className="text-ui-sm text-destructive">
           <ErrorText message={failed} />
         </p>
       )}

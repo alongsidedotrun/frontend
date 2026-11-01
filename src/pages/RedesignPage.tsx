@@ -732,6 +732,12 @@ export function RedesignPage() {
     .sort((a, b) => !a.last_activity ? -1 : !b.last_activity ? 1 : b.last_activity.localeCompare(a.last_activity))
     .slice(0, RECENTS_SIZE);
 
+  // Starts a new chat, as New does (nothing when already on an empty one).
+  const startNewChat = () => {
+    if (location.pathname === "/" && !location.search && !activeChatId) return;
+    setActiveChatId(null);
+    navigate("/");
+  };
   const chatsSidebarSections: readonly SidebarSection[] = [
     {
       id: "recents",
@@ -747,17 +753,22 @@ export function RedesignPage() {
       label: t("nav.chats"),
       // Recents lists chats and bots together; Chats and Bots are drawers.
       collapsible: true,
-      // Starts a new chat, as New does (nothing when already on an empty one). Projects are made from a
-      // chat's menu (New project), and list here with their chats.
-      action: {
-        label: t("common.newChat"),
-        icon: Plus,
-        onSelect: () => {
-          if (location.pathname === "/" && !location.search && !activeChatId) return;
-          setActiveChatId(null);
-          navigate("/");
+      // Projects list here with their chats.
+      action: { label: t("common.newChat"), icon: Plus, onSelect: startNewChat },
+      // What can be created here, beside the +: a chat, or a project to gather chats in.
+      menu: [
+        { id: "new-chat", label: t("common.newChat"), icon: BubbleChatIcon, onSelect: startNewChat },
+        {
+          id: "new-project",
+          label: t("shell.rowMenu.newProject"),
+          icon: FolderIcon,
+          onSelect: () => {
+            setChatForNewProject(null);
+            setProjectError(null);
+            setNewProjectOpen(true);
+          },
         },
-      },
+      ],
       items: [
         ...workspaceProjects.map((project) => ({
         id: project.id,
@@ -1118,8 +1129,8 @@ export function RedesignPage() {
             "border-b border-[var(--redesign-sidebar-border)] bg-background before:pointer-events-none before:absolute before:inset-y-0 before:left-0 before:w-[var(--redesign-sidebar-width)] before:bg-[var(--redesign-sidebar-surface)] after:pointer-events-none after:absolute after:inset-y-0 after:left-[calc(var(--redesign-sidebar-width)-1px)] after:w-px after:bg-[var(--redesign-sidebar-border)]",
             "before:transition-opacity after:transition-opacity before:ease-out after:ease-out motion-reduce:before:transition-none motion-reduce:after:transition-none",
             sidebarCollapsed && !isSettingsRoute
-              ? "before:opacity-0 after:opacity-0 before:duration-[160ms] after:duration-[160ms]"
-              : "before:opacity-100 after:opacity-100 before:duration-[240ms] after:duration-[240ms]",
+              ? "before:opacity-0 after:opacity-0 before:duration-160 after:duration-160"
+              : "before:opacity-100 after:opacity-100 before:duration-240 after:duration-240",
           )}
           controlsClassName="absolute right-[var(--redesign-top-bar-controls-right)] gap-1"
           // The open chat's name (after its project, when it has one), at the
@@ -1270,7 +1281,7 @@ export function RedesignPage() {
             {/* Collapses and fades out when closed. */}
             <div
               className={cn(
-                "grid transition-[grid-template-rows,opacity,margin] duration-200 ease-out motion-reduce:transition-none",
+                "grid transition-[grid-template-rows,opacity,margin] duration-160 ease-out motion-reduce:transition-none",
                 gettingStartedDismissed ? "-mb-[var(--redesign-sidebar-section-gap)] grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100",
               )}
               inert={gettingStartedDismissed}

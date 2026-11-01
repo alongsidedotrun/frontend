@@ -17,7 +17,7 @@ export function DropdownActionRow({ action, className }: { action: DropdownActio
     <DropdownMenuItem
       onSelect={action.onSelect}
       className={cn(
-        "h-[var(--redesign-workspace-row-height)] rounded-[var(--redesign-dropdown-row-radius)] px-[var(--redesign-menu-row-padding)] text-[length:var(--redesign-sidebar-primary-font-size)] font-medium text-foreground/70",
+        "h-[var(--redesign-workspace-row-height)] rounded-[var(--redesign-dropdown-row-radius)] px-[var(--redesign-menu-row-padding)] text-chat font-medium text-foreground/70",
         action.tone === "accent" && "!text-focus-accent hover:!text-focus-accent focus:!text-focus-accent",
         className,
       )}

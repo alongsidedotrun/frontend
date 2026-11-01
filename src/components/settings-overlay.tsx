@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { ShapeProvider } from "@/lib/shape-context";
-import { ProvidersEmptyState, ProviderUsageSection } from "@/components/provider-usage";
+import { ListEmptyState, ProvidersEmptyState, ProviderUsageSection } from "@/components/provider-usage";
 import { forcedNoProvider } from "@/lib/dev-no-provider";
 import { providersChanged } from "@/lib/providers-changed";
 import { resizeImageFile } from "@/lib/resize-image";
@@ -172,17 +172,17 @@ function ConnectionToolbar({
           <div className="group/connection-search relative w-48 min-w-0">
             <SearchMd
               aria-hidden="true"
-              className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground transition-opacity duration-200 ease-in-out group-focus-within/connection-search:opacity-0 motion-reduce:transition-none"
+              className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground transition-opacity duration-160 ease-in-out group-focus-within/connection-search:opacity-0 motion-reduce:transition-none"
             />
             <Input
               value={query}
               onChange={(event) => onQuery(event.target.value)}
               placeholder={searchLabel}
               aria-label={searchLabel}
-              className="h-7 border border-border pl-8 text-[length:var(--redesign-chat-meta)] shadow-none transition-[border-color] duration-200 placeholder:text-transparent focus:pl-2.5 focus-visible:border-focus-accent dark:border-border dark:focus-visible:border-focus-accent"
+              className="h-7 border border-border pl-8 text-chat-meta shadow-none transition-[border-color] duration-160 placeholder:text-transparent focus:pl-2.5 focus-visible:border-focus-accent dark:border-border dark:focus-visible:border-focus-accent"
             />
             {!query && (
-              <span aria-hidden="true" className="pointer-events-none absolute top-1/2 left-8 -translate-y-1/2 truncate text-[length:var(--redesign-chat-meta)] text-muted-foreground transition-opacity duration-200 ease-in-out group-focus-within/connection-search:opacity-0 motion-reduce:transition-none">
+              <span aria-hidden="true" className="pointer-events-none absolute top-1/2 left-8 -translate-y-1/2 truncate text-chat-meta text-muted-foreground transition-opacity duration-160 ease-in-out group-focus-within/connection-search:opacity-0 motion-reduce:transition-none">
                 {searchLabel}
               </span>
             )}
@@ -245,7 +245,7 @@ const SETTINGS_CONTROL_RADIUS = "rounded-lg";
 // different fixed height and font size that read as visibly inconsistent
 // next to those dropdowns) -- sized to each button's own label, not a
 // shared fixed width (tried first, reverted).
-const SETTINGS_ACTION_BUTTON_CLASS = `flex items-center gap-1.5 border border-border px-2.5 py-1.5 text-[12px] text-foreground transition-colors hover:bg-muted/30 disabled:pointer-events-none disabled:opacity-40 ${SETTINGS_CONTROL_RADIUS}`;
+const SETTINGS_ACTION_BUTTON_CLASS = `flex items-center gap-1.5 border border-border px-2.5 py-1.5 text-ui-sm text-foreground transition-colors hover:bg-muted/30 disabled:pointer-events-none disabled:opacity-40 ${SETTINGS_CONTROL_RADIUS}`;
 
 // Shared by every dropdown trigger in a settings row (Theme, Chat width)
 // -- per explicit request ("the dropdown of theme and chat width should
@@ -253,7 +253,7 @@ const SETTINGS_ACTION_BUTTON_CLASS = `flex items-center gap-1.5 border border-bo
 // and justify-between (icon+label left, chevron right) instead of each
 // trigger sizing to its own label's length, so the two line up instead of
 // one being visibly narrower.
-const SETTINGS_DROPDOWN_TRIGGER_BASE = `flex items-center justify-between gap-1.5 border border-border px-2.5 py-1.5 text-[12px] text-foreground hover:bg-muted/30 ${SETTINGS_CONTROL_RADIUS}`;
+const SETTINGS_DROPDOWN_TRIGGER_BASE = `flex items-center justify-between gap-1.5 border border-border px-2.5 py-1.5 text-ui-sm text-foreground hover:bg-muted/30 ${SETTINGS_CONTROL_RADIUS}`;
 const SETTINGS_DROPDOWN_TRIGGER_CLASS = `${SETTINGS_DROPDOWN_TRIGGER_BASE} w-32`;
 // Fits its content (never narrower than the standard w-32) -- for triggers whose
 // label length varies by language, instead of hardcoding a wider fixed width.
@@ -271,7 +271,7 @@ function SettingsSection({ title, children }: { title: string; children: ReactNo
   return (
     <section className="flex flex-col gap-1.5" style={{ marginTop: "0.875rem" }}>
       <div className="flex items-center justify-between gap-2 px-2 py-1">
-        <h3 className="text-[12px] font-normal text-muted-foreground/60">{title}</h3>
+        <h3 className="text-ui-sm font-normal text-muted-foreground/60">{title}</h3>
       </div>
       {/* divide-y hairlines are back -- per explicit request ("we need the
           divider from any further items that include more than one action
@@ -313,9 +313,9 @@ function SettingsRow({
       style={{ paddingTop: "0.375rem", paddingBottom: "0.375rem", scrollMarginTop: "6rem" }}
     >
       <div className="min-w-0">
-        <label className="text-[12px] font-medium text-foreground">{title}</label>
-        {description && <p className="mt-0.5 text-[12px] font-normal text-muted-foreground">{description}</p>}
-        {status && <p className="pt-1 text-[11px] font-normal text-muted-foreground"><ErrorText message={status} /></p>}
+        <label className="text-ui-sm font-medium text-foreground">{title}</label>
+        {description && <p className="mt-0.5 text-ui-sm font-normal text-muted-foreground">{description}</p>}
+        {status && <p className="pt-1 text-ui-xs font-normal text-muted-foreground"><ErrorText message={status} /></p>}
       </div>
       {children && <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto sm:justify-end">{children}</div>}
     </div>
@@ -749,13 +749,13 @@ function ConnectionBadge({ state }: { state: ConnectionState | undefined }) {
             : t("settings.providers.notInstalled");
   const tone =
     shown === "connected"
-      ? "rounded-full px-2 py-0.5 text-[9px] font-medium bg-green-500/10 text-green-600 dark:text-green-400"
+      ? "rounded-full px-2 py-0.5 text-ui-2xs font-medium bg-green-500/10 text-green-600 dark:text-green-400"
       : isError
         ? "text-xs font-normal text-muted-foreground"
-        : "rounded-full px-2 py-0.5 text-[9px] font-medium bg-muted/50 text-muted-foreground";
+        : "rounded-full px-2 py-0.5 text-ui-2xs font-medium bg-muted/50 text-muted-foreground";
 
   return (
-    <span className={`shrink-0 transition-opacity duration-150 ${tone} ${visible ? "opacity-100" : "opacity-0"}`}>
+    <span className={`shrink-0 transition-opacity duration-160 ${tone} ${visible ? "opacity-100" : "opacity-0"}`}>
       <ErrorText message={label} />
     </span>
   );
@@ -877,7 +877,7 @@ function ProviderSetupDialog({
       description={<ConnectionBadge state={state} />}
       actions={<ShellDialogActions cancelLabel={t("common.close")} onCancel={onClose} primary={primary} />}
     >
-      <p className={cn("px-3 py-2.5 text-center text-[12px] text-muted-foreground", SHELL_RADIUS, SHELL_SURFACE)}>
+      <p className={cn("px-3 py-2.5 text-center text-ui-sm text-muted-foreground", SHELL_RADIUS, SHELL_SURFACE)}>
         <ErrorText message={body} />
       </p>
       {askingForCode && (
@@ -1120,21 +1120,21 @@ function ProviderCard({
           <ProviderIcon model={provider} className="size-5" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[12px] font-medium text-foreground">
+          <span className="block truncate text-ui-sm font-medium text-foreground">
             {provider.displayName}
             {provider.displayCaption && <span className="ml-1.5 font-normal text-muted-foreground">{provider.displayCaption}</span>}
           </span>
-          <span className="line-clamp-2 text-[10px] font-normal text-muted-foreground"><ErrorText message={statusLabel} /></span>
+          <span className="line-clamp-2 text-ui-2xs font-normal text-muted-foreground"><ErrorText message={statusLabel} /></span>
         </span>
       </button>
         {/* A newer version is out: said here, updated from the overlay. */}
         {installed && cliUpdate.updateAvailable && (
-          <span className="inline-flex h-[18px] shrink-0 items-center rounded-full bg-[color-mix(in_oklab,var(--focus-accent)_12%,transparent)] px-1.5 text-[8.5px] leading-none font-medium whitespace-nowrap text-[var(--focus-accent)]">
+          <span className="inline-flex h-[18px] shrink-0 items-center rounded-full bg-[color-mix(in_oklab,var(--focus-accent)_12%,transparent)] px-1.5 text-ui-2xs leading-none font-medium whitespace-nowrap text-[var(--focus-accent)]">
             {t("settings.providers.updateAvailable")}
           </span>
         )}
         {isConnected && setup.phase === "idle" ? (
-          <button type="button" onClick={() => setOpen(true)} className={cn(CONNECTED_MARK, "w-auto px-2 text-[11px] font-medium")}>
+          <button type="button" onClick={() => setOpen(true)} className={cn(CONNECTED_MARK, "w-auto px-2 text-ui-xs font-medium")}>
             {t("common.connected")}
           </button>
         ) : (
@@ -1152,7 +1152,7 @@ function ProviderCard({
             className={cn(
               CONNECTION_ADD,
               // Sign in: the same bordered control, wide enough for its word.
-              installed && !cliCheckError && setup.phase === "idle" && "w-auto px-2 text-[11px] font-medium",
+              installed && !cliCheckError && setup.phase === "idle" && "w-auto px-2 text-ui-xs font-medium",
               "disabled:cursor-default",
             )}
           >
@@ -1211,6 +1211,22 @@ function AppsSection() {
   const [filter, setFilter] = useState<ConnectionFilter>("all");
   const appsFade = useTabFade(filter);
   const [query, setQuery] = useState("");
+  // GitHub's connection, known once /integrations answers (the Google apps can't connect yet). Connected
+  // or Available with no app in it then gets a placeholder instead of an empty space.
+  const [githubUser, setGithubUser] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    fetch("/integrations")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((rows: { provider: string; connected_username: string | null }[]) => {
+        setGithubUser(rows.find((r) => r.provider === "github")?.connected_username ?? null);
+      })
+      .catch(() => setGithubUser(null));
+  }, []);
+  const appsTabEmpty =
+    appsFade.shown !== "all" &&
+    githubUser !== undefined &&
+    !showsUnder(appsFade.shown, githubUser !== null, query, "GitHub") &&
+    !GOOGLE_APPS.some((app) => showsUnder(appsFade.shown, false, query, app.name));
 
   return (
     <AnimatePresence mode="wait" initial={false}>
@@ -1239,8 +1255,21 @@ function AppsSection() {
             searchLabel={t("settings.connections.searchApps")}
           />
           <motion.div {...appsFade.motion}>
-          <ConnectionList>
-            <GithubIntegrationCard filter={appsFade.shown} query={query} onClick={() => openApp("github")} />
+          <ConnectionList
+            placeholder={
+              !appsTabEmpty ? undefined : (
+                <ListEmptyState
+                  marks={[
+                    { key: "github", mark: <img src="/icons/providers/github.svg" alt="" className="size-3.5 shrink-0 grayscale dark:invert" /> },
+                    ...GOOGLE_APPS.map((app) => ({ key: app.id, mark: <img src={`/icons/google-${app.id}.svg`} alt="" className="size-3.5 shrink-0 object-contain grayscale" /> })),
+                  ]}
+                  title={appsFade.shown === "connected" ? t("settings.apps.empty.connected.title") : t("settings.apps.empty.available.title")}
+                  body={appsFade.shown === "connected" ? t("settings.apps.empty.connected.body") : t("settings.apps.empty.available.body")}
+                />
+              )
+            }
+          >
+            <GithubIntegrationCard connectedUsername={githubUser ?? null} filter={appsFade.shown} query={query} onClick={() => openApp("github")} />
             {GOOGLE_APPS.map((app) =>
               showsUnder(appsFade.shown, false, query, app.name) ? (
                 // No connection flow yet, so never connected, and the row does nothing for now.
@@ -1262,8 +1291,8 @@ function AppRow({ name, description, icon, connected, onClick }: { name: string;
     <button type="button" onClick={onClick} className={CONNECTION_ROW}>
       <span className={PROVIDER_ICON_FRAME}>{icon}</span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[12px] font-medium text-foreground">{name}</span>
-        <span className="line-clamp-2 text-[10px] font-normal text-muted-foreground">{description}</span>
+        <span className="block truncate text-ui-sm font-medium text-foreground">{name}</span>
+        <span className="line-clamp-2 text-ui-2xs font-normal text-muted-foreground">{description}</span>
       </span>
       <span className={connected ? CONNECTED_MARK : CONNECTION_ADD} aria-hidden="true">
         {connected ? <Check className="size-3.5" /> : <Plus className="size-3.5" />}
@@ -1280,18 +1309,18 @@ const GOOGLE_APPS = (["drive", "docs", "sheets"] as const).map((id) => ({
   icon: <img src={`/icons/google-${id}.svg`} alt="" className="size-5 object-contain" />,
 }));
 
-function GithubIntegrationCard({ onClick, filter = "all", query = "" }: { onClick: () => void; filter?: ConnectionFilter; query?: string }) {
+function GithubIntegrationCard({
+  connectedUsername,
+  onClick,
+  filter = "all",
+  query = "",
+}: {
+  connectedUsername: string | null;
+  onClick: () => void;
+  filter?: ConnectionFilter;
+  query?: string;
+}) {
   const { t } = useTranslation();
-  const [connectedUsername, setConnectedUsername] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch("/integrations")
-      .then((res) => (res.ok ? res.json() : []))
-      .then((rows: { provider: string; connected_username: string | null }[]) => {
-        setConnectedUsername(rows.find((r) => r.provider === "github")?.connected_username ?? null);
-      });
-  }, []);
-
   const isConnected = connectedUsername !== null;
   if (!showsUnder(filter, isConnected, query, "GitHub")) return null;
 
@@ -1366,15 +1395,15 @@ function GithubAppConnectionView({ onBack }: { onBack: () => void }) {
           <img src="/icons/providers/github.svg" alt="" className="size-6 dark:invert" />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[13px] font-medium text-foreground">GitHub</div>
-          <div className="truncate text-[13px] font-normal text-muted-foreground">
+          <div className="truncate text-ui font-medium text-foreground">GitHub</div>
+          <div className="truncate text-ui font-normal text-muted-foreground">
             {connectedUsername ? t("settings.apps.github.connectedAs", { username: connectedUsername }) : t("settings.apps.github.notConnected")}
           </div>
         </div>
       </div>
       {connectedUsername ? (
         <div className="mt-5 flex flex-col gap-3">
-          <p className="text-[13px] text-muted-foreground">
+          <p className="text-ui text-muted-foreground">
             <Trans i18nKey="settings.apps.github.useInChat" components={[<span className="font-mono" key="0" />]} />
           </p>
           <Button variant="outline" className="w-fit" onClick={() => void disconnect()}>
@@ -1384,12 +1413,12 @@ function GithubAppConnectionView({ onBack }: { onBack: () => void }) {
       ) : (
         <div className="mt-5 flex flex-col gap-5">
           <div className="flex flex-col gap-1">
-            <p className="text-[13px] font-medium text-foreground">{t("settings.apps.github.step1.title")}</p>
-            <p className="text-[12px] text-muted-foreground">{t("settings.apps.github.step1.description")}</p>
-            <code className="rounded-lg bg-muted px-2.5 py-1.5 text-[11px] break-all text-foreground">{callbackUrl}</code>
+            <p className="text-ui font-medium text-foreground">{t("settings.apps.github.step1.title")}</p>
+            <p className="text-ui-sm text-muted-foreground">{t("settings.apps.github.step1.description")}</p>
+            <code className="rounded-lg bg-muted px-2.5 py-1.5 text-ui-xs break-all text-foreground">{callbackUrl}</code>
           </div>
           <div className="flex flex-col gap-2">
-            <p className="text-[13px] font-medium text-foreground">{t("settings.apps.github.step2.title")}</p>
+            <p className="text-ui font-medium text-foreground">{t("settings.apps.github.step2.title")}</p>
             <Input placeholder={t("settings.apps.github.clientId.placeholder")} value={clientId} onChange={(event) => setClientId(event.target.value)} />
             <Input
               type="password"
@@ -1397,11 +1426,11 @@ function GithubAppConnectionView({ onBack }: { onBack: () => void }) {
               value={clientSecret}
               onChange={(event) => setClientSecret(event.target.value)}
             />
-            <p className="text-[11px] text-muted-foreground">{t("settings.apps.github.secretWarning")}</p>
+            <p className="text-ui-xs text-muted-foreground">{t("settings.apps.github.secretWarning")}</p>
           </div>
           <div className="flex flex-col gap-1">
-            <p className="text-[13px] font-medium text-foreground">{t("settings.apps.github.step3.title")}</p>
-            <p className="text-[12px] text-muted-foreground">
+            <p className="text-ui font-medium text-foreground">{t("settings.apps.github.step3.title")}</p>
+            <p className="text-ui-sm text-muted-foreground">
               <Trans i18nKey="settings.apps.github.step3.description" components={[<span className="font-mono" key="0" />]} />
             </p>
           </div>
@@ -1577,27 +1606,27 @@ function ProfileSection() {
             </AvatarFallback>
           </Avatar>
         </div>
-        <h2 className="text-[15px] font-medium text-foreground">{t("settings.nav.profile")}</h2>
-        <p className="text-[12px] text-muted-foreground">{t("settings.nav.subtitle.profile")}</p>
+        <h2 className="text-ui-xl font-medium text-foreground">{t("settings.nav.profile")}</h2>
+        <p className="text-ui-sm text-muted-foreground">{t("settings.nav.subtitle.profile")}</p>
       </div>
       <div className="flex flex-col gap-3">
         <ShellField label={t("settings.profile.name.title")}>
-          <span className="truncate text-[13px] text-foreground">{isSignedIn ? currentName : t("settings.profile.name.signedOut")}</span>
+          <span className="truncate text-ui text-foreground">{isSignedIn ? currentName : t("settings.profile.name.signedOut")}</span>
         </ShellField>
         <ShellField label={t("settings.profile.subscription.title")}>
-          <span className="text-[13px] text-foreground">{t(`settings.profile.subscription.${plan}`)}</span>
+          <span className="text-ui text-foreground">{t(`settings.profile.subscription.${plan}`)}</span>
         </ShellField>
         <div className="flex flex-col gap-1 px-1">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[12px] font-medium text-foreground">{t("settings.profile.avatar.title")}</p>
-              <p className="mt-0.5 text-[12px] text-muted-foreground">{t("settings.profile.avatar.description")}</p>
+              <p className="text-ui-sm font-medium text-foreground">{t("settings.profile.avatar.title")}</p>
+              <p className="mt-0.5 text-ui-sm text-muted-foreground">{t("settings.profile.avatar.description")}</p>
             </div>
             <button type="button" className={SETTINGS_ACTION_BUTTON_CLASS} disabled={!isSignedIn} onClick={() => setManageOpen(true)}>
               {t("settings.profile.avatar.managePhoto")}
             </button>
           </div>
-          {error && <p className="text-[11px] text-destructive"><ErrorText message={error} /></p>}
+          {error && <p className="text-ui-xs text-destructive"><ErrorText message={error} /></p>}
         </div>
         <input ref={fileInputRef} type="file" accept="image/jpeg,image/png" className="hidden" onChange={(event) => void handleFileSelected(event)} />
       </div>
@@ -1611,7 +1640,7 @@ function ProfileSection() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="text-sm font-semibold">{t("settings.profile.avatar.dialogTitle")}</DialogTitle>
-            <DialogDescription className="text-[13px] font-normal">
+            <DialogDescription className="text-ui font-normal">
               {avatarImage ? t("settings.profile.avatar.dialogDescription.withPhoto") : t("settings.profile.avatar.dialogDescription.noPhoto")}
             </DialogDescription>
           </DialogHeader>
@@ -1625,20 +1654,20 @@ function ProfileSection() {
           </div>
           <DialogFooter>
             {avatarImage && !pendingImage && (
-              <Button variant="outline" className="h-8 gap-1.5 text-[11px]" onClick={handleDownload}>
+              <Button variant="outline" className="h-8 gap-1.5 text-ui-xs" onClick={handleDownload}>
                 <DownloadIcon className="size-3.5" />
                 {t("common.download")}
               </Button>
             )}
             {avatarImage && !pendingImage && (
-              <Button className="h-8 bg-red-600 text-[11px] text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600" onClick={() => clearUserAvatarImage()}>
+              <Button className="h-8 bg-red-600 text-ui-xs text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600" onClick={() => clearUserAvatarImage()}>
                 {t("common.remove")}
               </Button>
             )}
             {pendingImage ? (
-              <Button className="h-8 text-[11px]" onClick={handleConfirmUpload}>{t("common.confirm")}</Button>
+              <Button className="h-8 text-ui-xs" onClick={handleConfirmUpload}>{t("common.confirm")}</Button>
             ) : (
-              <Button className="h-8 text-[11px]" onClick={() => fileInputRef.current?.click()}>{t("common.add")}</Button>
+              <Button className="h-8 text-ui-xs" onClick={() => fileInputRef.current?.click()}>{t("common.add")}</Button>
             )}
           </DialogFooter>
         </DialogContent>
@@ -1945,7 +1974,7 @@ function DefaultModelRow() {
           render={
             <button
               type="button"
-              className={`flex items-center gap-1.5 border border-border px-2.5 py-1.5 text-[12px] text-foreground hover:bg-muted/30 ${SETTINGS_CONTROL_RADIUS}`}
+              className={`flex items-center gap-1.5 border border-border px-2.5 py-1.5 text-ui-sm text-foreground hover:bg-muted/30 ${SETTINGS_CONTROL_RADIUS}`}
             >
               {/* size-3.5 (14px), not size-4 (16px) -- per an app-wide
                   compact-scale audit. */}
@@ -2019,7 +2048,7 @@ function DefaultEffortRow() {
           render={
             <button
               type="button"
-              className={`flex items-center gap-1.5 border border-border px-2.5 py-1.5 text-[12px] text-foreground hover:bg-muted/30 ${SETTINGS_CONTROL_RADIUS}`}
+              className={`flex items-center gap-1.5 border border-border px-2.5 py-1.5 text-ui-sm text-foreground hover:bg-muted/30 ${SETTINGS_CONTROL_RADIUS}`}
             >
               {defaultEffort ? effortLabel(defaultEffort) : t("common.none")}
               <ChevronDownIcon className="size-3.5 text-muted-foreground" />
@@ -2143,7 +2172,7 @@ function ChatSection() {
           description={t("settings.chat.usage.description")}
           status={usageError ? t("settings.providers.noConnection") : undefined}
         >
-          <span className="text-[12px] font-medium text-foreground">
+          <span className="text-ui-sm font-medium text-foreground">
             {usage ? formatStorageBytes(usage.storage_bytes) : usageError ? "--" : "..."}
           </span>
         </SettingsRow>
@@ -2152,7 +2181,7 @@ function ChatSection() {
       {/* The yellow note above the composer as a provider's 5-hour limit fills: 85% always,
           plus any levels added here (or from the note's own Reminders). */}
       <SettingsSection title={t("limits.reminders.title")}>
-        <p className="px-3 py-2 text-[12px] text-muted-foreground">{t("limits.reminders.hint")}</p>
+        <p className="px-3 py-2 text-ui-sm text-muted-foreground">{t("limits.reminders.hint")}</p>
         <LimitReminderRows variant="settings" />
       </SettingsSection>
 
@@ -2355,7 +2384,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
           <div className="group/settings-search relative mb-[var(--redesign-quick-actions-gap)] h-[var(--redesign-quick-actions-trigger-height)] w-full">
             <span
               aria-hidden
-              className="pointer-events-none absolute top-1/2 left-[var(--redesign-quick-actions-padding)] z-10 flex -translate-y-1/2 items-center gap-[var(--redesign-quick-actions-shortcut-gap)] text-[length:var(--redesign-sidebar-primary-font-size)] text-muted-foreground transition-opacity duration-200 group-focus-within/settings-search:opacity-0"
+              className="pointer-events-none absolute top-1/2 left-[var(--redesign-quick-actions-padding)] z-10 flex -translate-y-1/2 items-center gap-[var(--redesign-quick-actions-shortcut-gap)] text-chat text-muted-foreground transition-opacity duration-160 group-focus-within/settings-search:opacity-0"
             >
               <Command strokeWidth={2} className="size-[var(--redesign-quick-actions-command-icon-size)]" />
               <span>F</span>
@@ -2372,14 +2401,14 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
                 }
               }}
               placeholder={t("settings.search.placeholder")}
-              className="h-full rounded-[var(--redesign-control-radius)] border-[var(--redesign-sidebar-border)] bg-transparent pr-[var(--redesign-quick-actions-padding)] pl-[calc(var(--redesign-quick-actions-padding)+var(--redesign-quick-actions-command-icon-size)+var(--redesign-quick-actions-shortcut-gap)+0.5rem+var(--redesign-quick-actions-icon-gap))] text-[length:var(--redesign-sidebar-primary-font-size)] font-normal text-foreground hover:bg-muted/50 transition-[border-color,background-color] duration-200 placeholder:text-transparent focus:pl-[var(--redesign-quick-actions-padding)] focus-visible:border-focus-accent md:text-[length:var(--redesign-sidebar-primary-font-size)]"
+              className="h-full rounded-[var(--redesign-control-radius)] border-[var(--redesign-sidebar-border)] bg-transparent pr-[var(--redesign-quick-actions-padding)] pl-[calc(var(--redesign-quick-actions-padding)+var(--redesign-quick-actions-command-icon-size)+var(--redesign-quick-actions-shortcut-gap)+0.5rem+var(--redesign-quick-actions-icon-gap))] text-chat font-normal text-foreground hover:bg-muted/50 transition-[border-color,background-color] duration-160 placeholder:text-transparent focus:pl-[var(--redesign-quick-actions-padding)] focus-visible:border-focus-accent md:text-chat"
             />
             {/* The placeholder, drawn in place so it fades out where it is (with the ⌘F hint) while
                 typed text starts at the left straight away. */}
             {!query && (
               <span
                 aria-hidden
-                className="pointer-events-none absolute top-1/2 left-[calc(var(--redesign-quick-actions-padding)+var(--redesign-quick-actions-command-icon-size)+var(--redesign-quick-actions-shortcut-gap)+0.5rem+var(--redesign-quick-actions-icon-gap))] -translate-y-1/2 truncate text-[length:var(--redesign-sidebar-primary-font-size)] text-muted-foreground transition-opacity duration-200 ease-in-out group-focus-within/settings-search:opacity-0 motion-reduce:transition-none"
+                className="pointer-events-none absolute top-1/2 left-[calc(var(--redesign-quick-actions-padding)+var(--redesign-quick-actions-command-icon-size)+var(--redesign-quick-actions-shortcut-gap)+0.5rem+var(--redesign-quick-actions-icon-gap))] -translate-y-1/2 truncate text-chat text-muted-foreground transition-opacity duration-160 ease-in-out group-focus-within/settings-search:opacity-0 motion-reduce:transition-none"
               >
                 {t("settings.search.placeholder")}
               </span>
@@ -2389,7 +2418,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
           {searching ? (
             <div className="flex flex-col gap-[var(--redesign-quick-actions-row-gap)]">
               {results.length === 0 && (
-                <p className="px-[var(--redesign-quick-actions-padding)] py-2 text-[length:var(--redesign-font-size-base)] font-normal text-muted-foreground">
+                <p className="px-[var(--redesign-quick-actions-padding)] py-2 text-chat font-normal text-muted-foreground">
                   {t("settings.search.noResults", { query })}
                 </p>
               )}
@@ -2402,11 +2431,11 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
                     onClick={() => goToResult(entry)}
                     className="flex min-h-[var(--redesign-quick-actions-row-height)] flex-col items-start justify-center rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] py-1 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <span className="flex items-center gap-[var(--redesign-quick-actions-icon-gap)] text-[length:var(--redesign-font-size-base)] font-medium text-muted-foreground">
+                    <span className="flex items-center gap-[var(--redesign-quick-actions-icon-gap)] text-chat font-medium text-muted-foreground">
                       {s.icon}
                       {t(s.labelKey)}
                     </span>
-                    <span className="pl-[calc(var(--redesign-quick-actions-icon-size)+var(--redesign-quick-actions-icon-gap))] text-[length:var(--redesign-font-size-base)] text-foreground">
+                    <span className="pl-[calc(var(--redesign-quick-actions-icon-size)+var(--redesign-quick-actions-icon-gap))] text-chat text-foreground">
                       {entry.title}
                     </span>
                   </button>
@@ -2420,7 +2449,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
                   <div className="flex h-[var(--redesign-quick-actions-row-height)] items-center px-[var(--redesign-quick-actions-padding)]">
                     <h2
                       id={`settings-sidebar-group-${group.labelKey}`}
-                      className="text-[length:var(--redesign-font-size-compact)] font-medium text-muted-foreground"
+                      className="text-ui-xs font-medium text-muted-foreground"
                     >
                       {t(group.labelKey)}
                     </h2>
@@ -2436,7 +2465,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
                           onClick={() => navigate(`/settings/${key}`, { replace: true })}
                           aria-current={isActive ? "page" : undefined}
                           className={cn(
-                            "flex h-[var(--redesign-quick-actions-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-left text-[length:var(--redesign-sidebar-primary-font-size)] font-normal text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                            "flex h-[var(--redesign-quick-actions-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-left text-chat font-normal text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                             isActive && "bg-muted font-medium text-foreground",
                           )}
                         >
@@ -2459,7 +2488,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
             <button
               type="button"
               onClick={() => navigate("/")}
-              className="flex h-[var(--redesign-sidebar-footer-account-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-[length:var(--redesign-sidebar-primary-font-size)] font-normal text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex h-[var(--redesign-sidebar-footer-account-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-chat font-normal text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <ArrowCircleBrokenLeftIcon aria-hidden="true" className="size-[var(--redesign-quick-actions-icon-size)] shrink-0" />
               <span className="truncate">{t("shell.returnToChats")}</span>
@@ -2575,7 +2604,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
               }
             }}
             placeholder={t("settings.search.placeholder")}
-            className="h-7 rounded-[var(--row-radius-sm)] border border-border bg-transparent pl-[30px] text-xs font-normal text-foreground placeholder:text-foreground placeholder:opacity-100 placeholder:transition-opacity placeholder:duration-200 focus:placeholder:opacity-0 focus-visible:border-focus-accent md:text-xs"
+            className="h-7 rounded-[var(--row-radius-sm)] border border-border bg-transparent pl-[30px] text-xs font-normal text-foreground placeholder:text-foreground placeholder:opacity-100 placeholder:transition-opacity placeholder:duration-160 focus:placeholder:opacity-0 focus-visible:border-focus-accent md:text-xs"
           />
           {!query && (
             <span
@@ -2603,7 +2632,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
           // custom row shape.
           <div className="mx-2 flex flex-col gap-0.5">
             {results.length === 0 && (
-              <p className="px-2 py-2 text-[11px] font-normal text-muted-foreground">{t("settings.search.noResults", { query })}</p>
+              <p className="px-2 py-2 text-ui-xs font-normal text-muted-foreground">{t("settings.search.noResults", { query })}</p>
             )}
             {results.map((entry) => {
               const s = SECTIONS.find((sec) => sec.key === entry.section)!;
@@ -2614,11 +2643,11 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
                   onClick={() => goToResult(entry)}
                   className="flex flex-col items-start rounded-[8px] px-2 py-1 text-left transition-colors hover:bg-hover-2/50"
                 >
-                  <span className="flex items-center gap-1.5 text-[10px] font-normal text-muted-foreground">
+                  <span className="flex items-center gap-1.5 text-ui-2xs font-normal text-muted-foreground">
                     {s.icon}
                     {t(s.labelKey)}
                   </span>
-                  <span className="pl-[22px] text-[12px] text-foreground">{entry.title}</span>
+                  <span className="pl-[22px] text-ui-sm text-foreground">{entry.title}</span>
                 </button>
               );
             })}
@@ -2721,7 +2750,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
                   ref={accountTriggerRef}
                   type="button"
                   aria-label={t("nav.account.ariaLabel")}
-                  className="flex h-7 flex-1 min-w-0 shrink-0 transform-gpu items-center gap-2 rounded-[var(--row-radius)] px-1.5 text-left transition-[background-color] duration-150 hover:bg-hover-2/50"
+                  className="flex h-7 flex-1 min-w-0 shrink-0 transform-gpu items-center gap-2 rounded-[var(--row-radius)] px-1.5 text-left transition-[background-color] duration-160 hover:bg-hover-2/50"
                 >
                   {/* DefaultAvatar (ui/avatar.tsx), not a hand-rolled flat
                       black/white badge -- same fix as sidebar-nav.tsx's own
@@ -2785,7 +2814,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
                   // text-foreground -- same fix as sidebar-nav.tsx's own
                   // identical Help trigger (that one's own comment has the
                   // full reasoning).
-                  className="flex h-7 w-7 shrink-0 transform-gpu items-center justify-center rounded-[var(--row-radius)] text-foreground transition-colors duration-150 hover:text-ink data-[popup-open]:text-ink"
+                  className="flex h-7 w-7 shrink-0 transform-gpu items-center justify-center rounded-[var(--row-radius)] text-foreground transition-colors duration-160 hover:text-ink data-[popup-open]:text-ink"
                 >
                   {/* Default strokeWidth -- same fix as sidebar-nav.tsx's
                       own identical Help trigger (that one's own comment
@@ -2859,7 +2888,7 @@ function ArchivedSection({ kind }: { kind: ArchivedEntity["kind"] }) {
   return (
     <div className="mt-4 flex flex-col gap-2">
       {rows.length === 0 ? (
-        <div className="rounded-xl border border-border bg-card px-4 py-8 text-center text-[13px] text-muted-foreground">{t(`archive.empty.${kind}`)}</div>
+        <div className="rounded-xl border border-border bg-card px-4 py-8 text-center text-ui text-muted-foreground">{t(`archive.empty.${kind}`)}</div>
       ) : rows.map((entity) => {
         const childProjects = entity.kind === "workspace" ? snapshot.projects.filter((item) => item.workspace_id === entity.id).length : 0;
         const childChats = entity.kind === "workspace"
@@ -2877,8 +2906,8 @@ function ArchivedSection({ kind }: { kind: ArchivedEntity["kind"] }) {
               <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-background"><Icon className="size-4" /></span>
             )}
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[13px] font-medium text-foreground">{entity.name}</p>
-              <p className="text-[12px] text-muted-foreground">{t(`archive.kind.${entity.kind}`)}{childProjects || childChats ? ` · ${t("archive.contents", { projects: childProjects, chats: childChats })}` : ""}</p>
+              <p className="truncate text-ui font-medium text-foreground">{entity.name}</p>
+              <p className="text-ui-sm text-muted-foreground">{t(`archive.kind.${entity.kind}`)}{childProjects || childChats ? ` · ${t("archive.contents", { projects: childProjects, chats: childChats })}` : ""}</p>
             </div>
             <Button size="compact" variant="tertiary" leadingIcon={RotateCcw} onClick={() => void mutate(entity, "restore")} disabled={busy !== null}>{t("archive.restore")}</Button>
             <Button size="compact" variant="accent" leadingIcon={Trash2} className={DESTRUCTIVE_BUTTON} onClick={() => setPendingDelete(entity)} disabled={busy !== null}>{t("archive.deletePermanently")}</Button>
@@ -2959,14 +2988,14 @@ export function SettingsSectionContent({ section }: { section: SettingsSection }
           {/* Profile and Skills draw their own header (Skills has actions beside it). */}
           {section !== "profile" && section !== "skills" && (
             <>
-              <h2 className="text-[16px] font-semibold text-foreground">
+              <h2 className="text-ui-xl font-semibold text-foreground">
                 {(() => {
                   const entry = SECTIONS.find((s) => s.key === section);
                   const key = entry?.titleKey ?? entry?.labelKey;
                   return key ? t(key) : null;
                 })()}
               </h2>
-              <p className="mt-0.5 text-[13px] font-normal text-muted-foreground">{t(SECTION_SUBTITLE_KEY[section])}</p>
+              <p className="mt-0.5 text-ui font-normal text-muted-foreground">{t(SECTION_SUBTITLE_KEY[section])}</p>
             </>
           )}
         </PageContent>

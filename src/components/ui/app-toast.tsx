@@ -19,7 +19,7 @@ function ToastCard({ message, onClose }: { message: string; onClose: () => void 
   return (
     <div
       role="alert"
-      className="flex w-[min(360px,calc(100vw-32px))] items-start gap-2 rounded-xl border border-[var(--redesign-sidebar-elevated-border)] bg-[var(--redesign-sidebar-overlay-surface)] py-2.5 pr-2 pl-3 text-[12px] leading-[1.45] text-foreground shadow-[var(--redesign-sidebar-elevated-shadow)]"
+      className="flex w-[min(360px,calc(100vw-32px))] items-start gap-2 rounded-xl border border-[var(--redesign-sidebar-elevated-border)] bg-[var(--redesign-sidebar-overlay-surface)] py-2.5 pr-2 pl-3 text-ui-sm leading-[1.45] text-foreground shadow-[var(--redesign-sidebar-elevated-shadow)]"
     >
       <AlertCircle aria-hidden="true" className="mt-px size-3.5 shrink-0 text-destructive" />
       {/* Its (ALS-0xx) code links to the error's entry in the docs. */}

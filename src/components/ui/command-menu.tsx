@@ -874,7 +874,7 @@ const CommandMenuInput = forwardRef<HTMLInputElement, CommandMenuInputProps>(
             "min-w-0 flex-1 rounded-none bg-transparent text-foreground placeholder:text-muted-foreground outline-none font-[inherit]",
             // One notch above the rows' body size: the field is the palette's
             // title line. The line box keeps the caret in proportion.
-            compact ? "text-[length:var(--fs-subtitle-compact,13px)] leading-5" : "text-[length:var(--fs-subtitle,14px)] leading-6",
+            compact ? "text-ui leading-5" : "text-ui-lg leading-6",
             fieldTouchClass,
             className
           )}

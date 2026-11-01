@@ -96,12 +96,41 @@ When adding any user-facing string: add one row to `translations.ts` with all se
 
 **Corner radius looks like the controls' 8px.** Controls are 27px tall with an 8px radius. A rounded surface bigger than a control doesn't reuse `--radius`; it gets radius ≈ its one-line (base) height × 8/27, so its corners look the same as a control's. Measure against the base height, not the wrapped height, so the radius doesn't grow as content wraps. Prefer a CSS token that tracks the size, e.g. `--redesign-chat-bubble-radius` in `src/index.css` (about 12px on a 40px bubble).
 
+## Font
+
+**One face: the UI font from Settings → Appearance** (`--font-sans`, the system font unless "Use system UI font" is off), at its own letter spacing. Headings and paragraphs used to force Geist and a tightened Inter, so a page mixed three faces; both now follow the setting. Monospace is the only other face, for code.
+
 ## Text size
 
-Chat text, compose text and sidebar/menu rows share one size, `--redesign-chat-text` in `src/index.css`: `clamp(0.75rem, calc(0.625rem + 0.25vw), 0.8125rem)`. It scales with the window from 12px up to a 13px cap. New text in those surfaces reads that token instead of a fixed size.
+**Rule: every size comes from the scale; no `text-[Npx]`.** The scale is in `@theme` in `src/index.css`:
+
+| Class | Size | Used for |
+|---|---|---|
+| `text-ui-2xs` | 10px | Counts, badges, keycaps |
+| `text-ui-xs` | 11px | Section labels, message times, compact meta |
+| `text-ui-sm` | 12px | Secondary text, descriptions, menu rows |
+| `text-ui` | 13px | Body text outside the chat |
+| `text-ui-lg` | 14px | Emphasised lines, small titles |
+| `text-ui-xl` | 16px | Dialog and page titles |
+| `text-ui-2xl` | 18px | Large headings |
+| `text-ui-display` | 24px | Hero headings |
+| `text-chat` | 12 → 13px, with the window (`--redesign-chat-text`) | Chat text, compose text, sidebar rows |
+| `text-chat-meta` | 11 → 12px, with the window (`--redesign-chat-meta`) | Meta lines in the chat |
+
+The names are registered with `cn` (`src/lib/utils.ts`); without that, `cn("text-ui-sm text-muted-foreground")` reads the size as a colour and drops it. `src/text-size-scale.test.ts` fails on a fixed size. Tailwind's own `text-xs`/`text-sm`/`text-base` sit on the same steps (12/14/16px) and stay where they are, since they carry their own line heights. Fluid Functionalism's internal type scale (`src/lib/type-scale.ts`) is its own and exempt.
+
+## Chat
+
+- **A reply's code is one card**: as wide as the reply, its language and a copy button in a header row on the same surface (the `[data-streamdown="code-block"]` rules in `src/index.css`). Streamdown's own card inside a card, shrunk to the code's width, read as unfinished.
+- **Both markdown renderers share one setup** (`MARKDOWN_COMPONENTS` in `streaming-text.tsx`), so a reply looks the same live and after a reload.
+- **Lists sit as tight as paragraphs**: Streamdown's own `space-y-4` and per-item padding are off; each block keeps the 12px gap it sets itself.
+- **A reply's time sits on its action row**, after the actions and effort, not on a line of its own.
+- **A reply is named by its own model** (`modelFor` in `src/lib/quick-chat-models.tsx`): a model missing from the picker's list is named from its id ("claude-opus-5-5" → "Claude Opus 5.5"), never borrowed from the composer.
+- **Your own messages sit on the right, with your avatar and name over them**; everyone else's sit on the left. The header is deliberate (it matches the reply header), and isn't dropped for your own messages.
 
 ## Motion
 
+- **Transitions run on the motion tiers** in `src/lib/springs.ts`: `duration-80` for hover and press, `duration-160` for colour and opacity changes, `duration-240` for larger fades, `duration-400` (`fade`) for a view swapped in place. Exceptions, on purpose: the sidebar collapse (`duration-[280ms]`, in step with its width), and whole-screen scene changes (500 and 700ms). `src/motion-tiers.test.ts` fails on any other duration. Hand-tuned animations in JS (the bot faces' expressions) keep their own timings.
 - **Page transitions preload the incoming page.** `SidebarSurfaceTransition` (`src/components/design-system/sidebar-surface-transition.tsx`) mounts the incoming page invisibly as soon as the outgoing one starts fading out, so its data and settling effects are done before it fades in.
 - **Changing trigger labels use transitions.dev's "Text states swap".** The compose box's trigger labels (model, effort, permission) swap through `src/lib/use-text-swap.ts` and the matching section in `src/index.css`. Use the same recipe for any other label that changes in place.
 - **Two-pane dialogs use `motion="gentle"`** on `DialogContent` (`spring.gentle`, 0.98 scale), as the create- and manage-workspace dialogs do. The sign-in dialog still uses the default motion.

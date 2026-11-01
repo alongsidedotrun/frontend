@@ -122,13 +122,13 @@ export function JoinChatPage() {
           </span>
           <div>
             <h1 className="text-[length:clamp(15px,calc(12.55px+0.545cqw),18px)] font-normal text-foreground">{t("joinChat.title")}</h1>
-            <p className="mt-1.5 text-pretty text-[length:var(--redesign-chat-text)] text-muted-foreground">{t(signedIn ? "joinChat.signedInDescription" : "joinChat.signIn")}</p>
+            <p className="mt-1.5 text-pretty text-chat text-muted-foreground">{t(signedIn ? "joinChat.signedInDescription" : "joinChat.signIn")}</p>
           </div>
           {/* Signed out: no fields, just what it takes (an account) and Sign in. */}
           {!signedIn ? null : disclosure ? (
             <div className={cn("flex w-full max-w-[360px] flex-col gap-3 p-4 text-left", SHELL_RADIUS, SHELL_SURFACE)}>
-              <h3 className="text-[13px] font-medium text-foreground">{t("share.disclosure.title")}</h3>
-              <p className="text-[12px] text-muted-foreground">{disclosure}</p>
+              <h3 className="text-ui font-medium text-foreground">{t("share.disclosure.title")}</h3>
+              <p className="text-ui-sm text-muted-foreground">{disclosure}</p>
             </div>
           ) : (
             // The identifier and join code they were given, laid out like Invite members shows them.
@@ -168,7 +168,7 @@ export function JoinChatPage() {
             </div>
           )}
           {error && (
-            <p role="alert" className="text-[12px] text-destructive">
+            <p role="alert" className="text-ui-sm text-destructive">
               <ErrorText message={error} />
             </p>
           )}

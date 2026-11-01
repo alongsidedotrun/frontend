@@ -3,7 +3,7 @@ import { createContext, Fragment, useContext } from "react"
 import type { ItemInstance } from "@headless-tree/core"
 import { Slot } from "radix-ui"
 
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 import { MinusIcon, PlusIcon, ChevronDownIcon } from "lucide-react"
 
 type ToggleIconType = "chevron" | "plus-minus"
