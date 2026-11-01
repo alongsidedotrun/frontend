@@ -295,8 +295,8 @@ export function ShellDialogActions({
     return (
       <ShapeProvider defaultShape="pill">
         <div className="mt-2 grid w-full grid-cols-2 gap-3">
-          {/* The card look puts the main action first, as the waitlist pages do; a page keeps Cancel first. */}
-          <Button type="button" size="compact" variant="tertiary" className={cn("w-full px-5", card ? "order-last h-10" : "h-9")} onClick={onCancel}>
+          {/* Cancel first, then the main action. The card look fills Cancel (secondary) instead of outlining it. */}
+          <Button type="button" size="compact" variant={card ? "secondary" : "tertiary"} className={cn("w-full px-5", card ? "h-10" : "h-9")} onClick={onCancel}>
             {cancelLabel}
           </Button>
           {primary && (
