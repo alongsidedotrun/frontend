@@ -78,7 +78,7 @@ import { openSignInDialog } from "@/lib/use-sign-in";
 import { useIdentity } from "@/lib/identity";
 import { Command, Loader2, RotateCcw, Trash2 } from "lucide-react";
 import { showErrorToast } from "@/components/ui/app-toast";
-import { ShellDialog, ShellDialogActions, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
+import { ShellDialog, ShellDialogActions, SHELL_CARD_BOX, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
 import { cn } from "@/lib/utils";
 
 // General owns the language and timezone controls. Story: Settings
@@ -877,7 +877,7 @@ function ProviderSetupDialog({
       description={<ConnectionBadge state={state} />}
       actions={<ShellDialogActions cancelLabel={t("common.close")} onCancel={onClose} primary={primary} />}
     >
-      <p className={cn("px-3 py-2.5 text-center text-ui-sm text-muted-foreground", SHELL_RADIUS, SHELL_SURFACE)}>
+      <p className={cn("px-4 py-3 text-ui-sm text-muted-foreground", SHELL_CARD_BOX)}>
         <ErrorText message={body} />
       </p>
       {askingForCode && (
@@ -906,7 +906,7 @@ function ProviderSetupDialog({
             <Button
               type="button"
               variant="tertiary"
-              className={cn("h-8 w-full bg-white dark:bg-transparent", SHELL_RADIUS)}
+              className="h-10 w-full rounded-full"
               onClick={() => window.open(setup.link ?? undefined, "_blank", "noopener,noreferrer")}
             >
               {t("settings.providers.setup.openGoogle")}
@@ -918,7 +918,7 @@ function ProviderSetupDialog({
         <Button
           type="button"
           variant="tertiary"
-          className={cn("h-8 w-full bg-white dark:bg-transparent", SHELL_RADIUS)}
+          className="h-10 w-full rounded-full"
           disabled={update.state === "updating"}
           loading={update.state === "updating"}
           title={update.state === "failed" && update.error ? update.error : undefined}

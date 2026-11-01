@@ -5,7 +5,7 @@ import { loadLanguage, saveLanguage, uiLocaleFor, type LanguageValue } from "@/l
 import { loadTimezone, saveTimezone } from "@/lib/timezones";
 import { LanguageDropdown, TimezoneDropdown } from "@/components/locale-dropdowns";
 import { SurfaceProvider } from "@/lib/surface-context";
-import { ShellDialog, ShellDialogActions, ShellField, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
+import { ShellDialog, ShellDialogActions, ShellField, ShellPage, SHELL_FIELD_INPUT } from "@/components/design-system/shell-dialog";
 import { GitHubMarkIcon, GoogleIcon } from "@/components/icons/brand-icons";
 import { Button } from "@/components/ui/button";
 import { showErrorToast } from "@/components/ui/app-toast";
@@ -16,6 +16,8 @@ import { useEmailSignIn, useSignInFlow, type EmailError } from "@/lib/use-sign-i
 type SignInDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** As a page in the main area (/sign-in), like New workspace: ShellPage, with pill buttons. */
+  asPage?: boolean;
 };
 
 const CODE_LENGTH = 6;
@@ -23,7 +25,7 @@ const CODE_LENGTH = 6;
 // A dropdown's trigger in the look of a ShellField: the label, the current value and a chevron.
 const DropdownField = forwardRef<HTMLButtonElement, { label: string; value: string } & ButtonHTMLAttributes<HTMLButtonElement>>(function DropdownField({ label, value, className, ...props }, ref) {
   return (
-    <button ref={ref} type="button" className={cn("flex h-8 w-full items-center gap-2 pr-2 pl-3 text-left text-ui outline-none focus-visible:ring-2 focus-visible:ring-ring", SHELL_RADIUS, SHELL_SURFACE, className)} {...props}>
+    <button ref={ref} type="button" className={cn("flex h-10 w-full items-center gap-2 rounded-full border border-[var(--redesign-sidebar-border)] bg-black/[0.02] pr-3 pl-4 text-left text-ui outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-white/[0.03]", className)} {...props}>
       <span className="w-[72px] shrink-0 truncate text-ui-sm text-muted-foreground">{label}</span>
       <span className="min-w-0 flex-1 truncate text-foreground">{value}</span>
       <ChevronDown aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
@@ -50,7 +52,7 @@ const EMAIL_ERROR_KEYS: Record<EmailError, string> = {
  * sign in inside an app's web view), and the dialog waits for it and closes
  * once signed in.
  */
-export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
+export function SignInDialog({ open, onOpenChange, asPage = false }: SignInDialogProps) {
   const { t, i18n } = useTranslation();
   const close = () => onOpenChange(false);
   const { phase, provider, start, cancel } = useSignInFlow(close);
@@ -113,7 +115,8 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
 
   const providerLabel = provider === "github" ? t("auth.continueWithGitHub") : t("auth.continueWithGoogle");
   // A white, full-width button on the dialog's surface (Google, GitHub, open again).
-  const providerButton = cn("h-8 w-full bg-white dark:bg-transparent", SHELL_RADIUS);
+  // Sign in uses the card look (ShellLook): Google and GitHub as full-width pills.
+  const providerButton = "h-10 w-full rounded-full bg-transparent";
 
   const heading =
     stepKey === "waiting"
@@ -131,25 +134,28 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
 
   const actions =
     stepKey === "waiting" ? (
-      <ShellDialogActions cancelLabel={t("common.cancel")} onCancel={cancel} primary={{ label: provider ? providerLabel : t("auth.reopen"), onClick: () => void start() }} />
+      <ShellDialogActions pills={asPage} cancelLabel={t("common.cancel")} onCancel={cancel} primary={{ label: provider ? providerLabel : t("auth.reopen"), onClick: () => void start() }} />
     ) : stepKey === "details" ? (
-      <ShellDialogActions
+      <ShellDialogActions pills={asPage}
         cancelLabel={t("common.cancel")}
         onCancel={back}
         primary={{ label: t("auth.createAccount"), type: "submit", form: formId, disabled: !firstName.trim() || !signUpAddress.trim(), loading: email.busy }}
       />
     ) : stepKey === "code" ? (
-      <ShellDialogActions cancelLabel={t("common.cancel")} onCancel={back} primary={{ label: t("auth.verify"), type: "submit", form: formId, disabled: code.length !== CODE_LENGTH, loading: email.busy }} />
+      <ShellDialogActions pills={asPage} cancelLabel={t("common.cancel")} onCancel={back} primary={{ label: t("auth.verify"), type: "submit", form: formId, disabled: code.length !== CODE_LENGTH, loading: email.busy }} />
     ) : (
-      <ShellDialogActions
+      <ShellDialogActions pills={asPage}
         cancelLabel={t("common.cancel")}
         onCancel={close}
         primary={{ label: t("auth.continueWithEmail"), type: "submit", form: formId, disabled: !address.trim(), loading: email.busy }}
       />
     );
 
+  // A page (/sign-in) like New workspace, or the dialog.
+  const Frame = asPage ? ShellPage : ShellDialog;
   return (
-    <ShellDialog
+    <Frame
+      look="card"
       centered
       transitionKey={stepKey}
       footnote={
@@ -158,7 +164,10 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
           <p className="text-center text-ui-xs leading-relaxed text-balance text-muted-foreground">
             <Trans
               i18nKey="auth.terms"
-              components={[<a href="#" className="whitespace-nowrap underline" key="0" />, <a href="#" className="whitespace-nowrap underline" key="1" />]}
+              components={[
+                <a href="https://www.alongside.run/terms-of-service" target="_blank" rel="noreferrer" className="whitespace-nowrap underline" key="0" />,
+                <a href="https://www.alongside.run/privacy-policy" target="_blank" rel="noreferrer" className="whitespace-nowrap underline" key="1" />,
+              ]}
             />
           </p>
         )
@@ -291,6 +300,6 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
             </>
           )}
       </div>
-    </ShellDialog>
+    </Frame>
   );
 }

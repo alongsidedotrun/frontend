@@ -9,7 +9,7 @@ import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { DropdownMenu, DropdownTrigger, DropdownContent } from "@/components/ui/dropdown";
 import { MenuItem } from "@/components/ui/menu-item";
 import { ShapeProvider } from "@/lib/shape-context";
-import { ShellDialog, ShellDialogActions, ShellField, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
+import { ShellDialog, ShellDialogActions, ShellField, SHELL_CARD_BOX, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
 import { readSkillFile, SKILLS_SH, useSkills, type Skill } from "@/lib/skills";
 import { cachedSkillsShSearch, compactCount, installedIdFor, loadSkillsShList, loadSkillsShOfficial, searchSkillsSh, skillOwner, useAddRemoteSkill, type OfficialCompany, type RemoteSkill, type SkillsShView } from "@/lib/skills-sh";
 import { cn } from "@/lib/utils";
@@ -573,8 +573,8 @@ function AddSkillDialog({
         <ShellField label={t("workspace.fields.name")} htmlFor={nameId}>
           <input id={nameId} value={name} onChange={(event) => setName(event.target.value)} placeholder={t("skills.fields.namePlaceholder")} maxLength={60} className={SHELL_FIELD_INPUT} />
         </ShellField>
-        {/* Description: a white card like the fields, its label on top (as in workspaces). */}
-        <section className={cn("flex flex-col gap-1 px-3 pt-2 pb-1", SHELL_RADIUS, SHELL_SURFACE)}>
+        {/* Description: a box like the fields, its label on top (as in workspaces). */}
+        <section className={cn("flex flex-col gap-1 px-4 pt-2.5 pb-1.5", SHELL_CARD_BOX)}>
           <label htmlFor={descriptionId} className="text-ui-sm text-muted-foreground">{t("skills.fields.description")}</label>
           <textarea
             id={descriptionId}
@@ -588,7 +588,7 @@ function AddSkillDialog({
           />
         </section>
         {/* The picked file, which becomes the instructions. */}
-        <div className={cn("flex h-8 items-center gap-2 px-3 text-ui-sm text-muted-foreground", SHELL_RADIUS, SHELL_SURFACE)}>
+        <div className={cn("flex h-10 items-center gap-2 rounded-full border border-[var(--redesign-sidebar-border)] bg-black/[0.02] px-4 text-ui-sm text-muted-foreground dark:bg-white/[0.03]")}>
           <File02 aria-hidden="true" className="size-3.5 shrink-0" />
           <span className="min-w-0 truncate text-foreground">{draft?.fileName}</span>
           <span className="ml-auto shrink-0">{t("skills.fields.instructions")}</span>

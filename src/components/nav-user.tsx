@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { DropdownLabel as BaseDropdownLabel } from "@/components/ui/dropdown"
 import { MenuItem as BaseMenuItem, CustomMenuItem, useDropdownMaybe } from "@/components/ui/menu-item"
-import { DocsIcon, HelpCircleIcon, KeybindingsIcon, LogInIcon, LogOutIcon, SettingsIcon, UserIcon, XIcon } from "@/components/icons/untitled-ui"
+import { DocsIcon, KeybindingsIcon, LogInIcon, LogOutIcon, SettingsIcon, UserIcon, XIcon } from "@/components/icons/untitled-ui"
 import { ProviderIcon } from "@/lib/quick-chat-models"
 import { ModelUsageBars, USAGE_PROVIDERS, useProviderUsagePercents } from "@/lib/use-usage"
 import { signOut, useIsSignedIn } from "@/lib/auth"
@@ -123,14 +123,12 @@ export function NavUserMenuItems({ onOpenSettings }: { onOpenSettings?: () => vo
         className="gap-[7px]"
         onSelect={() => (onOpenSettings ? onOpenSettings() : navigate("/settings"))}
       />
-      <BaseMenuItem index={1} icon={DocsIcon} label={t("nav.docs")} className="gap-[7px]" onSelect={() => navigate("/docs")} />
-      <BaseMenuItem index={2} icon={HelpCircleIcon} label={t("nav.helpItem")} className="gap-[7px]" onSelect={() => navigate("/help")} />
       {/* Appearance removed from here -- per explicit request ("remove the
           appearance from the avatar dropdown as we will control that via
           settings"): theme is now only set from Settings -> Appearance
           (settings-overlay.tsx's own AppearanceSection), not duplicated
           here too. */}
-      <BaseMenuItem index={3} icon={LogOutIcon} label={t("common.logOut")} className="gap-[7px]" />
+      <BaseMenuItem index={1} icon={LogOutIcon} label={t("common.logOut")} className="gap-[7px]" />
       {/* text-foreground opacity-50, not text-ink-3 -- per explicit
           request ("make sure those describers match the style of the
           describer at the sidebar"): this used to say text-ink-3 matched
