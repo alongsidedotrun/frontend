@@ -7,7 +7,7 @@ import { providersChanged } from "@/lib/providers-changed";
 import { resizeImageFile } from "@/lib/resize-image";
 import { LimitReminderRows } from "@/components/limit-reminders";
 import { Check, Plus, SearchMd } from "@untitledui/icons";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useIsMac, useIsWindows } from "@/hooks/use-platform";
 import { useIsTauri } from "@/hooks/use-tauri";
@@ -74,6 +74,8 @@ import {
   useUserDisplayName,
 } from "@/lib/user";
 import { signOut, useIsSignedIn } from "@/lib/auth";
+import { Checkbox } from "@/components/ui/checkbox";
+import { chatsImported, MAX_IMPORT_FILE_BYTES, type ImportableChat } from "@/lib/chat-import";
 import { openSignInDialog } from "@/lib/use-sign-in";
 import { useIdentity } from "@/lib/identity";
 import { Command, Loader2, RotateCcw, Trash2 } from "lucide-react";
@@ -2142,6 +2144,134 @@ function CompactScopeRows() {
   );
 }
 
+// Import (#539): chats made before signing in, which stop showing once you do, and `.md` files, the only
+// files import takes. Each comes into the workspace in view.
+function ImportChatsRows() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const signedIn = useIsSignedIn();
+  const workspaceId = useOutletContext<{ workspaceId?: string } | undefined>()?.workspaceId;
+  const [chats, setChats] = useState<ImportableChat[]>([]);
+  const [selected, setSelected] = useState<string[] | null>(null);
+  const [importing, setImporting] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!signedIn) {
+      setChats([]);
+      return;
+    }
+    fetch("/import/chats")
+      .then((response) => (response.ok ? (response.json() as Promise<ImportableChat[]>) : []))
+      .then(setChats)
+      .catch(() => setChats([]));
+  }, [signedIn]);
+
+  async function importSelected() {
+    if (!selected || importing) return;
+    setImporting(true);
+    try {
+      const response = await fetch("/import/chats", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selected, workspace_id: workspaceId }),
+      });
+      if (!response.ok) throw new Error();
+      setChats((current) => current.filter((chat) => !selected.includes(chat.id)));
+      setSelected(null);
+      chatsImported();
+    } catch {
+      showErrorToast(t("settings.chat.import.errors.failed"));
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  async function importFile(file: File) {
+    if (!file.name.toLowerCase().endsWith(".md")) return showErrorToast(t("settings.chat.import.errors.notMarkdown"));
+    if (file.size > MAX_IMPORT_FILE_BYTES) return showErrorToast(t("settings.chat.import.errors.unusable"));
+    setImporting(true);
+    try {
+      const response = await fetch("/import/chat-file", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ file_name: file.name, content: await file.text(), workspace_id: workspaceId }),
+      });
+      const body = (await response.json().catch(() => ({}))) as { session_id?: string; error?: string };
+      if (!response.ok || !body.session_id) {
+        const key = body.error === "not_markdown" ? "notMarkdown" : body.error === "empty" || body.error === "too_large" ? "unusable" : "failed";
+        return showErrorToast(t(`settings.chat.import.errors.${key}`));
+      }
+      chatsImported();
+      navigate(`/chat/${body.session_id}`);
+    } catch {
+      showErrorToast(t("settings.chat.import.errors.failed"));
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  return (
+    <>
+      {chats.length > 0 && (
+        <SettingsRow title={t("settings.chat.import.local.title")} description={t("settings.chat.import.local.description", { count: chats.length })}>
+          <Button size="compact" variant="tertiary" onClick={() => setSelected(chats.map((chat) => chat.id))}>
+            {t("settings.chat.import.local.choose")}
+          </Button>
+        </SettingsRow>
+      )}
+      <SettingsRow title={t("settings.chat.import.file.title")} description={t("settings.chat.import.file.description")}>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".md"
+          aria-label={t("settings.chat.import.file.title")}
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (file) void importFile(file);
+          }}
+        />
+        <Button size="compact" variant="tertiary" disabled={importing} onClick={() => fileRef.current?.click()}>
+          {t("settings.chat.import.file.choose")}
+        </Button>
+      </SettingsRow>
+      <ShellDialog
+        open={selected !== null}
+        onOpenChange={(open) => { if (!open) setSelected(null); }}
+        title={t("settings.chat.import.local.title")}
+        description={t("settings.chat.import.local.dialog")}
+        actions={
+          <ShellDialogActions
+            cancelLabel={t("common.cancel")}
+            onCancel={() => setSelected(null)}
+            primary={{ label: t("settings.chat.import.local.confirm"), onClick: () => void importSelected(), disabled: !selected?.length || importing, loading: importing }}
+          />
+        }
+      >
+        <ul className={cn("flex max-h-64 flex-col gap-1 overflow-y-auto p-2", SHELL_CARD_BOX)}>
+          {chats.map((chat) => (
+            <li key={chat.id} className="flex items-center gap-2.5 px-2 py-1.5">
+              <Checkbox
+                id={`import-${chat.id}`}
+                checked={selected?.includes(chat.id) ?? false}
+                onCheckedChange={(next) => setSelected((current) => (next ? [...(current ?? []), chat.id] : (current ?? []).filter((id) => id !== chat.id)))}
+              />
+              <label htmlFor={`import-${chat.id}`} className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
+                <span className="truncate text-ui text-foreground">{chat.name}</span>
+                <span className="shrink-0 text-ui-xs text-muted-foreground">
+                  {new Date(`${chat.created_at.replace(" ", "T")}Z`).toLocaleDateString()} · {t("settings.chat.import.local.messages", { count: chat.message_count })}
+                </span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      </ShellDialog>
+    </>
+  );
+}
+
 function ChatSection() {
   const { t } = useTranslation();
   // Moved here from General's own Usage section -- per explicit request
@@ -2163,6 +2293,10 @@ function ChatSection() {
 
       <SettingsSection title={t("settings.chat.compact.title")}>
         <CompactScopeRows />
+      </SettingsSection>
+
+      <SettingsSection title={t("settings.chat.import.title")}>
+        <ImportChatsRows />
       </SettingsSection>
 
       <SettingsSection title={t("settings.chat.usage")}>

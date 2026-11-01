@@ -121,6 +121,7 @@ export default defineConfig({
       // matching server.rs's own route rename to /library/files.
       "/library/files": backend,
       "/files": backend,
+      "/import": backend,
       "/integrations": backend,
       // Settings > Skills: skills.sh lists, search and SKILL.md (backend skills_sh.rs).
       "/skills-sh": backend,
