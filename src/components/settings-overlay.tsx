@@ -27,7 +27,7 @@ import { effortLabel, EFFORT_LEVELS, loadDefaultEffort, saveDefaultEffort, type 
 import { loadLanguage, saveLanguage, uiLocaleFor, type LanguageValue } from "@/lib/language";
 import { loadTimezone, saveTimezone } from "@/lib/timezones";
 import { LanguageDropdown, TimezoneDropdown } from "@/components/locale-dropdowns";
-import { Trans, useTranslation } from "react-i18next";
+import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { formatStorageBytes, useUsageStats } from "@/lib/use-usage";
 import { ErrorText } from "@/lib/error-code";
@@ -1213,17 +1213,15 @@ function AppsSection() {
   const [filter, setFilter] = useState<ConnectionFilter>("all");
   const appsFade = useTabFade(filter);
   const [query, setQuery] = useState("");
-  // GitHub's connection, known once /integrations answers (the Google apps can't connect yet). Connected
+  // GitHub's connection, known once its status answers (the Google apps can't connect yet). Connected
   // or Available with no app in it then gets a placeholder instead of an empty space.
   const [githubUser, setGithubUser] = useState<string | null | undefined>(undefined);
   useEffect(() => {
-    fetch("/integrations")
-      .then((res) => (res.ok ? res.json() : []))
-      .then((rows: { provider: string; connected_username: string | null }[]) => {
-        setGithubUser(rows.find((r) => r.provider === "github")?.connected_username ?? null);
-      })
+    fetch("/integrations/github/cli")
+      .then((res) => (res.ok ? (res.json() as Promise<GithubCliStatus>) : null))
+      .then((status) => setGithubUser(status?.username ?? null))
       .catch(() => setGithubUser(null));
-  }, []);
+  }, [selectedApp]);
   const appsTabEmpty =
     appsFade.shown !== "all" &&
     githubUser !== undefined &&
@@ -1339,55 +1337,58 @@ function GithubIntegrationCard({
   );
 }
 
-// The 3 real steps, per explicit direction almost verbatim: (1) create your
-// own GitHub OAuth App with this exact callback URL, (2) paste its client
-// id/secret, (3) use it in chat via @github. Bring-your-own-app rather than
-// one Alongside-owned OAuth App -- backend/src/integrations.rs has the
-// full "why" (sidesteps a shared secret across every user, and Google's
-// own "unverified app" limit once this same pattern extends there). A real
-// page (this component), not a Dialog -- per explicit correction, same
-// "icon+name header, content below" shape ProviderConnectionView uses.
+type GithubCliStatus = {
+  installed: boolean;
+  username: string | null;
+  login: { code: string; url: string } | null;
+};
+
+// GitHub through its own CLI (backend/src/github_cli.rs): download it if it isn't here, then its browser
+// sign-in, which shows a code to enter at GitHub. Each account has its own login, and every provider can
+// use it. A page, not a dialog, in the same "icon and name, content below" shape as other connections.
 function GithubAppConnectionView({ onBack }: { onBack: () => void }) {
   const { t } = useTranslation();
-  const [connectedUsername, setConnectedUsername] = useState<string | null>(null);
-  const [clientId, setClientId] = useState("");
-  const [clientSecret, setClientSecret] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const callbackUrl = `${location.protocol}//${location.host}/integrations/github/callback`;
+  const [status, setStatus] = useState<GithubCliStatus | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  const refresh = () => {
-    fetch("/integrations")
-      .then((res) => (res.ok ? res.json() : []))
-      .then((rows: { provider: string; connected_username: string | null }[]) => {
-        setConnectedUsername(rows.find((r) => r.provider === "github")?.connected_username ?? null);
-      });
-  };
-  useEffect(refresh, []);
+  const refresh = useCallback(() => {
+    fetch("/integrations/github/cli")
+      .then((res) => (res.ok ? (res.json() as Promise<GithubCliStatus>) : null))
+      .then(setStatus)
+      .catch(() => setStatus(null));
+  }, []);
+  useEffect(refresh, [refresh]);
+  // While waiting for the code to be entered at GitHub: nothing tells this page when that happens.
+  const waiting = Boolean(status?.login);
+  useEffect(() => {
+    if (!waiting) return;
+    const timer = setInterval(refresh, 2000);
+    return () => clearInterval(timer);
+  }, [waiting, refresh]);
 
-  async function connect() {
-    if (!clientId.trim() || !clientSecret.trim() || submitting) return;
-    setSubmitting(true);
+  async function run(url: string, method: "POST" | "DELETE" = "POST") {
+    setBusy(true);
     try {
-      await fetch("/integrations/github/connect", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ client_id: clientId.trim(), client_secret: clientSecret.trim() }),
-      });
-      setClientSecret("");
-      // The real result (connected_username) only lands once the user
-      // finishes GitHub's own consent screen in the system browser this
-      // just opened -- polled for here rather than assumed, since this
-      // response only means "the OAuth flow started", not "it finished".
-      setTimeout(refresh, 3000);
+      const response = await fetch(url, { method });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        showErrorToast(t("settings.apps.github.error", { detail: body.error ?? response.statusText }));
+      }
+    } catch {
+      showErrorToast(t("settings.providers.noConnection"));
     } finally {
-      setSubmitting(false);
+      setBusy(false);
+      refresh();
     }
   }
 
-  async function disconnect() {
-    await fetch("/integrations/github", { method: "DELETE" });
-    refresh();
-    onBack();
+  function copyCode() {
+    if (!status?.login) return;
+    void navigator.clipboard.writeText(status.login.code).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
   }
 
   return (
@@ -1399,46 +1400,39 @@ function GithubAppConnectionView({ onBack }: { onBack: () => void }) {
         <div className="min-w-0 flex-1">
           <div className="truncate text-ui font-medium text-foreground">GitHub</div>
           <div className="truncate text-ui font-normal text-muted-foreground">
-            {connectedUsername ? t("settings.apps.github.connectedAs", { username: connectedUsername }) : t("settings.apps.github.notConnected")}
+            {status?.username ? t("settings.apps.github.connectedAs", { username: status.username }) : t("settings.apps.github.notConnected")}
           </div>
         </div>
       </div>
-      {connectedUsername ? (
+      {!status ? null : status.username ? (
         <div className="mt-5 flex flex-col gap-3">
-          <p className="text-ui text-muted-foreground">
-            <Trans i18nKey="settings.apps.github.useInChat" components={[<span className="font-mono" key="0" />]} />
-          </p>
-          <Button variant="outline" className="w-fit" onClick={() => void disconnect()}>
+          <p className="text-ui text-muted-foreground">{t("settings.apps.github.useInChat")}</p>
+          <Button variant="outline" className="w-fit" disabled={busy} onClick={() => void run("/integrations/github/cli", "DELETE").then(onBack)}>
             {t("common.disconnect")}
           </Button>
         </div>
+      ) : status.login ? (
+        <div className="mt-5 flex flex-col gap-3">
+          <p className="text-ui text-muted-foreground">{t("settings.apps.github.enterCode")}</p>
+          <div className="flex items-center gap-2">
+            <code className="rounded-lg bg-muted px-3 py-2 font-mono text-ui-xl tracking-[0.1em] text-foreground">{status.login.code}</code>
+            <Button variant="outline" onClick={copyCode}>{t(copied ? "common.copied" : "common.copy")}</Button>
+          </div>
+          <p className="text-ui-sm text-muted-foreground">{t("settings.apps.github.waiting")}</p>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => window.open(status.login?.url, "_blank", "noopener,noreferrer")}>{t("settings.apps.github.openGithub")}</Button>
+            <Button variant="outline" disabled={busy} onClick={() => void run("/integrations/github/cli/login", "DELETE")}>{t("common.cancel")}</Button>
+          </div>
+        </div>
+      ) : status.installed ? (
+        <div className="mt-5 flex flex-col gap-3">
+          <p className="text-ui text-muted-foreground">{t("settings.apps.github.connectDescription")}</p>
+          <Button className="w-fit" disabled={busy} onClick={() => void run("/integrations/github/cli/login")}>{t("common.connect")}</Button>
+        </div>
       ) : (
-        <div className="mt-5 flex flex-col gap-5">
-          <div className="flex flex-col gap-1">
-            <p className="text-ui font-medium text-foreground">{t("settings.apps.github.step1.title")}</p>
-            <p className="text-ui-sm text-muted-foreground">{t("settings.apps.github.step1.description")}</p>
-            <code className="rounded-lg bg-muted px-2.5 py-1.5 text-ui-xs break-all text-foreground">{callbackUrl}</code>
-          </div>
-          <div className="flex flex-col gap-2">
-            <p className="text-ui font-medium text-foreground">{t("settings.apps.github.step2.title")}</p>
-            <Input placeholder={t("settings.apps.github.clientId.placeholder")} value={clientId} onChange={(event) => setClientId(event.target.value)} />
-            <Input
-              type="password"
-              placeholder={t("settings.apps.github.clientSecret.placeholder")}
-              value={clientSecret}
-              onChange={(event) => setClientSecret(event.target.value)}
-            />
-            <p className="text-ui-xs text-muted-foreground">{t("settings.apps.github.secretWarning")}</p>
-          </div>
-          <div className="flex flex-col gap-1">
-            <p className="text-ui font-medium text-foreground">{t("settings.apps.github.step3.title")}</p>
-            <p className="text-ui-sm text-muted-foreground">
-              <Trans i18nKey="settings.apps.github.step3.description" components={[<span className="font-mono" key="0" />]} />
-            </p>
-          </div>
-          <Button className="w-fit" disabled={!clientId.trim() || !clientSecret.trim() || submitting} onClick={() => void connect()}>
-            {t("common.connect")}
-          </Button>
+        <div className="mt-5 flex flex-col gap-3">
+          <p className="text-ui text-muted-foreground">{t("settings.apps.github.installDescription")}</p>
+          <Button className="w-fit" disabled={busy} loading={busy} onClick={() => void run("/integrations/github/cli/install")}>{t("settings.apps.github.install")}</Button>
         </div>
       )}
     </div>
