@@ -35,6 +35,7 @@ import { SidebarSections, type SidebarItemMenuEntry, type SidebarSection, type S
 import { SidebarSurfaceTransition } from "@/components/design-system/sidebar-surface-transition";
 import { GettingStartedSummary, SidebarAccountFooter, type GettingStartedStep } from "@/components/design-system/sidebar-footer";
 import { SettingsSidebarNav, type SettingsSection } from "@/components/settings-overlay";
+import { CHATS_IMPORTED } from "@/lib/chat-import";
 import { DefaultAvatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -400,6 +401,7 @@ export function RedesignPage() {
   const activeChat = chats.find((chat) => chat.id === (routeChatId ?? activeChatId)) ?? null;
   const activeBot = activeChat?.bot_id ? botsById.get(activeChat.bot_id) : undefined;
   const routedContent = useOutlet({
+    workspaceId: activeWorkspace.id,
     chatName: activeChat ? chatTitle(activeChat) : t("shell.untitledChat"),
     // Whether a provider is connected (null: not known yet); the New page and chats gate on false.
     providerReady,
@@ -501,6 +503,13 @@ export function RedesignPage() {
       });
   }, [activeQuickAction]);
 
+  const [chatsImportCount, setChatsImportCount] = useState(0);
+  useEffect(() => {
+    const reload = () => setChatsImportCount((count) => count + 1);
+    window.addEventListener(CHATS_IMPORTED, reload);
+    return () => window.removeEventListener(CHATS_IMPORTED, reload);
+  }, []);
+
   useEffect(() => {
     if (activeQuickAction !== "chats") return;
     void Promise.all([
@@ -522,7 +531,7 @@ export function RedesignPage() {
         setActiveChatId(null);
       });
     // And its own chats and projects: an open chat that isn't this account's closes.
-  }, [activeQuickAction, identity.scope]);
+  }, [activeQuickAction, identity.scope, chatsImportCount]);
 
   const redesignChatContext: ChatPageShellContext | undefined = activeChat ? {
     chatName: activeChat.name,
