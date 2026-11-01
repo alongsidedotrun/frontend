@@ -72,6 +72,9 @@ export function ShellDialog({
   look?: ShellLook;
   /** The card's tile, title and description: centred (the default), or left (Invite members). */
   headerAlign?: "left" | "center";
+  /** A page only: false drops the Alongside mark above the card, for a page with its own header (New
+   *  bot's Chat | Bot tabs), and tightens the card so it fits a small window. */
+  brand?: boolean;
 }) {
   const reduceMotion = useReducedMotion();
   // The content's own height, which the dialog animates to.
@@ -208,6 +211,7 @@ export function ShellPage({
   footnote,
   look = "card",
   headerAlign = "center",
+  brand = true,
 }: Parameters<typeof ShellDialog>[0]) {
   const reduceMotion = useReducedMotion();
   if (look === "card") {
@@ -215,23 +219,25 @@ export function ShellPage({
     return (
       <ShellLookContext.Provider value="card">
         <div className="relative flex min-h-0 flex-1 overflow-y-auto bg-background">
-          <div className="m-auto flex w-full max-w-[480px] flex-col px-4 py-16">
-            <div className="mb-5 flex items-center justify-center gap-2.5">
-              <WorkspaceBrandIcon size={32} imageSrc="/alongside-mark.svg" />
-              <span className="text-ui-2xl font-semibold tracking-[-0.02em] text-foreground">Alongside</span>
-            </div>
-            <div className="rounded-[20px] border border-[var(--redesign-sidebar-border)] bg-white p-[clamp(24px,5vw,36px)] dark:bg-[#171717]">
+          <div className={cn("m-auto flex w-full max-w-[480px] flex-col px-4", brand ? "py-16" : "pt-20 pb-8")}>
+            {brand && (
+              <div className="mb-5 flex items-center justify-center gap-2.5">
+                <WorkspaceBrandIcon size={32} imageSrc="/alongside-mark.svg" />
+                <span className="text-ui-2xl font-semibold tracking-[-0.02em] text-foreground">Alongside</span>
+              </div>
+            )}
+            <div className={cn("rounded-[20px] border border-[var(--redesign-sidebar-border)] bg-white dark:bg-[#171717]", brand ? "p-[clamp(24px,5vw,36px)]" : "p-6")}>
               {top && <div className="mb-4 flex flex-col">{top}</div>}
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div
                   key={transitionKey}
-                  className="flex flex-col gap-4"
+                  className={cn("flex flex-col", brand ? "gap-4" : "gap-3")}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1, transition: { duration: reduceMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] } }}
                   exit={{ opacity: 0, transition: { duration: reduceMotion ? 0 : 0.12, ease: [0.4, 0, 1, 1] } }}
                 >
                   <div className={cn("flex flex-col gap-1.5", headerAlign === "center" ? "items-center text-center text-balance" : "text-left")}>
-                    {icon && <div className={cn("mb-2", headerAlign === "left" && "self-start")}>{icon}</div>}
+                    {icon && <div className={cn(brand ? "mb-2" : "mb-1", headerAlign === "left" && "self-start")}>{icon}</div>}
                     <div className="flex items-center gap-2">
                       <h1 className="text-ui-display leading-tight font-semibold tracking-[-0.02em] text-foreground">{title}</h1>
                       {badge}

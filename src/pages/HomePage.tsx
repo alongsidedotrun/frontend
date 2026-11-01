@@ -421,7 +421,8 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
 }
 
 /**
- * New > Bot (#504), in the same card as the other create pages: its face on top (reacting as it's named),
+ * New > Bot (#504), in the same card as the other create pages (without the Alongside mark: the Chat | Bot
+ * tabs are its header): its face on top (reacting as it's named),
  * its name and description, its look (colours, Randomise, Upload, expressions) in one box, then Reset and
  * Create. Creating it opens its chat; its instructions are given there.
  */
@@ -449,7 +450,8 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
     <ShellPage
       open
       onOpenChange={() => {}}
-      icon={<BotFace avatar={draft.avatar} expression={mood} animated className="size-16" />}
+      brand={false}
+      icon={<BotFace avatar={draft.avatar} expression={mood} animated className="size-12" />}
       title={t("bots.new")}
       description={t("bots.subtitle")}
       actions={
@@ -468,7 +470,7 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
     >
       <form
         id={formId}
-        className="flex flex-col gap-3"
+        className="flex flex-col gap-2.5"
         onSubmit={async (event) => {
           event.preventDefault();
           if (!ready || busy) return;
@@ -494,9 +496,8 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
             className={SHELL_FIELD_INPUT}
           />
         </ShellField>
-        <section className={cn("flex flex-col gap-1 px-4 pt-2.5 pb-1.5", SHELL_CARD_BOX)}>
-          <label htmlFor={descriptionId} className="text-ui-sm text-muted-foreground">{t("bots.fields.description")}</label>
-          <textarea
+        <ShellField label={t("bots.fields.description")} htmlFor={descriptionId}>
+          <input
             id={descriptionId}
             value={draft.description}
             onChange={(event) => {
@@ -505,12 +506,11 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
             }}
             placeholder={t("bots.placeholder.descriptionShort")}
             maxLength={300}
-            rows={2}
-            className="w-full resize-none appearance-none rounded-none border-0 bg-transparent p-0 text-ui leading-[1.5] text-foreground shadow-none outline-none placeholder:text-muted-foreground/70"
+            className={SHELL_FIELD_INPUT}
           />
-        </section>
+        </ShellField>
         {/* Its look in one box: colours (with Randomise and Upload), then expressions. */}
-        <section className={cn("flex flex-col items-center gap-3 px-4 pt-2.5 pb-4", SHELL_CARD_BOX)}>
+        <section className={cn("flex flex-col items-center gap-2.5 px-4 pt-2.5 pb-3", SHELL_CARD_BOX)}>
           <span className="self-start text-ui-sm text-muted-foreground">{t("bots.look")}</span>
           <BotSwatches value={draft.avatar} onChange={setAvatar} withUpload />
           <BotEyesPicker value={draft.avatar} onChange={setAvatar} />
