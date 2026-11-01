@@ -16,7 +16,7 @@ import { LOGO_MIME_TYPES, MAX_DESCRIPTION_LENGTH, readLogoFile } from "@/lib/wor
 import { WORKSPACE_HUE_COUNT, WORKSPACE_PALETTE, WORKSPACE_SWATCH_ORDER, paletteIndexForName } from "@/lib/identity-palette";
 import { SurfaceProvider } from "@/lib/surface-context";
 import { cn } from "@/lib/utils";
-import { ShellField, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
+import { ShellField, SHELL_CARD_BOX, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE, useShellCard } from "@/components/design-system/shell-dialog";
 
 export type WorkspaceFieldValues = {
   name: string;
@@ -46,6 +46,8 @@ export function WorkspaceFields({ values, onChange, nameError, autoFocusName, la
   const nameId = useId();
   const descriptionId = useId();
   const set = (patch: Partial<WorkspaceFieldValues>) => onChange({ ...values, ...patch });
+  // The card look has its labels inside the fields, as everywhere else in it.
+  const card = useShellCard();
 
   const nameInput = (
     <input
@@ -72,7 +74,7 @@ export function WorkspaceFields({ values, onChange, nameError, autoFocusName, la
   );
   const nameErrorLine = nameError && <p className="px-1 text-ui-sm text-destructive">{nameError}</p>;
 
-  if (labelsAbove) {
+  if (labelsAbove && !card) {
     const labelClass = "px-1 text-ui-sm text-muted-foreground";
     return (
       <>
@@ -99,7 +101,7 @@ export function WorkspaceFields({ values, onChange, nameError, autoFocusName, la
       </div>
 
       {/* Description: a white card like the fields, its label on top. */}
-      <section className={cn("flex flex-col gap-1 px-3 pt-2 pb-1", SHELL_RADIUS, SHELL_SURFACE)}>
+      <section className={cn("flex flex-col gap-1", card ? cn("px-4 pt-2.5 pb-1.5", SHELL_CARD_BOX) : cn("px-3 pt-2 pb-1", SHELL_RADIUS, SHELL_SURFACE))}>
         <label htmlFor={descriptionId} className="text-ui-sm text-muted-foreground">{t("workspace.fields.description")}</label>
         {descriptionInput}
       </section>

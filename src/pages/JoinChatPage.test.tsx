@@ -60,8 +60,9 @@ describe("Join chat page (#213, #459)", () => {
     backend();
     renderDialog();
     expect(await screen.findByText("Create an account or sign in to join a chat.")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Identifier")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Join code")).not.toBeInTheDocument();
+    // The fields show, as on Invite members, but can't be filled in until they sign in.
+    expect(screen.getByLabelText("Identifier")).toBeDisabled();
+    expect(screen.getByLabelText("Join code")).toBeDisabled();
     await userEvent.click(screen.getByRole("button", { name: "Sign in to join a chat" }));
     expect(signIn.open).toHaveBeenCalled();
   });

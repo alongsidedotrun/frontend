@@ -14,9 +14,10 @@ export const SHELL_RADIUS = "rounded-[calc(32px*8/27)]";
 export const SHELL_SURFACE = "border border-[var(--redesign-sidebar-border)] bg-white dark:bg-background";
 
 /**
- * How a shell dialog looks. "panel" is the default #FAFAFA panel; "card" is the style of Alongside's
+ * How a shell dialog looks. "card", the default, is the style of Alongside's
  * pages on waitlist.alongside.run (Listmonk's confirm and unsubscribe pages): the Alongside mark above
- * a rounded card with a faint border, a left-aligned heading, and pill fields and buttons.
+ * a rounded card with a faint border, a left-aligned heading, and pill fields and buttons. "panel" is the
+ * older #FAFAFA panel with a centred heading, kept for anything that still asks for it.
  * ShellField and ShellDialogActions follow it; useShellCard() lets a dialog's own pieces follow it too.
  */
 export type ShellLook = "panel" | "card";
@@ -44,7 +45,7 @@ export function ShellDialog({
   centered = false,
   transitionKey,
   footnote,
-  look = "panel",
+  look = "card",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -97,7 +98,7 @@ export function ShellDialog({
             <div className="mb-5 flex items-center justify-center gap-2.5">
               {/* The website's mark: the app icon's black tile with three circles. */}
               <WorkspaceBrandIcon size={32} imageSrc="/alongside-mark.svg" />
-              <span className="text-[19px] font-semibold tracking-[-0.02em] text-foreground">Alongside</span>
+              <span className="text-ui-2xl font-semibold tracking-[-0.02em] text-foreground">Alongside</span>
             </div>
             <div
               ref={cardRef}
@@ -106,11 +107,13 @@ export function ShellDialog({
             >
               {top && <div className="flex flex-col">{top}</div>}
               <div className="flex flex-col gap-1.5 text-left">
+                {/* The dialog's own tile (a workspace's logo menu, a bot), above its title. */}
+                {icon && <div className="mb-2 self-start">{icon}</div>}
                 <div className="flex items-center gap-2">
-                  <DialogTitle className="text-[22px] leading-tight font-semibold tracking-[-0.02em] text-foreground">{title}</DialogTitle>
+                  <DialogTitle className="text-ui-display leading-tight font-semibold tracking-[-0.02em] text-foreground">{title}</DialogTitle>
                   {badge}
                 </div>
-                <DialogDescription className="text-[13px] leading-relaxed text-muted-foreground">{description}</DialogDescription>
+                <DialogDescription className="text-ui leading-relaxed text-muted-foreground">{description}</DialogDescription>
               </div>
               {children}
               {actions}
@@ -200,7 +203,7 @@ export function ShellPage({
   icon,
   transitionKey,
   footnote,
-  look = "panel",
+  look = "card",
 }: Parameters<typeof ShellDialog>[0]) {
   const reduceMotion = useReducedMotion();
   if (look === "card") {
@@ -211,7 +214,7 @@ export function ShellPage({
           <div className="m-auto flex w-full max-w-[480px] flex-col px-4 py-16">
             <div className="mb-5 flex items-center justify-center gap-2.5">
               <WorkspaceBrandIcon size={32} imageSrc="/alongside-mark.svg" />
-              <span className="text-[19px] font-semibold tracking-[-0.02em] text-foreground">Alongside</span>
+              <span className="text-ui-2xl font-semibold tracking-[-0.02em] text-foreground">Alongside</span>
             </div>
             <div className="rounded-[20px] border border-[var(--redesign-sidebar-border)] bg-white p-[clamp(24px,5vw,36px)] dark:bg-[#171717]">
               {top && <div className="mb-4 flex flex-col">{top}</div>}
@@ -224,11 +227,12 @@ export function ShellPage({
                   exit={{ opacity: 0, transition: { duration: reduceMotion ? 0 : 0.12, ease: [0.4, 0, 1, 1] } }}
                 >
                   <div className="flex flex-col gap-1.5 text-left">
+                    {icon && <div className="mb-2 self-start">{icon}</div>}
                     <div className="flex items-center gap-2">
-                      <h1 className="text-[22px] leading-tight font-semibold tracking-[-0.02em] text-foreground">{title}</h1>
+                      <h1 className="text-ui-display leading-tight font-semibold tracking-[-0.02em] text-foreground">{title}</h1>
                       {badge}
                     </div>
-                    <p className="text-[13px] leading-relaxed text-muted-foreground">{description}</p>
+                    <p className="text-ui leading-relaxed text-muted-foreground">{description}</p>
                   </div>
                   {children}
                   {actions}
@@ -294,7 +298,7 @@ export function ShellDialogActions({
   if (pills || card) {
     return (
       <ShapeProvider defaultShape="pill">
-        <div className="mt-2 grid w-full grid-cols-2 gap-3">
+        <div className={cn("mt-2 grid w-full gap-3", primary ? "grid-cols-2" : "grid-cols-1")}>
           {/* Cancel first, then the main action. The card look fills Cancel (secondary) instead of outlining it. */}
           <Button type="button" size="compact" variant={card ? "secondary" : "tertiary"} className={cn("w-full px-5", card ? "h-10" : "h-9")} onClick={onCancel}>
             {cancelLabel}

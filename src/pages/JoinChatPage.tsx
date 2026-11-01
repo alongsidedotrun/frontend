@@ -1,12 +1,9 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { ShellField, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
-import { JoinChatIcon } from "@/components/icons/join-chat-icon";
+import { ShellDialogActions, ShellField, ShellPage, SHELL_CARD_BOX, SHELL_FIELD_INPUT } from "@/components/design-system/shell-dialog";
 import { useIsSignedIn } from "@/lib/auth";
 import { ErrorText } from "@/lib/error-code";
-import { ShapeProvider } from "@/lib/shape-context";
 import { SHARE_ERRORS, formatTypedId } from "@/lib/use-share";
 import { openSignInDialog } from "@/lib/use-sign-in";
 import { cn } from "@/lib/utils";
@@ -17,8 +14,8 @@ const CODE_GROUPS = [4, 4] as const;
 /**
  * Join someone else's chat (#213, #459) with the chat ID and join code they were given -- both are
  * needed, plus being signed in. Joining makes a new local chat linked to theirs through the relay; each
- * person's turns still run on their own provider. A page (the sidebar's Join chat), laid out like the New
- * page's "Connect a provider to start": a mark, a title and what to do, then the fields and one button.
+ * person's turns still run on their own provider. A page (the sidebar's Join chat), in the same card as
+ * Invite members.
  */
 export function JoinChatPage() {
   const { t } = useTranslation();
@@ -36,6 +33,7 @@ export function JoinChatPage() {
   const chatIdRef = useRef<HTMLInputElement>(null);
   const chatIdFieldId = useId();
   const codeFieldId = useId();
+  const formId = useId();
 
   // Leaving the page drops a join that didn't go through.
   useEffect(
@@ -106,85 +104,85 @@ export function JoinChatPage() {
     }
   }
 
+  // Invite members' counterpart, so the same card: the identifier and join code they were given, then
+  // Cancel and Join (Sign in when signed out).
   return (
-    <div className="relative flex flex-1 overflow-hidden bg-background @container">
-      <div className="absolute inset-0 flex items-center justify-center overflow-y-auto px-3 sm:px-5">
-        <form
-          className="flex w-full max-w-[520px] flex-col items-center gap-4 text-center"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (!signedIn) return openSignInDialog();
-            void join(Boolean(disclosure));
+    <ShellPage
+      open
+      onOpenChange={() => navigate("/")}
+      title={t("joinChat.title")}
+      description={t(signedIn ? "joinChat.signedInDescription" : "joinChat.signIn")}
+      actions={
+        <ShellDialogActions
+          cancelLabel={t("common.cancel")}
+          onCancel={() => navigate("/")}
+          primary={{
+            label: !signedIn ? t("joinChat.signInButton") : disclosure ? t("share.disclosure.agree") : t("joinChat.join"),
+            type: "submit",
+            form: formId,
+            disabled: signedIn && (!complete || busy),
+            loading: busy,
           }}
-        >
-          <span aria-hidden="true" className="grid size-9 place-items-center rounded-full border border-border bg-white text-foreground shadow-[0_1px_2px_rgb(0_0_0_/_0.06)] dark:bg-[var(--surface-4)]">
-            <JoinChatIcon size={18} />
-          </span>
-          <div>
-            <h1 className="text-[length:clamp(15px,calc(12.55px+0.545cqw),18px)] font-normal text-foreground">{t("joinChat.title")}</h1>
-            <p className="mt-1.5 text-pretty text-chat text-muted-foreground">{t(signedIn ? "joinChat.signedInDescription" : "joinChat.signIn")}</p>
+        />
+      }
+    >
+      <form
+        id={formId}
+        className="flex flex-col gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!signedIn) return openSignInDialog();
+          void join(Boolean(disclosure));
+        }}
+      >
+        {disclosure ? (
+          <div className={cn("flex flex-col gap-2 p-4", SHELL_CARD_BOX)}>
+            <h3 className="text-ui font-medium text-foreground">{t("share.disclosure.title")}</h3>
+            <p className="text-ui-sm text-muted-foreground">{disclosure}</p>
           </div>
-          {/* Signed out: no fields, just what it takes (an account) and Sign in. */}
-          {!signedIn ? null : disclosure ? (
-            <div className={cn("flex w-full max-w-[360px] flex-col gap-3 p-4 text-left", SHELL_RADIUS, SHELL_SURFACE)}>
-              <h3 className="text-ui font-medium text-foreground">{t("share.disclosure.title")}</h3>
-              <p className="text-ui-sm text-muted-foreground">{disclosure}</p>
-            </div>
-          ) : (
-            // The identifier and join code they were given, laid out like Invite members shows them.
-            <div className="flex w-full max-w-[360px] flex-col gap-2 text-left">
-              <ShellField label={t("shareChat.chatId")} htmlFor={chatIdFieldId}>
-                <input
-                  ref={chatIdRef}
-                  id={chatIdFieldId}
-                  autoFocus={signedIn}
-                  value={chatId}
-                  autoComplete="off"
-                  spellCheck={false}
-                  disabled={!signedIn}
-                  className={cn(SHELL_FIELD_INPUT, "font-mono tracking-[0.1em] disabled:cursor-not-allowed disabled:opacity-50")}
-                  aria-invalid={Boolean(error) || undefined}
-                  onChange={(event) => {
-                    setChatId(formatTypedId(event.target.value, CHAT_ID_GROUPS));
-                    setError(null);
-                  }}
-                />
-              </ShellField>
-              <ShellField label={t("shareChat.joinCode")} htmlFor={codeFieldId}>
-                <input
-                  id={codeFieldId}
-                  value={code}
-                  autoComplete="off"
-                  spellCheck={false}
-                  disabled={!signedIn}
-                  className={cn(SHELL_FIELD_INPUT, "font-mono tracking-[0.1em] disabled:cursor-not-allowed disabled:opacity-50")}
-                  aria-invalid={Boolean(error) || undefined}
-                  onChange={(event) => {
-                    setCode(formatTypedId(event.target.value, CODE_GROUPS));
-                    setError(null);
-                  }}
-                />
-              </ShellField>
-            </div>
-          )}
-          {error && (
-            <p role="alert" className="text-ui-sm text-destructive">
-              <ErrorText message={error} />
-            </p>
-          )}
-          <ShapeProvider defaultShape="pill">
-            <Button
-              type="submit"
-              variant="primary"
-              className="h-9 px-5"
-              leadingIcon={signedIn ? JoinChatIcon : undefined}
-              disabled={signedIn && (!complete || busy)}
-            >
-              {!signedIn ? t("joinChat.signInButton") : disclosure ? t("share.disclosure.agree") : t("joinChat.join")}
-            </Button>
-          </ShapeProvider>
-        </form>
-      </div>
-    </div>
+        ) : (
+          <>
+            <ShellField label={t("shareChat.chatId")} htmlFor={chatIdFieldId}>
+              <input
+                ref={chatIdRef}
+                id={chatIdFieldId}
+                autoFocus={signedIn}
+                value={chatId}
+                autoComplete="off"
+                spellCheck={false}
+                disabled={!signedIn}
+                placeholder={signedIn ? undefined : t("shareChat.signedOutPlaceholder")}
+                className={cn(SHELL_FIELD_INPUT, signedIn && "font-mono tracking-[0.1em]", "disabled:cursor-not-allowed")}
+                aria-invalid={Boolean(error) || undefined}
+                onChange={(event) => {
+                  setChatId(formatTypedId(event.target.value, CHAT_ID_GROUPS));
+                  setError(null);
+                }}
+              />
+            </ShellField>
+            <ShellField label={t("shareChat.joinCode")} htmlFor={codeFieldId}>
+              <input
+                id={codeFieldId}
+                value={code}
+                autoComplete="off"
+                spellCheck={false}
+                disabled={!signedIn}
+                className={cn(SHELL_FIELD_INPUT, "font-mono tracking-[0.1em] disabled:cursor-not-allowed")}
+                aria-invalid={Boolean(error) || undefined}
+                onChange={(event) => {
+                  setCode(formatTypedId(event.target.value, CODE_GROUPS));
+                  setError(null);
+                }}
+              />
+            </ShellField>
+          </>
+        )}
+        {error && (
+          <p role="alert" className="px-1 text-ui-sm text-destructive">
+            <ErrorText message={error} />
+          </p>
+        )}
+      </form>
+    </ShellPage>
   );
 }
