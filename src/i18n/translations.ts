@@ -4235,8 +4235,6 @@ export const translations = {
   "bots.avatar.randomise": { en: "Random colour", "pt-BR": "Cor aleatória", es: "Color aleatorio", fr: "Couleur au hasard", de: "Zufällige Farbe", zh: "随机颜色", ja: "ランダムな色" },
   "bots.avatar.upload": { en: "Upload", "pt-BR": "Enviar", es: "Subir", fr: "Importer", de: "Hochladen", zh: "上传", ja: "アップロード" },
   "bots.look": { en: "Look", "pt-BR": "Aparência", es: "Aspecto", fr: "Apparence", de: "Aussehen", zh: "外观", ja: "見た目" },
-  "bots.placeholder.nameShort": { en: "e.g. research-buddy", "pt-BR": "ex.: parceiro-de-pesquisa", es: "p. ej. compa-de-investigacion", fr: "ex. : copain-de-recherche", de: "z. B. recherche-buddy", zh: "例如 research-buddy", ja: "例: research-buddy" },
-  "bots.placeholder.descriptionShort": { en: "What it helps with", "pt-BR": "Com o que ele ajuda", es: "En qué ayuda", fr: "Ce pour quoi il aide", de: "Wobei er hilft", zh: "它能帮什么忙", ja: "何を手伝うか" },
   "bots.avatar.color": { en: "Colour", "pt-BR": "Cor", es: "Color", fr: "Couleur", de: "Farbe", zh: "颜色", ja: "色" },
   "bots.avatar.change": { en: "Change its look", "pt-BR": "Mudar a aparência", es: "Cambiar su aspecto", fr: "Changer son apparence", de: "Aussehen ändern", zh: "更改外观", ja: "見た目を変更" },
   "bots.avatar.uploadHint": { en: "Choose an image; it's shown in a circle.", "pt-BR": "Escolha uma imagem; ela aparece em um círculo.", es: "Elige una imagen; se muestra en un círculo.", fr: "Choisissez une image ; elle s'affiche dans un cercle.", de: "Wähle ein Bild; es wird in einem Kreis angezeigt.", zh: "选择一张图片，将以圆形显示。", ja: "画像を選んでください。円形で表示されます。" },

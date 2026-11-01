@@ -492,7 +492,6 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
               setDraft({ ...draft, name: event.target.value.replace(/\s/g, "-") });
               react("happy");
             }}
-            placeholder={t("bots.placeholder.nameShort")}
             maxLength={33}
             className={SHELL_FIELD_INPUT}
           />
@@ -505,7 +504,6 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
               setDraft({ ...draft, description: event.target.value });
               react("happy");
             }}
-            placeholder={t("bots.placeholder.descriptionShort")}
             maxLength={300}
             className={SHELL_FIELD_INPUT}
           />
