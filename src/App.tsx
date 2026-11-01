@@ -7,8 +7,6 @@ import { AppToaster } from "@/components/ui/app-toast";
 import { useApplyAppearanceSettings } from "@/hooks/use-appearance-settings";
 import { AppsPage } from "@/pages/AppsPage";
 import { ChatPage } from "@/pages/ChatPage";
-import { DocsPage } from "@/pages/DocsPage";
-import { HelpPage } from "@/pages/HelpPage";
 import { HomePage } from "@/pages/HomePage";
 import { InboxPage } from "@/pages/InboxPage";
 import { JoinPage } from "@/pages/JoinPage";
@@ -16,7 +14,6 @@ import { JoinChatPage } from "@/pages/JoinChatPage";
 import { LibraryPage } from "@/pages/LibraryPage";
 import { OnboardingPage } from "@/pages/OnboardingPage";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
-import { ProjectsPage } from "@/pages/ProjectsPage";
 import { RedesignPage } from "@/pages/RedesignPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { WelcomePage } from "@/pages/WelcomePage";
@@ -67,7 +64,6 @@ const ROUTES: RouteObject[] = [
       { path: "/workspace/manage", element: null },
       // Sign in: a page drawn by the shell too (RedesignPage), opened from anywhere via openSignInDialog().
       { path: "/sign-in", element: null },
-      { path: "/projects", element: <ProjectsPage /> },
       { path: "/apps", element: <AppsPage /> },
       // Full page now, not a modal -- per explicit request ("i want a
       // full page setting page"), matching Synara's own structure
@@ -81,8 +77,6 @@ const ROUTES: RouteObject[] = [
       // Provider usage was its own page here; it's now a section of Settings > Providers. Old links land there.
       { path: "/settings/provider/usage", element: <Navigate to="/settings/provider" replace /> },
       { path: "/settings/:section", element: <SettingsPage /> },
-      { path: "/docs", element: <DocsPage /> },
-      { path: "/help", element: <HelpPage /> },
       // Top bar's Agent/Code/Design tabs -- real clicks now, landing on
       // the shared PlaceholderPage until each gets real content (see
       // that component's own comment). Notifications/Activity/Invite

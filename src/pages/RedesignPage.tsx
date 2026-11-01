@@ -7,7 +7,7 @@ import { PROVIDERS_CHANGED } from "@/lib/providers-changed";
 import { useLocation, useNavigate, useOutlet } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { ChevronRight, CircleArrowUp, CircleHelp, Plus } from "lucide-react";
+import { ChevronRight, CircleArrowUp, Plus } from "lucide-react";
 import { JoinChatIcon } from "@/components/icons/join-chat-icon";
 import { BotIcon } from "@/components/icons/bot-icon";
 import { Star01 } from "@untitledui/icons";
@@ -162,7 +162,6 @@ function profileMenuSections(t: Translate, onOpenProfile: () => void, onSignOut:
   return [
     [
       { id: "profile", label: t("settings.nav.profile"), icon: UserIcon, onSelect: onOpenProfile },
-      { id: "help", label: t("nav.helpItem"), icon: CircleHelp },
       { id: "upgrade", label: t("shell.profileMenu.upgradePlan"), icon: CircleArrowUp, tone: "accent" },
     ],
     [

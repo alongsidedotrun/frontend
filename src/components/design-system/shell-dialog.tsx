@@ -70,7 +70,7 @@ export function ShellDialog({
   footnote?: ReactNode;
   /** "card": the waitlist pages' style (see ShellLook). */
   look?: ShellLook;
-  /** The card's tile, title and description: centred (the default), or left (Sign in, Invite members). */
+  /** The card's tile, title and description: centred (the default), or left (Invite members). */
   headerAlign?: "left" | "center";
 }) {
   const reduceMotion = useReducedMotion();
@@ -303,8 +303,8 @@ export function ShellDialogActions({
     return (
       <ShapeProvider defaultShape="pill">
         <div className={cn("mt-2 grid w-full gap-3", primary ? "grid-cols-2" : "grid-cols-1")}>
-          {/* Cancel first, then the main action. The card look fills Cancel (secondary) instead of outlining it. */}
-          <Button type="button" size="compact" variant={card ? "secondary" : "tertiary"} className={cn("w-full px-5", card ? "h-10" : "h-9")} onClick={onCancel}>
+          {/* Cancel first (outlined), then the main action (filled). */}
+          <Button type="button" size="compact" variant="tertiary" className={cn("w-full px-5", card ? "h-10" : "h-9")} onClick={onCancel}>
             {cancelLabel}
           </Button>
           {primary && (

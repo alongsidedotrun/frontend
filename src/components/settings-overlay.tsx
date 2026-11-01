@@ -905,7 +905,7 @@ function ProviderSetupDialog({
           {setup.link && (
             <Button
               type="button"
-              variant="secondary"
+              variant="tertiary"
               className="h-10 w-full rounded-full"
               onClick={() => window.open(setup.link ?? undefined, "_blank", "noopener,noreferrer")}
             >
@@ -917,7 +917,7 @@ function ProviderSetupDialog({
       {installed && update.updateAvailable && (
         <Button
           type="button"
-          variant="secondary"
+          variant="tertiary"
           className="h-10 w-full rounded-full"
           disabled={update.state === "updating"}
           loading={update.state === "updating"}

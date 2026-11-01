@@ -156,7 +156,6 @@ export function SignInDialog({ open, onOpenChange, asPage = false }: SignInDialo
   return (
     <Frame
       look="card"
-      headerAlign="left"
       centered
       transitionKey={stepKey}
       footnote={

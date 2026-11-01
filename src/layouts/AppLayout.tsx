@@ -487,7 +487,7 @@ const PLACEHOLDER_NAV_ROUTES = ["/code", "/design"];
 // "/models" dropped too -- that page moved under /settings (per explicit
 // request), so isSettingsRoute's own sidebar swap covers it now instead
 // of this list.
-const SIDEBAR_HIDDEN_ROUTES = ["/docs", "/help"];
+const SIDEBAR_HIDDEN_ROUTES: string[] = [];
 // These destinations use the main workspace surface but provide their own
 // content structure, so the chat/navigation child sidebar must stay hidden.
 const CHILD_SIDEBAR_HIDDEN_ROUTES = ["/getting-started"];
