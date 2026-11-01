@@ -1,7 +1,7 @@
-import { useCallback, useRef, useState, type ReactNode, type RefObject } from "react";
+import { createContext, useCallback, useContext, useRef, useState, type ReactNode, type RefObject } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { PANE_DIALOG_CONTENT, PANE_DIALOG_MAX_HEIGHT } from "@/components/design-system/dialog-size";
 import { WorkspaceBrandIcon } from "@/components/design-system/workspace-brand-icon";
 import { cn } from "@/lib/utils";
@@ -11,6 +11,18 @@ import { cn } from "@/lib/utils";
 export const SHELL_RADIUS = "rounded-[calc(32px*8/27)]";
 // A white card or field on the dialog's #FAFAFA.
 export const SHELL_SURFACE = "border border-[var(--redesign-sidebar-border)] bg-white dark:bg-background";
+
+/**
+ * How a shell dialog looks. "panel" is the default #FAFAFA panel; "card" is the style of Alongside's
+ * pages on waitlist.alongside.run (Listmonk's confirm and unsubscribe pages): the Alongside logo above
+ * a rounded card with a faint border, a left-aligned heading, and pill fields and buttons. ShellField and ShellDialogActions follow it; useShellCard() lets a dialog's
+ * own pieces follow it too.
+ */
+export type ShellLook = "panel" | "card";
+const ShellLookContext = createContext<ShellLook>("panel");
+export const useShellCard = () => useContext(ShellLookContext) === "card";
+// In the card look: a field's or a box's corner (pills for single-line fields).
+export const SHELL_CARD_BOX = "rounded-[16px] border border-[var(--redesign-sidebar-border)] bg-black/[0.02] dark:bg-white/[0.03]";
 
 /**
  * The shell's dialog (Invite members, Sign in): one size (dialog-size.ts), a
@@ -32,6 +44,7 @@ export function ShellDialog({
   transitionKey,
   footnote,
   asPage = false,
+  look = "panel",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -55,6 +68,8 @@ export function ShellDialog({
   footnote?: ReactNode;
   /** Drawn in the main area as a page (Sign in, like New bot), not over the app with a backdrop. */
   asPage?: boolean;
+  /** "card": the waitlist pages' style (see ShellLook). */
+  look?: ShellLook;
 }) {
   const reduceMotion = useReducedMotion();
   // The content's own height, which the dialog animates to.
@@ -87,6 +102,53 @@ export function ShellDialog({
       )}
     </div>
   );
+  const card = look === "card";
+  // With nothing chosen to focus first, the card itself takes it, so no control opens ringed.
+  const cardRef = useRef<HTMLDivElement>(null);
+  const cardHeader = (
+    <div className="flex flex-col gap-1.5 text-left">
+      <div className="flex items-center gap-2">
+        <DialogTitle className="text-[22px] leading-tight font-semibold tracking-[-0.02em] text-foreground">{title}</DialogTitle>
+        {badge}
+      </div>
+      <DialogDescription className="text-[13px] leading-relaxed text-muted-foreground">{description}</DialogDescription>
+    </div>
+  );
+  if (card) {
+    return (
+      <ShellLookContext.Provider value="card">
+        <Dialog open={open} onOpenChange={onOpenChange} backdropClassName="!z-[120]">
+          <DialogContent
+            size="lg"
+            motion="gentle"
+            initialFocus={initialFocus ?? cardRef}
+            showCloseButton={false}
+            className="!z-[120] max-w-[min(480px,calc(100vw-2rem))] overflow-visible !rounded-none !border-0 !bg-transparent p-0 !shadow-none"
+          >
+            <div className="mb-5 flex items-center justify-center gap-2.5">
+              {/* The website's mark: the app icon's black tile with three circles. */}
+              <WorkspaceBrandIcon size={32} imageSrc="/alongside-mark.svg" />
+              <span className="text-[19px] font-semibold tracking-[-0.02em] text-foreground">Alongside</span>
+            </div>
+            <div ref={cardRef} tabIndex={-1} className={cn("relative flex flex-col gap-4 overflow-y-auto rounded-[20px] outline-none border border-[var(--redesign-sidebar-border)] bg-white p-[clamp(24px,5vw,36px)] dark:bg-[#171717]", PANE_DIALOG_MAX_HEIGHT)}>
+              {top && <div className="flex flex-col">{top}</div>}
+              {cardHeader}
+              {children}
+              {actions}
+              {footnote}
+              {/* Last in the card, so opening it doesn't put the focus ring on the close button. */}
+              <DialogClose
+                aria-label="Close"
+                className="absolute top-4 right-4 flex size-7 items-center justify-center rounded-full text-muted-foreground transition-colors duration-160 hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+              </DialogClose>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </ShellLookContext.Provider>
+    );
+  }
   const body = centered ? (
     // One step out, then the next in: a fade, while the dialog eases to the new height.
     <AnimatePresence mode="wait" initial={false}>
@@ -166,9 +228,12 @@ export function ShellDialogActions({
   /** destructive: red, for deleting. */
   primary?: { label: string; onClick?: () => void; disabled?: boolean; loading?: boolean; type?: "button" | "submit"; form?: string; destructive?: boolean };
 }) {
+  const card = useShellCard();
+  // Card look: Cancel and the main action side by side, as pills.
+  const radius = card ? "rounded-full" : SHELL_RADIUS;
   return (
-    <div className="mt-auto flex flex-col gap-2 pt-1">
-      <Button type="button" variant="tertiary" className={cn("h-8 w-full bg-white dark:bg-transparent", SHELL_RADIUS)} onClick={onCancel}>
+    <div className={cn("mt-auto flex gap-2 pt-1", card ? "flex-row-reverse" : "flex-col")}>
+      <Button type="button" variant="tertiary" className={cn(card ? "h-10 flex-1 bg-transparent" : "h-8 w-full bg-white dark:bg-transparent", radius)} onClick={onCancel}>
         {cancelLabel}
       </Button>
       {primary && (
@@ -178,11 +243,11 @@ export function ShellDialogActions({
           variant="accent"
           // Full black (white in dark mode), with darker/lighter hover and press.
           className={cn(
-            "h-8 w-full",
+            card ? "h-10 flex-1" : "h-8 w-full",
             primary.destructive
               ? "[--send-button-bg-active:color-mix(in_oklab,var(--destructive),black_25%)] [--send-button-bg-hover:color-mix(in_oklab,var(--destructive),black_12%)] [--send-button-bg:var(--destructive)]"
               : "[--send-button-bg-active:#404040] [--send-button-bg-hover:#262626] [--send-button-bg:#000] dark:text-black dark:[--send-button-bg-active:#D4D4D4] dark:[--send-button-bg-hover:#E5E5E5] dark:[--send-button-bg:#FFF]",
-            SHELL_RADIUS,
+            radius,
           )}
           disabled={primary.disabled}
           loading={primary.loading}
@@ -200,8 +265,15 @@ export function ShellDialogActions({
  * line up) and the value or input after it, 32px tall on a white field.
  */
 export function ShellField({ label, htmlFor, children, trailing, className }: { label: string; htmlFor?: string; children: ReactNode; trailing?: ReactNode; className?: string }) {
+  const card = useShellCard();
   return (
-    <div className={cn("flex h-8 items-center gap-2 pr-0.5 pl-3 text-[13px]", SHELL_RADIUS, SHELL_SURFACE, className)}>
+    <div
+      className={cn(
+        "flex items-center gap-2 text-[13px]",
+        card ? "h-10 rounded-full border border-[var(--redesign-sidebar-border)] bg-black/[0.02] pr-1.5 pl-4 dark:bg-white/[0.03]" : cn("h-8 pr-0.5 pl-3", SHELL_RADIUS, SHELL_SURFACE),
+        className,
+      )}
+    >
       <label htmlFor={htmlFor} className="w-[72px] shrink-0 truncate text-[12px] text-muted-foreground">
         {label}
       </label>
