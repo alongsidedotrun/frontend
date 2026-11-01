@@ -1,7 +1,7 @@
-import { useCallback, useRef, useState, type ReactNode, type RefObject } from "react";
+import { createContext, useCallback, useContext, useRef, useState, type ReactNode, type RefObject } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { PANE_DIALOG_CONTENT, PANE_DIALOG_MAX_HEIGHT } from "@/components/design-system/dialog-size";
 import { WorkspaceBrandIcon } from "@/components/design-system/workspace-brand-icon";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,18 @@ import { ShapeProvider } from "@/lib/shape-context";
 export const SHELL_RADIUS = "rounded-[calc(32px*8/27)]";
 // A white card or field on the dialog's #FAFAFA.
 export const SHELL_SURFACE = "border border-[var(--redesign-sidebar-border)] bg-white dark:bg-background";
+
+/**
+ * How a shell dialog looks. "panel" is the default #FAFAFA panel; "card" is the style of Alongside's
+ * pages on waitlist.alongside.run (Listmonk's confirm and unsubscribe pages): the Alongside mark above
+ * a rounded card with a faint border, a left-aligned heading, and pill fields and buttons.
+ * ShellField and ShellDialogActions follow it; useShellCard() lets a dialog's own pieces follow it too.
+ */
+export type ShellLook = "panel" | "card";
+const ShellLookContext = createContext<ShellLook>("panel");
+export const useShellCard = () => useContext(ShellLookContext) === "card";
+// A box in the card look (e.g. Invite's role list): a rounder corner on a faint fill.
+export const SHELL_CARD_BOX = "rounded-[16px] border border-[var(--redesign-sidebar-border)] bg-black/[0.02] dark:bg-white/[0.03]";
 
 /**
  * The shell's dialog (Invite members, Sign in): one size (dialog-size.ts), a
@@ -32,6 +44,7 @@ export function ShellDialog({
   centered = false,
   transitionKey,
   footnote,
+  look = "panel",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -53,6 +66,8 @@ export function ShellDialog({
   transitionKey?: string;
   /** Under the actions, e.g. Sign in's terms. */
   footnote?: ReactNode;
+  /** "card": the waitlist pages' style (see ShellLook). */
+  look?: ShellLook;
 }) {
   const reduceMotion = useReducedMotion();
   // The content's own height, which the dialog animates to.
@@ -66,6 +81,53 @@ export function ShellDialog({
     next.observe(element);
     observer.current = next;
   }, []);
+  // With nothing chosen to focus first, the card itself takes it, so no control opens ringed.
+  const cardRef = useRef<HTMLDivElement>(null);
+  if (look === "card") {
+    return (
+      <ShellLookContext.Provider value="card">
+        <Dialog open={open} onOpenChange={onOpenChange} backdropClassName="!z-[120]">
+          <DialogContent
+            size="lg"
+            motion="gentle"
+            initialFocus={initialFocus ?? cardRef}
+            showCloseButton={false}
+            className="!z-[120] max-w-[min(480px,calc(100vw-2rem))] overflow-visible !rounded-none !border-0 !bg-transparent p-0 !shadow-none"
+          >
+            <div className="mb-5 flex items-center justify-center gap-2.5">
+              {/* The website's mark: the app icon's black tile with three circles. */}
+              <WorkspaceBrandIcon size={32} imageSrc="/alongside-mark.svg" />
+              <span className="text-[19px] font-semibold tracking-[-0.02em] text-foreground">Alongside</span>
+            </div>
+            <div
+              ref={cardRef}
+              tabIndex={-1}
+              className={cn("relative flex flex-col gap-4 overflow-y-auto rounded-[20px] border border-[var(--redesign-sidebar-border)] bg-white p-[clamp(24px,5vw,36px)] outline-none dark:bg-[#171717]", PANE_DIALOG_MAX_HEIGHT)}
+            >
+              {top && <div className="flex flex-col">{top}</div>}
+              <div className="flex flex-col gap-1.5 text-left">
+                <div className="flex items-center gap-2">
+                  <DialogTitle className="text-[22px] leading-tight font-semibold tracking-[-0.02em] text-foreground">{title}</DialogTitle>
+                  {badge}
+                </div>
+                <DialogDescription className="text-[13px] leading-relaxed text-muted-foreground">{description}</DialogDescription>
+              </div>
+              {children}
+              {actions}
+              {footnote}
+              {/* Last in the card, so it isn't what opening the dialog focuses. */}
+              <DialogClose
+                aria-label="Close"
+                className="absolute top-4 right-4 flex size-7 items-center justify-center rounded-full text-muted-foreground transition-colors duration-160 hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+              </DialogClose>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </ShellLookContext.Provider>
+    );
+  }
   const header = (
     <div className="relative -top-6 flex flex-col items-center gap-0.5 pt-1 text-center">
       {/* The Alongside mark on a workspace-style tile, unless the dialog brings its own. */}
@@ -188,7 +250,9 @@ export function ShellDialogActions({
    *  bot form's Reset and Create. */
   pills?: boolean;
 }) {
-  if (pills) {
+  // The card look (ShellLook) uses the same pills.
+  const card = useShellCard();
+  if (pills || card) {
     return (
       <ShapeProvider defaultShape="pill">
         <div className="mt-2 grid w-full grid-cols-2 gap-3">
@@ -252,8 +316,15 @@ export function ShellDialogActions({
  * line up) and the value or input after it, 32px tall on a white field.
  */
 export function ShellField({ label, htmlFor, children, trailing, className }: { label: string; htmlFor?: string; children: ReactNode; trailing?: ReactNode; className?: string }) {
+  const card = useShellCard();
   return (
-    <div className={cn("flex h-8 items-center gap-2 pr-0.5 pl-3 text-ui", SHELL_RADIUS, SHELL_SURFACE, className)}>
+    <div
+      className={cn(
+        "flex items-center gap-2 text-ui",
+        card ? "h-10 rounded-full border border-[var(--redesign-sidebar-border)] bg-black/[0.02] pr-1.5 pl-4 dark:bg-white/[0.03]" : cn("h-8 pr-0.5 pl-3", SHELL_RADIUS, SHELL_SURFACE),
+        className,
+      )}
+    >
       <label htmlFor={htmlFor} className="w-[72px] shrink-0 truncate text-ui-sm text-muted-foreground">
         {label}
       </label>

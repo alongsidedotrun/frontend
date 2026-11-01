@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/u
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { ShapeProvider } from "@/lib/shape-context";
 import { MoreTrigger } from "@/components/ui/more-trigger";
-import { ShellDialog, ShellDialogActions, ShellField, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
+import { ShellDialog, ShellDialogActions, ShellField, SHELL_CARD_BOX, SHELL_RADIUS, SHELL_SURFACE, useShellCard } from "@/components/design-system/shell-dialog";
 import { useIsSignedIn } from "@/lib/auth";
 import { ErrorText } from "@/lib/error-code";
 import { SHARE_ERRORS } from "@/lib/use-share";
@@ -285,7 +285,9 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
   const state: ChatState = !sharing ? "notShared" : members.length > 1 ? "shared" : "pending";
 
   return (
+    // The waitlist pages' card style (ShellLook): the Alongside mark above a rounded card, pill fields and buttons.
     <ShellDialog
+      look="card"
       open={open}
       onOpenChange={onOpenChange}
       top={
@@ -337,7 +339,7 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
           </Button>
         </div>
       ) : phase === "disclosure" ? (
-        <div className={cn("flex flex-col gap-3 p-4", SHELL_RADIUS, SHELL_SURFACE)}>
+        <div className={cn("flex flex-col gap-3 p-4", SHELL_CARD_BOX)}>
           <h3 className="text-ui font-medium text-foreground">{t("share.disclosure.title")}</h3>
           <p className="text-ui-sm text-muted-foreground">{disclosure}</p>
           <div className="flex items-center gap-2">
@@ -418,13 +420,14 @@ const ROLES: Role[] = ["reader", "participant", "editor", "admin"];
  */
 function RolePicker({ role, onChange }: { role: Role; onChange: (role: Role) => void }) {
   const { t } = useTranslation();
+  const card = useShellCard();
   const level = ROLES.indexOf(role);
   return (
-    <div className={cn("flex flex-col gap-1 p-1.5 pt-1", SHELL_RADIUS, SHELL_SURFACE)}>
+    <div className={cn("flex flex-col gap-1 p-1.5 pt-1", card ? SHELL_CARD_BOX : cn(SHELL_RADIUS, SHELL_SURFACE))}>
       {/* Headed like the sidebar's Projects and Chats. */}
       <span className="flex h-5 items-center px-[var(--redesign-quick-actions-padding)] text-ui-xs font-medium text-muted-foreground">{t("shareChat.roles")}</span>
       {/* One background for all three, its corner nested inside the card's (STYLE_GUIDE.md: corner radius). */}
-      <ul className="flex flex-col rounded-[calc(32px*8/27-3px)] bg-[var(--redesign-sidebar-surface)] py-1">
+      <ul className={cn("flex flex-col bg-[var(--redesign-sidebar-surface)] py-1", card ? "rounded-[11px]" : "rounded-[calc(32px*8/27-3px)]")}>
         {[...ROLES].reverse().map((option) => {
           const index = ROLES.indexOf(option);
           const checked = index <= level;
