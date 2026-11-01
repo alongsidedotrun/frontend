@@ -320,10 +320,13 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
           cancelLabel={t("common.cancel")}
           onCancel={() => onOpenChange(false)}
           primary={
-            signedIn && phase === "ready"
-              ? // Invite on New invite; Save (the member changes) on Manage members.
-                { label: t(tab === "invite" ? "shareChat.invite" : "common.save"), disabled: busy || (tab === "manage" && !hasEdits(edits)), onClick: () => (tab === "invite" ? invite() : void save()) }
-              : undefined
+            !signedIn
+              ? // Signed out: the same invite, with Sign in as its action (the Sign in page).
+                { label: t("shareChat.signInButton"), onClick: () => { onOpenChange(false); openSignInDialog(); } }
+              : phase === "ready"
+                ? // Invite on New invite; Save (the member changes) on Manage members.
+                  { label: t(tab === "invite" ? "shareChat.invite" : "common.save"), disabled: busy || (tab === "manage" && !hasEdits(edits)), onClick: () => (tab === "invite" ? invite() : void save()) }
+                : undefined
           }
         />
       }
@@ -332,11 +335,14 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
       <div className="grid">
       <div className={cn(PAGE_CLASS, tab !== "invite" && "pointer-events-none opacity-0")} aria-hidden={tab !== "invite" || undefined} inert={tab !== "invite" || undefined}>
       {!signedIn ? (
-        <div className="flex flex-col items-center gap-3 text-center">
-          <p className="text-ui-sm text-muted-foreground">{t("shareChat.signIn")}</p>
-          <Button type="button" variant="primary" size="compact" onClick={openSignInDialog}>
-            {t("shareChat.signInButton")}
-          </Button>
+        // Signed out: the invite as it will be (identifier, join code, roles), with both fields saying
+        // sharing needs an account, and Sign in as the action below.
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
+            <CopyField label={t("shareChat.chatId")} value={null} placeholder={t("shareChat.signedOutPlaceholder")} copied={false} onCopy={() => {}} />
+            <CopyField label={t("shareChat.joinCode")} value={null} placeholder={t("shareChat.signedOutPlaceholder")} copied={false} onCopy={() => {}} />
+          </div>
+          <RolePicker role={role} onChange={setRole} />
         </div>
       ) : phase === "disclosure" ? (
         <div className={cn("flex flex-col gap-3 p-4", SHELL_CARD_BOX)}>

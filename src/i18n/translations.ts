@@ -6716,6 +6716,15 @@ export const translations = {
     zh: "无法更改 {{name}} 的角色。请重试。(ALS-032)",
     ja: "{{name}} の役割を変更できませんでした。もう一度お試しください。(ALS-032)",
   },
+  "shareChat.signedOutPlaceholder": {
+    en: "Sharing is available once signed in",
+    "pt-BR": "O compartilhamento fica disponível ao entrar",
+    es: "Compartir está disponible al iniciar sesión",
+    fr: "Le partage est disponible une fois connecté",
+    de: "Teilen ist nach der Anmeldung verfügbar",
+    zh: "登录后即可共享",
+    ja: "サインインすると共有できます",
+  },
   "shareChat.joinCodePending": {
     en: "Available when invite is complete",
     "pt-BR": "Disponível ao concluir o convite",
