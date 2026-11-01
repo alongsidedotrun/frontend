@@ -12,6 +12,7 @@ import { HelpPage } from "@/pages/HelpPage";
 import { HomePage } from "@/pages/HomePage";
 import { InboxPage } from "@/pages/InboxPage";
 import { JoinPage } from "@/pages/JoinPage";
+import { SignInPage } from "@/pages/SignInPage";
 import { LibraryPage } from "@/pages/LibraryPage";
 import { OnboardingPage } from "@/pages/OnboardingPage";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
@@ -42,8 +43,8 @@ const ROUTES: RouteObject[] = [
     // us to open Alongside and be able to navigate without being signed
     // in... users should be able to use our application without being
     // signed in but for multiplayer purposes, they should sign in").
-    // Signing in happens in the shell's sign-in dialog
-    // (sign-in-dialog.tsx), opened from anywhere via openSignInDialog().
+    // Signing in happens on the /sign-in page (SignInPage.tsx), opened from
+    // anywhere via openSignInDialog().
     // lib/auth.ts's own
     // useIsSignedIn is what the few features that genuinely need an
     // identity (sharing a chat, AppLayout.tsx's chat-header "..." menu)
@@ -59,6 +60,8 @@ const ROUTES: RouteObject[] = [
       { path: "/chat/:sessionId", element: <ChatPage /> },
       // Joining a chat someone else hosts, from an invite link (JoinPage.tsx).
       { path: "/join", element: <JoinPage /> },
+      // Sign in, as a page (SignInPage.tsx); openSignInDialog() comes here from anywhere.
+      { path: "/sign-in", element: <SignInPage /> },
       { path: "/projects", element: <ProjectsPage /> },
       { path: "/apps", element: <AppsPage /> },
       // Full page now, not a modal -- per explicit request ("i want a

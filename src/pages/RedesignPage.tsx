@@ -14,7 +14,6 @@ import { deleteBot, openBotChat, updateBot, useBots, type Bot } from "@/lib/bots
 import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-system/workspace-brand-icon";
 import { CreateWorkspaceDialog } from "@/components/design-system/create-workspace-dialog";
 import { CreateProjectDialog } from "@/components/design-system/create-project-dialog";
-import { SignInDialog } from "@/components/design-system/sign-in-dialog";
 import { ShareChatDialog } from "@/components/design-system/share-chat-dialog";
 import { JoinChatDialog } from "@/components/design-system/join-chat-dialog";
 import { JoinRequestsCard } from "@/components/design-system/join-requests-card";
@@ -204,7 +203,8 @@ const SETTINGS_SECTIONS: readonly SettingsSection[] = ["profile", "general", "ap
 
 function quickActionForPath(pathname: string) {
   if (pathname === "/overview") return "overview";
-  if (pathname.startsWith("/chat/") || pathname === "/") return "chats";
+  // Sign in keeps the chats sidebar beside it, like New (/).
+  if (pathname.startsWith("/chat/") || pathname === "/" || pathname === "/sign-in") return "chats";
   if (pathname === "/apps") return "apps";
   if (pathname === "/agents") return "agents";
   return "inbox";
@@ -226,10 +226,14 @@ export function RedesignPage() {
   const [workspaces, setWorkspaces] = useState<WorkspaceRecord[]>([DEFAULT_WORKSPACE]);
   const [workspaceId, setWorkspaceId] = useState(DEFAULT_WORKSPACE.id);
   const [newWorkspaceOpen, setNewWorkspaceOpen] = useState(false);
-  // Sign-in is a dialog over the shell (also opened from Settings via
-  // openSignInDialog in lib/use-sign-in.ts).
-  const [signInOpen, setSignInOpen] = useState(false);
-  const openSignIn = useCallback(() => setSignInOpen(true), []);
+  // Sign in is a page (/sign-in, like New bot), opened from anywhere via openSignInDialog in
+  // lib/use-sign-in.ts; it returns to the page it was opened from.
+  const currentPathRef = useRef("/");
+  currentPathRef.current = `${location.pathname}${location.search}`;
+  const openSignIn = useCallback(() => {
+    if (currentPathRef.current.startsWith("/sign-in")) return;
+    navigate("/sign-in", { state: { from: currentPathRef.current } });
+  }, [navigate]);
   const identity = useIdentity();
   useSignInDialogHost(openSignIn);
   // Share (for the chat it was opened on) and Join chat, also opened from the
@@ -1171,7 +1175,6 @@ export function RedesignPage() {
           </div>
         ))}
       </SidebarSurfaceTransition>
-      <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} />
       <ShareChatDialog sessionId={shareChatId} open={shareOpen} onOpenChange={setShareOpen} />
       <JoinChatDialog open={joinOpen} onOpenChange={setJoinOpen} />
       <CreateWorkspaceDialog

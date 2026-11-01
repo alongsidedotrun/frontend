@@ -16,6 +16,8 @@ import { useEmailSignIn, useSignInFlow, type EmailError } from "@/lib/use-sign-i
 type SignInDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** As a page in the main area (the /sign-in route), not an overlay. */
+  asPage?: boolean;
 };
 
 const CODE_LENGTH = 6;
@@ -50,7 +52,7 @@ const EMAIL_ERROR_KEYS: Record<EmailError, string> = {
  * sign in inside an app's web view), and the dialog waits for it and closes
  * once signed in.
  */
-export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
+export function SignInDialog({ open, onOpenChange, asPage = false }: SignInDialogProps) {
   const { t, i18n } = useTranslation();
   const close = () => onOpenChange(false);
   const { phase, provider, start, cancel } = useSignInFlow(close);
@@ -158,12 +160,15 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
           <p className="text-center text-[11.5px] leading-relaxed text-balance text-muted-foreground">
             <Trans
               i18nKey="auth.terms"
-              components={[<a href="#" className="whitespace-nowrap underline" key="0" />, <a href="#" className="whitespace-nowrap underline" key="1" />]}
+              components={[
+                <a href="https://www.alongside.run/terms-of-service" target="_blank" rel="noreferrer" className="whitespace-nowrap underline" key="0" />,
+                <a href="https://www.alongside.run/privacy-policy" target="_blank" rel="noreferrer" className="whitespace-nowrap underline" key="1" />,
+              ]}
             />
           </p>
         )
       }
-      open={open} onOpenChange={onOpenChange} initialFocus={emailInputRef} title={heading.title} description={heading.description} actions={actions}>
+      asPage={asPage} open={open} onOpenChange={onOpenChange} initialFocus={emailInputRef} title={heading.title} description={heading.description} actions={actions}>
       {/* Each step fades in as a whole page (ShellDialog's transitionKey). */}
       <div className="flex flex-col gap-3">
           {stepKey === "waiting" ? null : stepKey === "details" ? (

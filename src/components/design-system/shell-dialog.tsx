@@ -31,6 +31,7 @@ export function ShellDialog({
   centered = false,
   transitionKey,
   footnote,
+  asPage = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -52,6 +53,8 @@ export function ShellDialog({
   transitionKey?: string;
   /** Under the actions, e.g. Sign in's terms. */
   footnote?: ReactNode;
+  /** Drawn in the main area as a page (Sign in, like New bot), not over the app with a backdrop. */
+  asPage?: boolean;
 }) {
   const reduceMotion = useReducedMotion();
   // The content's own height, which the dialog animates to.
@@ -70,12 +73,62 @@ export function ShellDialog({
       {/* The Alongside mark on a workspace-style tile, unless the dialog brings its own. */}
       <div className="mb-2">{icon ?? <WorkspaceBrandIcon size={32} />}</div>
       <div className="flex items-center gap-2">
-        <DialogTitle className="text-[15px] font-medium text-foreground">{title}</DialogTitle>
+        {asPage ? (
+          <h1 className="text-[15px] font-medium text-foreground">{title}</h1>
+        ) : (
+          <DialogTitle className="text-[15px] font-medium text-foreground">{title}</DialogTitle>
+        )}
         {badge}
       </div>
-      <DialogDescription className="text-[12px] text-muted-foreground">{description}</DialogDescription>
+      {asPage ? (
+        <p className="text-[12px] text-muted-foreground">{description}</p>
+      ) : (
+        <DialogDescription className="text-[12px] text-muted-foreground">{description}</DialogDescription>
+      )}
     </div>
   );
+  const body = centered ? (
+    // One step out, then the next in: a fade, while the dialog eases to the new height.
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={transitionKey}
+        className="my-auto flex flex-col gap-3"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1, transition: { duration: reduceMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] } }}
+        exit={{ opacity: 0, transition: { duration: reduceMotion ? 0 : 0.12, ease: [0.4, 0, 1, 1] } }}
+      >
+        {header}
+        {children}
+        {actions}
+        {footnote}
+      </motion.div>
+    </AnimatePresence>
+  ) : (
+    <>
+      {header}
+      {children}
+      {actions}
+      {footnote}
+    </>
+  );
+  if (asPage) {
+    // The same content, in the page: centred in the main area at the dialog's width, scrolling when
+    // the window is short. Escape and Cancel leave the page (onOpenChange(false)).
+    if (!open) return null;
+    return (
+      <div
+        className="flex min-h-full w-full flex-1 overflow-y-auto"
+        onKeyDown={(event) => {
+          if (event.key === "Escape") onOpenChange(false);
+        }}
+      >
+        <div className="m-auto flex w-full max-w-[460px] flex-col gap-3 px-6 py-16">
+          {top && <div className="mb-6 flex flex-col">{top}</div>}
+          {body}
+        </div>
+      </div>
+    );
+  }
   return (
     // !z-[120]: above the app top bar (z-[110]), like the other shell dialogs.
     <Dialog open={open} onOpenChange={onOpenChange} backdropClassName="!z-[120]">
@@ -91,30 +144,7 @@ export function ShellDialog({
         <div ref={contentRef} className="flex flex-col gap-3 px-[max(2.5rem,15%)] py-20">
           {/* The header below is pulled up 24px (-top-6); this keeps it clear of the tabs. */}
           {top && <div className="mb-6 flex flex-col">{top}</div>}
-          {centered ? (
-            // One step out, then the next in: a fade, while the dialog eases to the new height.
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={transitionKey}
-                className="my-auto flex flex-col gap-3"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1, transition: { duration: reduceMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] } }}
-                exit={{ opacity: 0, transition: { duration: reduceMotion ? 0 : 0.12, ease: [0.4, 0, 1, 1] } }}
-              >
-                {header}
-                {children}
-                {actions}
-                {footnote}
-              </motion.div>
-            </AnimatePresence>
-          ) : (
-            <>
-              {header}
-              {children}
-              {actions}
-              {footnote}
-            </>
-          )}
+          {body}
         </div>
         </motion.div>
       </DialogContent>
