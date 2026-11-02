@@ -1,6 +1,20 @@
 // #557: a turn is one reply, the way Claude Code and Codex show it.
 
-type AgentPart = { kind: "agent"; id: string; text: string; time: string; turnRowId?: string; continued?: boolean };
+// A turn's earlier text block, now a step in its Working list. `at` is how many tool calls came
+// before it, so steps and tool calls keep the order they happened in.
+export type TurnNote = { text: string; at: number };
+
+type AgentPart = {
+  kind: "agent";
+  id: string;
+  text: string;
+  time: string;
+  turnRowId?: string;
+  continued?: boolean;
+  // Tool calls made before `text` arrived (see TurnNote).
+  textAt?: number;
+  notes?: TurnNote[];
+};
 
 // Adds a turn's later text to that turn's reply (`turnRowId` is its first row). It joins the turn's
 // last part when nothing visible came after it (permission rows aren't drawn in the log), and
@@ -19,6 +33,13 @@ export function addTurnText<R extends { kind: string; id: string }, A extends Ag
   const last = rows[at] as unknown as A;
   const next = [...rows];
   if (rows.slice(at + 1).every((row) => row.kind === "permission")) {
+    // The turn's earlier text becomes a step inside its Working list and the newest text is the
+    // reply (the thinking-steps pattern): one message, with the narration folded away.
+    if (last.id === turnRowId) {
+      const notes = [...(last.notes ?? []), { text: last.text, at: last.textAt ?? 0 }];
+      next[at] = { ...last, notes, text: part.text, textAt: part.textAt, time: part.time };
+      return next;
+    }
     next[at] = { ...last, text: `${last.text}\n\n${part.text}`, time: part.time };
     return next;
   }

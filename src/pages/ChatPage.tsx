@@ -1,6 +1,6 @@
 import { Trans, useTranslation } from "react-i18next";
 import { contextTokensUsed, type TurnUsage } from "@/lib/context-usage";
-import { addTurnText } from "@/lib/turn-reply";
+import { addTurnText, type TurnNote } from "@/lib/turn-reply";
 import i18n from "@/i18n";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useOutletContext, useParams } from "react-router-dom";
@@ -133,6 +133,10 @@ type ChatRow =
       // so the actions show once, under the last one.
       turnRowId?: string;
       continued?: boolean;
+      // The turn's earlier text blocks, shown as steps in its Working list (lib/turn-reply.ts), and
+      // how many tool calls came before the current text.
+      notes?: TurnNote[];
+      textAt?: number;
       modelLabel: string;
       model: (typeof QUICK_CHAT_MODELS)[number];
       animate: boolean;
@@ -2053,6 +2057,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                 // The server's timestamp, so a replayed reply shows when it arrived.
                 time: typeof event.created_at === "string" ? formatMessageTimestamp(parseServerTimestampMs(event.created_at)) : messageTime(),
                 effort: sentEffortRef.current,
+                textAt: liveToolCallLinesRef.current.length,
                 // No reasoning/tool lines here: "result" puts the whole turn's on its first row.
               };
               if (!turnRowId) {
@@ -3725,9 +3730,9 @@ function ChatRowView({
           >
             <div className="pb-2">
               {row.durationLabel ? (
-                <TurnWorkDisclosure label={row.durationLabel} detailText={row.reasoningText} toolLines={row.toolCallLines} />
+                <TurnWorkDisclosure label={row.durationLabel} detailText={row.reasoningText} toolLines={row.toolCallLines} notes={row.notes} />
               ) : (
-                liveWorking && <TurnWorkDisclosure label={liveWorking.label} labelSuffix={liveWorking.labelSuffix} detailText={liveWorking.detailText} live />
+                liveWorking && <TurnWorkDisclosure label={liveWorking.label} labelSuffix={liveWorking.labelSuffix} detailText={liveWorking.detailText} notes={row.kind === "agent" ? row.notes : undefined} live />
               )}
             </div>
           </motion.div>
@@ -4022,6 +4027,7 @@ function TurnWorkDisclosure({
   labelSuffix,
   detailText,
   toolLines,
+  notes,
   live,
 }: {
   label: string;
@@ -4035,11 +4041,12 @@ function TurnWorkDisclosure({
   // below) -- these stay genuinely hidden while "Working", only surfacing
   // once the turn settles and this same expand arrow already exists.
   toolLines?: { label: string; detail?: string }[];
+  notes?: TurnNote[];
   live?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const trimmedDetail = detailText?.trim();
-  const hasToolLines = !!toolLines && toolLines.length > 0;
+  const hasToolLines = (!!toolLines && toolLines.length > 0) || (!!notes && notes.length > 0);
   // No expand affordance at all when there's nothing real to show -- per
   // explicit follow-up ("hide the expand arrow entirely for these replies"):
   // Codex/Antigravity never emit a thinking block at all, so every one of
@@ -4064,6 +4071,7 @@ function TurnWorkDisclosure({
         labelSuffix={labelSuffix}
         text={trimmedDetail ?? ""}
         toolLines={toolLines}
+        notes={notes}
         live={!!live}
         open={open}
         onToggleOpen={() => {

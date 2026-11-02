@@ -44,11 +44,25 @@ const SENTENCE_STAGGER_MS = 70;
 
 type ReasoningItem = { kind: "sentence"; text: string } | { kind: "tool"; label: string; detail?: string };
 
+// The steps in the order they happened: each note (a text block the turn wrote along the way)
+// goes before the tool call that followed it.
+function stepItems(toolLines: { label: string; detail?: string }[], notes: { text: string; at: number }[]): ReasoningItem[] {
+  const items: ReasoningItem[] = [];
+  const pending = [...notes].sort((a, b) => a.at - b.at);
+  toolLines.forEach((tool, index) => {
+    while (pending.length && pending[0].at <= index) items.push({ kind: "sentence", text: pending.shift()!.text });
+    items.push({ kind: "tool", label: tool.label, detail: tool.detail });
+  });
+  for (const note of pending) items.push({ kind: "sentence", text: note.text });
+  return items;
+}
+
 export function ThinkingReasoning({
   label,
   labelSuffix,
   text,
   toolLines,
+  notes,
   live,
   open,
   onToggleOpen,
@@ -62,6 +76,8 @@ export function ThinkingReasoning({
   // Rendered as their own structured rows (bold label + muted monospace
   // detail), appended after text's own prose sentences.
   toolLines?: { label: string; detail?: string }[];
+  // #557: text the turn wrote along the way, shown as steps between its tool calls.
+  notes?: { text: string; at: number }[];
   // Still receiving live updates this turn -- the reasoning stays open
   // and unclickable (same as the reference's own "while thinking the
   // reasoning is always open"), folding into a clickable summary once
@@ -73,7 +89,7 @@ export function ThinkingReasoning({
   useTranslation();
   const items: ReasoningItem[] = [
     ...splitSentences(text).map((s): ReasoningItem => ({ kind: "sentence", text: s })),
-    ...(toolLines ?? []).map((t): ReasoningItem => ({ kind: "tool", label: t.label, detail: t.detail })),
+    ...stepItems(toolLines ?? [], notes ?? []),
   ];
   // useTextSwap (this file's own thinking-state.tsx sibling has the full
   // reasoning, a second reference pasted directly per explicit request --
@@ -93,7 +109,7 @@ export function ThinkingReasoning({
   // toolLines never had a chance to reveal even though they were real and
   // present. Keying off the full combined signature (both text and
   // toolLines) instead of text alone fixes this for both fields.
-  const sentencesKey = JSON.stringify([text, toolLines ?? []]);
+  const sentencesKey = JSON.stringify([text, toolLines ?? [], notes ?? []]);
   const revealedKeyRef = useRef<string | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const [fade, setFade] = useState({ top: false, bottom: true });
