@@ -151,7 +151,11 @@ export function ThinkingReasoning({
   }, [sentencesKey, live]);
 
   const expanded = live || open;
-  const visibleItems = items.slice(0, revealedCount);
+  // While the turn runs, collapsed shows only the step being worked on (the newest); expanding
+  // shows every step. Settled, it's all or nothing, as before.
+  const revealed = items.slice(0, revealedCount);
+  const firstShown = live && !open ? Math.max(0, revealed.length - 1) : 0;
+  const visibleItems = revealed.slice(firstShown);
 
   const onScroll = () => {
     const el = viewportRef.current;
@@ -166,10 +170,10 @@ export function ThinkingReasoning({
     <div className={styles.tr}>
       <button
         type="button"
-        className={styles.trHeader + (!live ? " " + styles.isClickable : "")}
-        aria-expanded={expanded}
+        className={styles.trHeader + " " + styles.isClickable}
+        aria-expanded={open}
         aria-label={i18n.t("chat.toggleThought")}
-        onClick={!live ? onToggleOpen : undefined}
+        onClick={onToggleOpen}
       >
         {live ? (
           <span
@@ -182,7 +186,7 @@ export function ThinkingReasoning({
         ) : (
           <span className={styles.trLabel}>{label}</span>
         )}
-        {!live && (
+        {(!live || items.length > 1) && (
           <svg className={styles.trChevron} viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
             <path
               d="m4.5 15.75 7.5-7.5 7.5 7.5"
@@ -213,8 +217,9 @@ export function ThinkingReasoning({
             }
           >
             <div className={styles.trStream}>
-              {visibleItems.map((item, i) =>
-                item.kind === "sentence" ? (
+              {visibleItems.map((item, shown) => {
+                const i = firstShown + shown;
+                return item.kind === "sentence" ? (
                   <p key={i} className={item.active ? `${styles.trSentence} ${styles.trShimmer}` : styles.trSentence}>
                     {item.text}
                   </p>
@@ -239,8 +244,8 @@ export function ThinkingReasoning({
                       <span className={styles.trToolLabel}>{toolLabelText(item.label)}</span>
                     </div>
                   )
-                )
-              )}
+                );
+              })}
             </div>
           </div>
         </div>

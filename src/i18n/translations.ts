@@ -4160,7 +4160,7 @@ export const translations = {
   "nav.pinned": { en: "Pinned", "pt-BR": "Fixados", es: "Fijados", fr: "Épinglés", de: "Angeheftet", zh: "已置顶", ja: "ピン留め" },
   "nav.pin": { en: "Pin", "pt-BR": "Fixar", es: "Fijar", fr: "Épingler", de: "Anheften", zh: "置顶", ja: "ピン留め" },
   "nav.unpin": { en: "Unpin", "pt-BR": "Desafixar", es: "Dejar de fijar", fr: "Désépingler", de: "Lösen", zh: "取消置顶", ja: "ピン留めを外す" },
-  "shell.sections.noPinned": { en: "Nothing pinned", "pt-BR": "Nada fixado", es: "Nada fijado", fr: "Rien d'épinglé", de: "Nichts angeheftet", zh: "暂无置顶", ja: "ピン留めはありません" },
+  "shell.sections.noPinned": { en: "No pins", "pt-BR": "Nenhum fixado", es: "Sin fijados", fr: "Aucun épinglé", de: "Keine angehefteten", zh: "暂无置顶", ja: "ピン留めなし" },
   "shell.sections.noBots": { en: "No bots", "pt-BR": "Nenhum bot", es: "No hay bots", fr: "Aucun bot", de: "Keine Bots", zh: "暂无机器人", ja: "ボットはありません" },
   "bots.new": { en: "New bot", "pt-BR": "Novo bot", es: "Nuevo bot", fr: "Nouveau bot", de: "Neuer Bot", zh: "新建机器人", ja: "新しいボット" },
   "bots.create": { en: "Create bot", "pt-BR": "Criar bot", es: "Crear bot", fr: "Créer le bot", de: "Bot erstellen", zh: "创建机器人", ja: "ボットを作成" },
