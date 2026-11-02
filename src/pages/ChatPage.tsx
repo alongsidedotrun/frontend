@@ -828,6 +828,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // its own top-level `let` variables directly.
   const awaitingReplyRef = useRef(false);
   const historyReplayedRef = useRef(false);
+  // True from opening a socket until its replay_complete: the events arriving are history, not live.
+  const replayingRef = useRef(false);
   // The first human row is the continuation of HomePage's composer handoff,
   // not an independently arriving message. Keep it solid when the composer
   // lands; ordinary live rows still use their entrance animation.
@@ -1087,6 +1089,18 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     setAutocompactScope("chat");
   }, [sessionId]);
 
+  // A turn that ended (result, stop, timeout) can't be asked anything any more: a request it left
+  // open (its process went away before answering it, say) is withdrawn, not shown as a card that
+  // goes nowhere when answered.
+  function expireOpenPermissions() {
+    const expire = (row: ChatRow): ChatRow => (row.kind === "permission" && row.status === "pending" ? { ...row, status: "cancelled" } : row);
+    if (pendingBranchReplayRef.current) {
+      pendingBranchReplayRef.current = pendingBranchReplayRef.current.map(expire);
+    } else {
+      setRows((prev) => (prev.some((row) => row.kind === "permission" && row.status === "pending") ? prev.map(expire) : prev));
+    }
+  }
+
   function pushRow(row: ChatRow) {
     if (!historyReplayedRef.current) historicalRowIdsRef.current.add(row.id);
     if (pendingBranchReplayRef.current) {
@@ -1104,13 +1118,20 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // the backend only ever knows its own request_id, never this tab's id.
   function updatePermissionRow(requestId: string, status: Extract<ChatRow, { kind: "permission" }>["status"]) {
     let resolvedToolName: string | null = null;
-    setRows((prev) =>
-      prev.map((row) => {
-        if (row.kind !== "permission" || row.requestId !== requestId) return row;
-        resolvedToolName = row.toolName;
-        return { ...row, status };
-      })
-    );
+    const patch = (row: ChatRow): ChatRow => {
+      if (row.kind !== "permission" || row.requestId !== requestId) return row;
+      resolvedToolName = row.toolName;
+      return { ...row, status };
+    };
+    // A full replay (replay_reset or a branch switch) pushes its rows into the buffer, not into
+    // `rows`, until replay_complete swaps them in. Patching only `rows` left every replayed request
+    // "pending" once the buffer landed, so the oldest one in the chat came back as a card no one
+    // could answer (the backend had long forgotten it) and it hid the real ones behind it.
+    if (pendingBranchReplayRef.current) {
+      pendingBranchReplayRef.current = pendingBranchReplayRef.current.map(patch);
+    } else {
+      setRows((prev) => prev.map(patch));
+    }
     // Same hidden-drawer treatment as every other tool call, per explicit
     // follow-up ("still showing Bash: Allowed... as a message and not under
     // Working") -- a resolved permission's own compact trace used to stay
@@ -1431,6 +1452,10 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       // below replays whichever branch is active now from scratch, the
       // same real history every fresh page load already goes through.
       if (type === "branch_switched") {
+        // Only a live switch reloads. The event is recorded, so every later replay carries it too,
+        // and reloading on a replayed one started another replay with the same event in it: the
+        // chat reconnected over and over, jumping back up and replaying its entrance animations.
+        if (replayingRef.current) return;
         // Buffer, don't clear -- see pendingBranchReplayRef's own comment
         // (above pushRow) for why: the old branch's rows stay visible
         // until the new one is actually ready, swapped in atomically at
@@ -1509,6 +1534,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       }
 
       if (type === "replay_complete") {
+        replayingRef.current = false;
         if (typeof event.last_event_id === "number" && event.last_event_id > lastEventIdRef.current) {
           lastEventIdRef.current = event.last_event_id;
         }
@@ -1765,6 +1791,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       }
 
       if (type === "agent_timeout") {
+        expireOpenPermissions();
         awaitingReplyRef.current = false;
         setTurnInProgress(false);
         setWaitingPhase(null);
@@ -1773,6 +1800,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       }
 
       if (type === "turn_stopped") {
+        expireOpenPermissions();
         awaitingReplyRef.current = false;
         setTurnInProgress(false);
         setWaitingPhase(null);
@@ -1781,6 +1809,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       }
 
       if (type === "result") {
+        expireOpenPermissions();
         awaitingReplyRef.current = false;
         setTurnInProgress(false);
         setWaitingPhase(null);
@@ -2226,6 +2255,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     // reconnect (below) can call it again on the same session, instead of
     // duplicating the socket setup or forcing a full effect re-run.
     function connect() {
+      replayingRef.current = true;
       // Resume from the last event this view has instead of replaying the whole chat on top of it.
       const after = lastEventIdRef.current > 0 ? `&after=${lastEventIdRef.current}` : "";
       const ws = new WebSocket(`${protocol}://${location.host}/sessions/${sessionId}/ws?name=${wsUserName}${after}`);
@@ -3034,7 +3064,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             treated as the same element just updating in place. */}
         <AnimatePresence>
           {(() => {
-            const pendingPermission = rows.find((r): r is Extract<ChatRow, { kind: "permission" }> => r.kind === "permission" && r.status === "pending");
+            // The newest open request: an older one left open must never hide the one being asked now.
+            const pendingPermission = [...rows].reverse().find((r): r is Extract<ChatRow, { kind: "permission" }> => r.kind === "permission" && r.status === "pending");
             if (!pendingPermission) return null;
             return (
               <motion.div
@@ -3052,6 +3083,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                   status={pendingPermission.status}
                   hasProject={!!projectIdRef.current}
                   onStopTurn={stopTurn}
+                  onGone={() => updatePermissionRow(pendingPermission.requestId, "cancelled")}
                 />
               </motion.div>
             );
@@ -4045,6 +4077,7 @@ function PermissionCard({
   status,
   hasProject,
   onStopTurn,
+  onGone,
 }: {
   sessionId: string | undefined;
   requestId: string;
@@ -4053,6 +4086,8 @@ function PermissionCard({
   status: "pending" | "allow" | "deny" | "cancelled" | "timed_out";
   hasProject: boolean;
   onStopTurn: () => void;
+  // The backend has no such request open any more (404): nothing is waiting on this answer.
+  onGone: () => void;
 }) {
   const { t } = useTranslation();
   const [otherText, setOtherText] = useState("");
@@ -4063,7 +4098,7 @@ function PermissionCard({
     if (!sessionId || submitting) return;
     setSubmitting(true);
     try {
-      await fetch(`/sessions/${sessionId}/permissions/${requestId}`, {
+      const response = await fetch(`/sessions/${sessionId}/permissions/${requestId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -4074,6 +4109,7 @@ function PermissionCard({
           pattern: alwaysAllow?.pattern,
         }),
       });
+      if (response.status === 404) onGone();
       // No local status update here -- the backend's own permission_resolved
       // event (broadcast right after it actually writes the control_response
       // back to the CLI) is what patches this row's status, same source of
