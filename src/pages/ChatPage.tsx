@@ -1917,7 +1917,15 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           if (used >= autocompactThresholdRef.current) {
             if (!compactedAboveRef.current && !replayingRef.current) {
               compactedAboveRef.current = true;
-              void fetch(`/sessions/${sessionId}/handoff`, { method: "POST" });
+              // Refused (a turn or background work still running, or nothing to hand off yet):
+              // ask again after the next turn rather than never.
+              void fetch(`/sessions/${sessionId}/handoff`, { method: "POST" })
+                .then((response) => {
+                  if (!response.ok) compactedAboveRef.current = false;
+                })
+                .catch(() => {
+                  compactedAboveRef.current = false;
+                });
             }
           } else {
             compactedAboveRef.current = false;
@@ -3882,7 +3890,7 @@ function ToolRow({ name, summary, input }: { name: string; summary: string | nul
         )}
       </button>
       {open && (
-        <pre className="mt-1 max-w-full overflow-x-auto rounded-lg bg-muted px-2.5 py-2 text-chat-meta whitespace-pre-wrap text-muted-foreground">
+        <pre className="mt-1 max-h-80 max-w-full overflow-auto rounded-lg bg-muted px-2.5 py-2 text-chat-meta whitespace-pre-wrap [overflow-wrap:anywhere] text-muted-foreground">
           {JSON.stringify(input, null, 2)}
         </pre>
       )}
@@ -4213,8 +4221,10 @@ function PermissionCard({
           <XIcon className="size-3.5" />
         </button>
       </div>
+      {/* The card sits above the compose box, outside the scrolling chat, so a long script must
+          scroll inside this box: capped at 12rem and at 30% of the window, so the answers stay on screen. */}
       {commandText && (
-        <pre className="max-h-48 max-w-full overflow-auto rounded-lg bg-muted px-2.5 py-2 text-chat-meta whitespace-pre-wrap [overflow-wrap:anywhere] text-foreground">
+        <pre className="max-h-[min(12rem,30vh)] max-w-full overflow-auto rounded-lg bg-muted px-2.5 py-2 text-chat-meta whitespace-pre-wrap [overflow-wrap:anywhere] text-foreground">
           {commandText}
         </pre>
       )}
