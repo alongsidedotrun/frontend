@@ -1222,20 +1222,21 @@ function AppsSection() {
       .then((status) => setGithubUser(status?.username ?? null))
       .catch(() => setGithubUser(null));
   }, [selectedApp]);
-  // Notion's connection (#542), the same way.
-  const [notionConnected, setNotionConnected] = useState<boolean | undefined>(undefined);
+  // MCP connectors (#562): the catalog and this account's own connections, the same way.
+  const [connectors, setConnectors] = useState<ConnectorEntry[] | undefined>(undefined);
   useEffect(() => {
-    fetch("/integrations/notion")
-      .then((res) => (res.ok ? (res.json() as Promise<NotionStatus>) : null))
-      .then((status) => setNotionConnected(status?.connected ?? false))
-      .catch(() => setNotionConnected(false));
+    fetch("/integrations/connectors")
+      .then((res) => (res.ok ? (res.json() as Promise<ConnectorEntry[]>) : []))
+      .then(setConnectors)
+      .catch(() => setConnectors([]));
   }, [selectedApp]);
+  const selectedConnector = connectors?.find((c) => c.id === selectedApp);
   const appsTabEmpty =
     appsFade.shown !== "all" &&
     githubUser !== undefined &&
-    notionConnected !== undefined &&
+    connectors !== undefined &&
     !showsUnder(appsFade.shown, githubUser !== null, query, "GitHub") &&
-    !showsUnder(appsFade.shown, notionConnected, query, "Notion") &&
+    !connectors.some((c) => showsUnder(appsFade.shown, c.state === "connected", query, c.name)) &&
     !GOOGLE_APPS.some((app) => showsUnder(appsFade.shown, false, query, app.name));
 
   return (
@@ -1249,14 +1250,16 @@ function AppsSection() {
         >
           <GithubAppConnectionView onBack={() => navigate("/settings/apps", { replace: true })} />
         </motion.div>
-      ) : selectedApp === "notion" ? (
+      ) : selectedApp === CUSTOM_CONNECTOR || selectedConnector || (selectedApp && connectors === undefined) ? (
+        // A link straight to a connector opens its page at once (ConnectorView loads it itself) rather
+        // than showing the list until the catalog answers.
         <motion.div
-          key="notion"
+          key={`connector-${selectedApp}`}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1, transition: spring.slow }}
           exit={{ opacity: 0, transition: spring.slow.exit }}
         >
-          <NotionConnectionView onBack={() => navigate("/settings/apps", { replace: true })} />
+          <ConnectorView id={selectedApp === CUSTOM_CONNECTOR ? null : selectedApp!} onOpen={openApp} onBack={() => navigate("/settings/apps", { replace: true })} />
         </motion.div>
       ) : (
         <motion.div
@@ -1268,7 +1271,7 @@ function AppsSection() {
           <ConnectionToolbar
             filter={filter}
             onFilter={setFilter}
-            itemCount={2 + GOOGLE_APPS.length}
+            itemCount={1 + (connectors?.length ?? 0) + GOOGLE_APPS.length}
             query={query}
             onQuery={setQuery}
             searchLabel={t("settings.connections.searchApps")}
@@ -1280,7 +1283,7 @@ function AppsSection() {
                 <ListEmptyState
                   marks={[
                     { key: "github", mark: <img src="/icons/providers/github.svg" alt="" className="size-3.5 shrink-0 grayscale dark:invert" /> },
-                    { key: "notion", mark: <img src="/icons/notion.svg" alt="" className="size-3.5 shrink-0 grayscale" /> },
+                    { key: "notion", mark: <img src="/icons/notion.svg" alt="" className="size-3.5 shrink-0 grayscale" /> }, // the connectors' first
                     ...GOOGLE_APPS.map((app) => ({ key: app.id, mark: <img src={`/icons/google-${app.id}.svg`} alt="" className="size-3.5 shrink-0 object-contain grayscale" /> })),
                   ]}
                   title={appsFade.shown === "connected" ? t("settings.apps.empty.connected.title") : t("settings.apps.empty.available.title")}
@@ -1290,14 +1293,13 @@ function AppsSection() {
             }
           >
             <GithubIntegrationCard connectedUsername={githubUser ?? null} filter={appsFade.shown} query={query} onClick={() => openApp("github")} />
-            {showsUnder(appsFade.shown, notionConnected === true, query, "Notion") ? (
-              <AppRow
-                name="Notion"
-                description={t("settings.apps.notion.description")}
-                icon={<img src="/icons/notion.svg" alt="" className="size-5" />}
-                connected={notionConnected === true}
-                onClick={() => openApp("notion")}
-              />
+            {(connectors ?? []).map((c) =>
+              showsUnder(appsFade.shown, c.state === "connected", query, c.name) ? (
+                <AppRow key={c.id} name={c.name} description={connectorDescription(c, t)} icon={<ConnectorIcon entry={c} />} connected={c.state === "connected"} onClick={() => openApp(c.id)} />
+              ) : null,
+            )}
+            {connectors !== undefined && showsUnder(appsFade.shown, false, query, t("settings.apps.connector.custom.title")) ? (
+              <AppRow name={t("settings.apps.connector.custom.title")} description={t("settings.apps.connector.custom.description")} icon={<Plus className="size-4 text-muted-foreground" />} connected={false} onClick={() => openApp(CUSTOM_CONNECTOR)} />
             ) : null}
             {GOOGLE_APPS.map((app) =>
               showsUnder(appsFade.shown, false, query, app.name) ? (
@@ -1366,83 +1368,161 @@ function GithubIntegrationCard({
   );
 }
 
-type NotionStatus = { connected: boolean; workspace: string | null; connecting: boolean };
+type ConnectorEntry = {
+  id: string;
+  name: string;
+  url: string;
+  custom: boolean;
+  state: "connected" | "needs_sign_in" | "connecting" | "available";
+  workspace: string | null;
+};
 
-// Notion through its hosted MCP server (backend/src/notion.rs, #542): one click opens Notion's sign-in
-// in the browser, and the page notices once it's done. Each Alongside account has its own connection.
-// "@notion" in a message then gives that turn Notion's tools (Claude and Codex).
-function NotionConnectionView({ onBack }: { onBack: () => void }) {
+const CUSTOM_CONNECTOR = "custom-connector";
+const CONNECTOR_PRESETS = ["notion", "linear", "sentry", "supabase", "atlassian", "vercel", "asana", "huggingface"];
+
+function connectorDescription(entry: ConnectorEntry, t: (key: string) => string) {
+  if (!entry.custom && CONNECTOR_PRESETS.includes(entry.id)) return t(`settings.apps.connector.${entry.id}.description`);
+  try {
+    return new URL(entry.url).host;
+  } catch {
+    return entry.url;
+  }
+}
+
+/** A connector's mark: Notion's own, otherwise its initial (no remote images in the app). */
+function ConnectorIcon({ entry, large = false }: { entry: ConnectorEntry; large?: boolean }) {
+  if (entry.id === "notion") return <img src="/icons/notion.svg" alt="" className={large ? "size-6" : "size-5"} />;
+  return (
+    <span aria-hidden className={`flex items-center justify-center rounded-md bg-muted font-semibold text-muted-foreground ${large ? "size-7 text-ui-sm" : "size-5 text-ui-2xs"}`}>
+      {entry.name.trim().charAt(0).toUpperCase() || "?"}
+    </span>
+  );
+}
+
+// MCP connectors (backend/src/connectors.rs, #562; Notion first, #542): one click opens the server's
+// sign-in in the browser, and the page notices once it's done. A server that needs no sign-in
+// connects at once. Each Alongside account has its own connections, and every new Claude or Codex
+// turn in that account's chats gets the connected servers' tools -- no @mention needed.
+// `id` null: adding a custom server by its address.
+function ConnectorView({ id, onOpen, onBack }: { id: string | null; onOpen: (id: string) => void; onBack: () => void }) {
   const { t } = useTranslation();
-  const [status, setStatus] = useState<NotionStatus | null>(null);
+  const [entry, setEntry] = useState<ConnectorEntry | null>(null);
   const [busy, setBusy] = useState(false);
+  const [url, setUrl] = useState("");
+  const [name, setName] = useState("");
 
   const refresh = useCallback(() => {
-    fetch("/integrations/notion")
-      .then((res) => (res.ok ? (res.json() as Promise<NotionStatus>) : null))
-      .then(setStatus)
-      .catch(() => setStatus(null));
-  }, []);
+    if (!id) return;
+    fetch("/integrations/connectors")
+      .then((res) => (res.ok ? (res.json() as Promise<ConnectorEntry[]>) : []))
+      .then((all) => setEntry(all.find((c) => c.id === id) ?? null))
+      .catch(() => setEntry(null));
+  }, [id]);
   useEffect(refresh, [refresh]);
   // While the browser sign-in is open: nothing tells this page when it finishes.
-  const waiting = Boolean(status?.connecting) && !status?.connected;
+  const waiting = entry?.state === "connecting";
   useEffect(() => {
     if (!waiting) return;
     const timer = setInterval(refresh, 2000);
     return () => clearInterval(timer);
   }, [waiting, refresh]);
 
-  async function run(url: string, method: "POST" | "DELETE" = "POST") {
+  const label = entry?.name ?? (name.trim() || t("settings.apps.connector.custom.server"));
+  async function run(path: string, method: "POST" | "DELETE", body?: object) {
     setBusy(true);
     try {
-      const response = await fetch(url, { method });
+      const response = await fetch(path, { method, headers: body ? { "content-type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined });
       if (!response.ok) {
-        const body = (await response.json().catch(() => ({}))) as { error?: string };
-        showErrorToast(t("settings.apps.notion.error", { detail: body.error ?? response.statusText }));
+        const answer = (await response.json().catch(() => ({}))) as { error?: string };
+        showErrorToast(t("settings.apps.connector.error", { name: label, detail: answer.error ?? response.statusText }));
+        return null;
       }
+      return response.status === 204 ? {} : ((await response.json().catch(() => ({}))) as { id?: string });
     } catch {
       showErrorToast(t("settings.providers.noConnection"));
+      return null;
     } finally {
       setBusy(false);
       refresh();
     }
   }
+  const connect = () => void run("/integrations/connectors/connect", "POST", { id });
+
+  if (!id) {
+    return (
+      <div>
+        <div className="mt-4 flex items-center gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center">
+            <Plus className="size-5 text-muted-foreground" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-ui font-medium text-foreground">{t("settings.apps.connector.custom.title")}</div>
+            <div className="truncate text-ui font-normal text-muted-foreground">{t("settings.apps.connector.custom.description")}</div>
+          </div>
+        </div>
+        <form
+          className="mt-5 flex max-w-md flex-col gap-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void run("/integrations/connectors/connect", "POST", { url, name }).then((answer) => answer?.id && onOpen(answer.id));
+          }}
+        >
+          <label className="flex flex-col gap-1 text-ui-sm text-muted-foreground">
+            {t("settings.apps.connector.custom.urlLabel")}
+            <Input value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://mcp.example.com/mcp" inputMode="url" autoComplete="off" spellCheck={false} className="border border-border focus-visible:border-focus-accent" />
+          </label>
+          <label className="flex flex-col gap-1 text-ui-sm text-muted-foreground">
+            {t("settings.apps.connector.custom.nameLabel")}
+            <Input value={name} onChange={(event) => setName(event.target.value)} autoComplete="off" className="border border-border focus-visible:border-focus-accent" />
+          </label>
+          <p className="text-ui-sm text-muted-foreground">{t("settings.apps.connector.custom.hint")}</p>
+          <Button type="submit" className="w-fit" disabled={busy || !url.trim()}>{t("common.connect")}</Button>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div>
       <div className="mt-4 flex items-center gap-3">
-        <span className="flex size-10 shrink-0 items-center justify-center">
-          <img src="/icons/notion.svg" alt="" className="size-6" />
-        </span>
+        <span className="flex size-10 shrink-0 items-center justify-center">{entry ? <ConnectorIcon entry={entry} large /> : null}</span>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-ui font-medium text-foreground">Notion</div>
+          <div className="truncate text-ui font-medium text-foreground">{entry?.name ?? ""}</div>
           <div className="truncate text-ui font-normal text-muted-foreground">
-            {status?.connected
-              ? status.workspace
-                ? t("settings.apps.notion.connectedTo", { workspace: status.workspace })
-                : t("settings.apps.notion.connected")
-              : t("settings.apps.github.notConnected")}
+            {entry?.state === "connected"
+              ? entry.workspace
+                ? t("settings.apps.connector.connectedTo", { workspace: entry.workspace })
+                : t("settings.apps.connector.connected")
+              : entry?.state === "needs_sign_in"
+                ? t("settings.apps.connector.needsSignIn")
+                : t("settings.apps.github.notConnected")}
           </div>
         </div>
       </div>
-      {!status ? null : status.connected ? (
+      {!entry ? null : entry.state === "connected" ? (
         <div className="mt-5 flex flex-col gap-3">
-          <p className="text-ui text-muted-foreground">{t("settings.apps.notion.useInChat")}</p>
-          <Button variant="outline" className="w-fit" disabled={busy} onClick={() => void run("/integrations/notion", "DELETE").then(onBack)}>
+          <p className="text-ui text-muted-foreground">{t("settings.apps.connector.useInChat", { name: entry.name })}</p>
+          <Button variant="outline" className="w-fit" disabled={busy} onClick={() => void run(`/integrations/connectors/${encodeURIComponent(entry.id)}`, "DELETE").then(onBack)}>
             {t("common.disconnect")}
           </Button>
         </div>
-      ) : status.connecting ? (
+      ) : entry.state === "connecting" ? (
         <div className="mt-5 flex flex-col gap-3">
-          <p className="text-ui text-muted-foreground">{t("settings.apps.notion.waiting")}</p>
-          <div className="flex gap-2">
-            <Button variant="outline" disabled={busy} onClick={() => void run("/integrations/notion/connect")}>{t("settings.apps.notion.openAgain")}</Button>
-            <Button variant="outline" disabled={busy} onClick={() => void run("/integrations/notion/connect", "DELETE")}>{t("common.cancel")}</Button>
+          <p className="text-ui text-muted-foreground">{t("settings.apps.connector.waiting", { name: entry.name })}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" disabled={busy} onClick={connect}>{t("settings.apps.connector.openAgain", { name: entry.name })}</Button>
+            <Button variant="outline" disabled={busy} onClick={() => void run(`/integrations/connectors/${encodeURIComponent(entry.id)}/connect`, "DELETE")}>{t("common.cancel")}</Button>
           </div>
         </div>
       ) : (
         <div className="mt-5 flex flex-col gap-3">
-          <p className="text-ui text-muted-foreground">{t("settings.apps.notion.connectDescription")}</p>
-          <Button className="w-fit" disabled={busy} onClick={() => void run("/integrations/notion/connect")}>{t("common.connect")}</Button>
+          <p className="text-ui text-muted-foreground">{t("settings.apps.connector.connectDescription", { name: entry.name })}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button className="w-fit" disabled={busy} onClick={connect}>{t("common.connect")}</Button>
+            {entry.custom ? (
+              <Button variant="outline" disabled={busy} onClick={() => void run(`/integrations/connectors/${encodeURIComponent(entry.id)}`, "DELETE").then(onBack)}>{t("settings.apps.connector.remove")}</Button>
+            ) : null}
+          </div>
         </div>
       )}
     </div>
