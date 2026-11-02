@@ -2952,7 +2952,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             // mid-tool-call, or another tool group), still renders at its
             // own natural position, unchanged.
             const groupStarts = new Map<string, Extract<ChatRow, { kind: "tool" }>[]>();
-            const deferredGroups = new Map<string, Extract<ChatRow, { kind: "tool" }>[]>();
+            const deferredGroups = new Map<string, Extract<ChatRow, { kind: "tool" }>[][]>();
             const skipIds = new Set<string>();
             for (let i = 0; i < rows.length; i++) {
               const r = rows[i];
@@ -2979,11 +2979,15 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               // nothing visible in between. Skips forward past any row
               // that never renders anything of its own (today, only
               // "permission") to find the real next visible row instead.
-              let k = j;
-              while (k < rows.length && rows[k].kind === "permission") k++;
-              const followingRow = rows[k];
+              // Every file card of a turn goes after the turn's last reply so far, all of them in order.
+              // Deferring each one only past the text right after it interleaved them: a Write card,
+              // the next note or the reply, then the Edit card -- with a blank gap while the turn ran.
+              let followingRow: ChatRow | undefined;
+              for (let k = j; k < rows.length && rows[k].kind !== "human" && rows[k].kind !== "marker"; k++) {
+                if (rows[k].kind === "agent") followingRow = rows[k];
+              }
               if (followingRow?.kind === "agent") {
-                deferredGroups.set(followingRow.id, run);
+                deferredGroups.set(followingRow.id, [...(deferredGroups.get(followingRow.id) ?? []), run]);
                 skipIds.add(r.id);
               } else {
                 groupStarts.set(r.id, run);
@@ -3009,8 +3013,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             // deleted on send) dim/disable; the edited row stays fully
             // interactive.
             const isPendingEditInactive = pendingEditBoundaryIndex !== -1 && index > pendingEditBoundaryIndex;
-            const deferredGroup = deferredGroups.get(row.id);
-            const deferredCard = deferredGroup ? renderFileDiffGroupCard(deferredGroup, openFile) : null;
+            const deferredCards = (deferredGroups.get(row.id) ?? []).map((group) => ({ id: group[0].id, card: renderFileDiffGroupCard(group, openFile) }));
             // Real bug, confirmed directly via screenshot ("The state moved
             // instead of staying at the first message of the model"): the
             // LIVE Waiting/Working shimmer used to always render as its own
@@ -3062,7 +3065,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                   botMood={liveWorking ? waitingMood : undefined}
                 />
               </div>
-              {deferredCard && <div className={rowClassName}>{deferredCard}</div>}
+              {deferredCards.map(({ id, card }) => card && <div key={id} className={rowClassName}>{card}</div>)}
             </Fragment>
             );
           });
@@ -3770,6 +3773,11 @@ function ChatRowView({
       </div>
     );
   }
+
+  // A turn's later text while it runs: it's a step in the first reply's Working list, so this row
+  // shows nothing yet. It used to render invisibly instead, still taking its full height -- a big
+  // blank gap between the turn's file cards.
+  if (turnLive && !liveWorking && row.turnRowId) return null;
 
   // Agent message -- the real provider's own mark (ProviderIcon, same component every
   // other model icon in this app renders through), not AlongsideLogo, per explicit
