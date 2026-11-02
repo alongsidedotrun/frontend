@@ -46,6 +46,7 @@ type ReasoningItem = { kind: "sentence"; text: string } | { kind: "tool"; label:
 
 export function ThinkingReasoning({
   label,
+  labelSuffix,
   text,
   toolLines,
   live,
@@ -53,6 +54,8 @@ export function ThinkingReasoning({
   onToggleOpen,
 }: {
   label: string;
+  // Live elapsed time; shown after the label without replaying its text swap (#551).
+  labelSuffix?: string;
   text: string;
   // Real tool calls this turn made ("Bash", "sed -n '1,160p' Internet.md"),
   // ChatPage.tsx's own toolCallLines comment has the full reasoning.
@@ -156,7 +159,7 @@ export function ThinkingReasoning({
               styles.trLabel + " " + styles.trShimmer + " " + (labelSwapPhase === "exit" ? styles.isExit : labelSwapPhase === "enter-start" ? styles.isEnterStart : "")
             }
           >
-            {labelSwapText}
+            {labelSuffix ? `${labelSwapText} ${labelSuffix}` : labelSwapText}
           </span>
         ) : (
           <span className={styles.trLabel}>{label}</span>

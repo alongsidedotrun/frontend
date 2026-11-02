@@ -2687,7 +2687,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             ? searchQueryRef.current
               ? t("chat.phase.searchingQuery", { query: searchQueryRef.current })
               : t("chat.phase.searchingWeb")
-            : t("chat.phase.thinking")) +
+            : t("chat.phase.thinking"));
     // Turn-duration feature (alongsidedotrun/private#53), live half -- Synara's
     // own "Working..." counter appends the same way, alongside whichever more
     // specific phase (Reasoning/Searching/etc.) is already known, rather than
@@ -2696,7 +2696,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     // real work happening yet to time (the model hasn't started, or a human
     // is being asked something) -- only "working" is genuine elapsed
     // work time worth surfacing a running counter for.
-    (waitingPhase === "working" && liveElapsedSec !== null ? ` ${formatWorkedDuration(liveElapsedSec)}` : "");
+  // #551: kept apart from the label, so the counter ticking doesn't replay the label's text swap.
+  const waitingPhaseSuffix = waitingPhase === "working" && liveElapsedSec !== null ? formatWorkedDuration(liveElapsedSec) : undefined;
 
   return (
     // min-w-0: without it a wide line (a long command in the permission card's "Always allow"
@@ -2936,7 +2937,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             // block (below) now only ever shows before any reply exists yet.
             const liveWorking =
               row.kind === "agent" && row.id === firstAgentRowIdRef.current && waitingPhase && !row.durationLabel
-                ? { label: waitingPhaseLabel, detailText: liveReasoningText ?? undefined }
+                ? { label: waitingPhaseLabel, labelSuffix: waitingPhaseSuffix, detailText: liveReasoningText ?? undefined }
                 : undefined;
             return (
             <Fragment key={row.id}>
@@ -3005,7 +3006,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               {bot && waitingMood && (
                 <BotFace avatar={bot.avatar ?? undefined} expression={moodFace(waitingMood).expression} className="size-4 shrink-0" />
               )}
-              <TurnWorkDisclosure label={waitingPhaseLabel} detailText={liveReasoningText ?? undefined} live />
+              <TurnWorkDisclosure label={waitingPhaseLabel} labelSuffix={waitingPhaseSuffix} detailText={liveReasoningText ?? undefined} live />
             </div>
           )}
         </div>
@@ -3293,7 +3294,7 @@ function ChatRowView({
   // full reasoning) -- rendered in the exact slot row.durationLabel's own
   // settled disclosure will occupy once the turn finishes, so nothing
   // visibly jumps between the live and settled states.
-  liveWorking?: { label: string; detailText?: string };
+  liveWorking?: { label: string; labelSuffix?: string; detailText?: string };
   /** The chat's latest reply: a bot's face there is alive (looking about; pleased when it arrives). */
   latestReply?: boolean;
   // #557: this row is part of the turn still running, so its text may still grow.
@@ -3709,7 +3710,7 @@ function ChatRowView({
               {row.durationLabel ? (
                 <TurnWorkDisclosure label={row.durationLabel} detailText={row.reasoningText} toolLines={row.toolCallLines} />
               ) : (
-                liveWorking && <TurnWorkDisclosure label={liveWorking.label} detailText={liveWorking.detailText} live />
+                liveWorking && <TurnWorkDisclosure label={liveWorking.label} labelSuffix={liveWorking.labelSuffix} detailText={liveWorking.detailText} live />
               )}
             </div>
           </motion.div>
@@ -4001,11 +4002,14 @@ function SourceLink({ source }: { source: { label: string; href: string } }) {
 // content.
 function TurnWorkDisclosure({
   label,
+  labelSuffix,
   detailText,
   toolLines,
   live,
 }: {
   label: string;
+  // The live elapsed time after "Working"; it updates without animating the label.
+  labelSuffix?: string;
   detailText?: string;
   // Real tool calls this turn made (ChatRow's own toolCallLines comment has
   // the full reasoning) -- per explicit request ("that should have an arrow
@@ -4027,7 +4031,7 @@ function TurnWorkDisclosure({
   // Plain, non-interactive label instead, exactly like Claude's own replies
   // that genuinely didn't use extended thinking this turn.
   if (!trimmedDetail && !hasToolLines) {
-    const labelEl = live ? <ThinkingState text={label} /> : <span className="text-chat-meta text-muted-foreground">{label}</span>;
+    const labelEl = live ? <ThinkingState text={label} suffix={labelSuffix} /> : <span className="text-chat-meta text-muted-foreground">{label}</span>;
     return <div className="px-1">{labelEl}</div>;
   }
   // ThinkingReasoning (per explicit request, adopted from
@@ -4040,6 +4044,7 @@ function TurnWorkDisclosure({
     <div className="px-1">
       <ThinkingReasoning
         label={label}
+        labelSuffix={labelSuffix}
         text={trimmedDetail ?? ""}
         toolLines={toolLines}
         live={!!live}
