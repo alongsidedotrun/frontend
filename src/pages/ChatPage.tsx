@@ -1325,7 +1325,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       // wasn't what triggered the change.
       // #502: a checkpoint of the chat was saved (automatically once it grew long, or on
       // request), and a self-handoff carried the work into a fresh provider session.
+      // Only a checkpoint someone asked for (/summarize) gets a notice: the automatic ones,
+      // and the one a handoff saves, would add a second notice beside "Continued in a fresh
+      // session" (older chats recorded them without `requested`, so they stay quiet too).
       if (type === "checkpoint_saved") {
+        if (event.requested !== true) return;
         pushMarker(i18n.t(event.written_by === "local" ? "chat.checkpointSavedLocal" : "chat.checkpointSaved"));
         return;
       }
@@ -2544,13 +2548,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       if (!sessionId) return false;
       void fetch(`/sessions/${sessionId}/summarize`, { method: "POST" })
         .then(async (response) => {
+          // Success shows as the recorded "Checkpoint saved" notice (live and on replay); a
+          // row here as well made two messages for one checkpoint.
+          if (response.ok) return;
           const body = await response.json().catch(() => ({}));
-          pushRow({
-            kind: "command",
-            id: nextRowId(),
-            text: response.ok ? "Earlier messages were summarized for future context." : (body.error ?? "Unable to summarize this chat."),
-            time: messageTime(),
-          });
+          pushRow({ kind: "command", id: nextRowId(), text: body.error ?? "Unable to summarize this chat.", time: messageTime() });
         })
         .catch(() => pushRow({ kind: "command", id: nextRowId(), text: "Unable to summarize this chat.", time: messageTime() }));
       return false;
