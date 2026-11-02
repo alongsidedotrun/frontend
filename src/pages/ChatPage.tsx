@@ -1299,6 +1299,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       }
       if (type === "handoff") {
         pushMarker(i18n.t("chat.handedOff"));
+        // The fresh session starts nearly empty: the meter kept showing the old session's
+        // size until the next reply (#552). 0 keeps the meter's space; the next result corrects it.
+        setContextUsage({ used: 0 });
+        compactedAboveRef.current = false;
+        if (!replayingRef.current) saveLastContext({ used: 0 });
         return;
       }
 
