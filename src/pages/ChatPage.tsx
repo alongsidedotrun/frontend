@@ -1979,6 +1979,13 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       }
 
       if (type === "assistant" && event.message) {
+        // The context meter follows the turn live: each step's usage is the context so far (its prompt
+        // plus its reply). Only the turn's result is saved or can start a handoff (below, at "result").
+        const stepUsage = (event.message as { usage?: TurnUsage }).usage;
+        if (stepUsage && !replayingRef.current) {
+          const used = contextTokensUsed(stepUsage);
+          if (used > 0) setContextUsage((prev) => (prev?.used === used ? prev : { used }));
+        }
         const content = (
           event.message as {
             content?: { type: string; text?: string; thinking?: string; name?: string; input?: Record<string, unknown> }[];

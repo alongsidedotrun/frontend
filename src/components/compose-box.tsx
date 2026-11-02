@@ -497,6 +497,8 @@ function ContextRing({ fraction, color }: { fraction: number; color: string }) {
         strokeLinecap="round"
         strokeDasharray={circumference}
         strokeDashoffset={circumference * (1 - clamped)}
+        // Grows smoothly as the context fills during a turn, instead of jumping.
+        className="transition-[stroke-dashoffset] duration-500 ease-out motion-reduce:transition-none"
       />
     </svg>
   );
