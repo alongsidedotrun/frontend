@@ -17,7 +17,7 @@ import { CommandChip, ComposeBox, leadingCommand, toImageInputs, type ImageAttac
 import { JoinRequests, type JoinRequest } from "@/components/join-requests";
 import { clearPresence, setPresence, type Person } from "@/lib/presence";
 import { openShareDialog } from "@/lib/use-share";
-import { FileDiffGroup, diffToRows, type DiffRow } from "@/components/FileDiff";
+import { FileDiffGroup, diffToRows, mergeFileEdits, type DiffRow } from "@/components/FileDiff";
 import type { SettingsSection } from "@/components/settings-overlay";
 import { effortLabel, type EffortLevel } from "@/lib/effort";
 import { isMonthFirstDateOrder, loadLanguage } from "@/lib/language";
@@ -3831,6 +3831,14 @@ function buildFileDiffRows(name: string, input: unknown): DiffRow[] | null {
 // one real FileDiffGroup-building path, not two copies that could drift.
 // The provider's own files (its memory and settings: ~/.claude, ~/.codex, ~/.gemini, ~/.grok) aren't
 // the person's work, so a change to them isn't shown in the chat.
+// The chat log re-renders on every streamed word, so a card's diff is worked out once per tool call.
+const fileDiffRowsCache = new WeakMap<object, DiffRow[] | null>();
+function cachedFileDiffRows(name: string, input: unknown): DiffRow[] | null {
+  if (!input || typeof input !== "object") return buildFileDiffRows(name, input);
+  if (!fileDiffRowsCache.has(input)) fileDiffRowsCache.set(input, buildFileDiffRows(name, input));
+  return fileDiffRowsCache.get(input) ?? null;
+}
+
 function isProviderOwnPath(path: string | null | undefined): boolean {
   return Boolean(path && /(^|[\\/])\.(claude|codex|gemini|grok)[\\/]/.test(path));
 }
@@ -3840,13 +3848,15 @@ function renderFileDiffGroupCard(
   onOpenFile: (path: string) => void
 ): ReactNode {
   const name = toolGroup[0].name;
-  const files = toolGroup
+  const edits = toolGroup
     .map((r) => {
       const path = summarizeToolInput(r.input);
       if (!path || isProviderOwnPath(path)) return null;
-      return { name: path.split("/").filter(Boolean).pop() ?? path, path, syncRows: buildFileDiffRows(r.name, r.input) };
+      return { name: path.split("/").filter(Boolean).pop() ?? path, path, syncRows: cachedFileDiffRows(r.name, r.input) };
     })
     .filter((f): f is NonNullable<typeof f> => f !== null);
+  // #556: one entry per file, with all of this run's edits to it.
+  const files = mergeFileEdits(edits, name === "Write" ? "replace" : "append");
   if (files.length === 0) return null;
   return <FileDiffGroup kind={name === "Write" ? "New" : "Edited"} files={files} onExpandFile={onOpenFile} />;
 }

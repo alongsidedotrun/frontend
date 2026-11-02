@@ -190,6 +190,25 @@ export function FileDiff({
 // current on-disk content instead and diffs against that.
 export type FileDiffGroupFile = { name: string; path: string; syncRows: DiffRow[] | null };
 
+// #556: a run of edits becomes one entry per file. Edits to the same file add up into one diff
+// ("append"); a file written more than once shows its last version ("replace"). If any edit's
+// diff isn't known, the file falls back to reading it from disk (syncRows null).
+export function mergeFileEdits(edits: FileDiffGroupFile[], mode: "append" | "replace"): FileDiffGroupFile[] {
+  const byPath = new Map<string, FileDiffGroupFile>();
+  for (const edit of edits) {
+    const seen = byPath.get(edit.path);
+    if (!seen || mode === "replace") {
+      byPath.set(edit.path, edit);
+    } else {
+      byPath.set(edit.path, {
+        ...seen,
+        syncRows: seen.syncRows && edit.syncRows ? [...seen.syncRows, ...edit.syncRows] : null,
+      });
+    }
+  }
+  return [...byPath.values()];
+}
+
 // Antigravity's own write_to_file tool_use never carries the file's real
 // content (only TargetFile, the path) -- confirmed directly this session.
 // Since write_to_file always replaces a file's entire contents (same real
@@ -362,7 +381,8 @@ export function FileDiffGroup({
 }) {
   const { t } = useTranslation();
   const single = files.length === 1;
-  const [open, setOpen] = useState(true);
+  // #556: a card with several files starts collapsed; a file's diff renders only once it's opened.
+  const [open, setOpen] = useState(false);
   // Keyed by path, not summed inline -- a file's own count can arrive
   // (or change, if its rows resolve later than another's) independently,
   // and this needs the *latest* value per file, not an accumulating sum
