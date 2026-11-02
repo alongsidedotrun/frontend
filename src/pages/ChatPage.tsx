@@ -968,12 +968,12 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     if (storedValue) setDefaultModelValue(storedValue);
   }, []);
 
-  function scrollToBottomIfNear() {
+  function scrollToBottomIfNear(force = false) {
     const el = chatLogRef.current;
     if (!el) return;
     const threshold = 80;
     const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
-    if (isNearBottom) {
+    if (force || isNearBottom) {
       requestAnimationFrame(() => {
         el.scrollTop = el.scrollHeight;
       });
@@ -1119,7 +1119,9 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       return;
     }
     setRows((prev) => [...prev, row]);
-    scrollToBottomIfNear();
+    // A message this person just sent always comes into view, wherever they had scrolled to; anything
+    // else follows only when they were already at the bottom.
+    scrollToBottomIfNear(historyReplayedRef.current && row.kind === "human" && (row.mine ?? !row.relaySequence));
   }
 
   // Only real caller today: a "permission" row's own status, patched from
