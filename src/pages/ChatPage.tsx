@@ -24,7 +24,6 @@ import { isMonthFirstDateOrder, loadLanguage } from "@/lib/language";
 import { loadNotifyTurnComplete, notifyTurnComplete } from "@/lib/notify-turn-complete";
 import { pushTurnNotification } from "@/lib/turn-notifications";
 import { ErrorText } from "@/lib/error-code";
-import { AlongsideLogo } from "@/components/icons/alongside-logo";
 import { DefaultAvatar } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -3647,11 +3646,8 @@ function ChatRowView({
     return (
       <div className="flex flex-col items-start gap-1">
         <div className="flex items-center gap-1.5 px-1">
-          {/* text-black dark:text-white -- AlongsideLogo inherits color
-              (fill-current) rather than carrying its own dark/light opinion
-              (alongside-logo.tsx's own comment has the full reasoning), so
-              this message-row usage sets that theme-adaptive look itself. */}
-          <AlongsideLogo className="size-4 text-black dark:text-white" />
+          {/* The current Alongside logo (the app icon), not the old pinwheel mark. */}
+          <img src="/favicon.svg" alt="" aria-hidden="true" className="size-4 shrink-0" />
           {/* text-xs, no font-medium -- matches the "human" row's own sender-name
               label (row.displayName above) exactly: both are identity labels above
               a message, and this one read larger/bolder than its symmetric
