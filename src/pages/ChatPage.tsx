@@ -2453,7 +2453,16 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         time: messageTime(),
         // #462: a shared chat refuses what can't go through the relay (images, for now, or something that
         // looks like a password or key) with 422.
-        failed: { errorText: sharedChat ? sharedSendError(res.status) ?? i18n.t("chat.errors.sendFailed", { status: res.status }) : i18n.t("chat.errors.sendFailed", { status: res.status }), images, effort },
+        failed: {
+          errorText:
+            res.status === 401
+              ? i18n.t("chat.errors.signedOut")
+              : sharedChat
+                ? sharedSendError(res.status) ?? i18n.t("chat.errors.sendFailed", { status: res.status })
+                : i18n.t("chat.errors.sendFailed", { status: res.status }),
+          images,
+          effort,
+        },
       });
     }
     // Whether an agent turn starts now (the message queue waits for it): not for Just chat.

@@ -4375,6 +4375,15 @@ export const translations = {
     zh: "与对话的连接已断开。(ALS-005)",
     ja: "チャットへの接続が失われました。(ALS-005)",
   },
+  "chat.errors.signedOut": {
+    en: "You're signed out of Alongside. Sign in again from Settings, then retry.",
+    "pt-BR": "Você saiu do Alongside. Entre novamente pelas Configurações e tente de novo.",
+    es: "Cerraste sesión en Alongside. Inicia sesión de nuevo desde Ajustes y vuelve a intentarlo.",
+    fr: "Vous êtes déconnecté d'Alongside. Reconnectez-vous depuis les Réglages, puis réessayez.",
+    de: "Du bist bei Alongside abgemeldet. Melde dich in den Einstellungen erneut an und versuche es noch einmal.",
+    zh: "你已退出 Alongside。请在设置中重新登录，然后重试。",
+    ja: "Alongside からサインアウトしています。設定から再度サインインして、もう一度お試しください。",
+  },
   "chat.errors.sendFailed": {
     en: "Failed to send message (status {{status}}). (ALS-009)",
     "pt-BR": "Falha ao enviar a mensagem (status {{status}}). (ALS-009)",
