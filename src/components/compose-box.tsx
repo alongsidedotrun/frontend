@@ -3,6 +3,7 @@ import { loadModelCatalog, useModelCatalogVersion } from "@/lib/model-catalog";
 import type { IconComponent, IconComponentProps } from "@/lib/icon-context";
 import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
 import { useTranslation } from "react-i18next";
+import { showErrorToast } from "@/components/ui/app-toast";
 import i18n from "@/i18n";
 import { AUTO_BOT_MODEL, PROVIDER_DISPLAY, ProviderIcon, QUICK_CHAT_MODELS, modelDisplayName } from "@/lib/quick-chat-models";
 import { BotFace, type BotAvatar } from "@/components/bot-face";
@@ -234,13 +235,29 @@ export function toImageInputs(images: ImageAttachment[]) {
 }
 
 // The images in a paste. Some sources list a file only in `files`, others only in `items`.
-export function pastedImageFiles(data: Pick<DataTransfer, "files" | "items">): File[] {
+export function pastedFiles(data: Pick<DataTransfer, "files" | "items">): File[] {
   const fromFiles = Array.from(data.files ?? []);
   const fromItems = Array.from(data.items ?? [])
     .filter((item) => item.kind === "file")
     .map((item) => item.getAsFile())
     .filter((file): file is File => file !== null);
-  return (fromFiles.length > 0 ? fromFiles : fromItems).filter((file) => file.type.startsWith("image/"));
+  return fromFiles.length > 0 ? fromFiles : fromItems;
+}
+
+export function pastedImageFiles(data: Pick<DataTransfer, "files" | "items">): File[] {
+  return pastedFiles(data).filter((file) => file.type.startsWith("image/"));
+}
+
+/**
+ * Whether a paste that carries files attaches them rather than pasting its text. A copy from a
+ * document (Word, Pages, a web page) carries formatted text and its plain text, and sometimes a
+ * picture of the text too: that pastes as text. A screenshot carries only the image, and a file
+ * copied in Finder or Explorer carries the file plus its name as plain text but no formatted
+ * text: those attach. (Skipping every paste that had any text, as before, skipped copied files.)
+ */
+export function pasteAttachesFiles(data: Pick<DataTransfer, "files" | "items" | "getData">): boolean {
+  if (pastedFiles(data).length === 0) return false;
+  return !(data.getData("text/html") && data.getData("text/plain").trim());
 }
 
 function readImageFile(file: File): Promise<ImageAttachment> {
@@ -1451,7 +1468,13 @@ export function ComposeBox({
   // per explicit request, both are real entry points for the same real attach
   // action, not one real and one decorative.
   async function addImageFiles(files: FileList | File[]) {
-    const imageFiles = Array.from(files).filter((file) => file.type.startsWith("image/"));
+    const all = Array.from(files);
+    const imageFiles = all.filter((file) => file.type.startsWith("image/"));
+    // Only images can be sent to the agents for now; say so instead of dropping the rest silently.
+    const others = all.filter((file) => !file.type.startsWith("image/"));
+    if (others.length > 0) {
+      showErrorToast(t("compose.attach.imagesOnly", { names: others.map((file) => file.name || "file").join(", ") }), { id: "compose-attach-unsupported" });
+    }
     const read = await Promise.all(imageFiles.map(readImageFile));
     if (read.length > 0) setImages((current) => [...current, ...read]);
   }
@@ -1950,14 +1973,12 @@ export function ComposeBox({
           }}
           onFocus={() => setTextareaFocused(true)}
           onBlur={() => setTextareaFocused(false)}
-          // Pasting an image (a screenshot, a copied image or image file) attaches it, as the
-          // + button and dropping one do. Text that comes with it (a copy from a document can
-          // carry a picture of the text too) is pasted as text instead.
+          // Pasting a screenshot, a copied image or a copied file attaches it, as the + button and
+          // dropping one do. A copy from a document pastes as text (pasteAttachesFiles has the why).
           onPaste={(event) => {
-            const images = pastedImageFiles(event.clipboardData);
-            if (images.length === 0 || event.clipboardData.getData("text/plain")) return;
+            if (!pasteAttachesFiles(event.clipboardData)) return;
             event.preventDefault();
-            void addImageFiles(images);
+            void addImageFiles(pastedFiles(event.clipboardData));
           }}
           onKeyDown={(event) => {
             // Backspace at the very start removes the command chip.

@@ -678,7 +678,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // matching Synara's own "Thinking" -> "Working" progression (dug into their repo
   // directly). Distinct from "thinking" itself, which is the earlier phase before
   // any content has arrived at all.
-  const [waitingPhase, setWaitingPhase] = useState<"waiting" | "thinking" | "working" | "reasoning" | "searching" | null>(null);
+  const [waitingPhase, setWaitingPhase] = useState<"waiting" | "thinking" | "working" | "reasoning" | "searching" | "compacting" | null>(null);
   // Live mirror of the thinking block's own real content, shown in the unified
   // TurnWorkDisclosure's expand panel while a turn is still in flight -- cleared
   // once the turn settles (folded into the agent row's own reasoningText field
@@ -1515,8 +1515,27 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         return;
       }
 
+      // The turn has started (Waiting becomes Thinking). Only from Waiting: Claude sends system
+      // messages all through a turn (thinking_tokens, task progress), and each one used to pull the
+      // label back to Thinking, so it swapped Working -> Thinking -> Working over and over (#551).
       if (type === "system") {
-        if (awaitingReplyRef.current) setWaitingPhase("thinking");
+        // A compact finished (Compact now, or Claude's own): the meter drops to the compacted size
+        // the CLI reports, instead of keeping the size from before it (#552).
+        if (event.subtype === "compact_boundary") {
+          const after = (event.compact_metadata as { post_tokens?: number } | undefined)?.post_tokens;
+          const usageValue = { used: typeof after === "number" ? after : 0 };
+          setContextUsage(usageValue);
+          compactedAboveRef.current = false;
+          if (!replayingRef.current) saveLastContext(usageValue);
+          pushMarker(i18n.t("chat.compacted"));
+          return;
+        }
+        // While Claude compacts, the label says so instead of a bare Thinking.
+        if (event.subtype === "status" && event.status === "compacting") {
+          if (!replayingRef.current) setWaitingPhase("compacting");
+          return;
+        }
+        if (awaitingReplyRef.current) setWaitingPhase((phase) => (phase === null || phase === "waiting" ? "thinking" : phase));
         return;
       }
 
@@ -1929,8 +1948,9 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           });
         }
         // The context the next turn starts from (lib/context-usage.ts).
+        // 0: a turn that made no model call (a compact reports its size at compact_boundary, above).
         const used = event.usage ? contextTokensUsed(event.usage as TurnUsage) : null;
-        if (used !== null) {
+        if (used !== null && used > 0) {
           const usageValue = { used };
           setContextUsage(usageValue);
           saveLastContext(usageValue);
@@ -2735,6 +2755,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       ? t("chat.phase.waiting")
       : waitingPhase === "working"
         ? t("chat.phase.working")
+        : waitingPhase === "compacting"
+          ? t("chat.phase.compacting")
         : waitingPhase === "reasoning"
           ? t("chat.phase.reasoning")
           : waitingPhase === "searching"

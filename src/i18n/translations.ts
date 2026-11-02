@@ -24,6 +24,9 @@ export type UiLocale = "en" | "pt-BR" | "es" | "fr" | "de" | "zh" | "ja";
 type TranslationRow = Record<UiLocale, string>;
 
 export const translations = {
+  "compose.attach.imagesOnly": {
+    en: "Only images can be attached for now. Not attached: {{names}}", "pt-BR": "Por enquanto só é possível anexar imagens. Não anexado: {{names}}", es: "Por ahora solo se pueden adjuntar imágenes. No adjuntado: {{names}}", fr: "Pour l'instant, seules les images peuvent être jointes. Non joint : {{names}}", de: "Derzeit können nur Bilder angehängt werden. Nicht angehängt: {{names}}", zh: "目前只能附加图片。未附加：{{names}}", ja: "現在添付できるのは画像のみです。添付されなかったファイル: {{names}}",
+  },
   "settings.nav.group.archived": {
     en: "Archived", "pt-BR": "Arquivados", es: "Archivados", fr: "Archivés", de: "Archiviert", zh: "已归档", ja: "アーカイブ済み",
   },
@@ -4424,6 +4427,10 @@ export const translations = {
     zh: "工作了 {{duration}}",
     ja: "{{duration}} 作業しました",
   },
+  "chat.phase.compacting": {
+    en: "Compacting", "pt-BR": "Compactando", es: "Compactando", fr: "Compactage", de: "Wird komprimiert", zh: "正在压缩", ja: "圧縮中",
+  },
+  "chat.compacted": { en: "Conversation compacted", "pt-BR": "Conversa compactada", es: "Conversación compactada", fr: "Conversation compactée", de: "Unterhaltung komprimiert", zh: "对话已压缩", ja: "会話を圧縮しました" },
   "chat.phase.waiting": {
     en: "Waiting",
     "pt-BR": "Aguardando",

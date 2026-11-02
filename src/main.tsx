@@ -30,6 +30,15 @@ Sentry.init({
   environment: import.meta.env.VITE_SENTRY_ENVIRONMENT || "development",
 });
 
+// A file dropped anywhere but the compose box does nothing, instead of the window opening it
+// in place of the app (the desktop window leaves file drops to the page, see #561). The
+// compose box's own onDrop still runs first, since it's below these in the tree.
+for (const type of ["dragover", "drop"] as const) {
+  window.addEventListener(type, (event) => {
+    if (event.dataTransfer?.types.includes("Files")) event.preventDefault();
+  });
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <App />
