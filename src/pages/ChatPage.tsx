@@ -2822,7 +2822,14 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             at all -- scrollToBottomIfNear (this file, called from pushRow)
             and the replay_complete handler's own scrollTop = scrollHeight
             already handle it in JS, the exact same pattern dray uses. */}
-        <div ref={chatContentRef} className="t-chat-width mx-auto flex w-full flex-1 flex-col gap-3 pt-16 pb-3" style={{ maxWidth: "var(--chat-max-width)" }}>
+        <div ref={chatContentRef} className="t-chat-width relative mx-auto flex w-full flex-1 flex-col gap-3 pt-16 pb-3" style={{ maxWidth: "var(--chat-max-width)" }}>
+          {/* While the history loads: a quiet shimmer, shown only if loading takes a moment (the
+              CSS delays it), so a slow reopen isn't a blank screen that then snaps full. */}
+          {!historicalRowsRevealed && (
+            <div className="t-history-loading pointer-events-none absolute inset-x-0 top-0 flex h-[45vh] items-end justify-center" role="status">
+              <ThinkingState text={t("chat.loadingHistory")} />
+            </div>
+          )}
           {/* t-row-in -- per explicit request ("coming in very quickly, is there a
               transition like fade in"): every LIVE row mounting (human, agent, tool,
               reasoning, marker, command, permission alike) fades/slides in once,
@@ -2934,7 +2941,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               : !historicalRowsRevealed
                 ? "opacity-0"
                 : viewportVisibleRowIds.has(row.id)
-                  ? "opacity-100 transition-opacity duration-160"
+                  ? "opacity-100 transition-opacity duration-500 ease-out"
                   : "opacity-100";
             // index > (not >=) -- confirmed directly as a real bug ("The
             // cancel button is not working"): the edited row itself is

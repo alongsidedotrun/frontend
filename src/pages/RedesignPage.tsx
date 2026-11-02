@@ -1227,7 +1227,9 @@ export function RedesignPage() {
         >
           {isSettingsRoute ? <SettingsSidebarNav section={settingsSection} variant="redesign" returnTo={lastPagePathRef.current} /> :
           <div className="flex h-full min-h-0 w-full min-w-0 flex-col">
-          <div className="flex flex-col gap-[var(--redesign-quick-actions-gap)]">
+          {/* Scrolls when the lists are taller than the window, so the footer below (Getting started,
+              and the account or Sign in button) always stays on screen. */}
+          <div className="-mx-1 flex min-h-0 flex-1 flex-col gap-[var(--redesign-quick-actions-gap)] overflow-y-auto px-1 [scrollbar-width:none]">
             <div className="flex h-[var(--redesign-workspace-trigger-height)] items-center">
               <WorkspaceSelector
                 workspaces={workspaceOptions}

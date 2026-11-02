@@ -4375,6 +4375,15 @@ export const translations = {
     zh: "与对话的连接已断开。(ALS-005)",
     ja: "チャットへの接続が失われました。(ALS-005)",
   },
+  "chat.loadingHistory": {
+    en: "Loading chat",
+    "pt-BR": "Carregando conversa",
+    es: "Cargando chat",
+    fr: "Chargement de la discussion",
+    de: "Chat wird geladen",
+    zh: "正在加载聊天",
+    ja: "チャットを読み込み中",
+  },
   "chat.errors.signedOut": {
     en: "You're signed out of Alongside. Sign in again from Settings, then retry.",
     "pt-BR": "Você saiu do Alongside. Entre novamente pelas Configurações e tente de novo.",
