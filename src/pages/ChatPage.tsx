@@ -1015,7 +1015,26 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       scrollToBottomIfNear();
     });
     observer.observe(el);
-    return () => observer.disconnect();
+    // The chat's own window shrinks or grows when something above the compose box (a question,
+    // a task list) comes or goes. Someone reading the newest message stays on it; measured from
+    // the last scroll position, since the resize itself already moved the bottom away.
+    const log = chatLogRef.current;
+    let atBottom = true;
+    const onScroll = () => {
+      if (log) atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
+    };
+    const viewportObserver = new ResizeObserver(() => {
+      if (log && atBottom) log.scrollTop = log.scrollHeight;
+    });
+    if (log) {
+      log.addEventListener("scroll", onScroll, { passive: true });
+      viewportObserver.observe(log);
+    }
+    return () => {
+      observer.disconnect();
+      viewportObserver.disconnect();
+      log?.removeEventListener("scroll", onScroll);
+    };
   }, []);
 
   // Which rows arrived as part of history replay, not live -- per explicit
@@ -2833,7 +2852,9 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             at all -- scrollToBottomIfNear (this file, called from pushRow)
             and the replay_complete handler's own scrollTop = scrollHeight
             already handle it in JS, the exact same pattern dray uses. */}
-        <div ref={chatContentRef} className="t-chat-width relative mx-auto flex w-full flex-1 flex-col gap-3 pt-16 pb-3" style={{ maxWidth: "var(--chat-max-width)" }}>
+        {/* pb-10: room between the last message and the compose box (was pb-3, which crowded the
+            last lines against it). */}
+        <div ref={chatContentRef} className="t-chat-width relative mx-auto flex w-full flex-1 flex-col gap-3 pt-16 pb-10" style={{ maxWidth: "var(--chat-max-width)" }}>
           {/* While the history loads: a quiet shimmer, shown only if loading takes a moment (the
               CSS delays it), so a slow reopen isn't a blank screen that then snaps full. */}
           {!historicalRowsRevealed && (
@@ -3097,13 +3118,17 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             const pendingPermission = [...rows].reverse().find((r): r is Extract<ChatRow, { kind: "permission" }> => r.kind === "permission" && r.status === "pending");
             if (!pendingPermission) return null;
             return (
+              // Height collapses with the fade (as in Synara, where the card belongs to the compose
+              // area): fading alone left its empty space between the chat and the compose box after
+              // it was answered.
               <motion.div
                 key={pendingPermission.requestId}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1, transition: spring.moderate }}
-                exit={{ opacity: 0, transition: spring.moderate.exit }}
-                className="mb-2"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto", transition: spring.moderate }}
+                exit={{ opacity: 0, height: 0, transition: spring.moderate.exit }}
+                className="overflow-hidden"
               >
+                <div className="pb-2">
                 <PermissionCard
                   sessionId={sessionId}
                   requestId={pendingPermission.requestId}
@@ -3114,6 +3139,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                   onStopTurn={stopTurn}
                   onGone={() => updatePermissionRow(pendingPermission.requestId, "cancelled")}
                 />
+                </div>
               </motion.div>
             );
           })()}
