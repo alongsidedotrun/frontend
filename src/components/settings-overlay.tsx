@@ -1222,10 +1222,20 @@ function AppsSection() {
       .then((status) => setGithubUser(status?.username ?? null))
       .catch(() => setGithubUser(null));
   }, [selectedApp]);
+  // Notion's connection (#542), the same way.
+  const [notionConnected, setNotionConnected] = useState<boolean | undefined>(undefined);
+  useEffect(() => {
+    fetch("/integrations/notion")
+      .then((res) => (res.ok ? (res.json() as Promise<NotionStatus>) : null))
+      .then((status) => setNotionConnected(status?.connected ?? false))
+      .catch(() => setNotionConnected(false));
+  }, [selectedApp]);
   const appsTabEmpty =
     appsFade.shown !== "all" &&
     githubUser !== undefined &&
+    notionConnected !== undefined &&
     !showsUnder(appsFade.shown, githubUser !== null, query, "GitHub") &&
+    !showsUnder(appsFade.shown, notionConnected, query, "Notion") &&
     !GOOGLE_APPS.some((app) => showsUnder(appsFade.shown, false, query, app.name));
 
   return (
@@ -1239,6 +1249,15 @@ function AppsSection() {
         >
           <GithubAppConnectionView onBack={() => navigate("/settings/apps", { replace: true })} />
         </motion.div>
+      ) : selectedApp === "notion" ? (
+        <motion.div
+          key="notion"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1, transition: spring.slow }}
+          exit={{ opacity: 0, transition: spring.slow.exit }}
+        >
+          <NotionConnectionView onBack={() => navigate("/settings/apps", { replace: true })} />
+        </motion.div>
       ) : (
         <motion.div
           key="list"
@@ -1249,7 +1268,7 @@ function AppsSection() {
           <ConnectionToolbar
             filter={filter}
             onFilter={setFilter}
-            itemCount={1 + GOOGLE_APPS.length}
+            itemCount={2 + GOOGLE_APPS.length}
             query={query}
             onQuery={setQuery}
             searchLabel={t("settings.connections.searchApps")}
@@ -1261,6 +1280,7 @@ function AppsSection() {
                 <ListEmptyState
                   marks={[
                     { key: "github", mark: <img src="/icons/providers/github.svg" alt="" className="size-3.5 shrink-0 grayscale dark:invert" /> },
+                    { key: "notion", mark: <img src="/icons/notion.svg" alt="" className="size-3.5 shrink-0 grayscale" /> },
                     ...GOOGLE_APPS.map((app) => ({ key: app.id, mark: <img src={`/icons/google-${app.id}.svg`} alt="" className="size-3.5 shrink-0 object-contain grayscale" /> })),
                   ]}
                   title={appsFade.shown === "connected" ? t("settings.apps.empty.connected.title") : t("settings.apps.empty.available.title")}
@@ -1270,6 +1290,15 @@ function AppsSection() {
             }
           >
             <GithubIntegrationCard connectedUsername={githubUser ?? null} filter={appsFade.shown} query={query} onClick={() => openApp("github")} />
+            {showsUnder(appsFade.shown, notionConnected === true, query, "Notion") ? (
+              <AppRow
+                name="Notion"
+                description={t("settings.apps.notion.description")}
+                icon={<img src="/icons/notion.svg" alt="" className="size-5" />}
+                connected={notionConnected === true}
+                onClick={() => openApp("notion")}
+              />
+            ) : null}
             {GOOGLE_APPS.map((app) =>
               showsUnder(appsFade.shown, false, query, app.name) ? (
                 // No connection flow yet, so never connected, and the row does nothing for now.
@@ -1334,6 +1363,89 @@ function GithubIntegrationCard({
       connected={isConnected}
       onClick={onClick}
     />
+  );
+}
+
+type NotionStatus = { connected: boolean; workspace: string | null; connecting: boolean };
+
+// Notion through its hosted MCP server (backend/src/notion.rs, #542): one click opens Notion's sign-in
+// in the browser, and the page notices once it's done. Each Alongside account has its own connection.
+// "@notion" in a message then gives that turn Notion's tools (Claude and Codex).
+function NotionConnectionView({ onBack }: { onBack: () => void }) {
+  const { t } = useTranslation();
+  const [status, setStatus] = useState<NotionStatus | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const refresh = useCallback(() => {
+    fetch("/integrations/notion")
+      .then((res) => (res.ok ? (res.json() as Promise<NotionStatus>) : null))
+      .then(setStatus)
+      .catch(() => setStatus(null));
+  }, []);
+  useEffect(refresh, [refresh]);
+  // While the browser sign-in is open: nothing tells this page when it finishes.
+  const waiting = Boolean(status?.connecting) && !status?.connected;
+  useEffect(() => {
+    if (!waiting) return;
+    const timer = setInterval(refresh, 2000);
+    return () => clearInterval(timer);
+  }, [waiting, refresh]);
+
+  async function run(url: string, method: "POST" | "DELETE" = "POST") {
+    setBusy(true);
+    try {
+      const response = await fetch(url, { method });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        showErrorToast(t("settings.apps.notion.error", { detail: body.error ?? response.statusText }));
+      }
+    } catch {
+      showErrorToast(t("settings.providers.noConnection"));
+    } finally {
+      setBusy(false);
+      refresh();
+    }
+  }
+
+  return (
+    <div>
+      <div className="mt-4 flex items-center gap-3">
+        <span className="flex size-10 shrink-0 items-center justify-center">
+          <img src="/icons/notion.svg" alt="" className="size-6" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-ui font-medium text-foreground">Notion</div>
+          <div className="truncate text-ui font-normal text-muted-foreground">
+            {status?.connected
+              ? status.workspace
+                ? t("settings.apps.notion.connectedTo", { workspace: status.workspace })
+                : t("settings.apps.notion.connected")
+              : t("settings.apps.github.notConnected")}
+          </div>
+        </div>
+      </div>
+      {!status ? null : status.connected ? (
+        <div className="mt-5 flex flex-col gap-3">
+          <p className="text-ui text-muted-foreground">{t("settings.apps.notion.useInChat")}</p>
+          <Button variant="outline" className="w-fit" disabled={busy} onClick={() => void run("/integrations/notion", "DELETE").then(onBack)}>
+            {t("common.disconnect")}
+          </Button>
+        </div>
+      ) : status.connecting ? (
+        <div className="mt-5 flex flex-col gap-3">
+          <p className="text-ui text-muted-foreground">{t("settings.apps.notion.waiting")}</p>
+          <div className="flex gap-2">
+            <Button variant="outline" disabled={busy} onClick={() => void run("/integrations/notion/connect")}>{t("settings.apps.notion.openAgain")}</Button>
+            <Button variant="outline" disabled={busy} onClick={() => void run("/integrations/notion/connect", "DELETE")}>{t("common.cancel")}</Button>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-5 flex flex-col gap-3">
+          <p className="text-ui text-muted-foreground">{t("settings.apps.notion.connectDescription")}</p>
+          <Button className="w-fit" disabled={busy} onClick={() => void run("/integrations/notion/connect")}>{t("common.connect")}</Button>
+        </div>
+      )}
+    </div>
   );
 }
 
