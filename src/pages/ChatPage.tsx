@@ -3385,6 +3385,11 @@ function ChatRowView({
   // A bot's own reply shows its face (drawn here, no image to wait for), so it's ready at once; waiting
   // for an onLoad that never comes left a live bot reply streaming in invisibly.
   const [iconLoaded, setIconLoaded] = useState(() => row.kind !== "agent" || !row.animate || Boolean(bot && !row.runBy));
+  // Once shown live (Working), the row stays visible when the turn ends and its header appears.
+  const [shownLive, setShownLive] = useState(false);
+  useEffect(() => {
+    if (liveWorking) setShownLive(true);
+  }, [liveWorking]);
   if (row.kind === "marker") {
     return <div className="text-center text-chat-meta text-muted-foreground/70"><ErrorText message={row.text} /></div>;
   }
@@ -3709,7 +3714,10 @@ function ChatRowView({
   // other model icon in this app renders through), not AlongsideLogo, per explicit
   // request: that mark is for "command" rows above now, not real AI replies.
   return (
-    <div className={`flex flex-col items-start gap-1 ${iconLoaded ? "" : "invisible"}`}>
+    // Hidden until the header's provider icon loads, so the header doesn't pop in without it. Not while
+    // the turn runs: the header (and its icon) only mounts when the turn ends, and waiting for it then
+    // hid the whole row, Working included -- the chat showed nothing at all mid-turn.
+    <div className={`flex flex-col items-start gap-1 ${iconLoaded || liveWorking || shownLive ? "" : "invisible"}`}>
       {/* Unified Waiting/Thinking/Working/Worked disclosure (alongsidedotrun/
           private#53) -- per explicit request ("that should be in the same
           area where Waiting was... when opening the dropdown, thinking and
