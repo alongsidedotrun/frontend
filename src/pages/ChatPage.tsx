@@ -65,6 +65,7 @@ import { useLimitWarning } from "@/components/limit-warning";
 import { useSkills } from "@/lib/skills";
 import { StreamingText } from "@/components/streaming-text";
 import { ThinkingState } from "@/components/thinking-state";
+import { WorkspaceBrandIcon } from "@/components/design-system/workspace-brand-icon";
 import { ThinkingReasoning } from "@/components/thinking-reasoning";
 import {
   TaskProgressPanel,
@@ -3693,8 +3694,9 @@ function ChatRowView({
     return (
       <div className="flex flex-col items-start gap-1">
         <div className="flex items-center gap-1.5 px-1">
-          {/* The current Alongside logo (the app icon), not the old pinwheel mark. */}
-          <img src="/favicon.svg" alt="" aria-hidden="true" className="size-4 shrink-0" />
+          {/* The Alongside logo as the sidebar draws it (the black app-icon tile), not the raw favicon
+              picture, which looked different. */}
+          <WorkspaceBrandIcon size={16} imageSrc="/favicon.svg" className="shrink-0" />
           {/* text-xs, no font-medium -- matches the "human" row's own sender-name
               label (row.displayName above) exactly: both are identity labels above
               a message, and this one read larger/bolder than its symmetric
