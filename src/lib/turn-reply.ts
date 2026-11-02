@@ -2,7 +2,7 @@
 
 // A turn's earlier text block, now a step in its Working list. `at` is how many tool calls came
 // before it, so steps and tool calls keep the order they happened in.
-export type TurnNote = { text: string; at: number };
+export type TurnNote = { text: string; at: number; active?: boolean };
 
 type AgentPart = {
   kind: "agent";

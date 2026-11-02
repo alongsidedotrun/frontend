@@ -3732,14 +3732,25 @@ function ChatRowView({
               {row.durationLabel ? (
                 <TurnWorkDisclosure label={row.durationLabel} detailText={row.reasoningText} toolLines={row.toolCallLines} notes={row.notes} />
               ) : (
-                liveWorking && <TurnWorkDisclosure label={liveWorking.label} labelSuffix={liveWorking.labelSuffix} detailText={liveWorking.detailText} notes={row.kind === "agent" ? row.notes : undefined} live />
+                liveWorking && (
+                  <TurnWorkDisclosure
+                    label={liveWorking.label}
+                    labelSuffix={liveWorking.labelSuffix}
+                    detailText={liveWorking.detailText}
+                    // While the turn runs, its newest text is the step being worked on (shimmering);
+                    // it becomes the reply only when the turn ends.
+                    notes={row.kind === "agent" ? [...(row.notes ?? []), { text: row.text, at: row.textAt ?? 0, active: true }] : undefined}
+                    live
+                  />
+                )
               )}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-      {/* #557: a later part of the same reply (after a file edit card) has no header of its own. */}
-      {!row.turnRowId && (
+      {/* #557: a later part of the same reply (after a file edit card) has no header of its own, and
+          a running turn shows its header with the reply, once the turn ends. */}
+      {!row.turnRowId && !liveWorking && (
         <div className="flex items-center gap-1.5 px-1">
           {/* size-4 (16px; was size-5) -- per explicit request ("make sure
               that both icons are size 5 to match the size of the font at
@@ -3787,7 +3798,10 @@ function ChatRowView({
       <div className="w-full max-w-[95%] px-1 text-chat leading-relaxed transition-[max-width] duration-160">
         {/* A live run from someone else (#462) grows in place; StreamingText keeps its first text, so it's
             remounted on each update (without animation). */}
-        <StreamingText key={row.relayRunId ? row.text : undefined} text={row.text} animate={row.animate} onDone={() => setActionsVisible(true)} />
+        {/* While the turn runs, this text is its live step in Working instead (above). */}
+        {!liveWorking && (
+          <StreamingText key={row.relayRunId ? row.text : undefined} text={row.text} animate={row.animate} onDone={() => setActionsVisible(true)} />
+        )}
       </div>
       {/* Sources now lives inside AgentMessageActions' own row, after effort --
           per explicit request (was its own separate block below the row before).

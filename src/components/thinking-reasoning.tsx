@@ -42,18 +42,19 @@ function splitSentences(text: string): string[] {
 
 const SENTENCE_STAGGER_MS = 70;
 
-type ReasoningItem = { kind: "sentence"; text: string } | { kind: "tool"; label: string; detail?: string };
+type ReasoningItem = { kind: "sentence"; text: string; active?: boolean } | { kind: "tool"; label: string; detail?: string };
 
 // The steps in the order they happened: each note (a text block the turn wrote along the way)
 // goes before the tool call that followed it.
-function stepItems(toolLines: { label: string; detail?: string }[], notes: { text: string; at: number }[]): ReasoningItem[] {
+function stepItems(toolLines: { label: string; detail?: string }[], notes: { text: string; at: number; active?: boolean }[]): ReasoningItem[] {
   const items: ReasoningItem[] = [];
   const pending = [...notes].sort((a, b) => a.at - b.at);
+  const note = (n: { text: string; active?: boolean }): ReasoningItem => ({ kind: "sentence", text: n.text, active: n.active });
   toolLines.forEach((tool, index) => {
-    while (pending.length && pending[0].at <= index) items.push({ kind: "sentence", text: pending.shift()!.text });
+    while (pending.length && pending[0].at <= index) items.push(note(pending.shift()!));
     items.push({ kind: "tool", label: tool.label, detail: tool.detail });
   });
-  for (const note of pending) items.push({ kind: "sentence", text: note.text });
+  for (const n of pending) items.push(note(n));
   return items;
 }
 
@@ -77,7 +78,8 @@ export function ThinkingReasoning({
   // detail), appended after text's own prose sentences.
   toolLines?: { label: string; detail?: string }[];
   // #557: text the turn wrote along the way, shown as steps between its tool calls.
-  notes?: { text: string; at: number }[];
+  // `active` marks the step being worked on now: it shimmers, like the thinking-steps pattern.
+  notes?: { text: string; at: number; active?: boolean }[];
   // Still receiving live updates this turn -- the reasoning stays open
   // and unclickable (same as the reference's own "while thinking the
   // reasoning is always open"), folding into a clickable summary once
@@ -213,7 +215,7 @@ export function ThinkingReasoning({
             <div className={styles.trStream}>
               {visibleItems.map((item, i) =>
                 item.kind === "sentence" ? (
-                  <p key={i} className={styles.trSentence}>
+                  <p key={i} className={item.active ? `${styles.trSentence} ${styles.trShimmer}` : styles.trSentence}>
                     {item.text}
                   </p>
                 ) : (
