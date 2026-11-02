@@ -2083,6 +2083,46 @@ function DefaultEffortRow() {
 // is on also drives the Context dropdown's own label (compose-box.tsx's own
 // ContextDropdown, via ChatPage.tsx's chat_defaults handling of this same stored
 // value) -- "Context per chat"/"Context per project".
+// #502: automatic checkpoints (what a fresh session starts from after a handoff) are written by
+// the chat's provider, one small call per long stretch of chat. Off, they're written locally
+// from the chat's record and use no quota.
+function CheckpointProviderRow() {
+  const { t } = useTranslation();
+  const [useProvider, setUseProvider] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/settings/checkpoints")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { use_provider: boolean } | null) => {
+        if (!cancelled && data) setUseProvider(data.use_provider);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function update(value: boolean) {
+    setUseProvider(value);
+    const res = await fetch("/settings/checkpoints", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ use_provider: value }),
+    }).catch(() => null);
+    if (!res?.ok) setUseProvider(!value);
+  }
+
+  return (
+    <SettingsRow
+      id="setting-checkpoint-provider"
+      title={t("settings.chat.checkpointProvider.title")}
+      description={t("settings.chat.checkpointProvider.description")}
+    >
+      <Switch checked={useProvider} onToggle={() => void update(!useProvider)} aria-label={t("settings.chat.checkpointProvider.title")} />
+    </SettingsRow>
+  );
+}
+
 function CompactScopeRows() {
   const { t } = useTranslation();
   // Three independent flags, not one enum -- server.rs's own set_autocompact_scope
@@ -2287,6 +2327,7 @@ function ChatSection() {
 
       <SettingsSection title={t("settings.chat.compact.title")}>
         <CompactScopeRows />
+        <CheckpointProviderRow />
       </SettingsSection>
 
       <SettingsSection title={t("settings.chat.import.title")}>

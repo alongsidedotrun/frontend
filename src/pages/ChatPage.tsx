@@ -6,6 +6,7 @@ import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode 
 import { useOutletContext, useParams } from "react-router-dom";
 import { addressedAgent, useChatAgents } from "@/lib/chat-agents";
 import { NewAgentDialog } from "@/components/new-agent-dialog";
+import { HandoffNotice } from "@/components/handoff-context-dialog";
 import { ProviderNotice } from "@/components/provider-gate";
 import { BotFace, moodFace, useBotMood, type BotAvatar, type BotMood } from "@/components/bot-face";
 import { AnimatePresence, motion } from "motion/react";
@@ -203,7 +204,7 @@ type ChatRow =
       input: unknown;
       status: "pending" | "allow" | "deny" | "cancelled" | "timed_out";
     }
-  | { kind: "marker"; id: string; text: string };
+  | { kind: "marker"; id: string; text: string; handoffEventId?: number };
 
 type ActiveTaskList = {
   title: string;
@@ -1334,7 +1335,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         return;
       }
       if (type === "handoff") {
-        pushMarker(i18n.t("chat.handedOff"));
+        // Opens to what the fresh session was given (#502).
+        pushRow({ kind: "marker", id: nextRowId(), text: i18n.t("chat.handedOff"), handoffEventId: typeof event.event_id === "number" ? event.event_id : undefined });
         // The fresh session starts nearly empty: the meter kept showing the old session's
         // size until the next reply (#552). 0 keeps the meter's space; the next result corrects it.
         setContextUsage({ used: 0 });
@@ -3442,6 +3444,13 @@ function ChatRowView({
     if (liveWorking) setShownLive(true);
   }, [liveWorking]);
   if (row.kind === "marker") {
+    if (row.handoffEventId !== undefined && sessionId) {
+      return (
+        <div className="text-center">
+          <HandoffNotice sessionId={sessionId} eventId={row.handoffEventId} text={row.text} />
+        </div>
+      );
+    }
     return <div className="text-center text-chat-meta text-muted-foreground/70"><ErrorText message={row.text} /></div>;
   }
 
