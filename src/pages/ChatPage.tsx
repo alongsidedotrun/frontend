@@ -2012,7 +2012,10 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               setWaitingPhase("working");
               updateLiveReasoningText(block.thinking);
             } else if (block.type === "text" && block.text) {
-              setWaitingPhase(null);
+              // Text mid-turn is a step, not the end: the turn stays Working (the text shows as its
+              // live step) until its result, which ends the phase. Clearing it here flipped the chat
+              // out of Working and back at every message between tool calls.
+              setWaitingPhase("working");
               // A reaction goes on the message it answers (the last one sent); a reply that's only a
               // reaction adds no row of its own.
               const reacted = reactionOf(block.text);

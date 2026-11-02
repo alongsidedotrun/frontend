@@ -10,7 +10,7 @@ import type { TFunction } from "i18next";
 import { ChevronRight, CircleArrowUp, Plus } from "lucide-react";
 import { JoinChatIcon } from "@/components/icons/join-chat-icon";
 import { BotIcon } from "@/components/icons/bot-icon";
-import { Star01 } from "@untitledui/icons";
+import { Pin02, Star01 } from "@untitledui/icons";
 import { BotFace, type BotAvatar } from "@/components/bot-face";
 import { NewAgentDialog } from "@/components/new-agent-dialog";
 import { showErrorToast } from "@/components/ui/app-toast";
@@ -80,7 +80,9 @@ type Chat = {
   name: string;
   project_id?: string | null;
   workspace_id?: string | null;
-  // #504: the bot this chat talks to, and when it was last active (Recents).
+  // Pinned chats (and bots' chats) list under Pinned, and only there.
+  pinned?: boolean;
+  // #504: the bot this chat talks to, and when it was last active.
   bot_id?: string | null;
   last_activity?: string | null;
   // The models it has run on, newest first (GET /sessions).
@@ -110,8 +112,6 @@ function chatProviderMarks(chat: Chat) {
   return marks;
 }
 
-// How many chats Recents shows.
-const RECENTS_SIZE = 5;
 
 // A bot's face as a sidebar row icon, one component per look so rows don't remount on every render.
 const botIcons = new Map<string, IconComponent>();
@@ -381,6 +381,7 @@ export function RedesignPage() {
   const workspaceChats = chats.filter((chat) => chat.workspace_id === activeWorkspace.id);
   const bots = useBots(identity.scope);
   const botsById = new Map(bots.map((bot) => [bot.id, bot]));
+  const pinnedIds = new Set(chats.filter((chat) => chat.pinned).map((chat) => chat.id));
   // A bot's chat is called by the bot's name, whatever the chat was named.
   const chatTitle = (chat: Chat) => (chat.bot_id && botsById.get(chat.bot_id)?.name) || chat.name;
   const routeChatId = location.pathname.startsWith("/chat/")
@@ -641,6 +642,15 @@ export function RedesignPage() {
     }).catch(() => undefined);
   }
 
+  async function setChatPinned(chatId: string, pinned: boolean) {
+    setChats((current) => current.map((chat) => (chat.id === chatId ? { ...chat, pinned } : chat)));
+    await fetch(`/sessions/${encodeURIComponent(chatId)}/pin`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pinned }),
+    }).catch(() => undefined);
+  }
+
   async function setChatProject(chatId: string, projectId: string | null) {
     const targetWorkspaceId = projectId
       ? projects.find((project) => project.id === projectId)?.workspace_id ?? activeWorkspace.id
@@ -689,8 +699,16 @@ export function RedesignPage() {
     setProjectToArchive(null);
   }
 
+  const pinEntry = (chatId: string, pinned: boolean): SidebarItemMenuEntry => ({
+    kind: "action",
+    id: "pin",
+    label: t(pinned ? "nav.unpin" : "nav.pin"),
+    icon: Pin02,
+    onSelect: () => void setChatPinned(chatId, !pinned),
+  });
   const chatMenu = (chat: Chat): readonly SidebarItemMenuEntry[] => [
     { kind: "rename", id: "rename", label: t("common.rename"), icon: EditIcon },
+    pinEntry(chat.id, Boolean(chat.pinned)),
     {
       kind: "submenu",
       id: "project",
@@ -737,21 +755,21 @@ export function RedesignPage() {
     };
   };
 
-  // #504: Recents (chats and bot chats, newest first), Chats (a project is a row that opens to its
-  // chats) and Bots (each one opens its own chat).
+  // Pinned (chats and bots someone pinned), Chats (a project is a row that opens to its chats) and
+  // Bots (each one opens its own chat). Each chat or bot is listed once: a pinned one only under
+  // Pinned, not also under Chats, its project or Bots.
   const botMenu = (bot: Bot): readonly SidebarItemMenuEntry[] => [
     { kind: "action", id: "edit", label: t("bots.edit"), icon: EditIcon, onSelect: () => { setBotToEdit(bot); setBotEditOpen(true); } },
+    // A bot is pinned through its chat, so only once it has one.
+    ...(bot.chat_id ? [pinEntry(bot.chat_id, pinnedIds.has(bot.chat_id))] : []),
     { kind: "action", id: "favourite", label: t(bot.favourite ? "bots.unfavourite" : "bots.favouriteAction"), icon: Star01, onSelect: () => void updateBot(bot.id, { favourite: !bot.favourite }) },
     { kind: "separator", id: "separator" },
     { kind: "action", id: "delete", label: t("common.delete"), icon: DeleteIcon, destructive: true, onSelect: () => void removeBot(bot) },
   ];
   const botRow = (bot: Bot, id: string): SidebarSectionItem => ({ id, label: bot.name, icon: botRowIcon(bot.avatar), menu: botMenu(bot) });
-  const recentChats = [...workspaceChats]
+  const pinnedChats = workspaceChats
     // Bot chats only while their bot is here.
-    .filter((chat) => !chat.bot_id || botsById.has(chat.bot_id))
-    // A chat just started has no activity yet: it's the newest.
-    .sort((a, b) => !a.last_activity ? -1 : !b.last_activity ? 1 : b.last_activity.localeCompare(a.last_activity))
-    .slice(0, RECENTS_SIZE);
+    .filter((chat) => chat.pinned && (!chat.bot_id || botsById.has(chat.bot_id)));
 
   // Starts a new chat, as New does (nothing when already on an empty one).
   const startNewChat = () => {
@@ -761,18 +779,18 @@ export function RedesignPage() {
   };
   const chatsSidebarSections: readonly SidebarSection[] = [
     {
-      id: "recents",
-      label: t("nav.recents"),
-      items: recentChats.map((chat) => {
+      id: "pinned",
+      label: t("nav.pinned"),
+      items: pinnedChats.map((chat) => {
         const bot = chat.bot_id ? botsById.get(chat.bot_id) : undefined;
         return bot ? botRow(bot, chat.id) : chatRow(chat);
       }),
-      emptyLabel: t("shell.sections.noRecents"),
+      emptyLabel: t("shell.sections.noPinned"),
     },
     {
       id: "chats",
       label: t("nav.chats"),
-      // Recents lists chats and bots together; Chats and Bots are drawers.
+      // Pinned lists chats and bots together; Chats and Bots are drawers.
       collapsible: true,
       // Projects list here with their chats.
       action: { label: t("common.newChat"), icon: Plus, onSelect: startNewChat },
@@ -797,12 +815,12 @@ export function RedesignPage() {
         menu: projectMenu(project),
         onRename: (name: string) => void renameProject(project.id, name),
           // A project expands to its chats.
-          children: workspaceChats.filter((chat) => !chat.bot_id && chat.project_id === project.id).map(chatRow),
+          children: workspaceChats.filter((chat) => !chat.bot_id && !chat.pinned && chat.project_id === project.id).map(chatRow),
           childrenEmptyLabel: t("shell.sections.noChats"),
         })),
         // Then chats outside a project; the rest are listed under their project, and bot chats under Bots.
         ...workspaceChats
-          .filter((chat) => !chat.bot_id && (!chat.project_id || !workspaceProjects.some((project) => project.id === chat.project_id)))
+          .filter((chat) => !chat.bot_id && !chat.pinned && (!chat.project_id || !workspaceProjects.some((project) => project.id === chat.project_id)))
           .map(chatRow),
       ],
       emptyLabel: t("shell.sections.noChats"),
@@ -813,7 +831,7 @@ export function RedesignPage() {
       label: t("bots.title"),
       action: { label: t("bots.new"), icon: Plus, onSelect: () => { setActiveChatId(null); navigate("/?new=bot"); } },
       // Its chat's id once it has one, so the open bot chat is the selected row.
-      items: bots.map((bot) => botRow(bot, bot.chat_id ?? `bot:${bot.id}`)),
+      items: bots.filter((bot) => !bot.chat_id || !pinnedIds.has(bot.chat_id)).map((bot) => botRow(bot, bot.chat_id ?? `bot:${bot.id}`)),
       emptyLabel: t("shell.sections.noBots"),
     },
   ];
