@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Streamdown, type ExtraProps } from "streamdown";
 import { ResearchIcon } from "@/components/icons/untitled-ui";
 
@@ -234,12 +234,14 @@ const MARKDOWN_CONTROLS = { code: { copy: true, download: false }, table: false,
 const MARKDOWN_CLASS = "space-y-0";
 
 export function StreamingText({ text: rawText, animate, onDone }: { text: string; animate: boolean; onDone?: () => void }) {
-  const text = useRef(stripFileLinks(rawText)).current;
+  // Follows `text` as it grows: a turn's later text is added to the same reply (#557), and the
+  // reveal carries on from where it was instead of starting over.
+  const text = useMemo(() => stripFileLinks(rawText), [rawText]);
   // Plain split(" "), not a line-aware tokenizer -- a real newline inside a word's
   // own substring survives untouched (never split on), so it's still there once
   // this joins revealed words back with " " -- no separate handling needed the way
   // the old per-span-<br/> version required.
-  const tokens = useRef(text.split(" ")).current;
+  const tokens = useMemo(() => text.split(" "), [text]);
   const [count, setCount] = useState(animate ? 0 : tokens.length);
   const [blinkOn, setBlinkOn] = useState(true);
   const done = count >= tokens.length;

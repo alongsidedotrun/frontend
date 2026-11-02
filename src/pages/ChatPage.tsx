@@ -1,5 +1,6 @@
 import { Trans, useTranslation } from "react-i18next";
 import { contextTokensUsed, type TurnUsage } from "@/lib/context-usage";
+import { addTurnText } from "@/lib/turn-reply";
 import i18n from "@/i18n";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useOutletContext, useParams } from "react-router-dom";
@@ -127,6 +128,12 @@ type ChatRow =
       kind: "agent";
       id: string;
       text: string;
+      // #557: a turn is one reply. Its text goes into one row; only a visible card in between (a file
+      // edit) splits it, and the part after the card is a continuation of the turn's first row
+      // (`turnRowId`) drawn without its own header. `continued` marks a part that has a later part,
+      // so the actions show once, under the last one.
+      turnRowId?: string;
+      continued?: boolean;
       modelLabel: string;
       model: (typeof QUICK_CHAT_MODELS)[number];
       animate: boolean;
@@ -2027,36 +2034,33 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               // this turn sets it (firstAgentRowIdRef's own comment has the
               // reasoning) -- a turn with a later closing summary just renders
               // that as its own plain reply, no second label.
-              if (!firstAgentRowIdRef.current) firstAgentRowIdRef.current = agentRowId;
-              pushRow({
+              const turnRowId = firstAgentRowIdRef.current;
+              if (!turnRowId) firstAgentRowIdRef.current = agentRowId;
+              const newRow: Extract<ChatRow, { kind: "agent" }> = {
                 kind: "agent",
                 id: agentRowId,
                 text: block.text,
                 modelLabel: rowModel.label,
                 model: rowModel,
                 animate: historyReplayedRef.current,
-                // Real server timestamp (relative-date display) off this same
-                // "assistant" event (backend/src/lib.rs's own attach_created_at),
-                // not this tab's own current time -- otherwise every replayed
-                // historical reply would show whatever moment it happened to be
-                // replayed at instead of when it actually arrived.
+                // The server's timestamp, so a replayed reply shows when it arrived.
                 time: typeof event.created_at === "string" ? formatMessageTimestamp(parseServerTimestampMs(event.created_at)) : messageTime(),
                 effort: sentEffortRef.current,
-                // Real bug, confirmed directly via screenshot ("The arrow to
-                // expand and collapse is missing to see all the states that
-                // were ran"): this used to attach + reset liveReasoningTextRef/
-                // liveToolCallLinesRef right here, on EVERY text block -- but
-                // "Worked for Ns" (and its own expand arrow) only ever shows
-                // on the turn's first reply now (firstAgentRowIdRef's own
-                // comment). Any tool call that happened between a first reply
-                // ("I'll verify...") and a later closing summary ("Created
-                // Founders.md...") got attached to that SECOND row instead,
-                // which never gets a durationLabel and so never renders its
-                // own disclosure at all -- the data was real, just silently
-                // orphaned. Left unset here; the "result" handler (below)
-                // patches the actual first row with everything accumulated
-                // across the WHOLE turn, once it's actually over.
-              });
+                // No reasoning/tool lines here: "result" puts the whole turn's on its first row.
+              };
+              if (!turnRowId) {
+                pushRow(newRow);
+                continue;
+              }
+              // #557: later text of the same turn joins the turn's reply instead of a new message.
+              const merged = (rows: ChatRow[]) => addTurnText<ChatRow, typeof newRow>(rows, turnRowId, newRow);
+              if (pendingBranchReplayRef.current) {
+                pendingBranchReplayRef.current = merged(pendingBranchReplayRef.current);
+              } else {
+                if (!historyReplayedRef.current) historicalRowIdsRef.current.add(agentRowId);
+                setRows(merged);
+                scrollToBottomIfNear();
+              }
             } else if (block.type === "tool_use" && block.name === "WebSearch") {
               // No "tool" row for this one -- shown as the shimmer "Searching"
               // phase instead (waitingPhaseLabel, below), same treatment as
@@ -2960,6 +2964,12 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                   toolGroup={groupStarts.get(row.id)}
                   liveWorking={liveWorking}
                   latestReply={row.kind === "agent" && row.id === latestAgentRowId}
+                  turnLive={
+                    turnInProgress &&
+                    row.kind === "agent" &&
+                    firstAgentRowIdRef.current !== null &&
+                    (row.id === firstAgentRowIdRef.current || row.turnRowId === firstAgentRowIdRef.current)
+                  }
                   botMood={liveWorking ? waitingMood : undefined}
                 />
               </div>
@@ -3257,6 +3267,7 @@ function ChatRowView({
   toolGroup,
   liveWorking,
   latestReply = false,
+  turnLive = false,
   botMood,
 }: {
   row: ChatRow;
@@ -3286,6 +3297,8 @@ function ChatRowView({
   liveWorking?: { label: string; detailText?: string };
   /** The chat's latest reply: a bot's face there is alive (looking about; pleased when it arrives). */
   latestReply?: boolean;
+  // #557: this row is part of the turn still running, so its text may still grow.
+  turnLive?: boolean;
   /** While this reply's turn still runs: the bot's mood (waiting, thinking, working). */
   botMood?: BotMood;
 }) {
@@ -3706,37 +3719,40 @@ function ChatRowView({
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="flex items-center gap-1.5 px-1">
-        {/* size-4 (16px; was size-5) -- per explicit request ("make sure
-            that both icons are size 5 to match the size of the font at
-            the messages"), matching the row's own text-chat-meta label next to
-            it instead of running larger than it. */}
-        {bot && !row.runBy ? (
-          // #504: a bot's own reply -- the bot, then the model that answered for it.
-          <>
-            <BotFace
-              avatar={bot.avatar ?? undefined}
-              expression={botMood ? moodFace(botMood).expression : replyMood}
-              breathe={botMood ? moodFace(botMood).breathe : false}
-              animated={latestReply}
-              className="size-4"
-            />
-            <span className="text-chat-meta text-foreground">{bot.name}</span>
-            {/* The model that answered for it, with its provider's mark, as any reply shows. */}
-            <span className="text-chat-meta text-muted-foreground">·</span>
-            {row.model.value !== AUTO_BOT_MODEL.value && <ProviderIcon model={row.model} className="size-3.5" />}
-            <span className="text-chat-meta text-muted-foreground">{row.modelLabel}</span>
-          </>
-        ) : (
-          <>
-            <ProviderIcon model={row.model} className="size-4" onLoad={() => setIconLoaded(true)} />
-            {/* text-xs, no font-medium -- same fix as the "command" row's own
-                "Alongside" label just above: matches the "human" row's sender-name
-                label exactly, its real symmetric counterpart. */}
-            <span className="text-chat-meta text-muted-foreground">{row.modelLabel}</span>
-          </>
-        )}
-      </div>
+      {/* #557: a later part of the same reply (after a file edit card) has no header of its own. */}
+      {!row.turnRowId && (
+        <div className="flex items-center gap-1.5 px-1">
+          {/* size-4 (16px; was size-5) -- per explicit request ("make sure
+              that both icons are size 5 to match the size of the font at
+              the messages"), matching the row's own text-chat-meta label next to
+              it instead of running larger than it. */}
+          {bot && !row.runBy ? (
+            // #504: a bot's own reply -- the bot, then the model that answered for it.
+            <>
+              <BotFace
+                avatar={bot.avatar ?? undefined}
+                expression={botMood ? moodFace(botMood).expression : replyMood}
+                breathe={botMood ? moodFace(botMood).breathe : false}
+                animated={latestReply}
+                className="size-4"
+              />
+              <span className="text-chat-meta text-foreground">{bot.name}</span>
+              {/* The model that answered for it, with its provider's mark, as any reply shows. */}
+              <span className="text-chat-meta text-muted-foreground">·</span>
+              {row.model.value !== AUTO_BOT_MODEL.value && <ProviderIcon model={row.model} className="size-3.5" />}
+              <span className="text-chat-meta text-muted-foreground">{row.modelLabel}</span>
+            </>
+          ) : (
+            <>
+              <ProviderIcon model={row.model} className="size-4" onLoad={() => setIconLoaded(true)} />
+              {/* text-xs, no font-medium -- same fix as the "command" row's own
+                  "Alongside" label just above: matches the "human" row's sender-name
+                  label exactly, its real symmetric counterpart. */}
+              <span className="text-chat-meta text-muted-foreground">{row.modelLabel}</span>
+            </>
+          )}
+        </div>
+      )}
       {/* --redesign-chat-text leading-relaxed -- matches the reference component's own reply
           text size exactly (was text-sm/14px with Tailwind's default leading), per
           explicit request. No more whitespace-pre-wrap -- streamdown (streaming-
@@ -3771,7 +3787,8 @@ function ChatRowView({
           (index.css's own row-mount fade, already used for every row's own
           mount) reused here for this group's own first appearance, same
           motion, not a separate animation to maintain. */}
-      {actionsVisible && (
+      {/* #557: once per reply -- under its last part, and only after the turn ends. */}
+      {actionsVisible && !row.continued && !turnLive && (
         <div className="t-row-in flex w-full flex-col items-start gap-1">
           {/* #462: someone else's run -- their effort isn't known here, and retrying would rerun it as
               this person's own turn. */}
