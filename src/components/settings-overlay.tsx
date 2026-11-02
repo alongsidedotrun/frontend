@@ -2413,9 +2413,11 @@ type SettingsSidebarNavProps = {
   section: SettingsSection;
   /** Uses the compact navigation language of the redesign application shell. */
   variant?: "default" | "redesign";
+  /** Where "Return to chats" goes: the page Settings was opened from. "/" when not given. */
+  returnTo?: string;
 };
 
-export function SettingsSidebarNav({ section, variant = "default" }: SettingsSidebarNavProps) {
+export function SettingsSidebarNav({ section, variant = "default", returnTo = "/" }: SettingsSidebarNavProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
@@ -2615,7 +2617,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
           <div className="-mx-[var(--redesign-sidebar-edge-padding)] border-t border-[var(--redesign-sidebar-border)] px-[var(--redesign-sidebar-edge-padding)] pt-2">
             <button
               type="button"
-              onClick={() => navigate("/")}
+              onClick={() => navigate(returnTo)}
               className="flex h-[var(--redesign-sidebar-footer-account-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-chat font-normal text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <ArrowCircleBrokenLeftIcon aria-hidden="true" className="size-[var(--redesign-quick-actions-icon-size)] shrink-0" />

@@ -233,6 +233,16 @@ export function toImageInputs(images: ImageAttachment[]) {
   });
 }
 
+// The images in a paste. Some sources list a file only in `files`, others only in `items`.
+export function pastedImageFiles(data: Pick<DataTransfer, "files" | "items">): File[] {
+  const fromFiles = Array.from(data.files ?? []);
+  const fromItems = Array.from(data.items ?? [])
+    .filter((item) => item.kind === "file")
+    .map((item) => item.getAsFile())
+    .filter((file): file is File => file !== null);
+  return (fromFiles.length > 0 ? fromFiles : fromItems).filter((file) => file.type.startsWith("image/"));
+}
+
 function readImageFile(file: File): Promise<ImageAttachment> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -1938,6 +1948,15 @@ export function ComposeBox({
           }}
           onFocus={() => setTextareaFocused(true)}
           onBlur={() => setTextareaFocused(false)}
+          // Pasting an image (a screenshot, a copied image or image file) attaches it, as the
+          // + button and dropping one do. Text that comes with it (a copy from a document can
+          // carry a picture of the text too) is pasted as text instead.
+          onPaste={(event) => {
+            const images = pastedImageFiles(event.clipboardData);
+            if (images.length === 0 || event.clipboardData.getData("text/plain")) return;
+            event.preventDefault();
+            void addImageFiles(images);
+          }}
           onKeyDown={(event) => {
             // Backspace at the very start removes the command chip.
             if (command && event.key === "Backspace" && event.currentTarget.selectionStart === 0 && event.currentTarget.selectionEnd === 0) {

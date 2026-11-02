@@ -394,6 +394,18 @@ export function RedesignPage() {
     setExpandedProjects((current) => (current.has(openChatProjectId) ? current : new Set(current).add(openChatProjectId)));
   }, [openChatProjectId]);
   const isSettingsRoute = location.pathname.startsWith("/settings");
+  // The page Settings was opened from, so "Return to chats" goes back to that chat. Going to "/"
+  // instead showed New while the sidebar still marked the chat as open (activeChatId), and
+  // clicking that chat did nothing, since it counted as already open.
+  const lastPagePathRef = useRef("/");
+  useEffect(() => {
+    if (!isSettingsRoute) lastPagePathRef.current = location.pathname + location.search;
+  }, [isSettingsRoute, location.pathname, location.search]);
+  // "/" always shows New (the routed HomePage), so a chat remembered from before is stale there:
+  // left set, the sidebar kept marking it open and clicking it was a no-op.
+  useEffect(() => {
+    if (location.pathname === "/" && activeChatId) setActiveChatId(null);
+  }, [location.pathname, activeChatId]);
   const settingsPathSection = location.pathname.split("/")[2] as SettingsSection | undefined;
   const settingsSection = settingsPathSection && SETTINGS_SECTIONS.includes(settingsPathSection)
     ? settingsPathSection
@@ -1213,7 +1225,7 @@ export function RedesignPage() {
           className="flex h-full min-h-0 w-full bg-[var(--redesign-sidebar-surface)]"
           contentClassName="flex h-full min-h-0 w-full"
         >
-          {isSettingsRoute ? <SettingsSidebarNav section={settingsSection} variant="redesign" /> :
+          {isSettingsRoute ? <SettingsSidebarNav section={settingsSection} variant="redesign" returnTo={lastPagePathRef.current} /> :
           <div className="flex h-full min-h-0 w-full min-w-0 flex-col">
           <div className="flex flex-col gap-[var(--redesign-quick-actions-gap)]">
             <div className="flex h-[var(--redesign-workspace-trigger-height)] items-center">

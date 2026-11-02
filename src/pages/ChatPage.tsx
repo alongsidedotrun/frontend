@@ -1,4 +1,5 @@
 import { Trans, useTranslation } from "react-i18next";
+import { contextTokensUsed, type TurnUsage } from "@/lib/context-usage";
 import i18n from "@/i18n";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useOutletContext, useParams } from "react-router-dom";
@@ -1890,42 +1891,9 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             timestamp: Date.now(),
           });
         }
-        // usage.input_tokens is the uncached portion of this turn's prompt;
-        // the remaining fields are each provider's own name for the cached
-        // portion of that same prompt -- confirmed live against all three
-        // real CLIs directly (not assumed from docs), and each provider only
-        // ever sends its own subset, so summing every field below never
-        // double-counts regardless of which one actually produced this
-        // reply: Claude names them cache_creation_input_tokens/
-        // cache_read_input_tokens, Codex cached_input_tokens/
-        // cache_write_input_tokens, Antigravity cache_read_tokens (and also
-        // hands back a precomputed total_tokens, used directly when present
-        // since it's the provider's own real sum, not a re-derived one).
-        // Summed with output_tokens (the reply just generated, now part of
-        // the conversation), this gives the context size the *next* turn
-        // will start from.
-        const usage = event.usage as
-          | {
-              input_tokens?: number;
-              output_tokens?: number;
-              cache_creation_input_tokens?: number;
-              cache_read_input_tokens?: number;
-              cached_input_tokens?: number;
-              cache_write_input_tokens?: number;
-              cache_read_tokens?: number;
-              total_tokens?: number;
-            }
-          | undefined;
-        if (usage) {
-          const used =
-            usage.total_tokens ??
-            (usage.input_tokens ?? 0) +
-              (usage.output_tokens ?? 0) +
-              (usage.cache_creation_input_tokens ?? 0) +
-              (usage.cache_read_input_tokens ?? 0) +
-              (usage.cached_input_tokens ?? 0) +
-              (usage.cache_write_input_tokens ?? 0) +
-              (usage.cache_read_tokens ?? 0);
+        // The context the next turn starts from (lib/context-usage.ts).
+        const used = event.usage ? contextTokensUsed(event.usage as TurnUsage) : null;
+        if (used !== null) {
           const usageValue = { used };
           setContextUsage(usageValue);
           saveLastContext(usageValue);
@@ -1933,8 +1901,10 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           // (#502): the backend saves a checkpoint and the next turn starts a fresh
           // session carrying it, the work state and the recent conversation, so nothing
           // is lost to a compaction. (Claude no longer gets --autocompact for this.)
+          // Not for a replayed result: opening or reconnecting the chat replays its last
+          // turn, and that used to hand the chat off again each time.
           if (used >= autocompactThresholdRef.current) {
-            if (!compactedAboveRef.current) {
+            if (!compactedAboveRef.current && !replayingRef.current) {
               compactedAboveRef.current = true;
               void fetch(`/sessions/${sessionId}/handoff`, { method: "POST" });
             }
