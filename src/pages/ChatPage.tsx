@@ -2691,7 +2691,9 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     (waitingPhase === "working" && liveElapsedSec !== null ? ` ${formatWorkedDuration(liveElapsedSec)}` : "");
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col bg-background">
+    // min-w-0: without it a wide line (a long command in the permission card's "Always allow"
+    // row) set this page's minimum width, and the shell cropped the whole app to fit it (#550).
+    <div className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-background">
       <NewAgentDialog open={newAgentOpen} onClose={() => setNewAgentOpen(false)} onAdd={chatAgents.add} />
       {contextLabel && (
         <div className={`absolute top-3 right-0 left-0 z-10 ${chatSidePadding}`}>
@@ -4154,7 +4156,7 @@ function PermissionCard({
   }
 
   return (
-    <div className="flex w-full flex-col gap-2.5 rounded-[var(--redesign-chat-bubble-radius)] border border-border bg-sidebar p-3">
+    <div className="flex w-full min-w-0 flex-col gap-2.5 rounded-[var(--redesign-chat-bubble-radius)] border border-border bg-sidebar p-3">
       {/* No icon beside the title any more -- per explicit follow-up
           ("we should have no icons there at the title"). */}
       <div className="flex items-center gap-2">
@@ -4179,7 +4181,7 @@ function PermissionCard({
         </button>
       </div>
       {commandText && (
-        <pre className="max-w-full overflow-x-auto rounded-lg bg-muted px-2.5 py-2 text-chat-meta whitespace-pre-wrap text-foreground">
+        <pre className="max-h-48 max-w-full overflow-auto rounded-lg bg-muted px-2.5 py-2 text-chat-meta whitespace-pre-wrap [overflow-wrap:anywhere] text-foreground">
           {commandText}
         </pre>
       )}
@@ -4251,7 +4253,7 @@ function PermissionOptionRow({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 text-left text-chat text-foreground transition-colors hover:bg-hover-2/50 disabled:opacity-50"
+      className="flex min-w-0 items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 text-left text-chat text-foreground transition-colors hover:bg-hover-2/50 disabled:opacity-50"
     >
       <span className="flex size-4 shrink-0 items-center justify-center rounded bg-hover-2/50 text-ui-2xs font-semibold text-muted-foreground">
         {number}
