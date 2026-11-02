@@ -1333,8 +1333,10 @@ export function RedesignPage() {
       contentClassName="flex min-h-0 overflow-hidden bg-background"
     >
       <SidebarSurfaceTransition
-        className="flex min-h-0 flex-1 bg-background"
-        contentClassName="flex min-h-0 w-full flex-1 bg-background"
+        // min-w-0 on both: a flex child otherwise can't shrink below its widest content, so a
+        // long line in a chat widened the whole pane past a 900px window and cropped the compose box.
+        className="flex min-h-0 min-w-0 flex-1 bg-background"
+        contentClassName="flex min-h-0 w-full min-w-0 flex-1 bg-background"
         surfaceKey={redesignSurfaceKey}
       >
         {location.pathname === "/sign-in" ? (
