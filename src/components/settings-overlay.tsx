@@ -1533,6 +1533,8 @@ type GithubCliStatus = {
   installed: boolean;
   username: string | null;
   login: { code: string; url: string } | null;
+  // #555: agents only read GitHub unless this is on.
+  agent_writes: boolean;
 };
 
 // GitHub through its own CLI (backend/src/github_cli.rs): download it if it isn't here, then its browser
@@ -1575,6 +1577,23 @@ function GithubAppConnectionView({ onBack }: { onBack: () => void }) {
     }
   }
 
+  async function setWrites(allowed: boolean) {
+    setBusy(true);
+    try {
+      const response = await fetch("/integrations/github/cli/writes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ allowed }),
+      });
+      if (!response.ok) showErrorToast(t("settings.apps.github.error", { detail: response.statusText }));
+    } catch {
+      showErrorToast(t("settings.providers.noConnection"));
+    } finally {
+      setBusy(false);
+      refresh();
+    }
+  }
+
   function copyCode() {
     if (!status?.login) return;
     void navigator.clipboard.writeText(status.login.code).then(() => {
@@ -1599,6 +1618,20 @@ function GithubAppConnectionView({ onBack }: { onBack: () => void }) {
       {!status ? null : status.username ? (
         <div className="mt-5 flex flex-col gap-3">
           <p className="text-ui text-muted-foreground">{t("settings.apps.github.useInChat")}</p>
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="text-ui-sm font-medium text-foreground">{t("settings.apps.github.writes.title")}</div>
+              <p className="mt-0.5 text-ui-sm text-muted-foreground">
+                {t(status.agent_writes ? "settings.apps.github.writes.on" : "settings.apps.github.writes.off")}
+              </p>
+            </div>
+            <Switch
+              checked={status.agent_writes}
+              disabled={busy}
+              onToggle={() => void setWrites(!status.agent_writes)}
+              aria-label={t("settings.apps.github.writes.title")}
+            />
+          </div>
           <Button variant="outline" className="w-fit" disabled={busy} onClick={() => void run("/integrations/github/cli", "DELETE").then(onBack)}>
             {t("common.disconnect")}
           </Button>
