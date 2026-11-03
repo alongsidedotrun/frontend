@@ -3303,13 +3303,14 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           />
         ) : null}
         {handoffWaiting && sessionId && (
-          <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-ui-sm">
-            <span className="text-muted-foreground">{t("chat.handoffWaiting")}</span>
+          // Same look as the "Continued in a fresh session" line it turns into.
+          <div className="mb-2 text-center text-chat-meta text-muted-foreground/70">
+            {t("chat.handoffWaiting")}
             {!turnInProgress && (
               <button
                 type="button"
                 disabled={handingOff}
-                className="shrink-0 rounded-md px-2 py-1 text-foreground hover:bg-hover-2 disabled:opacity-50"
+                className="ml-1.5 underline decoration-dotted underline-offset-4 hover:text-foreground disabled:opacity-50"
                 title={t("chat.handoffNowHint")}
                 onClick={() => {
                   setHandingOff(true);
