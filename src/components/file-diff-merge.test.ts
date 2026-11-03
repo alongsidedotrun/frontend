@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeFileEdits, type DiffRow } from "./FileDiff";
+import { dedentRows, mergeFileEdits, type DiffRow } from "./FileDiff";
 
 const add = (text: string): DiffRow => ({ old: null, cur: 1, type: "add", text }) as DiffRow;
 const file = (path: string, rows: DiffRow[] | null) => ({ name: path.split("/").pop()!, path, syncRows: rows });
@@ -20,5 +20,20 @@ describe("mergeFileEdits (#556)", () => {
     const out = mergeFileEdits([file("x", [add("old")]), file("x", [add("new")])], "replace");
     expect(out).toHaveLength(1);
     expect(out[0].syncRows?.map((r) => r.text)).toEqual(["new"]);
+  });
+});
+
+describe("dedentRows", () => {
+  it("drops the indentation all lines share, keeping relative indentation", () => {
+    const rows = [
+      { old: 1, cur: 1, type: "ctx" as const, text: "      const a = 1;" },
+      { old: null, cur: 2, type: "add" as const, text: "" },
+      { old: null, cur: 3, type: "add" as const, text: "        b();" },
+    ];
+    expect(dedentRows(rows).map((r) => r.text)).toEqual(["const a = 1;", "", "  b();"]);
+  });
+  it("leaves unindented code alone", () => {
+    const rows = [{ old: 1, cur: 1, type: "ctx" as const, text: "fn main() {}" }];
+    expect(dedentRows(rows)).toBe(rows);
   });
 });

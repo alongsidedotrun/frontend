@@ -54,6 +54,19 @@ export function diffToRows(oldText: string, newText: string): DiffRow[] {
   return rows;
 }
 
+// An Edit's snippet usually comes from deep inside a file, and lines don't wrap, so its own
+// indentation pushed the code far to the right. The indentation every shown line shares is
+// dropped (blank lines don't count); relative indentation stays.
+export function dedentRows(rows: DiffRow[]): DiffRow[] {
+  let cut = Infinity;
+  for (const r of rows) {
+    if (!r.text.trim()) continue;
+    cut = Math.min(cut, /^[ \t]*/.exec(r.text)![0].length);
+  }
+  if (!cut || cut === Infinity) return rows;
+  return rows.map((r) => ({ ...r, text: r.text.trim() ? r.text.slice(cut) : "" }));
+}
+
 function DiffIcon() {
   return (
     <svg className={styles.diffIcon} viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
@@ -106,7 +119,7 @@ function DiffLines({ rows, file }: { rows: DiffRow[]; file: string }) {
   return (
     <div className={styles.diffBody}>
       <div className={styles.diffLines}>
-        {rows.map((r, i) => (
+        {dedentRows(rows).map((r, i) => (
           <div key={i} className={`${styles.diffRow} ${styles[r.type]}`}>
             {/* Real bug, confirmed directly ("there's a gap in between the
                 numbers and the left border" / "between the left and the
