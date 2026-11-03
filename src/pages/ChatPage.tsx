@@ -14,7 +14,7 @@ import { QuestionCard, questionsOf } from "@/components/question-card";
 import { BotFace, moodFace, useBotMood, type BotAvatar, type BotMood } from "@/components/bot-face";
 import { AnimatePresence, motion } from "motion/react";
 import { spring } from "@/lib/springs";
-import { isAutoScrollSuppressed, suppressAutoScroll } from "@/lib/chat-scroll-suppress";
+import { isAutoScrollSuppressed, suppressAutoScroll, toggledDisclosure } from "@/lib/chat-scroll-suppress";
 import { GUEST_NAME, getUserDisplayName } from "@/lib/user";
 import { useIsSignedIn } from "@/lib/auth";
 import { CommandChip, ComposeBox, leadingCommand, toImageInputs, type ImageAttachment } from "@/components/compose-box";
@@ -1146,9 +1146,30 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     // genuine "follow the new content" case that should still scroll even
     // if a disclosure happens to be mid-transition at the same moment.
     const observer = new ResizeObserver(() => {
-      if (isAutoScrollSuppressed()) return;
+      if (isAutoScrollSuppressed()) {
+        revealToggled();
+        return;
+      }
       scrollToBottomIfNear(false, true);
     });
+    // A disclosure the reader opened or closed. Opened: scroll just enough to show it, never
+    // pushing its own header above the top. Closed while at the bottom: stay at the bottom, so
+    // no empty space is left where it was.
+    const revealToggled = () => {
+      const log = chatLogRef.current;
+      const toggled = toggledDisclosure();
+      if (!log) return;
+      if (!toggled?.opening) {
+        if (followBottomRef.current && !detachedRef.current) log.scrollTop = log.scrollHeight;
+        return;
+      }
+      const view = log.getBoundingClientRect();
+      const box = toggled.el.getBoundingClientRect();
+      const below = box.bottom - (view.bottom - 16);
+      const headroom = box.top - (view.top + 8);
+      const by = Math.min(below, headroom);
+      if (by > 0) log.scrollTop += by;
+    };
     observer.observe(el);
     // The chat's own window shrinks or grows when something above the compose box (a question,
     // a task list) comes or goes. Someone reading the newest message stays on it; measured from
@@ -4534,6 +4555,7 @@ function TurnWorkDisclosure({
 }) {
   // Open while the turn runs, so its steps stream in; it folds into "Worked for Ns" when the turn ends.
   const [open, setOpen] = useState(!!live);
+  const boxRef = useRef<HTMLDivElement>(null);
   const wasLive = useRef(!!live);
   useEffect(() => {
     if (wasLive.current && !live) setOpen(false);
@@ -4559,7 +4581,7 @@ function TurnWorkDisclosure({
   // label (not the reference's own "Thought for Ns") passes straight
   // through unchanged, per explicit decision.
   return (
-    <div className="px-1">
+    <div ref={boxRef} className="px-1">
       <ThinkingReasoning
         label={label}
         title={title}
@@ -4573,7 +4595,7 @@ function TurnWorkDisclosure({
         open={open}
         onToggleOpen={() => {
           // chat-scroll-suppress.ts's own comment has the full reasoning.
-          suppressAutoScroll();
+          suppressAutoScroll(boxRef.current, !open);
           setOpen((prev) => !prev);
         }}
       />

@@ -26,8 +26,18 @@ let suppressUntil = 0;
 // callback to land after the animation genuinely settles.
 const SUPPRESS_MS = 400;
 
-export function suppressAutoScroll(): void {
+// The disclosure being opened or closed. Following the bottom stays off while it animates, but
+// an opened one is still brought into view (ChatPage.tsx, revealToggled): opening the live
+// Working at the bottom of the chat used to leave it below the edge until the reader scrolled.
+let toggled: { el: Element; opening: boolean } | null = null;
+
+export function suppressAutoScroll(el?: Element | null, opening = false): void {
   suppressUntil = Date.now() + SUPPRESS_MS;
+  toggled = el ? { el, opening } : null;
+}
+
+export function toggledDisclosure(): { el: Element; opening: boolean } | null {
+  return isAutoScrollSuppressed() && toggled?.el.isConnected ? toggled : null;
 }
 
 export function isAutoScrollSuppressed(): boolean {

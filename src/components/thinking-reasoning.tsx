@@ -108,8 +108,8 @@ function ToolStep({ step, active }: { step: Extract<WorkStep, { kind: "tools" }>
         type="button"
         className={styles.stepToggle}
         aria-expanded={open}
-        onClick={() => {
-          suppressAutoScroll();
+        onClick={(event) => {
+          suppressAutoScroll(event.currentTarget.parentElement, !open);
           setOpen((v) => !v);
         }}
       >
