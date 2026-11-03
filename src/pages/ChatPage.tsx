@@ -861,6 +861,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // the next crossing).
   const autocompactThresholdRef = useRef(500_000);
   const compactedAboveRef = useRef(false);
+  // Past the threshold, the handoff was refused because the agent left background work running
+  // (a dev server, a build watch): handing off would stop it. Shown above the compose box, with a
+  // way to hand off anyway, instead of the chat silently growing past its threshold.
+  const [handoffWaiting, setHandoffWaiting] = useState(false);
+  const [handingOff, setHandingOff] = useState(false);
   const [autocompactValue, setAutocompactValue] = useState("500000");
   // Per explicit request ("Compact per chat as a describer or Context per project as
   // a describer"): the Context dropdown's own label reflects which scope is actually
@@ -1203,6 +1208,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     hasPinnedDefaultModelRef.current = false;
     projectIdRef.current = null;
     compactedAboveRef.current = false;
+    setHandoffWaiting(false);
 
     setRows([]);
     setHistoryWindow({ start: null, end: null });
@@ -1440,6 +1446,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         // size until the next reply (#552). 0 keeps the meter's space; the next result corrects it.
         setContextUsage({ used: 0 });
         compactedAboveRef.current = false;
+        setHandoffWaiting(false);
         if (!replayingRef.current) saveLastContext({ used: 0 });
         return;
       }
@@ -2071,8 +2078,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               // Refused (a turn or background work still running, or nothing to hand off yet):
               // ask again after the next turn rather than never.
               void fetch(`/sessions/${sessionId}/handoff`, { method: "POST" })
-                .then((response) => {
-                  if (!response.ok) compactedAboveRef.current = false;
+                .then(async (response) => {
+                  if (response.ok) return setHandoffWaiting(false);
+                  compactedAboveRef.current = false;
+                  const body = (await response.json().catch(() => null)) as { error?: string } | null;
+                  setHandoffWaiting(body?.error === "background_work_running");
                 })
                 .catch(() => {
                   compactedAboveRef.current = false;
@@ -2080,6 +2090,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             }
           } else {
             compactedAboveRef.current = false;
+            setHandoffWaiting(false);
           }
         }
         return;
@@ -3291,6 +3302,29 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             onPause={turnInProgress ? () => void stopTurn() : undefined}
           />
         ) : null}
+        {handoffWaiting && sessionId && (
+          <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-ui-sm">
+            <span className="text-muted-foreground">{t("chat.handoffWaiting")}</span>
+            {!turnInProgress && (
+              <button
+                type="button"
+                disabled={handingOff}
+                className="shrink-0 rounded-md px-2 py-1 text-foreground hover:bg-hover-2 disabled:opacity-50"
+                title={t("chat.handoffNowHint")}
+                onClick={() => {
+                  setHandingOff(true);
+                  void fetch(`/sessions/${sessionId}/handoff?force=true`, { method: "POST" })
+                    .then((response) => {
+                      if (response.ok) setHandoffWaiting(false);
+                    })
+                    .finally(() => setHandingOff(false));
+                }}
+              >
+                {t("chat.handoffNow")}
+              </button>
+            )}
+          </div>
+        )}
         <ComposeBox
           // Forces a remount whenever a *new* edit starts (editMessage's
           // own comment above has the full reasoning) -- ComposeBox's own
