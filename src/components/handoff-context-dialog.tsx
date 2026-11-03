@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { StreamingText } from "@/components/streaming-text";
+import tr from "@/components/thinking-reasoning.module.css";
 import { checkpointText, parseConversation, parseHandoff, parseWorkState, type HandoffSection, type WorkBlock } from "@/lib/handoff-context";
 
 // #502: "Continued in a fresh session" opens to show exactly what the next agent was given about
@@ -110,10 +111,7 @@ function Sections({ sections }: { sections: HandoffSection[] }) {
                     <StreamingText text={turn.text} animate={false} />
                   </div>
                 ) : (
-                  <details className="group">
-                    <summary className="cursor-pointer select-none text-ui-xs text-muted-foreground hover:text-foreground">
-                      {t("chat.handoff.toolCalls", { count: turn.tools.length })}
-                    </summary>
+                  <Disclosure summary={<span className="text-ui-xs text-muted-foreground">{t("chat.handoff.toolCalls", { count: turn.tools.length })}</span>}>
                     <ul className="mt-1 space-y-1">
                       {turn.tools.map((tool, j) => (
                         <li key={j} className="truncate font-mono text-ui-2xs text-muted-foreground" title={tool}>
@@ -121,7 +119,7 @@ function Sections({ sections }: { sections: HandoffSection[] }) {
                         </li>
                       ))}
                     </ul>
-                  </details>
+                  </Disclosure>
                 )}
               </div>
             ))}
@@ -139,12 +137,9 @@ function Sections({ sections }: { sections: HandoffSection[] }) {
         <Section title={t("chat.handoff.files")} count={files.length}>
           <div className="space-y-2">
             {files.map((f, i) => (
-              <details key={i}>
-                <summary className="cursor-pointer select-none truncate text-ui-sm hover:text-foreground" title={f.path}>
-                  <FileName path={f.path ?? ""} />
-                </summary>
+              <Disclosure key={i} summary={<span className="min-w-0 truncate text-ui-sm" title={f.path}><FileName path={f.path ?? ""} /></span>}>
                 <Mono>{f.body}</Mono>
-              </details>
+              </Disclosure>
             ))}
           </div>
         </Section>
@@ -168,16 +163,41 @@ function Sections({ sections }: { sections: HandoffSection[] }) {
   );
 }
 
+// The same opening and closing as the Working/thinking block (thinking-reasoning.module.css): its
+// chevron, and its grid-rows height and fade transition.
+function Disclosure({ summary, open: initiallyOpen = false, className = "", children }: { summary: ReactNode; open?: boolean; className?: string; children: ReactNode }) {
+  const [open, setOpen] = useState(initiallyOpen);
+  return (
+    <div className="min-w-0">
+      <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} className={`flex w-full min-w-0 items-center gap-2 text-left hover:text-foreground ${className}`}>
+        <svg className={tr.trChevron} style={open ? { transform: "rotate(180deg)" } : undefined} viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
+          <path d="m4.5 15.75 7.5-7.5 7.5 7.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        {summary}
+      </button>
+      <div className={tr.trCollapsible + (open ? "" : " " + tr.isCollapsed)} aria-hidden={!open}>
+        <div className={tr.trInner}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
 function Section({ title, count, open, children }: { title: string; count?: number; open?: boolean; children: ReactNode }) {
   return (
-    <details open={open} className="group rounded-lg border border-border bg-background">
-      <summary className="flex cursor-pointer select-none list-none items-center gap-2 px-3 py-2 text-ui-sm font-medium [&::-webkit-details-marker]:hidden">
-        <span className="inline-block text-muted-foreground transition-transform group-open:rotate-90">›</span>
-        <span>{title}</span>
-        {count !== undefined && <span className="text-ui-xs font-normal text-muted-foreground">{count}</span>}
-      </summary>
-      <div className="min-w-0 border-t border-border px-3 py-3">{children}</div>
-    </details>
+    <div className="rounded-lg border border-border bg-background">
+      <Disclosure
+        open={open}
+        className="px-3 py-2"
+        summary={
+          <>
+            <span className="text-ui-sm font-medium">{title}</span>
+            {count !== undefined && <span className="text-ui-xs text-muted-foreground">{count}</span>}
+          </>
+        }
+      >
+        <div className="min-w-0 border-t border-border px-3 py-3">{children}</div>
+      </Disclosure>
+    </div>
   );
 }
 
@@ -241,15 +261,18 @@ function WorkState({ blocks }: { blocks: WorkBlock[] }) {
                     }
                     return (
                       <li key={j} className="min-w-0">
-                        <details>
-                          <summary className="flex cursor-pointer select-none list-none gap-2 font-mono text-ui-2xs [&::-webkit-details-marker]:hidden">
-                            {mark}
-                            <span className="min-w-0 truncate" title={first}>
-                              {first} …
+                        <Disclosure
+                          summary={
+                            <span className="flex min-w-0 gap-2 font-mono text-ui-2xs">
+                              {mark}
+                              <span className="min-w-0 truncate" title={first}>
+                                {first} …
+                              </span>
                             </span>
-                          </summary>
+                          }
+                        >
                           <Mono>{item.text}</Mono>
-                        </details>
+                        </Disclosure>
                       </li>
                     );
                   }
