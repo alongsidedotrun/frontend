@@ -99,16 +99,20 @@
   background: transparent;
 }
 .diffChevron:hover { color: #1a1a1a; background: rgba(0, 0, 0, 0.05); }
+/* Lines keep their shape and scroll sideways, like aicss.dev's file-diff: wrapping a long line
+   onto a second row (the earlier fix for lines leaving the card) made code hard to read and every
+   row a different height. The card still never grows past the chat column: .diff is width 100%
+   and this box scrolls instead, with a thin scrollbar so it's clear there's more. */
 .diffBody {
   position: relative;
-  margin: 0 -16px -16px; overflow: hidden;
+  margin: 0 -16px -16px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin;
   /* Real bug, confirmed directly via screenshot ("It's the gap from the
      green/red entire div to the bg of the editor") -- the colored add/del
      background spans the full diff block with barely any room above it
      (right against the header's own divider) or below it (right against
      the card's own bottom edge). This is that outer gap, not per-row
      spacing (a separate, wrong guess already reverted, above). */
-  padding: 20px 0; font-size: 12.5px; line-height: 20px;
+  padding: 4px 0; font-size: 12.5px; line-height: 20px;
 }
 /* width: 100%, not max-content -- real bug, confirmed directly via
    screenshot ("file diff still exiting the content width"): max-content
@@ -118,17 +122,22 @@
    was even possible; it just read as broken. Long lines wrap in place
    instead now (.diffRow code, below), the same way a chat-embedded diff
    reads elsewhere in this app, rather than requiring a hidden scroll. */
-.diffLines { position: relative; width: 100%; }
+.diffLines { position: relative; width: max-content; min-width: 100%; }
 /* full-height gutter divider at the line-number edge. */
 .diffLines::before { content: ""; position: absolute; top: 0; bottom: 0; left: 34px; width: 0.5px; background: #e6e8eb; z-index: 1; pointer-events: none; }
 .diffRow {
   position: relative;
-  display: grid; grid-template-columns: 34px 18px 1fr; align-items: start;
+  display: grid; grid-template-columns: 34px 18px 1fr; align-items: stretch;
 }
 .diffRow .ln, .diffRow .sign { user-select: none; color: #a1a1a1; font-size: 11px; }
 .diffRow .ln { text-align: right; padding: 0 8px; }
 .diffRow .sign { text-align: center; }
-.diffRow code { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; padding: 0 12px 0 8px; color: #a1a1a1; }
+.diffRow code { white-space: pre; padding: 0 16px 0 8px; color: #a1a1a1; }
+.diffRow code .kw { color: #cf222e; }
+.diffRow code .str { color: #0a3069; }
+.diffRow code .fn { color: #8250df; }
+.diffRow code .num { color: #0550ae; }
+.diffRow code .cm { color: #6e7781; }
 /* left accent bar: solid green for additions, red hatch for deletions */
 .diffRow.add::before, .diffRow.del::before {
   content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 3px;
@@ -165,6 +174,11 @@
   .diffRow.del::before { background: repeating-linear-gradient(45deg, #f87171 0, #f87171 1.5px, transparent 1.5px, transparent 3px); }
   .diffRow.del .sign, .diffRow.del .ln { color: #f87171; }
   .diffRow.del code { color: #f5f5f5; }
+  .diffRow code .kw { color: #ff7b72; }
+  .diffRow code .str { color: #a5d6ff; }
+  .diffRow code .fn { color: #d2a8ff; }
+  .diffRow code .num { color: #79c0ff; }
+  .diffRow code .cm { color: #8b949e; }
   .diffChevron { color: #9ca3af; }
   .diffChevron:hover { color: #f5f5f5; background: rgba(255, 255, 255, 0.08); }
 }

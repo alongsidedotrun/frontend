@@ -3,6 +3,7 @@ import { useEffect, useState, type MouseEvent } from "react";
 import { diffLines } from "diff";
 import { FileExtensionBadge, stripExtension } from "@/components/file-extension-badge";
 import { FilePlusIcon } from "@/components/icons/untitled-ui";
+import { highlightLine } from "@/lib/diff-highlight";
 import styles from "./FileDiff.module.css";
 
 // Saved from aicss.dev's file-diff component (npx shadcn@latest add
@@ -101,7 +102,7 @@ function DiffChevron({ open, onClick }: { open: boolean; onClick: (e: MouseEvent
   );
 }
 
-function DiffLines({ rows }: { rows: DiffRow[] }) {
+function DiffLines({ rows, file }: { rows: DiffRow[]; file: string }) {
   return (
     <div className={styles.diffBody}>
       <div className={styles.diffLines}>
@@ -121,7 +122,11 @@ function DiffLines({ rows }: { rows: DiffRow[] }) {
                 never actually in use here. */}
             <span className={styles.ln}>{r.cur ?? r.old ?? ""}</span>
             <span className={styles.sign}>{r.type === "add" ? "+" : r.type === "del" ? "-" : ""}</span>
-            <code>{r.text}</code>
+            <code>
+              {highlightLine(r.text, file).map((token, j) =>
+                token.kind === "txt" ? token.text : <span key={j} className={styles[token.kind]}>{token.text}</span>
+              )}
+            </code>
           </div>
         ))}
       </div>
@@ -176,7 +181,7 @@ export function FileDiff({
           />
         )}
       </div>
-      <DiffLines rows={open ? rows : rows.slice(0, SNIPPET_LINES)} />
+      <DiffLines rows={open ? rows : rows.slice(0, SNIPPET_LINES)} file={file} />
     </div>
   );
 }
@@ -349,7 +354,7 @@ function ResolvedFile({
           />
         )}
       </div>
-      {open ? <DiffLines rows={rows} /> : !nested && <DiffLines rows={rows.slice(0, SNIPPET_LINES)} />}
+      {open ? <DiffLines rows={rows} file={file.name} /> : !nested && <DiffLines rows={rows.slice(0, SNIPPET_LINES)} file={file.name} />}
     </div>
   );
 }
