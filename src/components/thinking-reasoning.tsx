@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { suppressAutoScroll } from "@/lib/chat-scroll-suppress";
 import { useTextSwap } from "@/lib/use-text-swap";
 import styles from "./thinking-reasoning.module.css";
@@ -173,14 +173,37 @@ export function ThinkingReasoning({
   const firstShown = live && !open ? Math.max(0, revealed.length - 1) : 0;
   const visibleItems = revealed.slice(firstShown);
 
-  const onScroll = () => {
+  // Opened, the steps sit in a box of fixed height that scrolls inside (aicss.dev's
+  // thinking-reasoning), with a fade at whichever edge has more to see. While the turn runs it
+  // follows the newest step, unless the reader scrolled up.
+  const followRef = useRef(true);
+  const measure = () => {
     const el = viewportRef.current;
     if (!el) return;
-    setFade({
-      top: el.scrollTop > 1,
-      bottom: el.scrollTop + el.clientHeight < el.scrollHeight - 1,
-    });
+    const top = el.scrollTop > 1;
+    const bottom = el.scrollTop + el.clientHeight < el.scrollHeight - 1;
+    setFade((f) => (f.top === top && f.bottom === bottom ? f : { top, bottom }));
   };
+  const onScroll = () => {
+    const el = viewportRef.current;
+    if (el) followRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 8;
+    measure();
+  };
+  useLayoutEffect(() => {
+    const el = viewportRef.current;
+    if (!el || !open) return;
+    if (live && followRef.current) el.scrollTop = el.scrollHeight;
+    measure();
+    // Steps (a Run command) open inside it and change its height.
+    const ro = new ResizeObserver(measure);
+    if (el.firstElementChild) ro.observe(el.firstElementChild);
+    return () => ro.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, live, visibleItems.length]);
+  useEffect(() => {
+    if (!open) followRef.current = true;
+  }, [open]);
+  const edgeFade = `linear-gradient(to bottom, ${fade.top ? "transparent 0, #000 20px" : "#000 0"}, ${fade.bottom ? "#000 calc(100% - 20px), transparent 100%" : "#000 100%"})`;
 
   return (
     <div className={live ? `${styles.tr} ${styles.isLive}` : styles.tr}>
@@ -221,10 +244,12 @@ export function ThinkingReasoning({
         <div className={styles.trInner}>
           <div
             ref={viewportRef}
-            className={styles.trViewport + (open && !live ? " " + styles.isScroll : "")}
-            onScroll={open && !live ? onScroll : undefined}
+            className={styles.trViewport + (open ? " " + styles.isScroll : "")}
+            onScroll={open ? onScroll : undefined}
             style={
-              live
+              open
+                ? { WebkitMaskImage: edgeFade, maskImage: edgeFade }
+                : live
                 ? {
                     WebkitMaskImage: fade.bottom
                       ? "linear-gradient(to bottom, #000 calc(100% - 16px), transparent 100%)"

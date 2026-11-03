@@ -69,11 +69,27 @@
 .trViewport {
   margin-top: 6px;
 }
+/* Opened, the steps scroll inside a box of fixed height (aicss.dev's thinking-reasoning) instead
+   of pushing the chat down by hundreds of lines. The scrollbar stays visible and the edges fade
+   (thinking-reasoning.tsx, edgeFade), so it's clear there is more: the earlier 180px box hid its
+   scrollbar and read as cropped. */
 .trViewport.isScroll {
+  max-height: min(320px, 45vh);
   overflow-y: auto;
-  scrollbar-width: none;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--foreground) 18%, transparent) transparent;
 }
-.trViewport.isScroll::-webkit-scrollbar { display: none; }
+/* A step's own detail (a Run command, a long path or query) scrolls inside its own box too. */
+.trToolDetailBody,
+.snippetBody {
+  max-height: 160px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--foreground) 18%, transparent) transparent;
+}
 .trStream {
   display: flex;
   flex-direction: column;
