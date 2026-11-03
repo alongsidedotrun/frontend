@@ -10,6 +10,7 @@ import { addressedAgent, useChatAgents } from "@/lib/chat-agents";
 import { NewAgentDialog } from "@/components/new-agent-dialog";
 import { EarlierSummary, HandoffNotice } from "@/components/handoff-context-dialog";
 import { ProviderNotice } from "@/components/provider-gate";
+import { QuestionCard, questionsOf } from "@/components/question-card";
 import { BotFace, moodFace, useBotMood, type BotAvatar, type BotMood } from "@/components/bot-face";
 import { AnimatePresence, motion } from "motion/react";
 import { spring } from "@/lib/springs";
@@ -317,6 +318,7 @@ const TOOL_NAME_ALIASES: Record<string, string> = {
 // bucket since no such real tool exists.
 const TOOL_DISPLAY_LABELS: Record<string, string> = {
   Bash: "Run",
+  AskUserQuestion: "Question",
   run_command: "Run",
   view_file: "Read",
 };
@@ -1440,8 +1442,12 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     // cancellation/timeout, which is the ONLY record that request ever
     // happened at all (the command never runs, so nothing else logs it).
     if (resolvedToolName && !isFileWrite && status !== "pending" && status !== "allow") {
-      const label = status === "cancelled" ? i18n.t("chat.perm.withdrawn") : status === "timed_out" ? i18n.t("chat.perm.deniedTimedOut") : i18n.t("chat.perm.denied");
-      addLiveToolCallLine(toolDisplayLabel(resolvedToolName), label);
+      // A question the person closed reads as skipped, not as a denied tool.
+      if (resolvedToolName === "AskUserQuestion") addLiveToolCallLine(i18n.t("chat.question.title"), i18n.t("chat.question.skipped"));
+      else {
+        const label = status === "cancelled" ? i18n.t("chat.perm.withdrawn") : status === "timed_out" ? i18n.t("chat.perm.deniedTimedOut") : i18n.t("chat.perm.denied");
+        addLiveToolCallLine(toolDisplayLabel(resolvedToolName), label);
+      }
     }
   }
 
@@ -3459,6 +3465,14 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                 className="overflow-hidden"
               >
                 <div className="pb-2">
+                {questionsOf(pendingPermission.toolName, pendingPermission.input) ? (
+                  <QuestionCard
+                    sessionId={sessionId}
+                    requestId={pendingPermission.requestId}
+                    questions={questionsOf(pendingPermission.toolName, pendingPermission.input)!}
+                    onGone={() => updatePermissionRow(pendingPermission.requestId, "cancelled")}
+                  />
+                ) : (
                 <PermissionCard
                   sessionId={sessionId}
                   requestId={pendingPermission.requestId}
@@ -3469,6 +3483,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                   onStopTurn={stopTurn}
                   onGone={() => updatePermissionRow(pendingPermission.requestId, "cancelled")}
                 />
+                )}
                 </div>
               </motion.div>
             );
