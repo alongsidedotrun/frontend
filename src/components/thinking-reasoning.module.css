@@ -200,6 +200,10 @@
 }
 /* The step being worked on now reads at full strength, the rest stay muted. */
 .trSentence.trShimmer { color: var(--foreground); }
+/* The live time after "Working" sits in .trLabelRest; its opacity gave it its own layer, which the
+   shine's text clip doesn't paint through, so the time went invisible. While shining it takes the
+   shine as is. */
+.trLabel.trShimmer .trLabelRest { opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
   .trShimmer { transition: none !important; }
   .trLabel.trShimmer { animation: none; color: var(--muted-foreground); -webkit-text-fill-color: currentColor; background: none; }
