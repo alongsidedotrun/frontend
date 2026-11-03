@@ -9,6 +9,8 @@ type RedesignDropdownContentProps = {
   side?: "top" | "right" | "bottom" | "left";
   align?: "start" | "center" | "end";
   sideOffset?: number;
+  /** A box-shadow in place of the sidebar's usual one (none in dark mode). */
+  shadow?: string;
 };
 
 /** Shared shell for redesign dropdowns, keeping workspace and account menus visually aligned. */
@@ -16,6 +18,7 @@ export function RedesignDropdownContent({
   children,
   className,
   viewportClassName,
+  shadow,
   ...props
 }: RedesignDropdownContentProps) {
   return (
@@ -27,7 +30,7 @@ export function RedesignDropdownContent({
       style={{
         backgroundColor: "var(--redesign-sidebar-overlay-surface)",
         borderColor: "var(--redesign-sidebar-elevated-border)",
-        boxShadow: "var(--redesign-sidebar-elevated-shadow)",
+        boxShadow: shadow ?? "var(--redesign-sidebar-elevated-shadow)",
       }}
       viewportClassName={cn(
         "max-h-[calc(100vh-2rem)] overflow-visible rounded-[var(--redesign-workspace-menu-radius)] p-0",

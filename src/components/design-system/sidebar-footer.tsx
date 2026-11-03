@@ -238,6 +238,7 @@ export function SidebarAccountFooter({ name, avatar, signedIn, onSignIn, onOpenS
             side="top"
             align="start"
             sideOffset={6}
+            shadow="var(--redesign-profile-menu-shadow)"
             viewportClassName="overflow-visible rounded-[var(--redesign-workspace-menu-radius)] p-0"
           >
             {profileSections.map((section, index) => (
