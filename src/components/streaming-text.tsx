@@ -237,18 +237,55 @@ const MARKDOWN_CONTROLS = { code: { copy: true, download: false }, table: false,
 // Streamdown spaces its blocks with space-y-4 on top of their own margins; our blocks set their own.
 const MARKDOWN_CLASS = "space-y-0";
 
-export function StreamingText({ text: rawText, animate, onDone }: { text: string; animate: boolean; onDone?: () => void }) {
-  // Follows `text` as it grows: a turn's later text is added to the same reply (#557), and the
-  // reveal carries on from where it was instead of starting over.
+// How far each text has been typed, shared by everything that types it. While a turn runs, its
+// newest text types in as the live step in Working; when the turn ends the same text becomes the
+// reply, which carries on from there instead of showing it all first and then typing it again.
+// Keyed by the text's start, which stays the same as the text grows.
+const typedSoFar = new Map<string, number>();
+function typingKey(text: string) {
+  return text.slice(0, 80);
+}
+function rememberTyped(key: string, words: number) {
+  typedSoFar.delete(key);
+  typedSoFar.set(key, words);
+  if (typedSoFar.size > 300) typedSoFar.delete(typedSoFar.keys().next().value!);
+}
+
+/** Types `text` in word by word (while `animate`), at the reply's pace, carrying on from wherever
+ * anything else typing the same text got to. */
+export function useTyping(rawText: string, animate: boolean) {
   const text = useMemo(() => stripFileLinks(rawText), [rawText]);
   // Plain split(" "), not a line-aware tokenizer -- a real newline inside a word's
   // own substring survives untouched (never split on), so it's still there once
-  // this joins revealed words back with " " -- no separate handling needed the way
-  // the old per-span-<br/> version required.
+  // this joins revealed words back with " ".
   const tokens = useMemo(() => text.split(" "), [text]);
-  const [count, setCount] = useState(animate ? 0 : tokens.length);
-  const [blinkOn, setBlinkOn] = useState(true);
+  const key = typingKey(text);
+  const [count, setCount] = useState(() => (animate ? Math.min(tokens.length, typedSoFar.get(key) ?? 0) : tokens.length));
   const done = count >= tokens.length;
+  useEffect(() => {
+    if (animate) rememberTyped(key, Math.min(count, tokens.length));
+  }, [animate, key, count, tokens.length]);
+  useEffect(() => {
+    if (!animate || done) return;
+    const step = Math.max(1, Math.ceil((tokens.length - count) / TICKS_LEFT));
+    const t = setTimeout(() => setCount((c) => c + step), WORD_MS);
+    return () => clearTimeout(t);
+    // count is a real dependency: each tick schedules the next one.
+  }, [animate, done, count, tokens.length]);
+  return { text, tokens, count, done, finish: () => setCount(Number.MAX_SAFE_INTEGER) };
+}
+
+/** A live step in Working: plain text, typed in like the reply. */
+export function TypedText({ text, animate }: { text: string; animate: boolean }) {
+  const { tokens, count, done } = useTyping(text, animate);
+  return <>{done ? tokens.join(" ") : tokens.slice(0, count).join(" ")}</>;
+}
+
+export function StreamingText({ text: rawText, animate, onDone }: { text: string; animate: boolean; onDone?: () => void }) {
+  // Follows `text` as it grows: a turn's later text is added to the same reply (#557), and the
+  // reveal carries on from where it was instead of starting over.
+  const { text, tokens, count, done, finish } = useTyping(rawText, animate);
+  const [blinkOn, setBlinkOn] = useState(true);
   // Set while the reply's end is off screen (the reader scrolled up): typing there costs work for
   // nothing anyone sees, so the rest is shown at once.
   const endRef = useRef<HTMLSpanElement>(null);
@@ -264,7 +301,7 @@ export function StreamingText({ text: rawText, animate, onDone }: { text: string
       if (!entry.isIntersecting)
         timer = setTimeout(() => {
           endHiddenRef.current = true;
-          setCount(Number.MAX_SAFE_INTEGER);
+          finish();
         }, 300);
       else endHiddenRef.current = false;
     });
@@ -275,22 +312,11 @@ export function StreamingText({ text: rawText, animate, onDone }: { text: string
     };
   }, [animate, done]);
 
+  // Text added while the end is still off screen shows at once too.
   useEffect(() => {
-    if (!animate || done) return;
-    if (endHiddenRef.current) {
-      setCount(Number.MAX_SAFE_INTEGER);
-      return;
-    }
-    const step = Math.max(1, Math.ceil((tokens.length - count) / TICKS_LEFT));
-    const t = setTimeout(() => setCount((c) => c + step), WORD_MS);
-    return () => clearTimeout(t);
-    // count is a real dependency, not an oversight -- without it this effect
-    // only ever fires its first setTimeout (nothing else changes animate/done
-    // until the reveal is already finished), so the reveal advanced exactly one
-    // word and then stopped forever. Confirmed directly as the actual bug
-    // behind "stopped at 'I'm |'" -- this dropped out when the cursor got its
-    // own separate effect below and both got trimmed to look alike.
-  }, [animate, done, count, tokens.length]);
+    if (animate && !done && endHiddenRef.current) finish();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [animate, done, tokens.length]);
 
   // Real, per explicit request ("copy, rate, re-try... source and time and
   // advise shows before the actual text loads... makes no sense to show the

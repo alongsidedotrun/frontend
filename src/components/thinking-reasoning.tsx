@@ -3,6 +3,7 @@ import i18n from "@/i18n";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { suppressAutoScroll } from "@/lib/chat-scroll-suppress";
 import { useTextSwap } from "@/lib/use-text-swap";
+import { TypedText } from "@/components/streaming-text";
 import styles from "./thinking-reasoning.module.css";
 
 // Installed via `npx shadcn@latest add
@@ -288,7 +289,9 @@ export function ThinkingReasoning({
                 const i = firstShown + shown;
                 return item.kind === "sentence" ? (
                   <p key={i} className={item.active ? `${styles.trSentence} ${styles.trShimmer}` : styles.trSentence}>
-                    {item.text}
+                    {/* While the turn runs its steps type in, and keep typing after a steer or a newer
+                        step, rather than showing in full before the reply types the same text. */}
+                    {live ? <TypedText text={item.text} animate /> : item.text}
                   </p>
                 ) : (
                   // One shared row for every tool kind (ToolDetailRow,
