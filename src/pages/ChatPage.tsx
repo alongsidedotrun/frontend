@@ -3956,7 +3956,9 @@ function ChatRowViewInner({
           <motion.div
             key="work"
             // History loading in shows it as it is; only a live turn's grows.
-            initial={row.kind === "agent" && row.animate ? { height: 0, opacity: 0, overflow: "hidden" } : false}
+            // Not while the turn runs: then it takes over from the Waiting line already on screen,
+            // and growing from 0 there dipped the chat and brought it back.
+            initial={row.kind === "agent" && row.animate && !liveWorking ? { height: 0, opacity: 0, overflow: "hidden" } : false}
             animate={{
               height: "auto",
               opacity: 1,

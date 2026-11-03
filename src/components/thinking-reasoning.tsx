@@ -118,6 +118,8 @@ export function ThinkingReasoning({
   // never changes after it's set, so it renders plain.
   const { displayText: labelSwapText, phase: labelSwapPhase } = useTextSwap(label);
   const [revealedCount, setRevealedCount] = useState(0);
+  const revealedCountRef = useRef(0);
+  revealedCountRef.current = revealedCount;
   // Real bug, confirmed directly ("the arrow is expanded but there's
   // nothing there"): this used to key off `text` alone, initialized to "".
   // A turn with no real thinking-block text at all (the common case --
@@ -155,11 +157,15 @@ export function ThinkingReasoning({
       setRevealedCount(items.length);
       return;
     }
-    setRevealedCount(0);
+    // Only steps that are new stagger in. Starting over from 0 on every update (a new step, the
+    // step's text growing) emptied the block for a moment and filled it again, which bounced the
+    // whole chat up and down.
+    const from = Math.min(revealedCountRef.current, items.length);
+    setRevealedCount(from);
     const timers: ReturnType<typeof setTimeout>[] = [];
-    items.forEach((_, i) => {
-      timers.push(setTimeout(() => setRevealedCount((c) => Math.max(c, i + 1)), i * SENTENCE_STAGGER_MS));
-    });
+    for (let i = from; i < items.length; i++) {
+      timers.push(setTimeout(() => setRevealedCount((c) => Math.max(c, i + 1)), (i - from) * SENTENCE_STAGGER_MS));
+    }
     return () => timers.forEach(clearTimeout);
     // items is derived from sentencesKey every render -- only
     // sentencesKey/live (checked above) should re-trigger this.
@@ -189,6 +195,23 @@ export function ThinkingReasoning({
     if (el) followRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 8;
     measure();
   };
+  // While the turn runs, the collapsed block shows one step at a time; a short step after a long
+  // one made it shrink and the chat bounce. It only grows until the turn ends.
+  const [liveMinHeight, setLiveMinHeight] = useState(0);
+  useLayoutEffect(() => {
+    const el = viewportRef.current;
+    if (!live || open || !el?.firstElementChild) {
+      setLiveMinHeight(0);
+      return;
+    }
+    const inner = el.firstElementChild as HTMLElement;
+    const grow = () => setLiveMinHeight((h) => Math.max(h, inner.offsetHeight));
+    grow();
+    const ro = new ResizeObserver(grow);
+    ro.observe(inner);
+    return () => ro.disconnect();
+  }, [live, open]);
+
   useLayoutEffect(() => {
     const el = viewportRef.current;
     if (!el || !open) return;
@@ -251,6 +274,7 @@ export function ThinkingReasoning({
                 ? { WebkitMaskImage: edgeFade, maskImage: edgeFade }
                 : live
                 ? {
+                    minHeight: liveMinHeight || undefined,
                     WebkitMaskImage: fade.bottom
                       ? "linear-gradient(to bottom, #000 calc(100% - 16px), transparent 100%)"
                       : "none",
