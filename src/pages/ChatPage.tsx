@@ -1052,6 +1052,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // the page before they had, read it as the reader having scrolled up, and the chat opened short.
   // Anything the reader does in the chat ends this early.
   const landingUntilRef = useRef(0);
+  // The reader scrolled up on purpose (wheel, touch, keys, scrollbar). Within 80px of the bottom
+  // still counted as following, so the first small scroll up while a reply streamed was pulled
+  // straight back down and it took two or three tries to get away. Now any upward gesture lets go
+  // at once, and following resumes only when the reader is back at the very bottom.
+  const detachedRef = useRef(false);
   // `now`: the ResizeObserver below runs after layout and before paint, so scrolling right there
   // means the frame that shows a new line is already at the bottom. Through rAF the new line was
   // first painted below the edge and the chat caught up a frame later: a small jump every line.
@@ -1064,11 +1069,14 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     const newestShown = shownRangeRef.current.last >= shownRangeRef.current.total;
     if (!newestShown && !force) return;
     if (!newestShown) setHistoryWindow({ start: null, end: null });
-    if (force || isNearBottom || followBottomRef.current) {
+    if (force) detachedRef.current = false;
+    if (force || (!detachedRef.current && (isNearBottom || followBottomRef.current))) {
       followBottomRef.current = true;
       if (now) el.scrollTop = el.scrollHeight;
       else
         requestAnimationFrame(() => {
+          // A gesture between the request and this frame wins.
+          if (detachedRef.current) return;
           el.scrollTop = el.scrollHeight;
         });
     }
@@ -1123,7 +1131,9 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       const newestShown = range.last >= range.total;
       const fromBottom = log ? log.scrollHeight - log.scrollTop - log.clientHeight : 0;
       // At the bottom of the page only counts as at the newest message when the newest rows are shown.
-      if (log) atBottom = fromBottom < 80 && newestShown;
+      // Let go: back only at the very bottom. Otherwise the usual allowance.
+      if (log) atBottom = (detachedRef.current ? fromBottom <= 2 : fromBottom < 80) && newestShown;
+      if (atBottom) detachedRef.current = false;
       followBottomRef.current = atBottom;
       // #563: near an edge with rows not shown past it: show the next batch there. Only once the
       // history has loaded (while it loads the view sits at the top, and a reveal then pulled it off
@@ -1143,10 +1153,43 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     const endLanding = () => {
       landingUntilRef.current = 0;
     };
+    const detach = () => {
+      if (!log || log.scrollHeight <= log.clientHeight + 1) return;
+      detachedRef.current = true;
+      followBottomRef.current = false;
+      atBottom = false;
+      landingUntilRef.current = 0;
+    };
+    const onWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey && event.deltaY < 0) detach();
+    };
+    let touchY: number | null = null;
+    const onTouchStart = (event: TouchEvent) => {
+      touchY = event.touches[0]?.clientY ?? null;
+    };
+    const onTouchMove = (event: TouchEvent) => {
+      const y = event.touches[0]?.clientY;
+      if (touchY != null && y != null && y > touchY + 4) detach();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
+      if (["ArrowUp", "PageUp", "Home"].includes(event.key) || (event.key === " " && event.shiftKey)) detach();
+    };
+    // Grabbing the scrollbar: the press lands right of the content area.
+    const onPointerDown = (event: PointerEvent) => {
+      if (log && event.target === log && event.offsetX >= log.clientWidth) detach();
+    };
     const readerInput = ["wheel", "touchstart", "pointerdown", "keydown"] as const;
     if (log) {
       log.addEventListener("scroll", onScroll, { passive: true });
       for (const type of readerInput) log.addEventListener(type, endLanding, { passive: true });
+      log.addEventListener("wheel", onWheel, { passive: true });
+      log.addEventListener("touchstart", onTouchStart, { passive: true });
+      log.addEventListener("touchmove", onTouchMove, { passive: true });
+      log.addEventListener("keydown", onKeyDown);
+      log.addEventListener("pointerdown", onPointerDown, { passive: true });
       viewportObserver.observe(log);
     }
     return () => {
@@ -1154,6 +1197,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       viewportObserver.disconnect();
       log?.removeEventListener("scroll", onScroll);
       for (const type of readerInput) log?.removeEventListener(type, endLanding);
+      log?.removeEventListener("wheel", onWheel);
+      log?.removeEventListener("touchstart", onTouchStart);
+      log?.removeEventListener("touchmove", onTouchMove);
+      log?.removeEventListener("keydown", onKeyDown);
+      log?.removeEventListener("pointerdown", onPointerDown);
     };
   }, []);
 
@@ -1192,6 +1240,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     if (index < 0) return;
     landingUntilRef.current = 0;
     followBottomRef.current = false;
+    detachedRef.current = true;
     setHistoryWindow(windowAround(rowsRef.current, index));
     setFindTarget({ id: rowsRef.current[index].id, query });
   }, [findReady]);
@@ -1793,6 +1842,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         // conversation.
         const el = chatLogRef.current;
         followBottomRef.current = true;
+        detachedRef.current = false;
         landingUntilRef.current = performance.now() + 2000;
         if (el) el.scrollTop = el.scrollHeight;
         if (findPendingRef.current) setFindReady((n) => n + 1);
