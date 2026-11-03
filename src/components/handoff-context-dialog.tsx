@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { StreamingText } from "@/components/streaming-text";
 import tr from "@/components/thinking-reasoning.module.css";
 import { useMountedWhileOpen } from "@/components/thinking-reasoning";
-import { checkpointText, parseConversation, parseHandoff, parseWorkState, type HandoffSection, type WorkBlock } from "@/lib/handoff-context";
+import { checkpointText, parseConversation, parseHandoff, parseWorkState, splitSummary, type HandoffSection, type WorkBlock } from "@/lib/handoff-context";
 
 // #502: "Continued in a fresh session" opens to show exactly what the next agent was given about
 // the chat before it -- the checkpoint, the live task list, recent work -- so a handoff is never a
@@ -12,6 +12,54 @@ import { checkpointText, parseConversation, parseHandoff, parseWorkState, type H
 //
 // The text is shown in readable parts: the summary as formatted text, where the work stands as
 // lists, the latest messages as messages. The exact text the agent got is one click away.
+/** #564: at the top of a long chat whose older messages aren't shown: the summary written at the
+ * newest handoff before them (what the chat is about, what was decided, where it stands), and a
+ * button to load them. Someone joining sees it too. A chat with no kept handoff summary above the
+ * shown rows gets only the button. */
+export function EarlierSummary({ sessionId, eventId, onLoadEarlier }: { sessionId: string; eventId?: number; onLoadEarlier: () => void }) {
+  const { t } = useTranslation();
+  const [summary, setSummary] = useState<string | null>(null);
+  useEffect(() => {
+    if (eventId === undefined) return;
+    let cancelled = false;
+    fetch(`/sessions/${sessionId}/handoffs/${eventId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { context: string | null } | null) => {
+        const checkpoint = data?.context ? parseHandoff(data.context)?.find((s) => s.tag === "checkpoint") : undefined;
+        if (!cancelled && checkpoint) setSummary(checkpointText(checkpoint.body));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId, eventId]);
+  const parts = useMemo(() => (summary ? splitSummary(summary) : null), [summary]);
+  const load = (
+    <button type="button" onClick={onLoadEarlier} className="text-ui-xs text-muted-foreground underline decoration-dotted underline-offset-4 hover:text-foreground">
+      {t("chat.earlier.load")}
+    </button>
+  );
+  if (!parts) return <div className="mb-2 text-center">{load}</div>;
+  return (
+    <div className="mb-4 min-w-0 rounded-lg border border-border/60 bg-muted/30 px-4 py-3">
+      <div className="mb-1 text-ui-xs font-medium text-muted-foreground">{t("chat.earlier.title")}</div>
+      <div className="min-w-0 break-words text-ui-sm">
+        <StreamingText text={parts.lead} animate={false} />
+      </div>
+      {parts.rest && (
+        <div className="mt-2">
+          <Disclosure summary={<span className="text-ui-xs text-muted-foreground">{t("chat.earlier.more")}</span>}>
+            <div className="mt-1 min-w-0 break-words text-ui-sm">
+              <StreamingText text={parts.rest} animate={false} />
+            </div>
+          </Disclosure>
+        </div>
+      )}
+      <div className="mt-2">{load}</div>
+    </div>
+  );
+}
+
 export function HandoffNotice({ sessionId, eventId, text }: { sessionId: string; eventId: number; text: string }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);

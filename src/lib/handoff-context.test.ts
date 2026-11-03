@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkpointText, parseConversation, parseHandoff, parseWorkState } from "./handoff-context";
+import { checkpointText, parseConversation, parseHandoff, parseWorkState, splitSummary } from "./handoff-context";
 
 const sample = [
   "<carried_context>",
@@ -88,5 +88,20 @@ describe("parseConversation", () => {
       { speaker: "Assistant", text: "", tools: ["Bash ls", "Read a.rs"] },
       { speaker: "Assistant", text: "Because of the tools.\n\nNote: it's fixed.", tools: [] },
     ]);
+  });
+});
+
+describe("splitSummary", () => {
+  it("leads with the first paragraph and keeps the rest", () => {
+    expect(splitSummary("## Goal\nShip it.\nSoon.\n\nMore goal.\n\n## Done\n- a")).toEqual({ lead: "Ship it.\nSoon.", rest: "More goal.\n\n## Done\n- a" });
+  });
+  it("stops the lead at the next heading", () => {
+    expect(splitSummary("## Goal\nShip it.\n## Done\n- a")).toEqual({ lead: "Ship it.", rest: "## Done\n- a" });
+  });
+  it("handles text with no headings", () => {
+    expect(splitSummary("Just a paragraph.")).toEqual({ lead: "Just a paragraph.", rest: "" });
+  });
+  it("handles text before the first heading", () => {
+    expect(splitSummary("Intro.\n## Done\n- a")).toEqual({ lead: "Intro.", rest: "## Done\n- a" });
   });
 });

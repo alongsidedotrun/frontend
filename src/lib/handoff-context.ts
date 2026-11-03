@@ -109,6 +109,17 @@ export function parseConversation(text: string): Turn[] {
   return turns;
 }
 
+/** #564: a summary split into its first paragraph (shown on the earlier-messages card, without
+ * the heading above it) and the rest (behind "Full summary"). A whole first section was too long:
+ * a chat's Goal section ran over a screen. */
+export function splitSummary(text: string): { lead: string; rest: string } {
+  const trimmed = text.trim();
+  const body = trimmed.startsWith("## ") ? trimmed.slice(trimmed.indexOf("\n") + 1 || trimmed.length).trim() : trimmed;
+  const end = body.search(/\n\s*\n|\n(?=## )/);
+  if (end < 0) return { lead: body, rest: "" };
+  return { lead: body.slice(0, end).trim(), rest: body.slice(end).trim() };
+}
+
 /** The checkpoint without the backend's lead-in. */
 export function checkpointText(body: string): string {
   return body.replace(/^Summary of earlier work:\s*/, "");

@@ -6,7 +6,7 @@ import { Fragment, memo, useEffect, useLayoutEffect, useRef, useState, type Reac
 import { useLocation, useOutletContext, useParams } from "react-router-dom";
 import { addressedAgent, useChatAgents } from "@/lib/chat-agents";
 import { NewAgentDialog } from "@/components/new-agent-dialog";
-import { HandoffNotice } from "@/components/handoff-context-dialog";
+import { EarlierSummary, HandoffNotice } from "@/components/handoff-context-dialog";
 import { ProviderNotice } from "@/components/provider-gate";
 import { BotFace, moodFace, useBotMood, type BotAvatar, type BotMood } from "@/components/bot-face";
 import { AnimatePresence, motion } from "motion/react";
@@ -1051,6 +1051,13 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // the page before they had, read it as the reader having scrolled up, and the chat opened short.
   // Anything the reader does in the chat ends this early.
   const landingUntilRef = useRef(0);
+  // #564: the earlier-messages card's button shows the next older batch, keeping the reader's place.
+  const loadEarlier = () => {
+    const log = chatLogRef.current;
+    const anchor = log && topVisibleRow(log);
+    if (anchor) revealAnchorRef.current = anchor;
+    setHistoryWindow(() => slideHistoryWindow(rowsRef.current, shownRangeRef.current, "up"));
+  };
   // The reader scrolled up on purpose (wheel, touch, keys, scrollbar). Within 80px of the bottom
   // still counted as following, so the first small scroll up while a reply streamed was pulled
   // straight back down and it took two or three tries to get away. Now any upward gesture lets go
@@ -1134,17 +1141,16 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       if (log) atBottom = (detachedRef.current ? fromBottom <= 2 : fromBottom < 80) && newestShown;
       if (atBottom) detachedRef.current = false;
       followBottomRef.current = atBottom;
-      // #563: near an edge with rows not shown past it: show the next batch there. Only once the
+      // #563: near the bottom with newer rows not shown: show the next batch there. Only once the
       // history has loaded (while it loads the view sits at the top, and a reveal then pulled it off
-      // the newest message).
+      // the newest message). #564: older rows don't load by scrolling up any more; the reader stops
+      // at the summary card at the top (EarlierSummary) and loads them from its button.
       if (!log || !historyReplayedRef.current || revealAnchorRef.current) return;
-      const up = !atBottom && log.scrollTop < 800 && range.first > 0;
-      const down = !up && fromBottom < 800 && !newestShown;
-      if (!up && !down) return;
+      if (fromBottom >= 800 || newestShown) return;
       const anchor = topVisibleRow(log);
       if (!anchor) return;
       revealAnchorRef.current = anchor;
-      setHistoryWindow(() => slideHistoryWindow(rowsRef.current, range, up ? "up" : "down"));
+      setHistoryWindow(() => slideHistoryWindow(rowsRef.current, range, "down"));
     };
     const viewportObserver = new ResizeObserver(() => {
       if (log && atBottom) log.scrollTop = log.scrollHeight;
@@ -3224,7 +3230,18 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             const lastShown = Math.min(rows.length, historyWindow.end ?? rows.length);
             const firstShown = turnStart(rows, historyWindow.start ?? rows.length - HISTORY_WINDOW);
             shownRangeRef.current = { first: firstShown, last: lastShown, total: rows.length };
-            return rows.map((row, index) => {
+            // #564: older rows not shown: a card at the top with the newest handoff summary that
+            // covers them, and a button to load them.
+            let earlierHandoff: number | undefined;
+            for (let i = firstShown - 1; i >= 0 && earlierHandoff === undefined; i--) {
+              const r = rows[i];
+              if (r.kind === "marker" && r.handoffEventId !== undefined) earlierHandoff = r.handoffEventId;
+            }
+            const earlier =
+              firstShown > 0 && sessionId ? (
+                <EarlierSummary key={`earlier-${earlierHandoff ?? "none"}`} sessionId={sessionId} eventId={earlierHandoff} onLoadEarlier={loadEarlier} />
+              ) : null;
+            return [earlier, ...rows.map((row, index) => {
             if (index < firstShown || index >= lastShown || skipIds.has(row.id)) return null;
             const isHistorical = historicalRowIdsRef.current.has(row.id);
             const rowClassName = !isHistorical
@@ -3300,7 +3317,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               {deferredCards.map(({ id, card }) => card && <div key={id} className={rowClassName}>{card}</div>)}
             </Fragment>
             );
-          });
+          })];
           })()}
           {/* Real bug, confirmed directly via screenshot ("The state moved
               instead of staying at the first message of the model"): this
