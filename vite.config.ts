@@ -125,6 +125,8 @@ export default defineConfig({
       "/integrations": backend,
       // Settings > Skills: skills.sh lists, search and SKILL.md (backend skills_sh.rs).
       "/skills-sh": backend,
+      // #540: the account's skills (GET/POST/DELETE /skills).
+      "/skills": backend,
       "/permission-rules": backend,
     },
   },

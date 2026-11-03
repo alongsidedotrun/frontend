@@ -2,8 +2,10 @@ import { useSyncExternalStore } from "react";
 
 // Skills: reusable instructions an agent can be given. Discover and Browse
 // skills come from skills.sh (src/lib/skills-sh.ts); the skills you add (from
-// skills.sh, or your own .md files) live in this browser until skills have a
-// backend. Settings > Skills manages them; the composer's + menu offers them.
+// skills.sh, or your own .md files) are kept by the backend for your account
+// (#540, GET/POST/DELETE /skills), so a bot can be given them (Settings > Bots)
+// and "/skill <name>" sends their instructions with a message. Settings > Skills
+// manages them; the composer's + menu offers them.
 
 export interface SkillPublisher {
   name: string;
@@ -28,57 +30,78 @@ export const SKILLS_SH = "https://www.skills.sh";
 
 const YOU: SkillPublisher = { name: "You" };
 
-interface SkillsState {
-  /** Ids from the old placeholder catalog; no longer read. */
-  installed: string[];
-  custom: Skill[];
-}
-
-const STORAGE_KEY = "alongside_skills";
+// Where skills were kept before the backend had them; moved over once, then removed.
+const OLD_STORAGE_KEY = "alongside_skills";
 const listeners = new Set<() => void>();
-let state: SkillsState | null = null;
+const EMPTY: Skill[] = [];
+let skills: Skill[] = EMPTY;
+let loading: Promise<void> | null = null;
 
-function read(): SkillsState {
-  if (state) return state;
-  try {
-    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null") as SkillsState | null;
-    state = parsed && Array.isArray(parsed.installed) && Array.isArray(parsed.custom) ? parsed : { installed: [], custom: [] };
-  } catch {
-    state = { installed: [], custom: [] };
-  }
-  return state;
+function emit(next: Skill[]) {
+  skills = next;
+  listeners.forEach((listener) => listener());
 }
 
-function write(next: SkillsState) {
-  state = next;
+type StoredSkill = Omit<Skill, "publisher" | "source" | "official"> & { publisher?: SkillPublisher | null; source?: string | null; official?: boolean | null };
+
+function fromServer(row: StoredSkill): Skill {
+  return { ...row, publisher: row.publisher ?? YOU, source: row.source ?? undefined, official: row.official ?? undefined };
+}
+
+async function post(skill: Skill): Promise<boolean> {
+  const response = await fetch("/skills", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(skill) }).catch(() => null);
+  return Boolean(response?.ok);
+}
+
+// Skills this browser kept before #540 go to the account the first time the list loads.
+async function moveOldSkills() {
+  let old: Skill[] = [];
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    const parsed = JSON.parse(localStorage.getItem(OLD_STORAGE_KEY) ?? "null") as { custom?: Skill[] } | null;
+    old = Array.isArray(parsed?.custom) ? parsed.custom : [];
   } catch {
-    // Storage unavailable: kept for this session only.
+    return;
   }
-  listeners.forEach((listener) => listener());
+  if (old.length === 0) return;
+  const results = await Promise.all(old.map(post));
+  if (results.every(Boolean)) localStorage.removeItem(OLD_STORAGE_KEY);
+}
+
+/** Loads the account's skills again (after signing in or out, or a change elsewhere). */
+export function reloadSkills(): Promise<void> {
+  loading = (async () => {
+    await moveOldSkills();
+    const response = await fetch("/skills").catch(() => null);
+    if (!response?.ok) return;
+    emit(((await response.json()) as StoredSkill[]).map(fromServer));
+  })();
+  return loading;
 }
 
 function subscribe(listener: () => void) {
   listeners.add(listener);
+  if (!loading) void reloadSkills();
   return () => listeners.delete(listener);
 }
 
 /** The skills you've added, kept in step everywhere they show. */
 export function useSkills() {
-  const current = useSyncExternalStore(subscribe, read);
+  const current = useSyncExternalStore(subscribe, () => skills);
   return {
-    installed: current.custom,
-    isInstalled: (id: string) => current.custom.some((skill) => skill.id === id),
+    installed: current,
+    isInstalled: (id: string) => current.some((skill) => skill.id === id),
     remove: (id: string) => {
-      const now = read();
-      write({ ...now, custom: now.custom.filter((skill) => skill.id !== id) });
+      emit(skills.filter((skill) => skill.id !== id));
+      void fetch(`/skills?id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => null);
     },
     /** Your own skill, or one from skills.sh (its own id, publisher and source; added once). */
     addCustom: (skill: { name: string; description: string; instructions: string; id?: string; publisher?: SkillPublisher; source?: string; official?: boolean }) => {
-      const now = read();
-      if (skill.id && now.custom.some((item) => item.id === skill.id)) return;
-      write({ ...now, custom: [...now.custom, { ...skill, id: skill.id ?? `custom-${crypto.randomUUID()}`, publisher: skill.publisher ?? YOU }] });
+      if (skill.id && skills.some((item) => item.id === skill.id)) return;
+      const added: Skill = { ...skill, id: skill.id ?? `custom-${crypto.randomUUID()}`, publisher: skill.publisher ?? YOU };
+      emit([...skills, added]);
+      void post(added).then((ok) => {
+        if (!ok) emit(skills.filter((item) => item.id !== added.id));
+      });
     },
   };
 }

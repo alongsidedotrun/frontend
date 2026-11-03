@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { BotAvatar } from "@/components/bot-face";
 import { failureOf, type AddAgentError } from "@/lib/chat-agents";
+import type { Skill } from "@/lib/skills";
 
 // Your bots (#504): a specialist with a name, its instructions and its look. You talk to each one in its
 // own ongoing chat (chat_id, once it's been opened); the sidebar lists them under Bots.
@@ -74,4 +75,65 @@ export function useBots(scope?: string) {
     return () => window.removeEventListener(CHANGED, reload);
   }, [reload, scope]);
   return bots;
+}
+
+// #540: Settings > Bots.
+
+/** The skills a bot uses (ids are the skills' own, as in useSkills). */
+export async function getBotSkills(id: string): Promise<Pick<Skill, "id" | "name">[]> {
+  const response = await send(`/bots/${encodeURIComponent(id)}/skills`, "GET");
+  return response?.ok ? ((await response.json()) as Pick<Skill, "id" | "name">[]) : [];
+}
+
+export async function setBotSkills(id: string, skillIds: string[]): Promise<boolean> {
+  const response = await send(`/bots/${encodeURIComponent(id)}/skills`, "PUT", { skill_ids: skillIds });
+  return Boolean(response?.ok);
+}
+
+export type BotImportError = "not_markdown" | "unusable" | "instructions_too_long" | "failed";
+export type BotImported = { bot: Bot; missing_skills: string[] };
+
+/** A bot from a .md file; a taken name gets "-2". Names the skills it asks for that aren't added. */
+export async function importBotFile(file: File): Promise<BotImported | BotImportError> {
+  if (!/\.md$/i.test(file.name)) return "not_markdown";
+  const text = await file.text().catch(() => null);
+  if (text === null) return "failed";
+  const response = await send("/bots/import", "POST", { text, file_name: file.name });
+  if (!response) return "failed";
+  if (!response.ok) {
+    const { error } = (await response.json().catch(() => ({}))) as { error?: string };
+    if (error === "not_markdown") return "not_markdown";
+    if (error === "empty" || error === "too_large") return "unusable";
+    if (error === "invalid_instructions") return "instructions_too_long";
+    return "failed";
+  }
+  changed();
+  return (await response.json()) as BotImported;
+}
+
+/** Saves the bot as a .md file (the format importBotFile reads). */
+export async function exportBot(bot: Bot): Promise<boolean> {
+  const response = await send(`/bots/${encodeURIComponent(bot.id)}/export`, "GET");
+  if (!response?.ok) return false;
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${bot.name}.md`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return true;
+}
+
+/** Bots made on this device before signing in (none while signed out). */
+export async function botsElsewhere(): Promise<Bot[]> {
+  const response = await send("/bots/elsewhere", "GET");
+  return response?.ok ? ((await response.json()) as Bot[]) : [];
+}
+
+/** Moves them into the account, with their chats and skills. Gives the bots moved. */
+export async function moveBotsHere(ids: string[]): Promise<Bot[] | null> {
+  const response = await send("/bots/elsewhere", "POST", { ids });
+  if (!response?.ok) return null;
+  changed();
+  return (await response.json()) as Bot[];
 }

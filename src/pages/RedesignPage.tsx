@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { reloadSkills } from "@/lib/skills";
 import { EdgeFadeScroll } from "@/components/edge-fade-scroll";
 import type { IconComponent } from "@/lib/icon-context";
 import { cn } from "@/lib/utils";
@@ -241,12 +242,13 @@ const SETTINGS_COMMANDS: readonly { section: SettingsSection; labelKey: string; 
   { section: "provider", labelKey: "settings.nav.provider", icon: ProvidersIcon, keywords: ["ai", "models", "connect", "sign in", "install", "usage", "claude", "chatgpt", "codex", "gemini", "antigravity", "grok"] },
   { section: "apps", labelKey: "settings.nav.apps", icon: IntegrationsIcon, keywords: ["integrations", "connect"] },
   { section: "skills", labelKey: "settings.nav.skills", icon: SkillIcon, keywords: ["skill", "add skill", "import", "instructions"] },
+  { section: "bots", labelKey: "settings.nav.bots", icon: BotIcon, keywords: ["bot", "import bot", "export", "skills"] },
   { section: "archived-workspaces", labelKey: "settings.archived.workspaces.title", icon: WorkspacesIcon, keywords: ["archived", "restore", "delete", "workspace"] },
   { section: "archived-projects", labelKey: "settings.archived.projects.title", icon: FolderIcon, keywords: ["archived", "restore", "delete", "project"] },
   { section: "archived-chats", labelKey: "settings.archived.chats.title", icon: MessageChatCircleIcon, keywords: ["archived", "restore", "delete", "chat"] },
 ];
 
-const SETTINGS_SECTIONS: readonly SettingsSection[] = ["profile", "general", "appearance", "chat", "provider", "apps", "skills", "archived-workspaces", "archived-projects", "archived-chats"];
+const SETTINGS_SECTIONS: readonly SettingsSection[] = ["profile", "general", "appearance", "chat", "provider", "apps", "skills", "bots", "archived-workspaces", "archived-projects", "archived-chats"];
 
 function quickActionForPath(pathname: string) {
   if (pathname === "/overview") return "overview";
@@ -381,6 +383,11 @@ export function RedesignPage() {
   const workspaceProjects = projects.filter((project) => project.workspace_id === activeWorkspace.id);
   const workspaceChats = chats.filter((chat) => chat.workspace_id === activeWorkspace.id);
   const bots = useBots(identity.scope);
+  // Skills belong to the account (#540): loaded (and any this browser kept before moved over) as the app
+  // starts, and again after switching accounts, so another account's aren't offered.
+  useEffect(() => {
+    void reloadSkills();
+  }, [identity.scope]);
   const botsById = new Map(bots.map((bot) => [bot.id, bot]));
   const pinnedIds = new Set(chats.filter((chat) => chat.pinned).map((chat) => chat.id));
   // A bot's chat is called by the bot's name, whatever the chat was named.

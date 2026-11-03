@@ -1,4 +1,8 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { botsElsewhere, exportBot, getBotSkills, importBotFile, moveBotsHere, setBotSkills, useBots, type Bot } from "@/lib/bots";
+import { BotFace } from "@/components/bot-face";
+import { BotIcon } from "@/components/icons/bot-icon";
+import { useSkills } from "@/lib/skills";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { ShapeProvider } from "@/lib/shape-context";
 import { ListEmptyState, ProvidersEmptyState, ProviderUsageSection } from "@/components/provider-usage";
@@ -94,7 +98,7 @@ import { cn } from "@/lib/utils";
 // stays its own separate top-level section instead, and Danger zone was
 // removed entirely rather than folded into a new section (SETTINGS_NAV_GROUPS'
 // own comment below has the full reasoning).
-export type SettingsSection = "profile" | "general" | "appearance" | "chat" | "provider" | "apps" | "skills" | "archived-workspaces" | "archived-projects" | "archived-chats";
+export type SettingsSection = "profile" | "general" | "appearance" | "chat" | "provider" | "apps" | "skills" | "bots" | "archived-workspaces" | "archived-projects" | "archived-chats";
 
 // ---------------------------------------------------------------------------
 // Style pass -- matches a reference open-source app called Synara's own
@@ -345,6 +349,7 @@ const SECTIONS: { key: SettingsSection; label: string; labelKey: string; titleKe
   // > apps and not settings > providers > apps").
   { key: "apps", label: "Apps", labelKey: "settings.nav.apps", icon: <IntegrationsIcon className="size-[14px]" /> },
   { key: "skills", label: "Skills", labelKey: "settings.nav.skills", icon: <SkillIcon className="size-[14px]" /> },
+  { key: "bots", label: "Bots", labelKey: "settings.nav.bots", icon: <BotIcon className="size-[14px]" /> },
   // Archived, one page per kind, so each lists only its own.
   { key: "archived-workspaces", label: "Archived workspaces", labelKey: "settings.nav.archivedWorkspaces", titleKey: "settings.archived.workspaces.title", icon: <WorkspacesIcon className="size-[14px]" /> },
   { key: "archived-projects", label: "Archived projects", labelKey: "settings.nav.archivedProjects", titleKey: "settings.archived.projects.title", icon: <FolderIcon className="size-[14px]" /> },
@@ -371,7 +376,7 @@ const SETTINGS_NAV_GROUPS: { labelKey: string; keys: SettingsSection[] }[] = [
   // General first, then the rest alphabetical (Appearance, Chat, Profile)
   // -- per explicit request.
   { labelKey: "settings.nav.group.application", keys: ["general", "appearance", "chat", "profile"] },
-  { labelKey: "settings.nav.group.connections", keys: ["provider", "apps", "skills"] },
+  { labelKey: "settings.nav.group.connections", keys: ["provider", "apps", "skills", "bots"] },
   { labelKey: "settings.nav.group.archived", keys: ["archived-workspaces", "archived-projects", "archived-chats"] },
 ];
 
@@ -383,6 +388,7 @@ const SECTION_SUBTITLE_KEY: Record<SettingsSection, string> = {
   provider: "settings.nav.subtitle.provider",
   apps: "settings.nav.subtitle.apps",
   skills: "settings.nav.subtitle.skills",
+  bots: "settings.nav.subtitle.bots",
   "archived-workspaces": "settings.archived.workspaces.subtitle",
   "archived-projects": "settings.archived.projects.subtitle",
   "archived-chats": "settings.archived.chats.subtitle",
@@ -1314,6 +1320,181 @@ function AppsSection() {
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+// #540: Settings > Bots -- the account's bots, the skills each one uses, a bot from a .md file, and bots
+// made on this device before signing in. A bot's name and instructions are still edited in its chat.
+function BotsSection() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const bots = useBots();
+  const [elsewhere, setElsewhere] = useState<Bot[]>([]);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const selected = bots.find((bot) => bot.id === searchParams.get("bot")) ?? null;
+
+  const loadElsewhere = useCallback(() => void botsElsewhere().then(setElsewhere), []);
+  useEffect(loadElsewhere, [loadElsewhere]);
+  const open = (id: string | null) => setSearchParams(id ? { bot: id } : {}, { replace: true });
+
+  async function importFile(file: File) {
+    setBusy(true);
+    setNotice(null);
+    const result = await importBotFile(file);
+    setBusy(false);
+    if (typeof result === "string") {
+      showErrorToast(
+        t(
+          result === "not_markdown"
+            ? "settings.chat.import.errors.notMarkdown"
+            : result === "unusable"
+              ? "settings.chat.import.errors.unusable"
+              : result === "instructions_too_long"
+                ? "settings.bots.errors.instructionsTooLong"
+                : "settings.chat.import.errors.failed",
+        ),
+      );
+      return;
+    }
+    setNotice(
+      result.missing_skills.length > 0
+        ? t("settings.bots.importedMissing", { name: result.bot.name, skills: result.missing_skills.join(", ") })
+        : t("settings.bots.imported", { name: result.bot.name }),
+    );
+  }
+
+  async function moveHere() {
+    setBusy(true);
+    const moved = await moveBotsHere(elsewhere.map((bot) => bot.id));
+    setBusy(false);
+    if (!moved) {
+      showErrorToast(t("settings.chat.import.errors.failed"));
+      return;
+    }
+    setNotice(t("settings.bots.moved", { count: moved.length }));
+    loadElsewhere();
+  }
+
+  if (selected) return <BotSettingsView bot={selected} onOpenChat={(chatId) => navigate(`/chat/${chatId}`)} />;
+
+  return (
+    <div>
+      <div className="mt-4 flex items-center gap-2">
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".md,text/markdown"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (file) void importFile(file);
+          }}
+        />
+        <button type="button" className={SETTINGS_ACTION_BUTTON_CLASS} disabled={busy} onClick={() => fileRef.current?.click()}>
+          <Plus className="size-3.5" />
+          {t("settings.bots.importFile")}
+        </button>
+      </div>
+      {notice ? <p className="mt-3 text-ui-sm text-muted-foreground" role="status">{notice}</p> : null}
+      {elsewhere.length > 0 ? (
+        <div className="mt-4 flex items-center gap-3 rounded-xl border border-border p-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-ui-sm font-medium text-foreground">{t("settings.bots.elsewhere.title", { count: elsewhere.length })}</p>
+            <p className="text-ui-xs text-muted-foreground">{t("settings.bots.elsewhere.body", { names: elsewhere.map((bot) => `@${bot.name}`).join(", ") })}</p>
+          </div>
+          <button type="button" className={SETTINGS_ACTION_BUTTON_CLASS} disabled={busy} onClick={() => void moveHere()}>
+            {t("settings.bots.elsewhere.move")}
+          </button>
+        </div>
+      ) : null}
+      <ConnectionList
+        placeholder={
+          bots.length > 0 ? undefined : (
+            <ListEmptyState
+              marks={[{ key: "a", mark: <BotFace className="size-3.5 shrink-0" /> }, { key: "b", mark: <BotFace className="size-3.5 shrink-0 grayscale" /> }]}
+              title={t("settings.bots.empty.title")}
+              body={t("settings.bots.empty.body")}
+            />
+          )
+        }
+      >
+        {bots.map((bot) => (
+          <button key={bot.id} type="button" onClick={() => open(bot.id)} className={CONNECTION_ROW}>
+            <span className={PROVIDER_ICON_FRAME}>
+              <BotFace avatar={bot.avatar ?? undefined} className="size-6" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-ui-sm font-medium text-foreground">@{bot.name}</span>
+              <span className="line-clamp-2 text-ui-2xs font-normal text-muted-foreground">{bot.description || t("settings.bots.noDescription")}</span>
+            </span>
+          </button>
+        ))}
+      </ConnectionList>
+    </div>
+  );
+}
+
+function BotSettingsView({ bot, onOpenChat }: { bot: Bot; onOpenChat: (chatId: string) => void }) {
+  const { t } = useTranslation();
+  const { installed } = useSkills();
+  const [chosen, setChosen] = useState<string[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    void getBotSkills(bot.id).then((skills) => live && setChosen(skills.map((skill) => skill.id)));
+    return () => {
+      live = false;
+    };
+  }, [bot.id]);
+
+  async function toggle(id: string, on: boolean) {
+    if (!chosen) return;
+    const next = on ? [...chosen, id] : chosen.filter((item) => item !== id);
+    setChosen(next);
+    if (!(await setBotSkills(bot.id, next))) {
+      setChosen(chosen);
+      showErrorToast(t("settings.providers.noConnection"));
+    }
+  }
+
+  return (
+    <div>
+      <div className="mt-4 flex items-center gap-3">
+        <BotFace avatar={bot.avatar ?? undefined} className="size-10 shrink-0" />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-ui font-medium text-foreground">@{bot.name}</div>
+          <div className="truncate text-ui font-normal text-muted-foreground">{bot.description || t("settings.bots.noDescription")}</div>
+        </div>
+        {bot.chat_id ? (
+          <button type="button" className={SETTINGS_ACTION_BUTTON_CLASS} onClick={() => onOpenChat(bot.chat_id!)}>
+            {t("settings.bots.openChat")}
+          </button>
+        ) : null}
+        <button type="button" className={SETTINGS_ACTION_BUTTON_CLASS} onClick={() => void exportBot(bot).then((ok) => ok || showErrorToast(t("settings.providers.noConnection")))}>
+          {t("settings.bots.export")}
+        </button>
+      </div>
+      <h3 className="mt-6 text-ui-sm font-medium text-foreground">{t("settings.bots.skills.title")}</h3>
+      <p className="mt-0.5 text-ui-xs text-muted-foreground">{t("settings.bots.skills.body")}</p>
+      {installed.length === 0 ? (
+        <p className="mt-3 text-ui-sm text-muted-foreground">{t("settings.bots.skills.none")}</p>
+      ) : (
+        <div className="mt-3 flex flex-col gap-0.5">
+          {installed.map((skill) => (
+            <label key={skill.id} className={`${CONNECTION_ROW} cursor-pointer hover:bg-hover-2`}>
+              <Checkbox className="border-muted-foreground/50" checked={chosen?.includes(skill.id) ?? false} disabled={chosen === null} onCheckedChange={(on) => void toggle(skill.id, on === true)} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-ui-sm font-medium text-foreground">{skill.name}</span>
+                {skill.description ? <span className="line-clamp-2 text-ui-2xs font-normal text-muted-foreground">{skill.description}</span> : null}
+              </span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -3405,6 +3586,7 @@ export function SettingsSectionContent({ section }: { section: SettingsSection }
           {section === "provider" && <ProvidersSection />}
           {section === "apps" && <AppsSection />}
           {section === "skills" && <SkillsSection />}
+          {section === "bots" && <BotsSection />}
           {section === "archived-workspaces" && <ArchivedSection kind="workspace" />}
           {section === "archived-projects" && <ArchivedSection kind="project" />}
           {section === "archived-chats" && <ArchivedSection kind="chat" />}
