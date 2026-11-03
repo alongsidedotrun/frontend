@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { EdgeFadeScroll } from "@/components/edge-fade-scroll";
 import type { IconComponent } from "@/lib/icon-context";
 import { cn } from "@/lib/utils";
 import { ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
@@ -1247,7 +1248,7 @@ export function RedesignPage() {
           <div className="flex h-full min-h-0 w-full min-w-0 flex-col">
           {/* Scrolls when the lists are taller than the window, so the footer below (Getting started,
               and the account or Sign in button) always stays on screen. */}
-          <div className="-mx-1 flex min-h-0 flex-1 flex-col gap-[var(--redesign-quick-actions-gap)] overflow-y-auto px-1 [scrollbar-width:none]">
+          <EdgeFadeScroll className="-mx-1 flex min-h-0 flex-1 flex-col gap-[var(--redesign-quick-actions-gap)] overflow-y-auto px-1 [scrollbar-width:none]">
             <div className="flex h-[var(--redesign-workspace-trigger-height)] items-center">
               <WorkspaceSelector
                 workspaces={workspaceOptions}
@@ -1315,7 +1316,7 @@ export function RedesignPage() {
               />
             </SidebarSurfaceTransition>
           )}
-          </div>
+          </EdgeFadeScroll>
           <footer className="mt-auto shrink-0 pt-[var(--redesign-sidebar-section-gap)]">
             {/* #460: people waiting to be let into a chat this person shares. */}
             <JoinRequestsCard enabled={identity.signedIn} />
