@@ -3,9 +3,31 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 // A scrolling column whose top or bottom edge fades out while there is more to scroll that way,
 // so a long list reads as continuing instead of being cut off by the edge (or by the card below
 // it). Same 20px fade as the opened Working block (thinking-reasoning.tsx, edgeFade).
-export function EdgeFadeScroll({ className, children }: { className?: string; children: ReactNode }) {
+export function EdgeFadeScroll({
+  className,
+  children,
+  revealSelector,
+  revealKey,
+}: {
+  className?: string;
+  children: ReactNode;
+  /** An element inside to keep in view (the open chat's row): scrolled to when `revealKey` changes. */
+  revealSelector?: string;
+  revealKey?: unknown;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const [fade, setFade] = useState({ top: false, bottom: false });
+
+  useEffect(() => {
+    const el = ref.current;
+    const target = revealSelector ? el?.querySelector<HTMLElement>(revealSelector) : null;
+    if (!el || !target) return;
+    // Only this box scrolls (scrollIntoView would move the sidebar and the page too).
+    const box = el.getBoundingClientRect();
+    const at = target.getBoundingClientRect();
+    if (at.top < box.top) el.scrollTop -= box.top - at.top + 8;
+    else if (at.bottom > box.bottom) el.scrollTop += at.bottom - box.bottom + 8;
+  }, [revealSelector, revealKey]);
 
   useEffect(() => {
     const el = ref.current;

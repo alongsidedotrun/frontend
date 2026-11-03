@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
 import type { IconComponent } from "@/lib/icon-context";
 import { cn } from "@/lib/utils";
+import { EdgeFadeScroll } from "@/components/edge-fade-scroll";
 import {
   DropdownContent,
   DropdownMenu,
@@ -185,7 +186,13 @@ export function SidebarSections({ sections, activeItemId, onItemSelect, expanded
           <RowReveal key="rows" gap={false}>
             {/* No flex gap: each row carries its own gap inside RowReveal, so a
                 row collapsing to zero takes its gap with it instead of jumping. */}
-            <div className="mt-[calc(var(--redesign-sidebar-section-row-offset)-var(--redesign-quick-actions-row-gap))] flex flex-col">
+            {/* At most 5 rows tall: a longer list scrolls inside its own section, so Chats and Bots stay
+                in reach below a long Pinned list instead of the whole sidebar having to scroll. */}
+            <EdgeFadeScroll
+              className="-mx-1 mt-[calc(var(--redesign-sidebar-section-row-offset)-var(--redesign-quick-actions-row-gap))] flex max-h-[calc(5*(var(--redesign-quick-actions-row-height)+var(--redesign-quick-actions-row-gap)))] flex-col overflow-y-auto overscroll-contain px-1 [scrollbar-width:none]"
+              revealSelector='[aria-current="page"]'
+              revealKey={activeItemId}
+            >
               <AnimatePresence initial={false}>
                 {section.items.map((item) => {
                   if (!item.children) {
@@ -233,7 +240,7 @@ export function SidebarSections({ sections, activeItemId, onItemSelect, expanded
                   </RowReveal>
                 ) : null}
               </AnimatePresence>
-            </div>
+            </EdgeFadeScroll>
           </RowReveal>
           ) : null}
           </AnimatePresence>
