@@ -862,10 +862,9 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   const autocompactThresholdRef = useRef(500_000);
   const compactedAboveRef = useRef(false);
   // Past the threshold, the handoff was refused because the agent left background work running
-  // (a dev server, a build watch): handing off would stop it. Shown above the compose box, with a
-  // way to hand off anyway, instead of the chat silently growing past its threshold.
+  // (a dev server, a build watch): handing off would stop it. Shown above the compose box as just
+  // "Waiting on handoff", instead of the chat silently growing past its threshold.
   const [handoffWaiting, setHandoffWaiting] = useState(false);
-  const [handingOff, setHandingOff] = useState(false);
   const [autocompactValue, setAutocompactValue] = useState("500000");
   // Per explicit request ("Compact per chat as a describer or Context per project as
   // a describer"): the Context dropdown's own label reflects which scope is actually
@@ -3424,24 +3423,6 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           // Same look as the "Continued in a fresh session" line it turns into.
           <div className="mb-2 text-center text-chat-meta text-muted-foreground/70">
             {t("chat.handoffWaiting")}
-            {!turnInProgress && (
-              <button
-                type="button"
-                disabled={handingOff}
-                className="ml-1.5 underline decoration-dotted underline-offset-4 hover:text-foreground disabled:opacity-50"
-                title={t("chat.handoffNowHint")}
-                onClick={() => {
-                  setHandingOff(true);
-                  void fetch(`/sessions/${sessionId}/handoff?force=true`, { method: "POST" })
-                    .then((response) => {
-                      if (response.ok) setHandoffWaiting(false);
-                    })
-                    .finally(() => setHandingOff(false));
-                }}
-              >
-                {t("chat.handoffNow")}
-              </button>
-            )}
           </div>
         )}
         <ComposeBox
