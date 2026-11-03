@@ -1308,6 +1308,8 @@ function AppsSection() {
               ) : null,
             )}
           </ConnectionList>
+          {/* #469: where a connected app's data stops in a shared chat. */}
+          <p className="mt-3 px-1 text-ui-xs text-muted-foreground">{t("settings.apps.sharedChats")}</p>
           </motion.div>
         </motion.div>
       )}
