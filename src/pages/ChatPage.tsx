@@ -3927,7 +3927,9 @@ function ChatRowViewInner({
     // Hidden until the header's provider icon loads, so the header doesn't pop in without it. Not while
     // the turn runs: the header (and its icon) only mounts when the turn ends, and waiting for it then
     // hid the whole row, Working included -- the chat showed nothing at all mid-turn.
-    <div className={`flex flex-col items-start gap-1 ${iconLoaded || liveWorking || shownLive ? "" : "invisible"}`}>
+    // A later part of a reply (#557, after a file edit card) has no header and so no icon to wait
+    // for: waiting left it hidden for good, a blank gap the size of the reply.
+    <div className={`flex flex-col items-start gap-1 ${iconLoaded || liveWorking || shownLive || row.turnRowId ? "" : "invisible"}`}>
       {/* Unified Waiting/Thinking/Working/Worked disclosure (alongsidedotrun/
           private#53) -- per explicit request ("that should be in the same
           area where Waiting was... when opening the dropdown, thinking and
