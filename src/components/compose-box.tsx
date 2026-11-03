@@ -9,6 +9,7 @@ import { AUTO_BOT_MODEL, PROVIDER_DISPLAY, ProviderIcon, QUICK_CHAT_MODELS, mode
 import { BotFace, type BotAvatar } from "@/components/bot-face";
 import { defaultEffortFor, effortLabel, EFFORT_LEVELS, type EffortLevel } from "@/lib/effort";
 import { loadLastEffort, saveLastEffort, type PermissionMode } from "@/lib/last-used";
+import { HOME_DRAFT_KEY, readComposeSettings, saveComposeSettings } from "@/lib/compose-drafts";
 import { ClipboardCheck, Hand, ShieldTick, ShieldZap, Target04 } from "@untitledui/icons";
 import { cn } from "@/lib/utils";
 import { SwapLabel } from "@/components/ui/swap-label";
@@ -1104,12 +1105,16 @@ export function ComposeBox({
   // for the current turn, but a future chat must not inherit Full access.
   // defaultPermissionValue is intentionally the only override: it carries
   // the exact choice across the centered-composer -> chat-composer handoff.
+  // What was last chosen in this chat (or Home's box), kept on this device (lib/compose-drafts.ts).
+  // A handoff's explicit choice still wins; a chat with nothing saved starts at Ask.
+  const settingsKey = chatId ?? HOME_DRAFT_KEY;
+  const [savedSettings] = useState(() => readComposeSettings(settingsKey));
   const [mode, setMode] = useState<PermissionModeOption["value"]>(() => {
     if (defaultPermissionValue && defaultPermissionValue !== "plan") return defaultPermissionValue;
-    return "manual";
+    return savedSettings?.mode ?? "manual";
   });
   // Plan mode (Synara's `+` panel toggle): on top of the permission, for providers that have one.
-  const [planMode, setPlanMode] = useState(() => defaultPermissionValue === "plan");
+  const [planMode, setPlanMode] = useState(() => (defaultPermissionValue ? defaultPermissionValue === "plan" : savedSettings?.plan ?? false));
   const planSupported = selectedModels[0]?.provider === "Claude" || selectedModels[0]?.provider === "Antigravity" || selectedModels[0]?.provider === "Grok";
   // The exact effective value is passed with the submission below. Permission
   // is deliberately not restored or persisted merely by mounting/changing the
@@ -1127,7 +1132,7 @@ export function ComposeBox({
     // Do not overwrite an explicit first-message handoff when its model
     // resolves just after mount. Real provider changes after that reset to
     // the safest valid stance every provider now supports: Ask for approval.
-    if (previousProvider === undefined && defaultPermissionValue) return;
+    if (previousProvider === undefined && (defaultPermissionValue || savedSettings)) return;
     setMode("manual");
     setPlanMode(false);
   }, [defaultPermissionValue, selectedProvider]);
@@ -1149,15 +1154,19 @@ export function ComposeBox({
   // The level this composer starts from, which the Effort menu's revert arrow goes back to: the
   // chat's own default once it has arrived, else the last choice (as it was on opening), else
   // Settings' default.
-  const [openingEffort] = useState<EffortLevel>(() => loadLastEffort() ?? defaultEffortFor());
-  const startingEffort = defaultEffortValue ?? openingEffort;
+  const [openingEffort] = useState<EffortLevel>(() => (savedSettings?.effort as EffortLevel | undefined) ?? loadLastEffort() ?? defaultEffortFor());
+  // A level last picked in this chat wins over the chat's stored default.
+  const startingEffort = savedSettings?.effort ? openingEffort : defaultEffortValue ?? openingEffort;
   const [effort, setEffort] = useState<EffortLevel>(() => startingEffort);
   // True once the user has actually picked an effort level this session --
   // defaultEffortValue arrives async, a render or more after mount (same
   // timing gap defaultModelValue's own comment above documents), so without
   // this guard its late arrival would clobber a manual pick made in the
   // meantime.
-  const effortTouchedRef = useRef(false);
+  useEffect(() => {
+    saveComposeSettings(settingsKey, { mode: mode as "manual" | "ask" | "auto", plan: planMode, effort });
+  }, [settingsKey, mode, planMode, effort]);
+  const effortTouchedRef = useRef(Boolean(savedSettings?.effort));
   useEffect(() => {
     if (effortTouchedRef.current) return;
     if (defaultEffortValue) setEffort(defaultEffortValue);

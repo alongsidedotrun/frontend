@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { clearDraft, readDraft, resetDraftsForTest, saveDraft } from "./compose-drafts";
+import { clearDraft, readComposeSettings, readDraft, resetDraftsForTest, saveComposeSettings, saveDraft } from "./compose-drafts";
 
 describe("compose drafts", () => {
   beforeEach(() => {
@@ -33,5 +33,14 @@ describe("compose drafts", () => {
     resetDraftsForTest();
     expect(readDraft("a")).toBe("");
     expect(readDraft("b")).toBe("");
+  });
+
+  it("keeps each chat's permission, Plan and effort, and nothing for a new chat", () => {
+    saveComposeSettings("a", { mode: "auto", plan: false, effort: "high" });
+    saveComposeSettings("b", { mode: "ask", plan: true, effort: "low" });
+    resetDraftsForTest();
+    expect(readComposeSettings("a")).toEqual({ mode: "auto", plan: false, effort: "high" });
+    expect(readComposeSettings("b")).toEqual({ mode: "ask", plan: true, effort: "low" });
+    expect(readComposeSettings("new")).toBeUndefined();
   });
 });

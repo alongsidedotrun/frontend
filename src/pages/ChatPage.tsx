@@ -3502,7 +3502,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           // makes it pick the edited message's own model back up instead
           // of keeping whatever was selected a moment before Edit was
           // clicked.
-          key={pendingEditEventId ?? "default"}
+          // And per chat: its permission, Plan and effort are that chat's own (#565).
+          key={`${sessionId}:${pendingEditEventId ?? "default"}`}
           value={prompt}
           onChange={(value) => {
             setPrompt(value);
