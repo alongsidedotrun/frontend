@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { StreamingText } from "@/components/streaming-text";
 import tr from "@/components/thinking-reasoning.module.css";
+import { useMountedWhileOpen } from "@/components/thinking-reasoning";
 import { checkpointText, parseConversation, parseHandoff, parseWorkState, type HandoffSection, type WorkBlock } from "@/lib/handoff-context";
 
 // #502: "Continued in a fresh session" opens to show exactly what the next agent was given about
@@ -167,6 +168,7 @@ function Sections({ sections }: { sections: HandoffSection[] }) {
 // chevron, and its grid-rows height and fade transition.
 function Disclosure({ summary, open: initiallyOpen = false, className = "", children }: { summary: ReactNode; open?: boolean; className?: string; children: ReactNode }) {
   const [open, setOpen] = useState(initiallyOpen);
+  const mounted = useMountedWhileOpen(open);
   return (
     <div className="min-w-0">
       <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} className={`flex w-full min-w-0 items-center gap-2 text-left hover:text-foreground ${className}`}>
@@ -176,7 +178,7 @@ function Disclosure({ summary, open: initiallyOpen = false, className = "", chil
         {summary}
       </button>
       <div className={tr.trCollapsible + (open ? "" : " " + tr.isCollapsed)} aria-hidden={!open}>
-        <div className={tr.trInner}>{children}</div>
+        <div className={tr.trInner}>{mounted ? children : null}</div>
       </div>
     </div>
   );

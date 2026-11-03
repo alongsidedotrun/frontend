@@ -6,6 +6,20 @@ import { useTextSwap } from "@/lib/use-text-swap";
 import { TypedText } from "@/components/streaming-text";
 import styles from "./thinking-reasoning.module.css";
 
+/** #563: whether a collapsible's content should be on the page. A closed block kept every step
+ * (and every command inside it) on the page, only hidden: one closed "Worked for 12m" was 1,470
+ * elements. Now it's added when the block opens and removed once the closing transition (320ms,
+ * thinking-reasoning.module.css) has finished. */
+export function useMountedWhileOpen(open: boolean): boolean {
+  const [mounted, setMounted] = useState(open);
+  useEffect(() => {
+    if (open) return;
+    const timer = setTimeout(() => setMounted(false), 360);
+    return () => clearTimeout(timer);
+  }, [open]);
+  return open || mounted;
+}
+
 // Installed via `npx shadcn@latest add
 // https://www.aicss.dev/r/thinking-reasoning.json` (per explicit request),
 // then adapted the same way thinking-state.tsx already was from the same
@@ -174,6 +188,7 @@ export function ThinkingReasoning({
   }, [sentencesKey, live]);
 
   const expanded = live || open;
+  const stepsMounted = useMountedWhileOpen(expanded);
   // While the turn runs, collapsed shows only the step being worked on (the newest); expanding
   // shows every step. Settled, it's all or nothing, as before.
   const revealed = items.slice(0, revealedCount);
@@ -285,7 +300,7 @@ export function ThinkingReasoning({
             }
           >
             <div className={styles.trStream}>
-              {visibleItems.map((item, shown) => {
+              {(stepsMounted ? visibleItems : []).map((item, shown) => {
                 const i = firstShown + shown;
                 return item.kind === "sentence" ? (
                   <p key={i} className={item.active ? `${styles.trSentence} ${styles.trShimmer}` : styles.trSentence}>
@@ -357,6 +372,7 @@ const TOOL_NOUNS: Record<string, string> = {
 // that's just a single string.
 function ToolDetailRow({ label, detail }: { label: string; detail: string }) {
   const [open, setOpen] = useState(false);
+  const detailMounted = useMountedWhileOpen(open);
   const { t } = useTranslation();
   const noun = TOOL_NOUNS[label] ? t(`tool.noun.${label}`) : undefined;
   return (
@@ -411,7 +427,7 @@ function ToolDetailRow({ label, detail }: { label: string; detail: string }) {
           mechanism here instead of a second, snapping one. */}
       <div className={styles.trCollapsible + (open ? "" : " " + styles.isCollapsed)}>
         <div className={styles.trInner}>
-          {label === "Run" ? <CommandSnippet command={detail} /> : <div className={styles.trToolDetailBody}>{detail}</div>}
+          {!detailMounted ? null : label === "Run" ? <CommandSnippet command={detail} /> : <div className={styles.trToolDetailBody}>{detail}</div>}
         </div>
       </div>
     </div>
