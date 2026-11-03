@@ -3,7 +3,7 @@ import { contextTokensUsed, type TurnUsage } from "@/lib/context-usage";
 import { addTurnText, type TurnNote } from "@/lib/turn-reply";
 import i18n from "@/i18n";
 import { Fragment, memo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { useOutletContext, useParams } from "react-router-dom";
+import { useLocation, useOutletContext, useParams } from "react-router-dom";
 import { addressedAgent, useChatAgents } from "@/lib/chat-agents";
 import { NewAgentDialog } from "@/components/new-agent-dialog";
 import { HandoffNotice } from "@/components/handoff-context-dialog";
@@ -66,7 +66,7 @@ import { useLimitWarning } from "@/components/limit-warning";
 import { useSkills } from "@/lib/skills";
 import { StreamingText } from "@/components/streaming-text";
 import { ThinkingState } from "@/components/thinking-state";
-import { HISTORY_WINDOW, slideHistoryWindow, turnStart } from "@/lib/history-window";
+import { findRow, HISTORY_WINDOW, slideHistoryWindow, turnStart, windowAround } from "@/lib/history-window";
 import { WorkspaceBrandIcon } from "@/components/design-system/workspace-brand-icon";
 import { ThinkingReasoning } from "@/components/thinking-reasoning";
 import {
@@ -1172,6 +1172,55 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // real position to sort them into "fade together" vs "just there,
   // no animation" -- see that handler's own comment for the full mechanism.
   const rowElsRef = useRef<Map<string, HTMLDivElement>>(new Map());
+  // Opened from a search match in a message (the sidebar's ⌘F): once history has loaded, the chat
+  // shows that message, even when it's far back and not among the rows drawn at first, and marks
+  // the words found.
+  const routeLocation = useLocation();
+  const findQuery = (routeLocation.state as { find?: string } | null)?.find;
+  // Once per opening: a reconnect replays history again, and shouldn't jump back to the match.
+  const findDoneForRef = useRef<string | null>(null);
+  const findPendingRef = useRef<string | undefined>(undefined);
+  findPendingRef.current = !sessionIdOverride && findDoneForRef.current !== routeLocation.key ? findQuery : undefined;
+  const [findTarget, setFindTarget] = useState<{ id: string; query: string } | null>(null);
+  const [findReady, setFindReady] = useState(0);
+  useEffect(() => {
+    const query = findPendingRef.current;
+    if (!findReady || !query) return;
+    findPendingRef.current = undefined;
+    findDoneForRef.current = routeLocation.key;
+    const index = findRow(rowsRef.current, query);
+    if (index < 0) return;
+    landingUntilRef.current = 0;
+    followBottomRef.current = false;
+    setHistoryWindow(windowAround(rowsRef.current, index));
+    setFindTarget({ id: rowsRef.current[index].id, query });
+  }, [findReady]);
+  useLayoutEffect(() => {
+    const node = findTarget && rowElsRef.current.get(findTarget.id);
+    if (!findTarget || !node) return;
+    node.scrollIntoView({ block: "center" });
+    const highlights = (globalThis.CSS as { highlights?: Map<string, unknown> } | undefined)?.highlights;
+    const HighlightCtor = (globalThis as { Highlight?: new (...ranges: Range[]) => unknown }).Highlight;
+    if (!highlights || !HighlightCtor) return;
+    const needle = findTarget.query.toLowerCase();
+    const ranges: Range[] = [];
+    const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+    for (let text = walker.nextNode(); text; text = walker.nextNode()) {
+      const value = (text.textContent ?? "").toLowerCase();
+      for (let at = value.indexOf(needle); at >= 0; at = value.indexOf(needle, at + needle.length)) {
+        const range = document.createRange();
+        range.setStart(text, at);
+        range.setEnd(text, at + needle.length);
+        ranges.push(range);
+      }
+    }
+    highlights.set("chat-find", new HighlightCtor(...ranges));
+    const clear = setTimeout(() => highlights.delete("chat-find"), 4000);
+    return () => {
+      clearTimeout(clear);
+      highlights.delete("chat-find");
+    };
+  }, [findTarget]);
   // Historical rows found inside the actual visible viewport at the one
   // moment replay_complete checks -- these fade in together (one shared
   // transition, so no row starts its own fade later than another).
@@ -1746,6 +1795,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         followBottomRef.current = true;
         landingUntilRef.current = performance.now() + 2000;
         if (el) el.scrollTop = el.scrollHeight;
+        if (findPendingRef.current) setFindReady((n) => n + 1);
 
         // One-time viewport check, right after the scroll-to-bottom above
         // -- per explicit request ("I want a fade in the entire viewable

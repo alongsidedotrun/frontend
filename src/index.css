@@ -2390,3 +2390,9 @@ html.transitioning *, html.transitioning *::before, html.transitioning *::after 
 @media (prefers-reduced-motion: reduce) {
   .t-history-loading { animation-duration: 1ms; }
 }
+
+/* A search match the chat was opened at (ChatPage's findTarget). */
+::highlight(chat-find) {
+  background-color: color-mix(in oklab, var(--color-yellow-400, #facc15) 45%, transparent);
+  color: inherit;
+}

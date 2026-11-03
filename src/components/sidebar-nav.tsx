@@ -1698,11 +1698,13 @@ export default function SidebarNav({
     };
   }, [searching, trimmedSearchQuery]);
   function pickSearchResult(item: SearchResult) {
+    // A match in a message opens the chat at that message, not at its newest one.
+    const find = item.matchedIn === "message" ? trimmedSearchQuery : undefined;
     setSearchQuery("");
     if (item.kind === "model") {
       navigateAndClose(() => navigate("/", { state: { selectedModel: item.id } }));
     } else if (item.kind === "chat") {
-      navigateAndClose(() => navigate(`/chat/${item.id}`));
+      navigateAndClose(() => navigate(`/chat/${item.id}`, find ? { state: { find } } : undefined));
     } else {
       navigateAndClose(() => expandProject(item.id));
     }

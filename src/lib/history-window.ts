@@ -37,3 +37,22 @@ export function slideHistoryWindow(
   return { start, end: end >= rows.length ? null : end };
 }
 
+
+/** The newest row whose text has `query` in it (any case), or -1. */
+export function findRow(rows: readonly (Row & { text?: unknown })[], query: string): number {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return -1;
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const text = rows[i].text;
+    if (typeof text === "string" && text.toLowerCase().includes(needle)) return i;
+  }
+  return -1;
+}
+
+/** A window that shows row `index` with some of the chat before and after it, cut at turn starts. */
+export function windowAround(rows: readonly Row[], index: number): { start: number; end: number | null } {
+  const start = turnStart(rows, index - HISTORY_STEP);
+  let end = Math.min(rows.length, Math.max(index + 1, start + HISTORY_WINDOW));
+  while (end < rows.length && rows[end].kind !== "human") end++;
+  return { start, end: end >= rows.length ? null : end };
+}
