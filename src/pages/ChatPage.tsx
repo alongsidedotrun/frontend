@@ -1047,6 +1047,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // content grows wasn't enough: a file card or a turn's text appearing at once moves the bottom
   // more than the 80px allowance in one step, and the chat stopped following.
   const followBottomRef = useRef(true);
+  // Until when a chat that just opened stays on its newest message. Its last rows and their code
+  // and images draw after the first scroll to the bottom; the scroll event that followed measured
+  // the page before they had, read it as the reader having scrolled up, and the chat opened short.
+  // Anything the reader does in the chat ends this early.
+  const landingUntilRef = useRef(0);
   // `now`: the ResizeObserver below runs after layout and before paint, so scrolling right there
   // means the frame that shows a new line is already at the bottom. Through rAF the new line was
   // first painted below the edge and the chat caught up a frame later: a small jump every line.
@@ -1109,6 +1114,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     const log = chatLogRef.current;
     let atBottom = true;
     const onScroll = () => {
+      if (performance.now() < landingUntilRef.current) {
+        atBottom = true;
+        followBottomRef.current = true;
+        return;
+      }
       const range = shownRangeRef.current;
       const newestShown = range.last >= range.total;
       const fromBottom = log ? log.scrollHeight - log.scrollTop - log.clientHeight : 0;
@@ -1130,14 +1140,20 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     const viewportObserver = new ResizeObserver(() => {
       if (log && atBottom) log.scrollTop = log.scrollHeight;
     });
+    const endLanding = () => {
+      landingUntilRef.current = 0;
+    };
+    const readerInput = ["wheel", "touchstart", "pointerdown", "keydown"] as const;
     if (log) {
       log.addEventListener("scroll", onScroll, { passive: true });
+      for (const type of readerInput) log.addEventListener(type, endLanding, { passive: true });
       viewportObserver.observe(log);
     }
     return () => {
       observer.disconnect();
       viewportObserver.disconnect();
       log?.removeEventListener("scroll", onScroll);
+      for (const type of readerInput) log?.removeEventListener(type, endLanding);
     };
   }, []);
 
@@ -1727,6 +1743,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         // instead of leaving scroll position at the top of a long
         // conversation.
         const el = chatLogRef.current;
+        followBottomRef.current = true;
+        landingUntilRef.current = performance.now() + 2000;
         if (el) el.scrollTop = el.scrollHeight;
 
         // One-time viewport check, right after the scroll-to-bottom above
