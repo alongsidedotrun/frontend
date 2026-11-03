@@ -970,12 +970,17 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     if (storedValue) setDefaultModelValue(storedValue);
   }, []);
 
+  // Whether the reader was at the newest message the last time they scrolled. Measuring after
+  // content grows wasn't enough: a file card or a turn's text appearing at once moves the bottom
+  // more than the 80px allowance in one step, and the chat stopped following.
+  const followBottomRef = useRef(true);
   function scrollToBottomIfNear(force = false) {
     const el = chatLogRef.current;
     if (!el) return;
     const threshold = 80;
     const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
-    if (force || isNearBottom) {
+    if (force || isNearBottom || followBottomRef.current) {
+      followBottomRef.current = true;
       requestAnimationFrame(() => {
         el.scrollTop = el.scrollHeight;
       });
@@ -1023,6 +1028,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     let atBottom = true;
     const onScroll = () => {
       if (log) atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
+      followBottomRef.current = atBottom;
     };
     const viewportObserver = new ResizeObserver(() => {
       if (log && atBottom) log.scrollTop = log.scrollHeight;

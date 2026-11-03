@@ -130,18 +130,8 @@
    hardcoded grays). */
 .trShimmer {
   display: inline-block;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
-  background: linear-gradient(
-    90deg,
-    var(--muted-foreground) 0%, var(--muted-foreground) 30%,
-    var(--foreground) 45%, var(--foreground) 55%,
-    var(--muted-foreground) 70%, var(--muted-foreground) 100%
-  );
-  background-size: 300% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  animation: tr-shine 2.25s cubic-bezier(0.25, 0.1, 0.25, 1) infinite;
+  /* Plain text: the moving gradient that used to run across it made it hard to read. */
+  color: var(--muted-foreground);
   /* Text-swap transition (Transitions.dev's own recipe, pasted directly per
      explicit request -- "the switch between working and waiting should be
      [this]"), driven by useTextSwap: thinking-state.module.css's own
@@ -163,12 +153,10 @@
   opacity: 0;
   transition: none;
 }
-@keyframes tr-shine {
-  0%, 18% { background-position: 100% 0; }
-  82%, 100% { background-position: 0% 0; }
-}
+/* The step being worked on now reads at full strength, the rest stay muted. */
+.trSentence.trShimmer { color: var(--foreground); }
 @media (prefers-reduced-motion: reduce) {
-  .trShimmer { animation: none; transition: none !important; }
+  .trShimmer { transition: none !important; }
 }
 
 /* Run tool call -- per explicit request, with a real reference screenshot
