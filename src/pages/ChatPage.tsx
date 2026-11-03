@@ -157,6 +157,10 @@ type ChatRow =
       // "result" event lands (see turnStartedAtRef's own comment), so an in-progress
       // reply just shows nothing here yet rather than a placeholder.
       durationLabel?: string;
+      // The turn's own one-line name for its work ("Fixed the login redirect"), written by the agent
+      // in its reply (backend lib.rs work_title_instruction); the folded Working header shows it.
+      workTitle?: string;
+      workedDuration?: string;
       // Real thinking-block text (Claude only -- Codex/Antigravity's own tool-use
       // events, wired up separately, never carry this), captured off the "reasoning"
       // ChatRow this used to be pushed as its own separate row (removed -- folded
@@ -801,7 +805,10 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     liveToolCallLinesRef.current = [...liveToolCallLinesRef.current, rowId ? { label, detail, rowId } : { label, detail }];
     setLiveToolLines(liveToolCallLinesRef.current);
   }
+  // The agent's name for this turn's work, carried on one of its replies (event.work_title).
+  const liveWorkTitleRef = useRef<string | null>(null);
   function resetLiveToolLines() {
+    liveWorkTitleRef.current = null;
     liveToolCallLinesRef.current = [];
     setLiveToolLines([]);
   }
@@ -2143,7 +2150,9 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           // permission prompt in the middle of it.
           const pausedMs = pausedTotalMsRef.current + (pausedAtRef.current !== null ? Date.now() - pausedAtRef.current : 0);
           const durationSec = (parseServerTimestampMs(resultCreatedAt) - turnStartedAtRef.current - pausedMs) / 1000;
-          const durationLabel = i18n.t("chat.workedFor", { duration: formatWorkedDuration(durationSec) });
+          const workedDuration = formatWorkedDuration(durationSec);
+          const durationLabel = i18n.t("chat.workedFor", { duration: workedDuration });
+          const workTitle = liveWorkTitleRef.current ?? undefined;
           const rowId = firstAgentRowIdRef.current;
           if (rowId) {
             // reasoningText/toolCallLines patched here too, not at each text
@@ -2156,7 +2165,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             const reasoningText = liveReasoningTextRef.current ?? undefined;
             const toolCallLines = liveToolCallLinesRef.current.length > 0 ? liveToolCallLinesRef.current : undefined;
             setRows((prev) =>
-              prev.map((row) => (row.id === rowId && row.kind === "agent" ? { ...row, durationLabel, reasoningText, toolCallLines } : row))
+              prev.map((row) => (row.id === rowId && row.kind === "agent" ? { ...row, durationLabel, workTitle, workedDuration, reasoningText, toolCallLines } : row))
             );
           }
         }
@@ -2295,6 +2304,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         const hasRenderableContent = content?.some(
           (block) => block.type === "text" || block.type === "tool_use" || block.type === "thinking"
         );
+        if (typeof event.work_title === "string" && event.work_title.trim()) liveWorkTitleRef.current = event.work_title.trim();
         if (hasRenderableContent && content) {
           awaitingReplyRef.current = false;
           for (const block of content) {
@@ -4170,7 +4180,7 @@ function ChatRowViewInner({
           >
             <div className="pb-2">
               {row.durationLabel ? (
-                <TurnWorkDisclosure label={row.durationLabel} detailText={row.reasoningText} toolLines={row.toolCallLines} notes={row.notes} renderFiles={renderFiles} />
+                <TurnWorkDisclosure label={row.durationLabel} title={row.workTitle} duration={row.workedDuration} detailText={row.reasoningText} toolLines={row.toolCallLines} notes={row.notes} renderFiles={renderFiles} />
               ) : (
                 liveWorking && (
                   <TurnWorkDisclosure
@@ -4480,6 +4490,8 @@ function SourceLink({ source }: { source: { label: string; href: string } }) {
 // content.
 function TurnWorkDisclosure({
   label,
+  title,
+  duration,
   labelSuffix,
   detailText,
   toolLines,
@@ -4488,6 +4500,8 @@ function TurnWorkDisclosure({
   live,
 }: {
   label: string;
+  title?: string;
+  duration?: string;
   // The live elapsed time after "Working"; it updates without animating the label.
   labelSuffix?: string;
   detailText?: string;
@@ -4532,6 +4546,8 @@ function TurnWorkDisclosure({
     <div className="px-1">
       <ThinkingReasoning
         label={label}
+        title={title}
+        duration={duration}
         labelSuffix={labelSuffix}
         text={trimmedDetail ?? ""}
         toolLines={toolLines}

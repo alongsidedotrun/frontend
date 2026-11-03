@@ -137,6 +137,8 @@ function ToolStep({ step, active }: { step: Extract<WorkStep, { kind: "tools" }>
 
 export function ThinkingReasoning({
   label,
+  title,
+  duration,
   labelSuffix,
   text,
   toolLines,
@@ -147,6 +149,10 @@ export function ThinkingReasoning({
   onToggleOpen,
 }: {
   label: string;
+  // The agent's name for the turn's work ("Fixed the login redirect"); the folded header leads with
+  // it, then how long it took. Without one the header is "Worked for 9s · 2 files changed".
+  title?: string;
+  duration?: string;
   // Live elapsed time; shown after the label without replaying its text swap (#551).
   labelSuffix?: string;
   // Claude's thinking-block text, when the turn had one.
@@ -222,6 +228,11 @@ export function ThinkingReasoning({
             }
           >
             <TwoToneLabel text={labelSuffix ? `${labelSwapText} ${labelSuffix}` : labelSwapText} />
+          </span>
+        ) : title ? (
+          <span className={styles.trLabel} title={counts ? `${label} · ${counts}` : label}>
+            {title}
+            {duration && <span className={styles.trLabelRest}>{` · ${duration}`}</span>}
           </span>
         ) : (
           <span className={styles.trLabel}>
