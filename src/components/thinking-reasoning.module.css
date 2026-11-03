@@ -15,35 +15,36 @@
   align-items: center;
   gap: 6px;
   align-self: flex-start;
-  min-height: 18px;
+  max-width: 100%;
+  min-height: 20px;
   padding: 0;
   border: 0;
   background: transparent;
   cursor: default;
 }
 .trHeader.isClickable { cursor: pointer; }
+/* The chat's own text size (13px at most), not the smaller meta size: the steps are read, not glanced. */
 .trLabel {
-  font-size: var(--redesign-chat-meta);
-  line-height: 18px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--redesign-chat-text);
+  line-height: 20px;
   font-weight: 500;
   color: var(--muted-foreground);
   letter-spacing: -0.005em;
 }
-/* Two tones, as in the reference: the verb ("Worked") in the muted colour, the time after it
-   lighter still. */
+/* Two tones: the verb ("Worked") in the muted colour, the time and what was done lighter still. */
 .trLabelRest { opacity: 0.68; }
 .trChevron {
+  flex-shrink: 0;
   color: var(--muted-foreground);
-  transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
-  /* Real bug, confirmed directly ("that is an up and down arrow instead
-     of > and down arrow"): base path is an up caret -- this used to
-     rotate collapsed/expanded between 180deg (down) and 0deg (up), an
-     up/down toggle. 90deg (collapsed, points right ">") -> 180deg
-     (expanded, points down) is the real standard disclosure convention. */
-  transform: rotate(90deg);
+  transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1), color 80ms ease;
 }
-.trHeader[aria-expanded="true"] .trChevron { transform: rotate(180deg); }
-.trHeader.isClickable:hover .trChevron { color: var(--foreground); }
+.trHeader[aria-expanded="true"] .trChevron { transform: rotate(90deg); }
+.trHeader.isClickable:hover .trChevron,
+.trHeader.isClickable:hover .trLabel:not(.trShimmer) { color: var(--foreground); }
 .trCollapsible {
   display: grid;
   grid-template-rows: 1fr;
@@ -57,32 +58,145 @@
   pointer-events: none;
 }
 .trInner { min-height: 0; overflow: hidden; }
-/* Real bug, confirmed directly via screenshot ("the second command is
-   being cropped and not showing... keep expanding so i can see
-   everything"): max-height: 180px clipped real content (now often more
-   than fits in that box, with structured Run-command snippets instead of
-   just a few lines of prose) with its own scrollbar hidden entirely
-   (isScroll, below) -- nothing ever showed the reader there was more to
-   see. Grows to fit its real content instead now; the outer chat log
-   already scrolls the whole page, an internal scroll box here was never
-   load-bearing. */
+/* The steps scroll inside a box of fixed height instead of pushing the chat down by hundreds of
+   lines; the scrollbar stays visible and the edges fade (thinking-reasoning.tsx, edgeFade). */
 .trViewport {
-  margin-top: 6px;
-}
-/* Opened, the steps scroll inside a box of fixed height (aicss.dev's thinking-reasoning) instead
-   of pushing the chat down by hundreds of lines. The scrollbar stays visible and the edges fade
-   (thinking-reasoning.tsx, edgeFade), so it's clear there is more: the earlier 180px box hid its
-   scrollbar and read as cropped. */
-.trViewport.isScroll {
-  max-height: min(320px, 45vh);
+  margin-top: 8px;
+  max-height: min(440px, 55vh);
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding-right: 4px;
+  padding-right: 6px;
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--foreground) 18%, transparent) transparent;
 }
-/* A step's own detail (a Run command, a long path or query) scrolls inside its own box too. */
-.trToolDetailBody,
+
+/* Steps: an icon column joined by a thin line, the step beside it (thinking-steps). */
+.steps {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.step {
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+.step.stepIn { animation: step-in 240ms ease-out 80ms both; }
+@keyframes step-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: none; }
+}
+.stepRail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  width: 14px;
+}
+.stepIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 20px;
+  color: var(--muted-foreground);
+}
+.stepDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted-foreground) 60%, transparent);
+}
+.stepLine {
+  flex: 1;
+  width: 1px;
+  min-height: 8px;
+  margin: 2px 0;
+  background: color-mix(in srgb, var(--foreground) 16%, transparent);
+}
+.stepBody {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  padding-bottom: 12px;
+}
+.step:last-child .stepBody { padding-bottom: 2px; }
+.stepLabel {
+  font-size: var(--redesign-chat-text);
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--foreground);
+  letter-spacing: -0.005em;
+  overflow-wrap: anywhere;
+}
+.stepTarget {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 400;
+  font-size: calc(var(--redesign-chat-text) - 1px);
+  color: var(--muted-foreground);
+}
+.stepText {
+  margin: 0;
+  font-size: var(--redesign-chat-text);
+  line-height: 20px;
+  font-weight: 400;
+  color: var(--muted-foreground);
+  letter-spacing: -0.005em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.stepTextActive { color: var(--foreground); }
+.stepText code {
+  padding: 0 4px;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.92em;
+  background: color-mix(in srgb, var(--foreground) 7%, transparent);
+}
+.stepFiles { min-width: 0; padding-top: 1px; }
+/* A folded group of calls ("Read 6 files ›") opens a list under it. */
+.stepDetails {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.stepToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  min-height: 20px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.stepChevron {
+  flex-shrink: 0;
+  color: var(--muted-foreground);
+  transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.stepToggle[aria-expanded="true"] .stepChevron { transform: rotate(90deg); }
+.stepToggle:hover .stepChevron { color: var(--foreground); }
+.stepList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 6px;
+}
+.stepListItem {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: calc(var(--redesign-chat-text) - 1px);
+  line-height: 18px;
+  color: var(--muted-foreground);
+  overflow-wrap: anywhere;
+}
 .snippetBody {
   max-height: 160px;
   overflow-y: auto;
@@ -90,65 +204,8 @@
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--foreground) 18%, transparent) transparent;
 }
-.trStream {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.trSentence {
-  margin: 0;
-  line-height: 20px;
-  font-size: var(--redesign-chat-meta);
-  font-weight: 425;
-  color: var(--muted-foreground);
-  letter-spacing: -0.005em;
-  white-space: pre-wrap;
-  animation: tr-sentence-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-/* Real tool-call rows (ChatPage.tsx's own toolCallLines/thinking-reasoning.tsx
-   comments have the full reasoning) -- the Coding variant's own row shape
-   from the second reference component pasted directly ("It should be using
-   this"): a bold label ("Bash", "Read", "WebSearch") plus a muted monospace
-   detail (the command/path/query), not a single plain sentence. */
-.trToolRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 22px;
-  min-width: 0;
-}
-.trToolLabel {
-  flex-shrink: 0;
-  font-size: var(--redesign-chat-meta);
-  font-weight: 500;
-  color: var(--foreground);
-  letter-spacing: -0.005em;
-}
-.trToolDetail {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: var(--redesign-chat-meta);
-  color: var(--muted-foreground);
-}
-/* Expanded detail for any tool that isn't Run (ToolDetailRow's own comment
-   has the full reasoning) -- just the real path/query text, no fabricated
-   code-snippet card for data that's a single string, not a real shell
-   session. */
-.trToolDetailBody {
-  overflow-wrap: anywhere;
-  padding: 2px 0 2px 4px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: var(--redesign-chat-meta);
-  color: var(--muted-foreground);
-  white-space: pre-wrap;
-}
-@keyframes tr-sentence-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
 @media (prefers-reduced-motion: reduce) {
-  .trSentence, .tr.isLive { animation: none; }
+  .step.stepIn, .tr.isLive { animation: none; }
 }
 /* label-shine -- same treatment as thinking-state.module.css's own
    .shimmer (that file's own comment has the full reasoning for using
@@ -179,7 +236,8 @@
   transition: none;
 }
 /* The live header label (Thinking, Working…) shines; step sentences stay plain to read. */
-.trLabel.trShimmer {
+.trLabel.trShimmer,
+.stepLabel.stepShimmer {
   /* Shine: a lighter band sweeps across the muted text, then rests, so the label stays readable. */
   color: transparent;
   -webkit-text-fill-color: transparent;
@@ -198,43 +256,15 @@
   0%, 15% { background-position: 100% 0; }
   85%, 100% { background-position: 0% 0; }
 }
-/* The step being worked on now reads at full strength, the rest stay muted. */
-.trSentence.trShimmer { color: var(--foreground); }
 /* The live time after "Working" sits in .trLabelRest; its opacity gave it its own layer, which the
    shine's text clip doesn't paint through, so the time went invisible. While shining it takes the
    shine as is. */
 .trLabel.trShimmer .trLabelRest { opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
   .trShimmer { transition: none !important; }
-  .trLabel.trShimmer { animation: none; color: var(--muted-foreground); -webkit-text-fill-color: currentColor; background: none; }
+  .trLabel.trShimmer, .stepLabel.stepShimmer { animation: none; color: var(--muted-foreground); -webkit-text-fill-color: currentColor; background: none; }
 }
 
-/* Run tool call -- per explicit request, with a real reference screenshot
-   pasted directly ("Sorry this is the correct code snippet"): collapses to
-   a plain "Run command" label with its own chevron (trRunToggle), min-h
-   matching .trToolRow's own so it doesn't jump when collapsed vs. plain
-   rows around it; the real command only reveals inside .snippet below, a
-   proper code-snippet card (language label + copy button + a real shell
-   prompt), not the raw command inline the way it used to render. */
-.trRunGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-}
-.trRunToggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 22px;
-  border: 0;
-  background: transparent;
-  padding: 0;
-  font: inherit;
-  color: inherit;
-}
-.trRunToggle .trChevron { flex-shrink: 0; transform: rotate(90deg); }
-.trRunToggle[aria-expanded="true"] .trChevron { transform: rotate(180deg); }
 .snippet {
   overflow: hidden;
   border: 1px solid var(--border);
@@ -271,7 +301,7 @@
   gap: 8px;
   padding: 10px 12px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: var(--redesign-chat-meta);
+  font-size: calc(var(--redesign-chat-text) - 1px);
   line-height: 20px;
 }
 .snippetPrompt { flex-shrink: 0; color: var(--muted-foreground); }

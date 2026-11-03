@@ -2,6 +2,7 @@ import { Trans, useTranslation } from "react-i18next";
 import { clearDraft, readDraft, saveDraft } from "@/lib/compose-drafts";
 import { contextTokensUsed, type TurnUsage } from "@/lib/context-usage";
 import { addTurnText, type TurnNote } from "@/lib/turn-reply";
+import type { ToolLine } from "@/lib/work-steps";
 import i18n from "@/i18n";
 import { Fragment, memo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation, useOutletContext, useParams } from "react-router-dom";
@@ -178,7 +179,8 @@ type ChatRow =
       // not a single formatted string, so ThinkingReasoning can render each
       // the same way a real editor's own tool-call trace does -- bold label,
       // muted monospace detail -- rather than one plain sentence.
-      toolCallLines?: { label: string; detail?: string }[];
+      // A Write/Edit line carries its chat row (rowId): its diff card is drawn inside that step.
+      toolCallLines?: ToolLine[];
       // #462: another participant ran this reply on their own provider ("Alice · Claude"), and which run
       // it is -- live updates and the final reply land on this same row.
       runBy?: string;
@@ -613,6 +615,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // Rows are memoized (ChatRowView, sameRowProps): a row re-renders only when its own props change,
   // not on every keystroke in the compose box or every streamed word. That needs the handlers rows
   // get to keep their identity; each one calls the newest version of its function.
+  const fileCardRef = useRef<(rowIds: string[]) => ReactNode>(() => null);
   const rowHandlersRef = useRef({ cancelEdit, retryLastMessage, retryFailedMessage, resendMessage, editMessage, switchBranch, openFile });
   rowHandlersRef.current = { cancelEdit, retryLastMessage, retryFailedMessage, resendMessage, editMessage, switchBranch, openFile };
   const [rowHandlers] = useState(() => ({
@@ -623,6 +626,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     editMessage: (row: Extract<ChatRow, { kind: "human" }>) => rowHandlersRef.current.editMessage(row),
     switchBranch: (group: string, index: number) => void rowHandlersRef.current.switchBranch(group, index),
     openFile: (path: string) => rowHandlersRef.current.openFile(path),
+    // A turn's file edits (their chat rows), as the diff card drawn inside its Working steps.
+    fileCards: (rowIds: string[]) => fileCardRef.current(rowIds),
   }));
   // #563: a long chat renders only its newest rows (from a turn's start), and reveals earlier ones
   // in batches as the reader scrolls near the top. A 300-row chat kept ~25,000 elements on the page.
@@ -673,6 +678,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     const card = renderFileDiffGroupCard(group, rowHandlers.openFile);
     fileCardCacheRef.current.set(group[0].id, { group, card });
     return card;
+  };
+  fileCardRef.current = (rowIds: string[]) => {
+    const wanted = new Set(rowIds);
+    const group = rowsRef.current.filter((r): r is Extract<ChatRow, { kind: "tool" }> => r.kind === "tool" && wanted.has(r.id));
+    return group.length ? fileCard(group) : null;
   };
   const justChatRef = useRef(false);
   justChatRef.current = sharedChat && justChat;
@@ -776,7 +786,9 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // Plain ref, no matching useState needed at all (unlike liveReasoningText):
   // nothing ever renders this live, it only ever gets read once, when the
   // turn settles.
-  const liveToolCallLinesRef = useRef<{ label: string; detail?: string }[]>([]);
+  const liveToolCallLinesRef = useRef<ToolLine[]>([]);
+  // The same, for drawing: while the turn runs its steps stream into Working.
+  const [liveToolLines, setLiveToolLines] = useState<ToolLine[]>([]);
   // Keeps liveReasoningTextRef in sync -- call this instead of the raw
   // setLiveReasoningText anywhere inside handleEvent (its own comment,
   // above, has the full reasoning for why the ref is the one that matters
@@ -785,8 +797,13 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     liveReasoningTextRef.current = value;
     setLiveReasoningText(value);
   }
-  function addLiveToolCallLine(label: string, detail?: string) {
-    liveToolCallLinesRef.current = [...liveToolCallLinesRef.current, { label, detail }];
+  function addLiveToolCallLine(label: string, detail?: string, rowId?: string) {
+    liveToolCallLinesRef.current = [...liveToolCallLinesRef.current, rowId ? { label, detail, rowId } : { label, detail }];
+    setLiveToolLines(liveToolCallLinesRef.current);
+  }
+  function resetLiveToolLines() {
+    liveToolCallLinesRef.current = [];
+    setLiveToolLines([]);
   }
   const searchQueryRef = useRef<string | null>(null);
   // The compose box's text, kept per chat as a draft so leaving the page doesn't lose it (#565).
@@ -1324,7 +1341,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     pausedTotalMsRef.current = 0;
     searchQueryRef.current = null;
     liveReasoningTextRef.current = null;
-    liveToolCallLinesRef.current = [];
+    resetLiveToolLines();
     sawRealReplyRef.current = false;
     hasPinnedDefaultModelRef.current = false;
     projectIdRef.current = null;
@@ -1605,7 +1622,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         // would otherwise leak stray reasoning/tool-call data into the next.
         firstAgentRowIdRef.current = null;
         updateLiveReasoningText(null);
-        liveToolCallLinesRef.current = [];
+        resetLiveToolLines();
         pausedAtRef.current = null;
         pausedTotalMsRef.current = 0;
         // Real per-message value now (server.rs's own human_message event,
@@ -2146,7 +2163,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         turnStartedAtRef.current = null;
         firstAgentRowIdRef.current = null;
         updateLiveReasoningText(null);
-        liveToolCallLinesRef.current = [];
+        resetLiveToolLines();
         pausedAtRef.current = null;
         pausedTotalMsRef.current = 0;
         // Settings > General > Notifications ("Notify when a chat turn
@@ -2358,7 +2375,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                 continue;
               }
               // #557: later text of the same turn joins the turn's reply instead of a new message.
-              const merged = (rows: ChatRow[]) => addTurnText<ChatRow, typeof newRow>(rows, turnRowId, newRow);
+              // The turn's file edits so far, taken now: replaying history, setRows runs this later, after the
+              // turn's "result" has already cleared the live lines.
+              const stepFileIds = new Set(liveToolCallLinesRef.current.flatMap((line) => (line.rowId ? [line.rowId] : [])));
+              const merged = (rows: ChatRow[]) =>
+                addTurnText<ChatRow, typeof newRow>(rows, turnRowId, newRow, (r) => r.kind === "tool" && stepFileIds.has(r.id));
               if (pendingBranchReplayRef.current) {
                 pendingBranchReplayRef.current = merged(pendingBranchReplayRef.current);
               } else {
@@ -2407,13 +2428,18 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                 // diff card (FileDiffGroup, via the render-time grouping
                 // pass below) -- a dedicated feature in its own right, not
                 // incidental plumbing a reader needs to dig for.
+                const fileRowId = nextRowId();
+                const filePath = summarizeToolInput(block.input);
                 pushRow({
                   kind: "tool",
-                  id: nextRowId(),
+                  id: fileRowId,
                   name: toolName,
-                  summary: summarizeToolInput(block.input),
+                  summary: filePath,
                   input: block.input,
                 });
+                // The edit is also a step in the turn's Working list, in the order it happened, and its
+                // diff card is drawn there instead of after the reply. Not the provider's own files.
+                if (!isProviderOwnPath(filePath)) addLiveToolCallLine(toolName, filePath ?? undefined, fileRowId);
                 // Real bug, confirmed directly ("the files at the right
                 // sidebar and library are not updating in real time so i
                 // have to refresh"): right-panel.tsx's own ChatFileListPanel
@@ -3191,6 +3217,10 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             const groupStarts = new Map<string, Extract<ChatRow, { kind: "tool" }>[]>();
             const deferredGroups = new Map<string, Extract<ChatRow, { kind: "tool" }>[][]>();
             const skipIds = new Set<string>();
+            // Edits drawn inside a turn's Working steps, where they happened (the settled turns', and the
+            // running turn's), aren't drawn again in the log.
+            for (const line of liveToolLines) if (line.rowId) skipIds.add(line.rowId);
+            for (const r of rows) if (r.kind === "agent") for (const line of r.toolCallLines ?? []) if (line.rowId) skipIds.add(line.rowId);
             for (let i = 0; i < rows.length; i++) {
               const r = rows[i];
               if (r.kind !== "tool" || (r.name !== "Write" && r.name !== "Edit")) continue;
@@ -3199,7 +3229,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               let j = i + 1;
               while (j < rows.length) {
                 const next = rows[j];
-                if (next.kind !== "tool" || next.name !== r.name) break;
+                if (next.kind !== "tool" || next.name !== r.name || skipIds.has(next.id)) break;
                 run.push(next);
                 skipIds.add(next.id);
                 j++;
@@ -3281,7 +3311,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             // block (below) now only ever shows before any reply exists yet.
             const liveWorking =
               row.kind === "agent" && row.id === firstAgentRowIdRef.current && waitingPhase && !row.durationLabel
-                ? { label: waitingPhaseLabel, labelSuffix: waitingPhaseSuffix, detailText: liveReasoningText ?? undefined }
+                ? { label: waitingPhaseLabel, labelSuffix: waitingPhaseSuffix, detailText: liveReasoningText ?? undefined, toolLines: liveToolLines }
                 : undefined;
             return (
             <Fragment key={row.id}>
@@ -3308,6 +3338,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                   onOpenFile={rowHandlers.openFile}
                   toolGroup={groupStarts.get(row.id)}
                   liveWorking={liveWorking}
+                  renderFiles={rowHandlers.fileCards}
                   latestReply={row.kind === "agent" && row.id === latestAgentRowId}
                   turnLive={
                     turnInProgress &&
@@ -3351,7 +3382,14 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               {bot && waitingMood && (
                 <BotFace avatar={bot.avatar ?? undefined} expression={moodFace(waitingMood).expression} className="size-4 shrink-0" />
               )}
-              <TurnWorkDisclosure label={waitingPhaseLabel} labelSuffix={waitingPhaseSuffix} detailText={liveReasoningText ?? undefined} live />
+              <TurnWorkDisclosure
+                label={waitingPhaseLabel}
+                labelSuffix={waitingPhaseSuffix}
+                detailText={liveReasoningText ?? undefined}
+                toolLines={liveToolLines}
+                renderFiles={rowHandlers.fileCards}
+                live
+              />
             </div>
           )}
         </div>
@@ -3634,7 +3672,7 @@ function sameRowProps(a: ChatRowViewProps, b: ChatRowViewProps): boolean {
       if (!sameList(a.toolGroup, b.toolGroup)) return false;
     } else if (k === "liveWorking") {
       const x = a.liveWorking, y = b.liveWorking;
-      if (x !== y && (!x || !y || x.label !== y.label || x.labelSuffix !== y.labelSuffix || x.detailText !== y.detailText)) return false;
+      if (x !== y && (!x || !y || x.label !== y.label || x.labelSuffix !== y.labelSuffix || x.detailText !== y.detailText || x.toolLines !== y.toolLines)) return false;
     } else if (k === "bot") {
       if (a.bot !== b.bot && (a.bot?.name !== b.bot?.name || a.bot?.avatar !== b.bot?.avatar)) return false;
     } else if (a[k] !== b[k]) {
@@ -3662,6 +3700,7 @@ function ChatRowViewInner({
   onOpenFile,
   toolGroup,
   liveWorking,
+  renderFiles,
   latestReply = false,
   turnLive = false,
   botMood,
@@ -3690,7 +3729,9 @@ function ChatRowViewInner({
   // full reasoning) -- rendered in the exact slot row.durationLabel's own
   // settled disclosure will occupy once the turn finishes, so nothing
   // visibly jumps between the live and settled states.
-  liveWorking?: { label: string; labelSuffix?: string; detailText?: string };
+  liveWorking?: { label: string; labelSuffix?: string; detailText?: string; toolLines?: ToolLine[] };
+  // Draws a turn's file edit cards inside its Working steps.
+  renderFiles?: (rowIds: string[]) => ReactNode;
   /** The chat's latest reply: a bot's face there is alive (looking about; pleased when it arrives). */
   latestReply?: boolean;
   // #557: this row is part of the turn still running, so its text may still grow.
@@ -4129,13 +4170,15 @@ function ChatRowViewInner({
           >
             <div className="pb-2">
               {row.durationLabel ? (
-                <TurnWorkDisclosure label={row.durationLabel} detailText={row.reasoningText} toolLines={row.toolCallLines} notes={row.notes} />
+                <TurnWorkDisclosure label={row.durationLabel} detailText={row.reasoningText} toolLines={row.toolCallLines} notes={row.notes} renderFiles={renderFiles} />
               ) : (
                 liveWorking && (
                   <TurnWorkDisclosure
                     label={liveWorking.label}
                     labelSuffix={liveWorking.labelSuffix}
                     detailText={liveWorking.detailText}
+                    toolLines={liveWorking.toolLines}
+                    renderFiles={renderFiles}
                     // While the turn runs, its newest text is the step being worked on (shimmering);
                     // it becomes the reply only when the turn ends.
                     notes={row.kind === "agent" ? [...(row.notes ?? []), { text: row.text, at: row.textAt ?? 0, active: true }] : undefined}
@@ -4441,6 +4484,7 @@ function TurnWorkDisclosure({
   detailText,
   toolLines,
   notes,
+  renderFiles,
   live,
 }: {
   label: string;
@@ -4453,11 +4497,18 @@ function TurnWorkDisclosure({
   // the LIVE call site (ChatPage.tsx's own waitingPhase-driven indicator,
   // below) -- these stay genuinely hidden while "Working", only surfacing
   // once the turn settles and this same expand arrow already exists.
-  toolLines?: { label: string; detail?: string }[];
+  toolLines?: ToolLine[];
   notes?: TurnNote[];
+  renderFiles?: (rowIds: string[]) => ReactNode;
   live?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  // Open while the turn runs, so its steps stream in; it folds into "Worked for Ns" when the turn ends.
+  const [open, setOpen] = useState(!!live);
+  const wasLive = useRef(!!live);
+  useEffect(() => {
+    if (wasLive.current && !live) setOpen(false);
+    wasLive.current = !!live;
+  }, [live]);
   const trimmedDetail = detailText?.trim();
   const hasToolLines = (!!toolLines && toolLines.length > 0) || (!!notes && notes.length > 0);
   // No expand affordance at all when there's nothing real to show -- per
@@ -4485,6 +4536,7 @@ function TurnWorkDisclosure({
         text={trimmedDetail ?? ""}
         toolLines={toolLines}
         notes={notes}
+        renderFiles={renderFiles}
         live={!!live}
         open={open}
         onToggleOpen={() => {

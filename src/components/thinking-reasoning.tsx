@@ -1,6 +1,8 @@
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Brain, ChevronRight, FilePen, FilePlus, FileText, Globe, Terminal, Wrench } from "lucide-react";
+import { workCounts, workSteps, type StepNote, type ToolLine, type WorkStep } from "@/lib/work-steps";
 import { suppressAutoScroll } from "@/lib/chat-scroll-suppress";
 import { useTextSwap } from "@/lib/use-text-swap";
 import { TypedText } from "@/components/streaming-text";
@@ -20,34 +22,14 @@ export function useMountedWhileOpen(open: boolean): boolean {
   return open || mounted;
 }
 
-// Installed via `npx shadcn@latest add
-// https://www.aicss.dev/r/thinking-reasoning.json` (per explicit request),
-// then adapted the same way thinking-state.tsx already was from the same
-// registry: no "use client" (Next.js-only), this app's own real
-// --muted-foreground/--foreground theme tokens instead of the reference's
-// own hardcoded grays (thinking-state.module.css's own comment has that
-// reasoning), and -- the real change here -- the reference's own SENTENCES
-// demo array and fixed ~5s fake "thinking" timeline are gone entirely.
-// This app never fabricates content it doesn't have (this file's own
-// project-wide rule): `text` is TurnWorkDisclosure's real detailText
-// (Claude's actual thinking-block content, the only provider that has any
-// today), split into real sentences and revealed with a short staggered
-// entrance -- a tasteful reveal of content that's already real, not a
-// simulation of how long thinking "should" take the way the reference
-// component invents. `label` is this app's own "Worked for Ns" (kept per
-// explicit decision, not the reference's own "Thought for Ns" wording) --
-// TurnWorkDisclosure still owns the collapsed/expanded and live/settled
-// state; this component only renders whichever state it's told to.
-//
-// toolLines' own row styling (bold label + muted monospace detail) is
-// adapted the same way from a second reference component pasted directly
-// ("It should be using this" -- a ThinkingState with Steps/Reasoning/
-// Search/Coding variants). Only the Coding variant's row shape is taken
-// (label/detail, no icon -- this app has no per-tool icon set); its own
-// useSequence/STAGES fake timed reveal is dropped entirely, same as
-// SENTENCES was dropped from this file's own first reference component --
-// every row here renders the instant its real data exists, nothing is
-// staged to *look* like it took a particular amount of time.
+// The Working / "Worked for Ns" block: a turn's work as a column of steps joined by a line (the
+// thinking-steps pattern, fluidfunctionalism.com/docs/thinking-steps, MIT), in the order it
+// happened -- its thinking, the notes it wrote along the way, its commands and reads, and its file
+// edits with their diffs. While the turn runs the steps stream in, open, following the newest; when
+// it ends the block folds into its header, which opens it again (aicss.dev's thinking-reasoning:
+// a shimmering label that folds into a summary). Calls of the same kind in a row fold into one step
+// that opens a list ("Read 6 files"). Nothing is staged: a step shows the moment its data exists.
+
 // "Worked for 5s" -> the verb, then the rest (shown lighter). A label with no space stays whole.
 function labelParts(label: string): [string, string] {
   const at = label.indexOf(" ");
@@ -64,29 +46,93 @@ function TwoToneLabel({ text }: { text: string }) {
   );
 }
 
-function splitSentences(text: string): string[] {
-  return text
-    .split(/(?<=[.!?])\s+(?=\S)/)
-    .map((s) => s.trim())
-    .filter(Boolean);
+const ICON_PROPS = { size: 14, strokeWidth: 1.6, "aria-hidden": true } as const;
+
+function StepIcon({ step }: { step: WorkStep }) {
+  if (step.kind === "thinking") return <Brain {...ICON_PROPS} />;
+  if (step.kind === "note") return <span className={styles.stepDot} />;
+  if (step.kind === "files") return step.label === "Write" ? <FilePlus {...ICON_PROPS} /> : <FilePen {...ICON_PROPS} />;
+  if (step.label === "Run") return <Terminal {...ICON_PROPS} />;
+  if (step.label === "Read") return <FileText {...ICON_PROPS} />;
+  if (step.label === "WebSearch") return <Globe {...ICON_PROPS} />;
+  return <Wrench {...ICON_PROPS} />;
 }
 
-const SENTENCE_STAGGER_MS = 70;
+// A note's `code` spans, drawn as code rather than with their backticks.
+function InlineCode({ text }: { text: string }) {
+  const parts = text.split(/(`[^`\n]+`)/);
+  return <>{parts.map((part, i) => (part.length > 2 && part.startsWith("`") && part.endsWith("`") ? <code key={i}>{part.slice(1, -1)}</code> : part))}</>;
+}
 
-type ReasoningItem = { kind: "sentence"; text: string; active?: boolean } | { kind: "tool"; label: string; detail?: string };
+const baseName = (path: string) => path.split("/").filter(Boolean).pop() ?? path;
 
-// The steps in the order they happened: each note (a text block the turn wrote along the way)
-// goes before the tool call that followed it.
-function stepItems(toolLines: { label: string; detail?: string }[], notes: { text: string; at: number; active?: boolean }[]): ReasoningItem[] {
-  const items: ReasoningItem[] = [];
-  const pending = [...notes].sort((a, b) => a.at - b.at);
-  const note = (n: { text: string; active?: boolean }): ReasoningItem => ({ kind: "sentence", text: n.text, active: n.active });
-  toolLines.forEach((tool, index) => {
-    while (pending.length && pending[0].at <= index) items.push(note(pending.shift()!));
-    items.push({ kind: "tool", label: tool.label, detail: tool.detail });
-  });
-  for (const n of pending) items.push(note(n));
-  return items;
+// A tool step's label: "Ran a command", "Read 6 files", "Searched the web".
+function toolStepLabel(label: string, lines: ToolLine[]): string {
+  const count = lines.length;
+  if (label === "Run") return count === 1 ? i18n.t("work.ranCommand") : i18n.t("work.ranCommands", { count });
+  if (label === "Read") return count === 1 && lines[0].detail ? i18n.t("work.readFile", { name: baseName(lines[0].detail) }) : i18n.t("work.readFiles", { count });
+  if (label === "WebSearch") return count === 1 ? i18n.t("work.searched") : i18n.t("work.searchedTimes", { count });
+  const name = toolLabelText(label);
+  return count === 1 ? name : `${name} ×${count}`;
+}
+
+// "3 files changed, 5 commands" after "Worked for 2m", so the folded block says what the turn did.
+function countsText(lines: ToolLine[]): string {
+  const c = workCounts(lines);
+  const parts: string[] = [];
+  if (c.files) parts.push(i18n.t(c.files === 1 ? "work.count.file" : "work.count.files", { count: c.files }));
+  if (c.commands) parts.push(i18n.t(c.commands === 1 ? "work.count.command" : "work.count.commands", { count: c.commands }));
+  if (c.searches) parts.push(i18n.t(c.searches === 1 ? "work.count.search" : "work.count.searches", { count: c.searches }));
+  if (!parts.length && c.reads) parts.push(i18n.t(c.reads === 1 ? "work.count.read" : "work.count.reads", { count: c.reads }));
+  return parts.join(", ");
+}
+
+function ToolStep({ step, active }: { step: Extract<WorkStep, { kind: "tools" }>; active: boolean }) {
+  const [open, setOpen] = useState(false);
+  const mounted = useMountedWhileOpen(open);
+  const single = step.lines.length === 1 ? step.lines[0] : null;
+  const label = toolStepLabel(step.label, step.lines);
+  // A single read or search shows what it was right there; it has nothing more to open.
+  if (single && !single.detail) return <span className={styles.stepLabel + (active ? " " + styles.stepShimmer : "")}>{label}</span>;
+  if (single && step.label !== "Run") {
+    return (
+      <span className={styles.stepLabel + (active ? " " + styles.stepShimmer : "")}>
+        {step.label === "Read" ? label : `${label} `}
+        {step.label !== "Read" && <span className={styles.stepTarget}>{single.detail}</span>}
+      </span>
+    );
+  }
+  return (
+    <div className={styles.stepDetails}>
+      <button
+        type="button"
+        className={styles.stepToggle}
+        aria-expanded={open}
+        onClick={() => {
+          suppressAutoScroll();
+          setOpen((v) => !v);
+        }}
+      >
+        <span className={styles.stepLabel + (active ? " " + styles.stepShimmer : "")}>{label}</span>
+        <ChevronRight size={12} strokeWidth={1.8} aria-hidden className={styles.stepChevron} />
+      </button>
+      <div className={styles.trCollapsible + (open ? "" : " " + styles.isCollapsed)}>
+        <div className={styles.trInner}>
+          {mounted && (
+            <div className={styles.stepList}>
+              {step.label === "Run"
+                ? step.lines.map((line, i) => (line.detail ? <CommandSnippet key={i} command={line.detail} /> : null))
+                : step.lines.map((line, i) => (
+                    <span key={i} className={styles.stepListItem}>
+                      {line.detail ?? toolLabelText(line.label)}
+                    </span>
+                  ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function ThinkingReasoning({
@@ -95,6 +141,7 @@ export function ThinkingReasoning({
   text,
   toolLines,
   notes,
+  renderFiles,
   live,
   open,
   onToggleOpen,
@@ -102,102 +149,30 @@ export function ThinkingReasoning({
   label: string;
   // Live elapsed time; shown after the label without replaying its text swap (#551).
   labelSuffix?: string;
+  // Claude's thinking-block text, when the turn had one.
   text: string;
-  // Real tool calls this turn made ("Bash", "sed -n '1,160p' Internet.md"),
-  // ChatPage.tsx's own toolCallLines comment has the full reasoning.
-  // Rendered as their own structured rows (bold label + muted monospace
-  // detail), appended after text's own prose sentences.
-  toolLines?: { label: string; detail?: string }[];
+  // The turn's tool calls in order (ChatPage.tsx's toolCallLines). A file edit's line carries its
+  // chat row (rowId), whose diff card renderFiles draws inside the step.
+  toolLines?: ToolLine[];
   // #557: text the turn wrote along the way, shown as steps between its tool calls.
-  // `active` marks the step being worked on now: it shimmers, like the thinking-steps pattern.
-  notes?: { text: string; at: number; active?: boolean }[];
-  // Still receiving live updates this turn -- the reasoning stays open
-  // and unclickable (same as the reference's own "while thinking the
-  // reasoning is always open"), folding into a clickable summary once
-  // the turn settles.
+  // `active` marks the step being written now.
+  notes?: StepNote[];
+  renderFiles?: (rowIds: string[]) => ReactNode;
   live: boolean;
   open: boolean;
   onToggleOpen: () => void;
 }) {
   useTranslation();
-  const items: ReasoningItem[] = [
-    ...splitSentences(text).map((s): ReasoningItem => ({ kind: "sentence", text: s })),
-    ...stepItems(toolLines ?? [], notes ?? []),
-  ];
-  // useTextSwap (this file's own thinking-state.tsx sibling has the full
-  // reasoning, a second reference pasted directly per explicit request --
-  // "the switch between working and waiting should be [this]") -- label
-  // changes as the live phase changes (Waiting -> Working, a running
-  // seconds count updating), so this animates that swap instead of an
-  // instant jump. Only meaningful while `live`; the settled label (below)
-  // never changes after it's set, so it renders plain.
+  const lines = toolLines ?? [];
+  const steps = workSteps(text, lines, notes ?? []);
   const { displayText: labelSwapText, phase: labelSwapPhase } = useTextSwap(label);
-  const [revealedCount, setRevealedCount] = useState(0);
-  const revealedCountRef = useRef(0);
-  revealedCountRef.current = revealedCount;
-  // Real bug, confirmed directly ("the arrow is expanded but there's
-  // nothing there"): this used to key off `text` alone, initialized to "".
-  // A turn with no real thinking-block text at all (the common case --
-  // most turns only ever have tool calls, no Claude thinking block) passes
-  // text="" here, which trivially equals that initial "", so the guard
-  // below skipped the whole reveal and revealedCount stayed 0 forever --
-  // toolLines never had a chance to reveal even though they were real and
-  // present. Keying off the full combined signature (both text and
-  // toolLines) instead of text alone fixes this for both fields.
-  const sentencesKey = JSON.stringify([text, toolLines ?? [], notes ?? []]);
-  const revealedKeyRef = useRef<string | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
-  const [fade, setFade] = useState({ top: false, bottom: true });
+  const [fade, setFade] = useState({ top: false, bottom: false });
+  const stepsMounted = useMountedWhileOpen(open);
+  const counts = live ? "" : countsText(lines);
 
-  // Re-staggers only when genuinely new content has arrived (the text
-  // grew), not on every re-render/toggle -- reopening an already-settled
-  // reasoning block shouldn't replay the entrance animation.
-  //
-  // Real bug, confirmed directly via console output ("Still not showing"):
-  // the staggered setTimeout-based reveal below is fragile against a row
-  // being unmounted/remounted (this app's own viewport-visibility logic
-  // mounts/unmounts off-screen rows) between scheduling a timer and it
-  // firing -- diagnostic logging showed the effect running with the
-  // correct real sentences/toolLines every time, yet revealedCount stuck
-  // at 0 forever regardless. Staggering only ever mattered for genuinely
-  // LIVE streaming content in the first place; a settled, already-fully-
-  // known disclosure (the common case -- every historical reply, and any
-  // live one with no further updates coming) has no reason to animate a
-  // reveal at all, so it skips the timers entirely and shows everything
-  // immediately, removing this whole class of timing bug for that case.
-  useEffect(() => {
-    if (sentencesKey === revealedKeyRef.current) return;
-    revealedKeyRef.current = sentencesKey;
-    if (!live || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
-      setRevealedCount(items.length);
-      return;
-    }
-    // Only steps that are new stagger in. Starting over from 0 on every update (a new step, the
-    // step's text growing) emptied the block for a moment and filled it again, which bounced the
-    // whole chat up and down.
-    const from = Math.min(revealedCountRef.current, items.length);
-    setRevealedCount(from);
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    for (let i = from; i < items.length; i++) {
-      timers.push(setTimeout(() => setRevealedCount((c) => Math.max(c, i + 1)), (i - from) * SENTENCE_STAGGER_MS));
-    }
-    return () => timers.forEach(clearTimeout);
-    // items is derived from sentencesKey every render -- only
-    // sentencesKey/live (checked above) should re-trigger this.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sentencesKey, live]);
-
-  const expanded = live || open;
-  const stepsMounted = useMountedWhileOpen(expanded);
-  // While the turn runs, collapsed shows only the step being worked on (the newest); expanding
-  // shows every step. Settled, it's all or nothing, as before.
-  const revealed = items.slice(0, revealedCount);
-  const firstShown = live && !open ? Math.max(0, revealed.length - 1) : 0;
-  const visibleItems = revealed.slice(firstShown);
-
-  // Opened, the steps sit in a box of fixed height that scrolls inside (aicss.dev's
-  // thinking-reasoning), with a fade at whichever edge has more to see. While the turn runs it
-  // follows the newest step, unless the reader scrolled up.
+  // The steps sit in a box of fixed height that scrolls inside, with a fade at whichever edge has
+  // more to see. While the turn runs it follows the newest step, unless the reader scrolled up.
   const followRef = useRef(true);
   const measure = () => {
     const el = viewportRef.current;
@@ -211,38 +186,25 @@ export function ThinkingReasoning({
     if (el) followRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 8;
     measure();
   };
-  // While the turn runs, the collapsed block shows one step at a time; a short step after a long
-  // one made it shrink and the chat bounce. It only grows until the turn ends.
-  const [liveMinHeight, setLiveMinHeight] = useState(0);
-  useLayoutEffect(() => {
-    const el = viewportRef.current;
-    if (!live || open || !el?.firstElementChild) {
-      setLiveMinHeight(0);
-      return;
-    }
-    const inner = el.firstElementChild as HTMLElement;
-    const grow = () => setLiveMinHeight((h) => Math.max(h, inner.offsetHeight));
-    grow();
-    const ro = new ResizeObserver(grow);
-    ro.observe(inner);
-    return () => ro.disconnect();
-  }, [live, open]);
-
   useLayoutEffect(() => {
     const el = viewportRef.current;
     if (!el || !open) return;
-    if (live && followRef.current) el.scrollTop = el.scrollHeight;
-    measure();
-    // Steps (a Run command) open inside it and change its height.
-    const ro = new ResizeObserver(measure);
+    const follow = () => {
+      if (live && followRef.current) el.scrollTop = el.scrollHeight;
+      measure();
+    };
+    follow();
+    // Steps grow as they type in, and a command or a diff opens inside one.
+    const ro = new ResizeObserver(follow);
     if (el.firstElementChild) ro.observe(el.firstElementChild);
     return () => ro.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, live, visibleItems.length]);
+  }, [open, live, steps.length]);
   useEffect(() => {
     if (!open) followRef.current = true;
   }, [open]);
-  const edgeFade = `linear-gradient(to bottom, ${fade.top ? "transparent 0, #000 20px" : "#000 0"}, ${fade.bottom ? "#000 calc(100% - 20px), transparent 100%" : "#000 100%"})`;
+  const edgeFade = `linear-gradient(to bottom, ${fade.top ? "transparent 0, #000 24px" : "#000 0"}, ${fade.bottom ? "#000 calc(100% - 24px), transparent 100%" : "#000 100%"})`;
+  const lastIndex = steps.length - 1;
 
   return (
     <div className={live ? `${styles.tr} ${styles.isLive}` : styles.tr}>
@@ -264,74 +226,49 @@ export function ThinkingReasoning({
         ) : (
           <span className={styles.trLabel}>
             <TwoToneLabel text={label} />
+            {counts && <span className={styles.trLabelRest}>{` · ${counts}`}</span>}
           </span>
         )}
-        {(!live || items.length > 1) && (
-          <svg className={styles.trChevron} viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
-            <path
-              d="m4.5 15.75 7.5-7.5 7.5 7.5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        )}
+        <ChevronRight size={13} strokeWidth={1.8} aria-hidden className={styles.trChevron} />
       </button>
-      <div className={styles.trCollapsible + (expanded ? "" : " " + styles.isCollapsed)}>
+      <div className={styles.trCollapsible + (open ? "" : " " + styles.isCollapsed)}>
         <div className={styles.trInner}>
-          <div
-            ref={viewportRef}
-            className={styles.trViewport + (open ? " " + styles.isScroll : "")}
-            onScroll={open ? onScroll : undefined}
-            style={
-              open
-                ? { WebkitMaskImage: edgeFade, maskImage: edgeFade }
-                : live
-                ? {
-                    minHeight: liveMinHeight || undefined,
-                    WebkitMaskImage: fade.bottom
-                      ? "linear-gradient(to bottom, #000 calc(100% - 16px), transparent 100%)"
-                      : "none",
-                    maskImage: fade.bottom ? "linear-gradient(to bottom, #000 calc(100% - 16px), transparent 100%)" : "none",
-                  }
-                : undefined
-            }
-          >
-            <div className={styles.trStream}>
-              {(stepsMounted ? visibleItems : []).map((item, shown) => {
-                const i = firstShown + shown;
-                return item.kind === "sentence" ? (
-                  <p key={i} className={item.active ? `${styles.trSentence} ${styles.trShimmer}` : styles.trSentence}>
-                    {/* While the turn runs its steps type in, and keep typing after a steer or a newer
-                        step, rather than showing in full before the reply types the same text. */}
-                    {live ? <TypedText text={item.text} animate /> : item.text}
-                  </p>
-                ) : (
-                  // One shared row for every tool kind (ToolDetailRow,
-                  // below) -- per explicit follow-up ("it should be the
-                  // same to other states like Read file > or Write file >
-                  // or Delete file >"), checked directly against Synara's
-                  // own real source (git pull + a direct read of
-                  // TimelineWorkEntryRow.tsx/ToolCallDetailsDialog.tsx):
-                  // Synara renders every tool kind through one generic row
-                  // + detail-dialog pair, branching only on which fields a
-                  // given call actually has, not a bespoke component per
-                  // tool. Same idea here -- ToolDetailRow handles Read/
-                  // WebSearch/etc. the same way it handles Run, only the
-                  // expanded body's own shape differs (a real code-snippet
-                  // card for a command, plain monospace text otherwise).
-                  item.detail ? (
-                    <ToolDetailRow key={i} label={item.label} detail={item.detail} />
-                  ) : (
-                    <div key={i} className={styles.trToolRow}>
-                      <span className={styles.trToolLabel}>{toolLabelText(item.label)}</span>
+          <div ref={viewportRef} className={styles.trViewport} onScroll={onScroll} style={{ WebkitMaskImage: edgeFade, maskImage: edgeFade }}>
+            <ol className={styles.steps}>
+              {(stepsMounted ? steps : []).map((step, i) => {
+                const active = live && i === lastIndex;
+                return (
+                  <li key={i} className={styles.step + (live ? " " + styles.stepIn : "")}>
+                    <div className={styles.stepRail}>
+                      <span className={styles.stepIcon}>
+                        <StepIcon step={step} />
+                      </span>
+                      {i < lastIndex && <span className={styles.stepLine} />}
                     </div>
-                  )
+                    <div className={styles.stepBody}>
+                      {step.kind === "thinking" ? (
+                        <>
+                          <span className={styles.stepLabel + (active ? " " + styles.stepShimmer : "")}>
+                            {i18n.t(active ? "chat.phase.thinking" : "work.thought")}
+                          </span>
+                          <p className={styles.stepText}>{live ? <TypedText text={step.text} animate /> : step.text}</p>
+                        </>
+                      ) : step.kind === "note" ? (
+                        // A note is the turn's own words: plain, in full, never cut to a line. The one
+                        // being written now reads at full strength.
+                        <p className={styles.stepText + (step.active ? " " + styles.stepTextActive : "")}>
+                          {live ? <TypedText text={step.text} animate render={(shown) => <InlineCode text={shown} />} /> : <InlineCode text={step.text} />}
+                        </p>
+                      ) : step.kind === "files" ? (
+                        <div className={styles.stepFiles}>{renderFiles?.(step.rowIds)}</div>
+                      ) : (
+                        <ToolStep step={step} active={active} />
+                      )}
+                    </div>
+                  </li>
                 );
               })}
-            </div>
+            </ol>
           </div>
         </div>
       </div>
@@ -339,99 +276,10 @@ export function ThinkingReasoning({
   );
 }
 
-// Generic noun for a tool's own collapsed label ("Run command", "Read
-// file", "Search the web") -- real display-only vocabulary, same spirit as
-// ChatPage.tsx's own TOOL_DISPLAY_LABELS (Read/Write/Edit/Run), not
-// something Synara's own source dictated verbatim (its real labels come
-// from upstream verb+target templates, e.g. "Read file app.ts", not a
-// generic noun) -- kept here because collapsing to a truly generic label
-// (no raw path/command shown until expanded) was the explicit, repeated
-// ask this session, not just matching Synara's own choice of words.
-// Tool names ("Run"/"Read"/...) double as logic keys throughout ChatPage, so
-// they stay literal in data and are only translated here, at display time.
+// Tool names ("Run"/"Read"/...) double as logic keys throughout ChatPage, so they stay literal in
+// data and are only translated here, at display time.
 function toolLabelText(label: string): string {
   return i18n.exists(`tool.label.${label}`) ? i18n.t(`tool.label.${label}`) : label;
-}
-
-const TOOL_NOUNS: Record<string, string> = {
-  Run: "command",
-  Read: "file",
-  WebSearch: "the web",
-};
-
-// One shared row for every tool kind (this file's own render loop, above,
-// has the full reasoning -- confirmed directly against Synara's real
-// source, one generic row + detail-dialog pair for every tool kind, not a
-// bespoke component per type). Collapses to a generic "{Label} {noun}"
-// label (falls back to just the label alone when no noun is mapped) with
-// its own expand arrow; expanding reveals the real detail -- a proper code
-// snippet (language label, copy button, a real shell prompt) for a Run
-// command specifically, matching a real reference screenshot pasted
-// directly ("Sorry this is the correct code snippet"), or the plain detail
-// text (a path, a query) for everything else, no fabricated card for data
-// that's just a single string.
-function ToolDetailRow({ label, detail }: { label: string; detail: string }) {
-  const [open, setOpen] = useState(false);
-  const detailMounted = useMountedWhileOpen(open);
-  const { t } = useTranslation();
-  const noun = TOOL_NOUNS[label] ? t(`tool.noun.${label}`) : undefined;
-  return (
-    <div className={styles.trRunGroup}>
-      <button
-        type="button"
-        className={styles.trRunToggle}
-        onClick={() => {
-          // Real bug, confirmed directly ("the run command is snapping the
-          // same way the parent was doing before") -- this nested toggle
-          // grows/shrinks the content column exactly the way the parent
-          // "Worked" disclosure's own toggle does; chat-scroll-suppress.ts's
-          // own comment has the full reasoning for why this needs arming
-          // here too, not just there.
-          suppressAutoScroll();
-          setOpen((prev) => !prev);
-        }}
-        aria-expanded={open}
-      >
-        <span className={styles.trToolLabel}>{toolLabelText(label)}</span>
-        {noun && <span className={styles.trToolDetail}>{noun}</span>}
-        <svg
-          className={styles.trChevron}
-          viewBox="0 0 24 24"
-          width="12"
-          height="12"
-          aria-hidden="true"
-          // Real bug, confirmed directly ("The run command arrows are
-          // inverted, should be facing/mirror the other way like > and
-          // not <"): the base path is an up-caret; -90deg turned it left
-          // ("<"), not right (">"). 90deg (collapsed, points right) ->
-          // 180deg (expanded, points down) matches the standard disclosure
-          // convention this app's own outer "Worked" chevron uses (below).
-          style={{ transform: open ? "rotate(180deg)" : "rotate(90deg)" }}
-        >
-          <path
-            d="m4.5 15.75 7.5-7.5 7.5 7.5"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </button>
-      {/* Real bug, confirmed directly ("the run command subfolder collapse
-          or expand is snapping and does not have the same transition as
-          the father component"): `{open && ...}` mounted/unmounted the
-          detail outright, with no transition at all -- the parent
-          disclosure's own .trCollapsible (a grid-template-rows 1fr/0fr
-          trick, further up) is what actually animates there. Same
-          mechanism here instead of a second, snapping one. */}
-      <div className={styles.trCollapsible + (open ? "" : " " + styles.isCollapsed)}>
-        <div className={styles.trInner}>
-          {!detailMounted ? null : label === "Run" ? <CommandSnippet command={detail} /> : <div className={styles.trToolDetailBody}>{detail}</div>}
-        </div>
-      </div>
-    </div>
-  );
 }
 
 function CommandSnippet({ command }: { command: string }) {

@@ -20,7 +20,14 @@ type AgentPart = {
 // last part when nothing visible came after it (permission rows aren't drawn in the log), and
 // otherwise starts a new part after the card in between (a file edit), drawn as the same reply:
 // the new part carries `turnRowId`, and the part before it is marked `continued`.
-export function addTurnText<R extends { kind: string; id: string }, A extends AgentPart & R>(rows: R[], turnRowId: string, part: A): R[] {
+// `hidden` says which rows the log doesn't draw between two parts (a permission row always; ChatPage
+// adds file edits, now drawn inside the turn's Working steps).
+export function addTurnText<R extends { kind: string; id: string }, A extends AgentPart & R>(
+  rows: R[],
+  turnRowId: string,
+  part: A,
+  hidden: (row: R) => boolean = () => false
+): R[] {
   let at = -1;
   for (let index = rows.length - 1; index >= 0; index--) {
     const row = rows[index] as R & Partial<AgentPart>;
@@ -32,7 +39,7 @@ export function addTurnText<R extends { kind: string; id: string }, A extends Ag
   if (at < 0) return [...rows, part];
   const last = rows[at] as unknown as A;
   const next = [...rows];
-  if (rows.slice(at + 1).every((row) => row.kind === "permission")) {
+  if (rows.slice(at + 1).every((row) => row.kind === "permission" || hidden(row))) {
     // The turn's earlier text becomes a step inside its Working list and the newest text is the
     // reply (the thinking-steps pattern): one message, with the narration folded away.
     if (last.id === turnRowId) {

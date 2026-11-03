@@ -42,4 +42,11 @@ describe("addTurnText", () => {
     const out = addTurnText<Row, Extract<Row, { kind: "agent" }>>([], "a1", agent("a2", "Hi."));
     expect(out).toEqual([agent("a2", "Hi.")]);
   });
+
+  it("joins across a file edit drawn inside the Working steps", () => {
+    const rows: Row[] = [agent("a1", "Editing."), { kind: "tool", id: "t" }];
+    const out = addTurnText<Row, Extract<Row, { kind: "agent" }>>(rows, "a1", agent("a2", "Done."), (r) => r.kind === "tool");
+    expect(out).toHaveLength(2);
+    expect(out[0]).toMatchObject({ id: "a1", text: "Done.", notes: [{ text: "Editing.", at: 0 }] });
+  });
 });

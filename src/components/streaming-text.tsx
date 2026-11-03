@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Streamdown, type ExtraProps } from "streamdown";
 import { ResearchIcon } from "@/components/icons/untitled-ui";
 import { holdBackTable } from "@/lib/stream-table";
@@ -286,9 +286,10 @@ export function useTyping(rawText: string, animate: boolean) {
 }
 
 /** A live step in Working: plain text, typed in like the reply. */
-export function TypedText({ text, animate }: { text: string; animate: boolean }) {
+export function TypedText({ text, animate, render }: { text: string; animate: boolean; render?: (shown: string) => ReactNode }) {
   const { tokens, count, done } = useTyping(text, animate);
-  return <>{done ? tokens.join(" ") : tokens.slice(0, count).join(" ")}</>;
+  const shown = done ? tokens.join(" ") : tokens.slice(0, count).join(" ");
+  return <>{render ? render(shown) : shown}</>;
 }
 
 export function StreamingText({ text: rawText, animate, onDone }: { text: string; animate: boolean; onDone?: () => void }) {
