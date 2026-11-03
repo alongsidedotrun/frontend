@@ -250,14 +250,11 @@ function useConnectedProviders(providers: readonly string[]): Record<string, boo
   return connected;
 }
 
-// The empty state's rows: the providers with usage, and Grok (to come), as the composer's
-// "Connect to your Providers" row shows them.
+// The empty state's rows: the providers with usage, as the composer's "Connect to your Providers"
+// row shows them.
 // Alphabetical by the name the providers list shows: ChatGPT, Claude, Gemini, Grok (each icon's file
 // is named after it).
-const EMPTY_STATE_ICONS = [
-  ...USAGE_PROVIDERS,
-  { provider: "Grok", value: "grok", icon: "/icons/providers/grok.svg", invertInDark: true, iconScale: 0.82 },
-].sort((a, b) => a.icon.localeCompare(b.icon));
+const EMPTY_STATE_ICONS = [...USAGE_PROVIDERS].sort((a, b) => a.icon.localeCompare(b.icon));
 
 /** No provider connected: what the section will hold, drawn faintly, and what to do. */
 function UsageEmptyState() {
