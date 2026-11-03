@@ -1879,17 +1879,9 @@ export function ComposeBox({
         className={cn(
           "relative z-10 flex flex-col rounded-[var(--compose-shell-radius)] border border-border bg-background px-2 pt-2 pb-[7px] dark:bg-surface-1 transition-[min-height,padding,border-color] duration-160 [contain:layout_style] @[420px]:px-3 @[420px]:pt-3 @[420px]:pb-1.5",
           initialHeight && "min-h-[120px] justify-between",
-          dragActive && "border-ring",
-          // border-focus-accent -- matches the sidebar/inbox search inputs'
-          // own focus-visible:border-focus-accent exactly (sidebar-nav.tsx's
-          // own comment on that class has the full history), per explicit
-          // request ("we are highlighting as blue, lets do the same...
-          // at compose box"). textareaFocused, not a CSS :focus-within --
-          // this border lives on the outer wrapper, not the textarea
-          // itself, and was already tracked (this file's own
-          // AnimatedPlaceholder fade uses the same state) but never
-          // consumed for a border change until now.
-          !dragActive && textareaFocused && "border-focus-accent"
+          // Only a drag over the box changes its border. Typing in it keeps the plain border: the
+          // blue focus border it had read too much like Codex and other apps.
+          dragActive && "border-ring"
         )}
       >
         {images.length > 0 && (
