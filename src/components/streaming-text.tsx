@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Streamdown, type ExtraProps } from "streamdown";
 import { ResearchIcon } from "@/components/icons/untitled-ui";
 
@@ -22,6 +22,10 @@ import { ResearchIcon } from "@/components/icons/untitled-ui";
 // rendered as raw spans, so a code fence or bold marker revealed mid-word doesn't
 // render as broken/literal asterisks the way plain-text word spans would.
 const WORD_MS = 55;
+// A long reply typed one word at a time kept typing for minutes and re-rendered the page on every
+// word. Each tick reveals enough words that the rest is shown within about this long.
+const MAX_REVEAL_MS = 6000;
+const TICKS_LEFT = MAX_REVEAL_MS / WORD_MS;
 
 // How often the cursor toggles on/off -- matches a typical text-cursor blink
 // rate closely enough; there's nothing to port here since the reference's own
@@ -245,10 +249,40 @@ export function StreamingText({ text: rawText, animate, onDone }: { text: string
   const [count, setCount] = useState(animate ? 0 : tokens.length);
   const [blinkOn, setBlinkOn] = useState(true);
   const done = count >= tokens.length;
+  // Set while the reply's end is off screen (the reader scrolled up): typing there costs work for
+  // nothing anyone sees, so the rest is shown at once.
+  const endRef = useRef<HTMLSpanElement>(null);
+  const endHiddenRef = useRef(false);
+
+  useEffect(() => {
+    const el = endRef.current;
+    if (!animate || done || !el) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const io = new IntersectionObserver(([entry]) => {
+      clearTimeout(timer);
+      // A short wait, so the frame before the chat scrolls to a new reply doesn't count.
+      if (!entry.isIntersecting)
+        timer = setTimeout(() => {
+          endHiddenRef.current = true;
+          setCount(Number.MAX_SAFE_INTEGER);
+        }, 300);
+      else endHiddenRef.current = false;
+    });
+    io.observe(el);
+    return () => {
+      clearTimeout(timer);
+      io.disconnect();
+    };
+  }, [animate, done]);
 
   useEffect(() => {
     if (!animate || done) return;
-    const t = setTimeout(() => setCount((c) => c + 1), WORD_MS);
+    if (endHiddenRef.current) {
+      setCount(Number.MAX_SAFE_INTEGER);
+      return;
+    }
+    const step = Math.max(1, Math.ceil((tokens.length - count) / TICKS_LEFT));
+    const t = setTimeout(() => setCount((c) => c + step), WORD_MS);
     return () => clearTimeout(t);
     // count is a real dependency, not an oversight -- without it this effect
     // only ever fires its first setTimeout (nothing else changes animate/done
@@ -256,7 +290,7 @@ export function StreamingText({ text: rawText, animate, onDone }: { text: string
     // word and then stopped forever. Confirmed directly as the actual bug
     // behind "stopped at 'I'm |'" -- this dropped out when the cursor got its
     // own separate effect below and both got trimmed to look alike.
-  }, [animate, done, count]);
+  }, [animate, done, count, tokens.length]);
 
   // Real, per explicit request ("copy, rate, re-try... source and time and
   // advise shows before the actual text loads... makes no sense to show the
@@ -308,14 +342,17 @@ export function StreamingText({ text: rawText, animate, onDone }: { text: string
     // animated={false}: this component already drives its own reveal cadence
     // (the timer above) -- streamdown's own animation would double up on top of
     // that instead of just rendering each growing prefix as it arrives.
-    <Streamdown
-      mode="streaming"
-      animated={false}
-      className={MARKDOWN_CLASS}
-      controls={MARKDOWN_CONTROLS}
-      components={MARKDOWN_COMPONENTS}
-    >
-      {revealed}
-    </Streamdown>
+    <>
+      <Streamdown
+        mode="streaming"
+        animated={false}
+        className={MARKDOWN_CLASS}
+        controls={MARKDOWN_CONTROLS}
+        components={MARKDOWN_COMPONENTS}
+      >
+        {revealed}
+      </Streamdown>
+      <span ref={endRef} aria-hidden="true" className="block h-px" />
+    </>
   );
 }

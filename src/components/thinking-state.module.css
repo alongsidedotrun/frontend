@@ -3,8 +3,19 @@
   font-size: 13px;
   line-height: 18px;
   font-weight: 500;
-  /* Plain text: the moving gradient that used to run across it made it hard to read. */
-  color: var(--muted-foreground);
+  /* Shine: a lighter band sweeps across the muted text, then rests, so the label stays readable. */
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  background: linear-gradient(
+    90deg,
+    var(--muted-foreground) 0%, var(--muted-foreground) 35%,
+    var(--foreground) 50%,
+    var(--muted-foreground) 65%, var(--muted-foreground) 100%
+  );
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: label-shine 2.25s cubic-bezier(0.25, 0.1, 0.25, 1) infinite;
   /* Text-swap transition (Transitions.dev's own recipe, pasted directly per
      explicit request -- "the switch between working and waiting should be
      [this]"), driven by useTextSwap (src/lib/use-text-swap.ts): a phase
@@ -28,6 +39,10 @@
   opacity: 0;
   transition: none;
 }
+@keyframes label-shine {
+  0%, 15% { background-position: 100% 0; }
+  85%, 100% { background-position: 0% 0; }
+}
 @media (prefers-reduced-motion: reduce) {
-  .shimmer { transition: none !important; }
+  .shimmer { animation: none; color: var(--muted-foreground); -webkit-text-fill-color: currentColor; background: none; transition: none !important; }
 }
