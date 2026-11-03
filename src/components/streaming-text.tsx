@@ -241,15 +241,24 @@ const MARKDOWN_CLASS = "space-y-0";
 // How far each text has been typed, shared by everything that types it. While a turn runs, its
 // newest text types in as the live step in Working; when the turn ends the same text becomes the
 // reply, which carries on from there instead of showing it all first and then typing it again.
-// Keyed by the text's start, which stays the same as the text grows.
-const typedSoFar = new Map<string, number>();
+// Keyed by the text's start, which stays the same as the text grows. Two texts can share a start,
+// so what was typed is kept too, and a text carries on only as far as it matches it.
+const typedSoFar = new Map<string, string[]>();
 function typingKey(text: string) {
   return text.slice(0, 80);
 }
-function rememberTyped(key: string, words: number) {
+function rememberTyped(key: string, typed: string[]) {
   typedSoFar.delete(key);
-  typedSoFar.set(key, words);
+  typedSoFar.set(key, typed);
   if (typedSoFar.size > 300) typedSoFar.delete(typedSoFar.keys().next().value!);
+}
+/** How many of `tokens` were already typed by something typing the same text. */
+export function alreadyTyped(key: string, tokens: string[]) {
+  const typed = typedSoFar.get(key);
+  if (!typed) return 0;
+  let n = 0;
+  while (n < typed.length && n < tokens.length && typed[n] === tokens[n]) n++;
+  return n;
 }
 
 /** Types `text` in word by word (while `animate`), at the reply's pace, carrying on from wherever
@@ -261,11 +270,11 @@ export function useTyping(rawText: string, animate: boolean) {
   // this joins revealed words back with " ".
   const tokens = useMemo(() => text.split(" "), [text]);
   const key = typingKey(text);
-  const [count, setCount] = useState(() => (animate ? Math.min(tokens.length, typedSoFar.get(key) ?? 0) : tokens.length));
+  const [count, setCount] = useState(() => (animate ? alreadyTyped(key, tokens) : tokens.length));
   const done = count >= tokens.length;
   useEffect(() => {
-    if (animate) rememberTyped(key, Math.min(count, tokens.length));
-  }, [animate, key, count, tokens.length]);
+    if (animate) rememberTyped(key, tokens.slice(0, count));
+  }, [animate, key, count, tokens]);
   useEffect(() => {
     if (!animate || done) return;
     const step = Math.max(1, Math.ceil((tokens.length - count) / TICKS_LEFT));

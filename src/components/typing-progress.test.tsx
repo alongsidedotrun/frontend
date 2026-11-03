@@ -26,6 +26,19 @@ describe("typing progress", () => {
     expect(reply.container.textContent).toBe(TEXT);
   });
 
+  it("a different text that only shares its start doesn't show the other's words", () => {
+    const start = "this step starts with the very same eighty characters as another step does here ok";
+    const first = render(<TypedText text={`${start} and then goes on about one thing`} animate />);
+    tick(200);
+    first.unmount();
+    const second = render(<TypedText text={`${start} but says another`} animate />);
+    // It may carry on through the shared start, never past it.
+    expect(`${start} but says another`.startsWith(second.container.textContent!)).toBe(true);
+    expect(second.container.textContent).not.toContain("goes");
+    tick(200);
+    expect(second.container.textContent).toBe(`${start} but says another`);
+  });
+
   it("history shows in full at once", () => {
     const { container } = render(<TypedText text="already settled text here" animate={false} />);
     expect(container.textContent).toBe("already settled text here");
