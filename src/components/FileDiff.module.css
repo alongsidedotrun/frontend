@@ -6,7 +6,11 @@
    code line grew the WHOLE card past the message column's edge. Fixed
    here, and again below (.diffLines' own comment) for the same overflow
    surfacing a second time once this card's own width was actually fixed. */
-.diff { width: 100%; border-radius: 12px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.02), 0 0 0 0.5px rgba(0,0,0,0.08); padding: 12px 16px 16px; overflow: hidden; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+/* contain: inline-size: the card's width comes only from the chat column, never from its code.
+   Lines don't wrap (they scroll sideways in .diffBody), and the chat's scroll area sizes its
+   content to fit-content, so the longest line otherwise widened the whole chat column past the
+   window: messages were cut off on the right while the compose box looked fine. */
+.diff { contain: inline-size; width: 100%; border-radius: 12px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.02), 0 0 0 0.5px rgba(0,0,0,0.08); padding: 12px 16px 16px; overflow: hidden; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
 .diffHead {
   display: flex; align-items: center; gap: 8px;
   margin: -12px -16px 0; padding: 10px 12px 10px 16px;
