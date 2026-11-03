@@ -1,4 +1,5 @@
 import { Trans, useTranslation } from "react-i18next";
+import { clearDraft, readDraft, saveDraft } from "@/lib/compose-drafts";
 import { contextTokensUsed, type TurnUsage } from "@/lib/context-usage";
 import { addTurnText, type TurnNote } from "@/lib/turn-reply";
 import i18n from "@/i18n";
@@ -788,7 +789,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     liveToolCallLinesRef.current = [...liveToolCallLinesRef.current, { label, detail }];
   }
   const searchQueryRef = useRef<string | null>(null);
-  const [prompt, setPrompt] = useState("");
+  // The compose box's text, kept per chat as a draft so leaving the page doesn't lose it (#565).
+  const [prompt, setPrompt] = useState(() => readDraft(sessionId));
   // Non-destructive Edit -- per explicit follow-up ("the resend should
   // keep the old messages in there but as inactive and have a cancel
   // button where edit was... instead of wiping the whole thing"): editing
@@ -1332,7 +1334,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     setRows([]);
     setHistoryWindow({ start: null, end: null });
     setJoinRequests([]);
-    setPrompt("");
+    setPrompt(readDraft(sessionId));
     setPendingEditEventId(null);
     setTurnInProgress(false);
     setWaitingPhase(null);
@@ -2770,6 +2772,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     // No provider to answer: what was typed stays in the composer (the strip above says why).
     if (!trimmed || (providerReady === false && !sharedChat)) return;
     setPrompt("");
+    if (pendingEditEventId === null) clearDraft(sessionId);
     void submitPrompt(trimmed, images, effort, permissionMode, true);
   }
 
@@ -2943,7 +2946,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // clearing the compose box back out.
   function cancelEdit() {
     setPendingEditEventId(null);
-    setPrompt("");
+    // Back to the draft from before Edit (an edit's own text is never saved as the draft).
+    setPrompt(readDraft(sessionId));
   }
 
   // The "< i/N >" switcher's own click handler -- just tells the backend
@@ -3452,7 +3456,10 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           // clicked.
           key={pendingEditEventId ?? "default"}
           value={prompt}
-          onChange={setPrompt}
+          onChange={(value) => {
+            setPrompt(value);
+            if (pendingEditEventId === null) saveDraft(sessionId, value);
+          }}
           onSubmit={handleSend}
           chatAgents={chatAgents.agents}
           onNewAgent={() => setNewAgentOpen(true)}

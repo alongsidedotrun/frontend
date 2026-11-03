@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { clearDraft, HOME_DRAFT_KEY, readDraft, saveDraft } from "@/lib/compose-drafts";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
@@ -81,7 +82,8 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
   const shellContext = shellContextOverride ?? outletContext;
   const { openSettings, workspaceId, workspaceName = t("home.defaultWorkspaceName"), workspaceLogo = null, workspaceColor = null } = shellContextOverride ?? outletContext;
   const workspaceTile = workspaceMonogram(workspaceName, workspaceColor);
-  const [prompt, setPrompt] = useState("");
+  // Kept as a draft so leaving Home (Settings, a chat) doesn't lose it (#565).
+  const [prompt, setPrompt] = useState(() => readDraft(HOME_DRAFT_KEY));
   const [sending, setSending] = useState(false);
   const [transitioningToChat, setTransitioningToChat] = useState(false);
   const [workingDirectory, setWorkingDirectory] = useState<string | null>(null);
@@ -192,6 +194,7 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
     // own ghost) instead of holding it until the chat page swaps in.
     const sentPrompt = prompt;
     setPrompt("");
+    clearDraft(HOME_DRAFT_KEY);
     try {
       const apiKey = localStorage.getItem("alongside_api_key") ?? "";
       // Only the first selected model actually starts the session --
@@ -305,7 +308,11 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
       if (handoffTimerRef.current === null) {
         setSending(false);
         // Didn't get to the chat: the text comes back to try again.
-        setPrompt((current) => current || sentPrompt);
+        setPrompt((current) => {
+          const restored = current || sentPrompt;
+          saveDraft(HOME_DRAFT_KEY, restored);
+          return restored;
+        });
       }
     }
   }
@@ -378,7 +385,10 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
           </div>
         <ComposeBox
           value={prompt}
-          onChange={setPrompt}
+          onChange={(value) => {
+            setPrompt(value);
+            saveDraft(HOME_DRAFT_KEY, value);
+          }}
           onSubmit={createSession}
           initialHeight={!transitioningToChat}
           workFromFolderPath={workingDirectory}

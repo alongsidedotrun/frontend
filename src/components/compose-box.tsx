@@ -1237,6 +1237,11 @@ export function ComposeBox({
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const composerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // A restored draft (#565) opens with the cursor after its last character, ready to carry on typing.
+  useLayoutEffect(() => {
+    const el = textareaRef.current;
+    if (el?.value) el.setSelectionRange(el.value.length, el.value.length);
+  }, []);
   // Real auto-grow -- confirmed directly as a gap ("when our text goes to
   // the second row, the compose box does not increase size"): rows={1} plus
   // a fixed max-h alone doesn't grow a textarea at all, the browser just
