@@ -619,6 +619,18 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     switchBranch: (group: string, index: number) => void rowHandlersRef.current.switchBranch(group, index),
     openFile: (path: string) => rowHandlersRef.current.openFile(path),
   }));
+  // #563: a long chat renders only its newest rows (from a turn's start), and reveals earlier ones
+  // in batches as the reader scrolls near the top. A 300-row chat kept ~25,000 elements on the page.
+  const [shownRowCount, setShownRowCount] = useState(HISTORY_WINDOW);
+  const hiddenAboveRef = useRef(0);
+  const revealAnchorRef = useRef<{ height: number; top: number } | null>(null);
+  // The reader stays on what they were reading: the rows added above push it down by their height.
+  useLayoutEffect(() => {
+    const anchor = revealAnchorRef.current;
+    const log = chatLogRef.current;
+    revealAnchorRef.current = null;
+    if (anchor && log) log.scrollTop = anchor.top + (log.scrollHeight - anchor.height);
+  }, [shownRowCount]);
   // A turn's file cards, kept while their rows are the same objects, so React skips them too.
   const fileCardCacheRef = useRef(new Map<string, { group: ChatRow[]; card: ReactNode }>());
   const fileCard = (group: Extract<ChatRow, { kind: "tool" }>[]) => {
@@ -1057,6 +1069,13 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     const onScroll = () => {
       if (log) atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
       followBottomRef.current = atBottom;
+      // #563: near the top with earlier rows not shown yet: show the next batch. Only once the history
+      // has loaded (while it loads the view sits at the top, and a reveal then pulled it off the newest
+      // message), and only for a reader who scrolled up.
+      if (log && historyReplayedRef.current && !atBottom && log.scrollTop < 800 && hiddenAboveRef.current > 0 && !revealAnchorRef.current) {
+        revealAnchorRef.current = { height: log.scrollHeight, top: log.scrollTop };
+        setShownRowCount((count) => count + HISTORY_STEP);
+      }
     };
     const viewportObserver = new ResizeObserver(() => {
       if (log && atBottom) log.scrollTop = log.scrollHeight;
@@ -1141,6 +1160,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     compactedAboveRef.current = false;
 
     setRows([]);
+    setShownRowCount(HISTORY_WINDOW);
     setJoinRequests([]);
     setPrompt("");
     setPendingEditEventId(null);
@@ -3027,8 +3047,12 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                 groupStarts.set(r.id, run);
               }
             }
+            // #563: the newest rows only, starting at a turn's start (a person's message).
+            let firstShown = Math.max(0, rows.length - shownRowCount);
+            while (firstShown > 0 && rows[firstShown].kind !== "human") firstShown--;
+            hiddenAboveRef.current = firstShown;
             return rows.map((row, index) => {
-            if (skipIds.has(row.id)) return null;
+            if (index < firstShown || skipIds.has(row.id)) return null;
             const isHistorical = historicalRowIdsRef.current.has(row.id);
             const rowClassName = !isHistorical
               ? noEntranceRowIdsRef.current.has(row.id)
@@ -3381,6 +3405,10 @@ function MessageText({ text }: { text: string }) {
     </>
   );
 }
+
+// #563: rows a long chat shows at first, and how many more each scroll near the top reveals.
+const HISTORY_WINDOW = 60;
+const HISTORY_STEP = 40;
 
 function sameList<T>(a: readonly T[] | undefined, b: readonly T[] | undefined): boolean {
   if (a === b) return true;
