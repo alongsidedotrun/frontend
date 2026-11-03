@@ -3,6 +3,13 @@
   flex-direction: column;
   width: 100%;
 }
+/* A turn's block settles in when it appears (aicss.dev's thinking-reasoning). Only live turns:
+   rows scrolled back into view mount again and shouldn't replay it. */
+.tr.isLive { animation: tr-block-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes tr-block-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
 .trHeader {
   display: inline-flex;
   align-items: center;
@@ -22,6 +29,9 @@
   color: var(--muted-foreground);
   letter-spacing: -0.005em;
 }
+/* Two tones, as in the reference: the verb ("Worked") in the muted colour, the time after it
+   lighter still. */
+.trLabelRest { opacity: 0.68; }
 .trChevron {
   color: var(--muted-foreground);
   transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -57,7 +67,7 @@
    already scrolls the whole page, an internal scroll box here was never
    load-bearing. */
 .trViewport {
-  margin-top: 4px;
+  margin-top: 6px;
 }
 .trViewport.isScroll {
   overflow-y: auto;
@@ -67,7 +77,7 @@
 .trStream {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 .trSentence {
   margin: 0;
@@ -122,7 +132,7 @@
   to { opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .trSentence { animation: none; }
+  .trSentence, .tr.isLive { animation: none; }
 }
 /* label-shine -- same treatment as thinking-state.module.css's own
    .shimmer (that file's own comment has the full reasoning for using

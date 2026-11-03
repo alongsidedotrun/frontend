@@ -33,6 +33,22 @@ import styles from "./thinking-reasoning.module.css";
 // SENTENCES was dropped from this file's own first reference component --
 // every row here renders the instant its real data exists, nothing is
 // staged to *look* like it took a particular amount of time.
+// "Worked for 5s" -> the verb, then the rest (shown lighter). A label with no space stays whole.
+function labelParts(label: string): [string, string] {
+  const at = label.indexOf(" ");
+  return at < 0 ? [label, ""] : [label.slice(0, at), label.slice(at)];
+}
+
+function TwoToneLabel({ text }: { text: string }) {
+  const [verb, rest] = labelParts(text);
+  return (
+    <>
+      {verb}
+      {rest && <span className={styles.trLabelRest}>{rest}</span>}
+    </>
+  );
+}
+
 function splitSentences(text: string): string[] {
   return text
     .split(/(?<=[.!?])\s+(?=\S)/)
@@ -167,7 +183,7 @@ export function ThinkingReasoning({
   };
 
   return (
-    <div className={styles.tr}>
+    <div className={live ? `${styles.tr} ${styles.isLive}` : styles.tr}>
       <button
         type="button"
         className={styles.trHeader + " " + styles.isClickable}
@@ -181,10 +197,12 @@ export function ThinkingReasoning({
               styles.trLabel + " " + styles.trShimmer + " " + (labelSwapPhase === "exit" ? styles.isExit : labelSwapPhase === "enter-start" ? styles.isEnterStart : "")
             }
           >
-            {labelSuffix ? `${labelSwapText} ${labelSuffix}` : labelSwapText}
+            <TwoToneLabel text={labelSuffix ? `${labelSwapText} ${labelSuffix}` : labelSwapText} />
           </span>
         ) : (
-          <span className={styles.trLabel}>{label}</span>
+          <span className={styles.trLabel}>
+            <TwoToneLabel text={label} />
+          </span>
         )}
         {(!live || items.length > 1) && (
           <svg className={styles.trChevron} viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
