@@ -2,7 +2,7 @@ import { useEffect, useId, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { BotIcon } from "@/components/icons/bot-icon";
 import { ShellDialog, ShellDialogActions, ShellField, SHELL_CARD_BOX, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE, useShellCard } from "@/components/design-system/shell-dialog";
-import { AGENT_NAME_PATTERN, type AddAgentError } from "@/lib/chat-agents";
+import { AGENT_NAME_PATTERN, BOT_NAME_PATTERN, type AddAgentError } from "@/lib/chat-agents";
 import { BotAvatarPicker, BotEyesPicker, BotSwatches } from "@/components/bot-avatar-picker";
 import { BotFace, DEFAULT_BOT_AVATAR, useBotMood, type BotAvatar, type BotExpression } from "@/components/bot-face";
 import { cn } from "@/lib/utils";
@@ -40,10 +40,13 @@ export type BotDraft = { name: string; description: string; instructions: string
 export const EMPTY_DRAFT: BotDraft = { name: "", description: "", instructions: "", avatar: DEFAULT_BOT_AVATAR };
 
 /** The name without a leading "@", and whether the draft can be saved: a bot needs only its name (its
- *  instructions can come later); a chat agent needs its instructions too. */
-export function checkDraft(draft: BotDraft, needsInstructions = true) {
-  const name = draft.name.trim().replace(/^@/, "");
-  return { name, ready: AGENT_NAME_PATTERN.test(name) && (!needsInstructions || draft.instructions.trim().length > 0) };
+ *  instructions can come later); a chat agent needs its instructions too. A bot's name keeps its
+ *  spaces, repeated ones made single (#566). */
+export function checkDraft(draft: BotDraft, kind: "agent" | "bot") {
+  const trimmed = draft.name.trim().replace(/^@/, "");
+  const name = kind === "bot" ? trimmed.replace(/\s+/g, " ") : trimmed;
+  const pattern = kind === "bot" ? BOT_NAME_PATTERN : AGENT_NAME_PATTERN;
+  return { name, ready: pattern.test(name) && (kind === "bot" || draft.instructions.trim().length > 0) };
 }
 
 /**
@@ -125,7 +128,7 @@ export function BotFields({
           id={nameId}
           autoFocus={autoFocus}
           value={draft.name}
-          onChange={(event) => onChange({ ...draft, name: event.target.value.replace(/\s/g, "-") })}
+          onChange={(event) => onChange({ ...draft, name: forBot ? event.target.value : event.target.value.replace(/\s/g, "-") })}
           placeholder={t("agents.fields.namePlaceholder")}
           maxLength={33}
           className={SHELL_FIELD_INPUT}
@@ -194,7 +197,7 @@ export function NewAgentDialog({
     // Only when it opens: `initial` is rebuilt on every render of the caller.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
-  const { name, ready } = checkDraft(draft, kind !== "bot");
+  const { name, ready } = checkDraft(draft, kind);
   const editing = Boolean(initial);
   const copy = kind === "bot" ? "bots" : "agents";
 

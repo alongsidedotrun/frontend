@@ -444,7 +444,7 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
   const [draft, setDraft] = useState<BotDraft>(fresh);
   const [startAvatar, setStartAvatar] = useState(draft.avatar);
   const [busy, setBusy] = useState(false);
-  const { name, ready } = checkDraft(draft, false);
+  const { name, ready } = checkDraft(draft, "bot");
   // The bot reacts as it's made: happy while it's named and described.
   const [mood, react] = useBotMood();
   const formId = useId();
@@ -499,7 +499,7 @@ function NewBotForm({ onCreated }: { onCreated: (bot: Bot) => void }) {
             autoFocus
             value={draft.name}
             onChange={(event) => {
-              setDraft({ ...draft, name: event.target.value.replace(/\s/g, "-") });
+              setDraft({ ...draft, name: event.target.value });
               react("happy");
             }}
             maxLength={33}

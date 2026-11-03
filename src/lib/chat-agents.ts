@@ -13,6 +13,8 @@ export interface ChatAgent {
 
 // What the backend accepts as a name: a letter, then letters, digits or dashes, up to 32.
 export const AGENT_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9-]{0,31}$/;
+// A bot isn't called by "@name", so its name can have spaces too (#566).
+export const BOT_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9 -]{0,31}$/;
 
 /** The agent a message addresses ("@reviewer check this" -> "reviewer"), if it starts with one of `names`. */
 export function addressedAgent(text: string, names: readonly string[]): string | null {

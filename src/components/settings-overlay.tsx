@@ -1407,7 +1407,7 @@ function BotsSection() {
         <div className="mt-4 flex items-center gap-3 rounded-xl border border-border p-3">
           <div className="min-w-0 flex-1">
             <p className="text-ui-sm font-medium text-foreground">{t("settings.bots.elsewhere.title", { count: elsewhere.length })}</p>
-            <p className="text-ui-xs text-muted-foreground">{t("settings.bots.elsewhere.body", { names: elsewhere.map((bot) => `@${bot.name}`).join(", ") })}</p>
+            <p className="text-ui-xs text-muted-foreground">{t("settings.bots.elsewhere.body", { names: elsewhere.map((bot) => bot.name).join(", ") })}</p>
           </div>
           <button type="button" className={SETTINGS_ACTION_BUTTON_CLASS} disabled={busy} onClick={() => void moveHere()}>
             {t("settings.bots.elsewhere.move")}
