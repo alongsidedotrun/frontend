@@ -2336,6 +2336,11 @@ html.transitioning *, html.transitioning *::before, html.transitioning *::after 
   border-radius: var(--radius-xl);
   background: color-mix(in oklab, var(--foreground) 3%, var(--background));
   overflow: hidden;
+  /* Streamdown sets content-visibility: auto with a 200px stand-in height (inline, hence
+     !important). A code block below the visible edge, which is where a streaming one is, took
+     200px until drawn, then shrank to its real height, and the chat jumped up and back down. */
+  content-visibility: visible !important;
+  contain-intrinsic-size: none !important;
 }
 [data-streamdown="code-block"]:last-child {
   margin-bottom: 0;

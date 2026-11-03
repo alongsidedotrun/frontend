@@ -974,16 +974,21 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // content grows wasn't enough: a file card or a turn's text appearing at once moves the bottom
   // more than the 80px allowance in one step, and the chat stopped following.
   const followBottomRef = useRef(true);
-  function scrollToBottomIfNear(force = false) {
+  // `now`: the ResizeObserver below runs after layout and before paint, so scrolling right there
+  // means the frame that shows a new line is already at the bottom. Through rAF the new line was
+  // first painted below the edge and the chat caught up a frame later: a small jump every line.
+  function scrollToBottomIfNear(force = false, now = false) {
     const el = chatLogRef.current;
     if (!el) return;
     const threshold = 80;
     const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
     if (force || isNearBottom || followBottomRef.current) {
       followBottomRef.current = true;
-      requestAnimationFrame(() => {
-        el.scrollTop = el.scrollHeight;
-      });
+      if (now) el.scrollTop = el.scrollHeight;
+      else
+        requestAnimationFrame(() => {
+          el.scrollTop = el.scrollHeight;
+        });
     }
   }
 
@@ -1018,7 +1023,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     // if a disclosure happens to be mid-transition at the same moment.
     const observer = new ResizeObserver(() => {
       if (isAutoScrollSuppressed()) return;
-      scrollToBottomIfNear();
+      scrollToBottomIfNear(false, true);
     });
     observer.observe(el);
     // The chat's own window shrinks or grows when something above the compose box (a question,
