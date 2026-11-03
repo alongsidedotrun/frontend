@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Streamdown, type ExtraProps } from "streamdown";
 import { ResearchIcon } from "@/components/icons/untitled-ui";
+import { holdBackTable } from "@/lib/stream-table";
 
 // WORD_MS = 55 -- exact cadence from the pasted reference component (its own
 // WORD_MS), per explicit request ("the entire and exactly streaming effect...
@@ -362,7 +363,8 @@ export function StreamingText({ text: rawText, animate, onDone }: { text: string
   // text itself instead -- guaranteed to flow inline as part of the actual last
   // line, at the cost of the blink being a character swap (below) rather than a
   // CSS animation on its own node.
-  const revealed = tokens.slice(0, count).join(" ") + (!done ? (blinkOn ? " ▍" : "  ") : "");
+  const shown = done ? { text: tokens.join(" "), cursor: false } : holdBackTable(tokens.slice(0, count).join(" "));
+  const revealed = shown.text + (shown.cursor ? (blinkOn ? " ▍" : "  ") : "");
 
   return (
     // animated={false}: this component already drives its own reveal cadence
