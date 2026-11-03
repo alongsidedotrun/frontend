@@ -2,7 +2,7 @@ import { Trans, useTranslation } from "react-i18next";
 import { contextTokensUsed, type TurnUsage } from "@/lib/context-usage";
 import { addTurnText, type TurnNote } from "@/lib/turn-reply";
 import i18n from "@/i18n";
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, memo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useOutletContext, useParams } from "react-router-dom";
 import { addressedAgent, useChatAgents } from "@/lib/chat-agents";
 import { NewAgentDialog } from "@/components/new-agent-dialog";
@@ -605,6 +605,29 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   const [justChat, setJustChat] = useState(false);
   // #460: a shared file's state as it changes while the chat is open (arrived, gone, delivered).
   const [fileStates, setFileStates] = useState<Record<string, string>>({});
+  // Rows are memoized (ChatRowView, sameRowProps): a row re-renders only when its own props change,
+  // not on every keystroke in the compose box or every streamed word. That needs the handlers rows
+  // get to keep their identity; each one calls the newest version of its function.
+  const rowHandlersRef = useRef({ cancelEdit, retryLastMessage, retryFailedMessage, resendMessage, editMessage, switchBranch, openFile });
+  rowHandlersRef.current = { cancelEdit, retryLastMessage, retryFailedMessage, resendMessage, editMessage, switchBranch, openFile };
+  const [rowHandlers] = useState(() => ({
+    cancelEdit: () => rowHandlersRef.current.cancelEdit(),
+    retryLastMessage: () => void rowHandlersRef.current.retryLastMessage(),
+    retryFailedMessage: (row: Extract<ChatRow, { kind: "human" }>) => void rowHandlersRef.current.retryFailedMessage(row),
+    resendMessage: (row: Extract<ChatRow, { kind: "human" }>) => void rowHandlersRef.current.resendMessage(row),
+    editMessage: (row: Extract<ChatRow, { kind: "human" }>) => rowHandlersRef.current.editMessage(row),
+    switchBranch: (group: string, index: number) => void rowHandlersRef.current.switchBranch(group, index),
+    openFile: (path: string) => rowHandlersRef.current.openFile(path),
+  }));
+  // A turn's file cards, kept while their rows are the same objects, so React skips them too.
+  const fileCardCacheRef = useRef(new Map<string, { group: ChatRow[]; card: ReactNode }>());
+  const fileCard = (group: Extract<ChatRow, { kind: "tool" }>[]) => {
+    const hit = fileCardCacheRef.current.get(group[0].id);
+    if (hit && sameList(hit.group, group)) return hit.card;
+    const card = renderFileDiffGroupCard(group, rowHandlers.openFile);
+    fileCardCacheRef.current.set(group[0].id, { group, card });
+    return card;
+  };
   const justChatRef = useRef(false);
   justChatRef.current = sharedChat && justChat;
   useEffect(() => {
@@ -3024,7 +3047,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             // deleted on send) dim/disable; the edited row stays fully
             // interactive.
             const isPendingEditInactive = pendingEditBoundaryIndex !== -1 && index > pendingEditBoundaryIndex;
-            const deferredCards = (deferredGroups.get(row.id) ?? []).map((group) => ({ id: group[0].id, card: renderFileDiffGroupCard(group, openFile) }));
+            const deferredCards = (deferredGroups.get(row.id) ?? []).map((group) => ({ id: group[0].id, card: fileCard(group) }));
             // Real bug, confirmed directly via screenshot ("The state moved
             // instead of staying at the first message of the model"): the
             // LIVE Waiting/Working shimmer used to always render as its own
@@ -3055,15 +3078,15 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                   row={row}
                   bot={bot}
                   isPendingEdit={row.kind === "human" && row.eventId === pendingEditEventId}
-                  onCancelEdit={cancelEdit}
-                  onRetry={retryLastMessage}
-                  onRetryFailedMessage={retryFailedMessage}
-                  onResendMessage={resendMessage}
-                  onEditMessage={editMessage}
+                  onCancelEdit={rowHandlers.cancelEdit}
+                  onRetry={rowHandlers.retryLastMessage}
+                  onRetryFailedMessage={rowHandlers.retryFailedMessage}
+                  onResendMessage={rowHandlers.resendMessage}
+                  onEditMessage={rowHandlers.editMessage}
                   sessionId={sessionId}
                   fileStates={fileStates}
-                  onSwitchBranch={switchBranch}
-                  onOpenFile={openFile}
+                  onSwitchBranch={rowHandlers.switchBranch}
+                  onOpenFile={rowHandlers.openFile}
                   toolGroup={groupStarts.get(row.id)}
                   liveWorking={liveWorking}
                   latestReply={row.kind === "agent" && row.id === latestAgentRowId}
@@ -3359,7 +3382,34 @@ function MessageText({ text }: { text: string }) {
   );
 }
 
-function ChatRowView({
+function sameList<T>(a: readonly T[] | undefined, b: readonly T[] | undefined): boolean {
+  if (a === b) return true;
+  if (!a || !b || a.length !== b.length) return false;
+  return a.every((x, i) => x === b[i]);
+}
+
+// What makes a row look different. Everything else (the handlers) keeps its identity across renders.
+function sameRowProps(a: ChatRowViewProps, b: ChatRowViewProps): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)] as (keyof ChatRowViewProps)[]);
+  for (const k of keys) {
+    if (k === "toolGroup") {
+      if (!sameList(a.toolGroup, b.toolGroup)) return false;
+    } else if (k === "liveWorking") {
+      const x = a.liveWorking, y = b.liveWorking;
+      if (x !== y && (!x || !y || x.label !== y.label || x.labelSuffix !== y.labelSuffix || x.detailText !== y.detailText)) return false;
+    } else if (k === "bot") {
+      if (a.bot !== b.bot && (a.bot?.name !== b.bot?.name || a.bot?.avatar !== b.bot?.avatar)) return false;
+    } else if (a[k] !== b[k]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+type ChatRowViewProps = Parameters<typeof ChatRowViewInner>[0];
+const ChatRowView = memo(ChatRowViewInner, sameRowProps);
+
+function ChatRowViewInner({
   row,
   bot,
   isPendingEdit,
