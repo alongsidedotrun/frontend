@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ShapeProvider } from "@/lib/shape-context";
 import { ProvidersIcon } from "@/components/icons/untitled-ui";
 
-// Alongside runs on the person's own provider (Claude, Codex, Antigravity; Grok to come, as the composer's
+// Alongside runs on the person's own provider (Claude, Codex, Antigravity, Grok, as the composer's
 // "Connect to your Providers" row shows). Until one is connected,
 // whatever needs a model -- a new chat, a new bot, sending in a chat -- shows these instead, pointing to
 // Settings > Providers; the rest of the app (Settings, the sidebar, Join chat) stays open.

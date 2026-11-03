@@ -3,7 +3,7 @@ import { QUICK_CHAT_MODELS, type QuickChatModel } from "@/lib/quick-chat-models"
 
 // The models each provider's CLI says it supports (backend GET /models,
 // backend/src/models.rs), replacing the built-in lists in QUICK_CHAT_MODELS
-// for Claude, Codex and Antigravity so the picker never needs a code change
+// for Claude, Codex, Antigravity and Grok so the picker never needs a code change
 // when a provider adds or retires a model.
 //
 // The last list is kept in localStorage and applied at load, so the picker is
@@ -28,6 +28,7 @@ const PROVIDER_LOOK: Record<string, Pick<QuickChatModel, "icon" | "invertInDark"
   Claude: { icon: "/icons/providers/claude.svg" },
   Codex: { icon: "/icons/providers/chatgpt.svg", invertInDark: true, iconScale: 0.82 },
   Antigravity: { icon: "/icons/providers/gemini.svg", iconScale: 0.89 },
+  Grok: { icon: "/icons/providers/grok.svg", invertInDark: true },
 };
 
 let version = 0;

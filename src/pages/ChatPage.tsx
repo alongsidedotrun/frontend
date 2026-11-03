@@ -61,7 +61,7 @@ import { RELAY_JOIN_REQUESTED_EVENT } from "@/lib/use-share";
 type SharedFile = { file_id: string; name: string; media_type: string; size: number };
 
 // Provider brand names, as another participant's run reports which one it ran on (#462). Not translated.
-const PROVIDER_NAMES: Record<string, string> = { claude: "Claude", codex: "Codex", antigravity: "Antigravity" };
+const PROVIDER_NAMES: Record<string, string> = { claude: "Claude", codex: "Codex", antigravity: "Antigravity", grok: "Grok" };
 import { lastUsedReady, loadLastContext, loadLastModel, saveLastContext, saveLastModel, type PermissionMode } from "@/lib/last-used";
 import type { QueuedMessage } from "@/lib/message-queue";
 import { useLimitWarning } from "@/components/limit-warning";
@@ -2826,9 +2826,9 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           // row here as well made two messages for one checkpoint.
           if (response.ok) return;
           const body = await response.json().catch(() => ({}));
-          pushRow({ kind: "command", id: nextRowId(), text: body.error ?? "Unable to summarize this chat.", time: messageTime() });
+          pushRow({ kind: "command", id: nextRowId(), text: body.error ?? i18n.t("chat.summarize.failed"), time: messageTime() });
         })
-        .catch(() => pushRow({ kind: "command", id: nextRowId(), text: "Unable to summarize this chat.", time: messageTime() }));
+        .catch(() => pushRow({ kind: "command", id: nextRowId(), text: i18n.t("chat.summarize.failed"), time: messageTime() }));
       return false;
     }
     // Real branching only happens now, right as the edited text actually

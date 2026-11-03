@@ -1074,7 +1074,7 @@ export function RedesignPage() {
   useEffect(() => {
     let cancelled = false;
     void Promise.all(
-      ["claude", "codex", "antigravity"].map((cli) =>
+      ["claude", "codex", "antigravity", "grok"].map((cli) =>
         fetch(`/cli/${cli}/available`)
           .then((response) => (response.ok ? (response.json() as Promise<{ available?: boolean }>) : null))
           .then((data) => Boolean(data?.available))

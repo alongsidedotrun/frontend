@@ -33,6 +33,7 @@ import { loadTimezone, saveTimezone } from "@/lib/timezones";
 import { LanguageDropdown, TimezoneDropdown } from "@/components/locale-dropdowns";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
+import type { TranslationKey } from "@/i18n/translations";
 import { formatStorageBytes, useUsageStats } from "@/lib/use-usage";
 import { ErrorText } from "@/lib/error-code";
 import { AlongsideLogo } from "@/components/icons/alongside-logo";
@@ -405,25 +406,26 @@ const SECTION_SUBTITLE_KEY: Record<SettingsSection, string> = {
 type SettingsSearchEntry = {
   id: string;
   section: SettingsSection;
-  title: string;
+  // Shown, and searched, in the app's language.
+  titleKey: TranslationKey;
   keywords: string;
   target: string | null;
 };
 
 const SETTINGS_SEARCH_ENTRIES: SettingsSearchEntry[] = [
-  { id: "log-out", section: "profile", title: "Log out", keywords: "sign out session logout", target: "setting-log-out" },
-  { id: "avatar", section: "profile", title: "Profile picture", keywords: "avatar photo upload image picture", target: "setting-avatar" },
-  { id: "default-provider", section: "chat", title: "Default provider", keywords: "model claude codex ai new chat", target: "setting-default-provider" },
-  { id: "default-effort", section: "chat", title: "Default effort", keywords: "reasoning low medium high xhigh max", target: "setting-default-effort" },
-  { id: "providers", section: "provider", title: "Provider", keywords: "api key connect claude codex mistral xai qwen kimi github gemini deepseek providers", target: null },
-  { id: "apps", section: "apps", title: "Apps", keywords: "integrations github gmail google docs connect oauth mention", target: null },
-  { id: "theme", section: "appearance", title: "Theme", keywords: "light dark system color mode appearance", target: "setting-theme" },
-  { id: "transparency", section: "appearance", title: "Enable transparency", keywords: "blur vibrancy mac window appearance", target: "setting-transparency" },
-  { id: "system-ui-font", section: "appearance", title: "Use system UI font", keywords: "font typography native system appearance", target: "setting-system-ui-font" },
-  { id: "content-size", section: "appearance", title: "Content size", keywords: "standard expanded wide column appearance", target: "setting-content-size" },
-  { id: "font-smoothing", section: "appearance", title: "Font smoothing", keywords: "antialiased crisp text rendering mac appearance", target: "setting-font-smoothing" },
-  { id: "notify-turn-complete", section: "general", title: "Receive a notification from every chat when a turn completes", keywords: "notification toast turn complete finished notify", target: "setting-notify-turn-complete" },
-  { id: "chat-usage", section: "chat", title: "Chat usage", keywords: "usage sessions count local", target: "setting-chat-usage" },
+  { id: "log-out", section: "profile", titleKey: "common.logOut", keywords: "sign out session logout", target: "setting-log-out" },
+  { id: "avatar", section: "profile", titleKey: "settings.profile.avatar.title", keywords: "avatar photo upload image picture", target: "setting-avatar" },
+  { id: "default-provider", section: "chat", titleKey: "settings.chat.defaultProvider.title", keywords: "model claude codex ai new chat", target: "setting-default-provider" },
+  { id: "default-effort", section: "chat", titleKey: "settings.chat.defaultEffort.title", keywords: "reasoning low medium high xhigh max", target: "setting-default-effort" },
+  { id: "providers", section: "provider", titleKey: "settings.nav.provider", keywords: "api key connect claude codex mistral xai qwen kimi github gemini deepseek providers", target: null },
+  { id: "apps", section: "apps", titleKey: "settings.nav.apps", keywords: "integrations github gmail google docs connect oauth mention", target: null },
+  { id: "theme", section: "appearance", titleKey: "settings.appearance.theme", keywords: "light dark system color mode appearance", target: "setting-theme" },
+  { id: "transparency", section: "appearance", titleKey: "settings.appearance.transparency.title", keywords: "blur vibrancy mac window appearance", target: "setting-transparency" },
+  { id: "system-ui-font", section: "appearance", titleKey: "settings.appearance.systemUiFont.title", keywords: "font typography native system appearance", target: "setting-system-ui-font" },
+  { id: "content-size", section: "appearance", titleKey: "settings.appearance.contentSize.title", keywords: "standard expanded wide column appearance", target: "setting-content-size" },
+  { id: "font-smoothing", section: "appearance", titleKey: "settings.appearance.fontSmoothing.title", keywords: "antialiased crisp text rendering mac appearance", target: "setting-font-smoothing" },
+  { id: "notify-turn-complete", section: "general", titleKey: "settings.general.notifyTurnComplete.title", keywords: "notification toast turn complete finished notify", target: "setting-notify-turn-complete" },
+  { id: "chat-usage", section: "chat", titleKey: "settings.chat.usage.title", keywords: "usage sessions count local", target: "setting-chat-usage" },
 ];
 
 // Simple substring ranking: a title match ranks above a keyword match,
@@ -436,7 +438,7 @@ function rankSettingsSearch(query: string): SettingsSearchEntry[] {
   const q = query.trim().toLowerCase();
   if (!q) return [];
   const scored = SETTINGS_SEARCH_ENTRIES.map((entry) => {
-    const title = entry.title.toLowerCase();
+    const title = i18n.t(entry.titleKey).toLowerCase();
     const sectionLabel = SECTIONS.find((s) => s.key === entry.section)?.label.toLowerCase() ?? "";
     let score = -1;
     if (title.startsWith(q)) score = 0;
@@ -489,8 +491,8 @@ const PROVIDER_DOCS_URLS: Record<string, string> = {
   grok: "https://docs.x.ai/build/overview",
 };
 
-// Grok, through xAI's Grok Build: installed and signed in from here, though chats can't run on it yet
-// (alongsidedotrun/private#480), so it isn't in the model menu (QUICK_CHAT_MODELS).
+// Grok, through xAI's Grok Build (#480): installed and signed in from here; its models come from
+// `grok models` (lib/model-catalog.ts). Listed on its own after the others.
 const GROK_PROVIDER: Provider = {
   name: "Grok",
   displayName: "Grok",
@@ -519,6 +521,7 @@ const GROK_PROVIDER: Provider = {
 // real terminal client for the same product) worked immediately against
 // that same account with no separate re-auth step -- see
 // backend/src/antigravity.rs's own top comment for the full integration.
+// Grok has its own row (GROK_PROVIDER), not this set's.
 const ACTIVE_PROVIDERS = new Set(["Claude", "Codex", "Antigravity"]);
 
 type Provider = {
@@ -2566,14 +2569,14 @@ function CompactScopeRows() {
         title={t("settings.chat.compactPerChat.title")}
         description={t("settings.chat.compactPerChat.description")}
       >
-        <Switch checked={flags.chat} onToggle={() => void update("chat", !flags.chat)} aria-label="Context per chat" />
+        <Switch checked={flags.chat} onToggle={() => void update("chat", !flags.chat)} aria-label={t("settings.chat.compactPerChat.title")} />
       </SettingsRow>
       <SettingsRow
         id="setting-compact-per-project"
         title={t("settings.chat.compactPerProject.title")}
         description={t("settings.chat.compactPerProject.description")}
       >
-        <Switch checked={flags.project} onToggle={() => void update("project", !flags.project)} aria-label="Context per project" />
+        <Switch checked={flags.project} onToggle={() => void update("project", !flags.project)} aria-label={t("settings.chat.compactPerProject.title")} />
       </SettingsRow>
       <SettingsRow
         id="setting-compact-global"
@@ -3015,7 +3018,7 @@ export function SettingsSidebarNav({ section, variant = "default", returnTo = "/
                       {t(s.labelKey)}
                     </span>
                     <span className="pl-[calc(var(--redesign-quick-actions-icon-size)+var(--redesign-quick-actions-icon-gap))] text-chat text-foreground">
-                      {entry.title}
+                      {t(entry.titleKey)}
                     </span>
                   </button>
                 );
@@ -3226,7 +3229,7 @@ export function SettingsSidebarNav({ section, variant = "default", returnTo = "/
                     {s.icon}
                     {t(s.labelKey)}
                   </span>
-                  <span className="pl-[22px] text-ui-sm text-foreground">{entry.title}</span>
+                  <span className="pl-[22px] text-ui-sm text-foreground">{t(entry.titleKey)}</span>
                 </button>
               );
             })}

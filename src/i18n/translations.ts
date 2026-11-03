@@ -4512,6 +4512,9 @@ export const translations = {
     zh: "工作了 {{duration}}",
     ja: "{{duration}} 作業しました",
   },
+  "chat.summarize.failed": {
+    en: "Unable to summarize this chat.", "pt-BR": "Não foi possível resumir esta conversa.", es: "No se pudo resumir este chat.", fr: "Impossible de résumer cette conversation.", de: "Dieser Chat konnte nicht zusammengefasst werden.", zh: "无法总结此对话。", ja: "このチャットを要約できませんでした。",
+  },
   "chat.phase.compacting": {
     en: "Compacting", "pt-BR": "Compactando", es: "Compactando", fr: "Compactage", de: "Wird komprimiert", zh: "正在压缩", ja: "圧縮中",
   },

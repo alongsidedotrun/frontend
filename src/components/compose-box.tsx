@@ -1110,7 +1110,7 @@ export function ComposeBox({
   });
   // Plan mode (Synara's `+` panel toggle): on top of the permission, for providers that have one.
   const [planMode, setPlanMode] = useState(() => defaultPermissionValue === "plan");
-  const planSupported = selectedModels[0]?.provider === "Claude" || selectedModels[0]?.provider === "Antigravity";
+  const planSupported = selectedModels[0]?.provider === "Claude" || selectedModels[0]?.provider === "Antigravity" || selectedModels[0]?.provider === "Grok";
   // The exact effective value is passed with the submission below. Permission
   // is deliberately not restored or persisted merely by mounting/changing the
   // picker: that could make a later fresh chat inherit Full access.

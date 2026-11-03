@@ -128,6 +128,10 @@ export const QUICK_CHAT_MODELS: QuickChatModel[] = [
   { value: "gemini-3.1-pro-high", label: "Gemini 3.1 Pro", provider: "Antigravity", icon: "/icons/providers/gemini.svg", configured: true, iconScale: 0.89 },
   { value: "gemini-3.6-flash-high", label: "Gemini 3.6 Flash", provider: "Antigravity", icon: "/icons/providers/gemini.svg", configured: true, iconScale: 0.89 },
   { value: "gemini-3.8-flash-high", label: "Gemini 3.8 Flash", provider: "Antigravity", icon: "/icons/providers/gemini.svg", configured: true, iconScale: 0.89 },
+  // Grok through xAI's Grok Build (#480, backend/src/grok.rs). This one only stands in until the
+  // live list (`grok models`, lib/model-catalog.ts) arrives, and makes Grok one of the providers
+  // the picker checks.
+  { value: "grok-4.7", label: "Grok 4.7", provider: "Grok", icon: "/icons/providers/grok.svg", configured: true, invertInDark: true },
   { value: "deepseek-v4-pro", label: "DeepSeek V4-Pro", provider: "DeepSeek", icon: "/icons/providers/deepseek.svg", configured: false },
   { value: "deepseek-v4-flash", label: "DeepSeek V4-Flash", provider: "DeepSeek", icon: "/icons/providers/deepseek.svg", configured: false },
   { value: "deepseek-v3-1-terminus", label: "DeepSeek V3.1 Terminus", provider: "DeepSeek", icon: "/icons/providers/deepseek.svg", configured: false },
@@ -149,6 +153,7 @@ export const PROVIDER_DISPLAY: Record<string, { primary: string; caption: string
   Claude: { primary: "Claude", caption: "via Claude Code" },
   Codex: { primary: "ChatGPT", caption: "via Codex" },
   Antigravity: { primary: "Gemini", caption: "via Antigravity" },
+  Grok: { primary: "Grok", caption: "via Grok Build" },
 };
 
 // Warms the browser's own image cache for every provider icon at app start
