@@ -6,6 +6,7 @@ import { workCounts, workSteps, type StepNote, type ToolLine, type WorkStep } fr
 import { suppressAutoScroll } from "@/lib/chat-scroll-suppress";
 import { useTextSwap } from "@/lib/use-text-swap";
 import { TypedText } from "@/components/streaming-text";
+import { parseInlineMarkdown, type InlineSegment } from "@/lib/inline-markdown";
 import styles from "./thinking-reasoning.module.css";
 
 /** #563: whether a collapsible's content should be on the page. A closed block kept every step
@@ -59,9 +60,23 @@ function StepIcon({ step }: { step: WorkStep }) {
 }
 
 // A note's `code` spans, drawn as code rather than with their backticks.
+function renderInline(segments: InlineSegment[]): ReactNode[] {
+  return segments.map((seg, i) => {
+    if (seg.kind === "text") return seg.text;
+    if (seg.kind === "code") return <code key={i}>{seg.text}</code>;
+    if (seg.kind === "bold") return <strong key={i} className={styles.stepStrong}>{renderInline(seg.children)}</strong>;
+    if (seg.kind === "italic") return <em key={i}>{renderInline(seg.children)}</em>;
+    return (
+      <a key={i} href={seg.href} target="_blank" rel="noreferrer" className={styles.stepLink}>
+        {seg.text}
+      </a>
+    );
+  });
+}
+
+// A note's inline markdown (bold, italic, code, links, bullets), styled in place -- see inline-markdown.ts.
 function InlineCode({ text }: { text: string }) {
-  const parts = text.split(/(`[^`\n]+`)/);
-  return <>{parts.map((part, i) => (part.length > 2 && part.startsWith("`") && part.endsWith("`") ? <code key={i}>{part.slice(1, -1)}</code> : part))}</>;
+  return <>{renderInline(parseInlineMarkdown(text))}</>;
 }
 
 const baseName = (path: string) => path.split("/").filter(Boolean).pop() ?? path;

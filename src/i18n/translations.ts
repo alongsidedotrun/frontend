@@ -27,6 +27,13 @@ export const translations = {
   "compose.attach.imagesOnly": {
     en: "Only images can be attached for now. Not attached: {{names}}", "pt-BR": "Por enquanto só é possível anexar imagens. Não anexado: {{names}}", es: "Por ahora solo se pueden adjuntar imágenes. No adjuntado: {{names}}", fr: "Pour l'instant, seules les images peuvent être jointes. Non joint : {{names}}", de: "Derzeit können nur Bilder angehängt werden. Nicht angehängt: {{names}}", zh: "目前只能附加图片。未附加：{{names}}", ja: "現在添付できるのは画像のみです。添付されなかったファイル: {{names}}",
   },
+  "settings.nav.group.other": { en: "Other", "pt-BR": "Outros", es: "Otros", fr: "Autres", de: "Sonstiges", zh: "其他", ja: "その他" },
+  "settings.nav.about": { en: "About", "pt-BR": "Sobre", es: "Acerca de", fr: "À propos", de: "Über", zh: "关于", ja: "情報" },
+  "settings.nav.subtitle.about": { en: "Which version of Alongside this is.", "pt-BR": "Qual versão do Alongside é esta.", es: "Qué versión de Alongside es esta.", fr: "La version d'Alongside que vous utilisez.", de: "Welche Version von Alongside das ist.", zh: "当前使用的 Alongside 版本。", ja: "使用中の Alongside のバージョン。" },
+  "settings.about.version.title": { en: "Version", "pt-BR": "Versão", es: "Versión", fr: "Version", de: "Version", zh: "版本", ja: "バージョン" },
+  "settings.about.version.dev": { en: "A development build, not a release.", "pt-BR": "Uma versão de desenvolvimento, não um lançamento.", es: "Una versión de desarrollo, no una publicación.", fr: "Une version de développement, pas une publication.", de: "Ein Entwicklungs-Build, kein Release.", zh: "开发版本，不是正式发布版。", ja: "開発ビルドです（リリース版ではありません）。" },
+  "settings.about.commit.title": { en: "Commit", "pt-BR": "Commit", es: "Commit", fr: "Commit", de: "Commit", zh: "提交", ja: "コミット" },
+  "settings.about.built.title": { en: "Built", "pt-BR": "Gerada em", es: "Compilada", fr: "Compilée le", de: "Erstellt", zh: "构建时间", ja: "ビルド日時" },
   "settings.nav.group.archived": {
     en: "Archived", "pt-BR": "Arquivados", es: "Archivados", fr: "Archivés", de: "Archiviert", zh: "已归档", ja: "アーカイブ済み",
   },
@@ -4474,15 +4481,6 @@ export const translations = {
     de: "Verbindung zum Chat verloren. (ALS-005)",
     zh: "与对话的连接已断开。(ALS-005)",
     ja: "チャットへの接続が失われました。(ALS-005)",
-  },
-  "chat.loadingHistory": {
-    en: "Loading chat",
-    "pt-BR": "Carregando conversa",
-    es: "Cargando chat",
-    fr: "Chargement de la discussion",
-    de: "Chat wird geladen",
-    zh: "正在加载聊天",
-    ja: "チャットを読み込み中",
   },
   "chat.errors.signedOut": {
     en: "You're signed out of Alongside. Sign in again from Settings, then retry.",

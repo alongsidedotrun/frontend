@@ -1644,7 +1644,29 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         // reconnect replaying history, or (once multiplayer sends land) another
         // participant's message.
         const createdAt = event.created_at as string | undefined;
-        turnStartedAtRef.current = createdAt ? parseServerTimestampMs(createdAt) : null;
+        // A message that lands while the turn is still running is a steer: the turn carries on with
+        // it. The work done before it stays on the reply it belongs to, settled as "Worked for Ns"
+        // up to the steer, instead of being cleared by the reset below; what follows starts its own.
+        const steeredRowId = firstAgentRowIdRef.current;
+        if (steeredRowId && createdAt && turnStartedAtRef.current !== null) {
+          const pausedMs = pausedTotalMsRef.current + (pausedAtRef.current !== null ? Date.now() - pausedAtRef.current : 0);
+          const workedDuration = formatWorkedDuration((parseServerTimestampMs(createdAt) - turnStartedAtRef.current - pausedMs) / 1000);
+          const settled = {
+            durationLabel: i18n.t("chat.workedFor", { duration: workedDuration }),
+            workedDuration,
+            workTitle: liveWorkTitleRef.current ?? undefined,
+            reasoningText: liveReasoningTextRef.current ?? undefined,
+            toolCallLines: liveToolCallLinesRef.current.length > 0 ? liveToolCallLinesRef.current : undefined,
+          };
+          const settle = (rows: ChatRow[]) => rows.map((row) => (row.id === steeredRowId && row.kind === "agent" ? { ...row, ...settled } : row));
+          if (pendingBranchReplayRef.current) pendingBranchReplayRef.current = settle(pendingBranchReplayRef.current);
+          else setRows(settle);
+        }
+        // Steered before the agent wrote anything: no reply to keep the work on, so it carries on
+        // into the work after the steer, with the turn's own start time.
+        const steeredBeforeReply = !steeredRowId && turnStartedAtRef.current !== null && liveToolCallLinesRef.current.length > 0;
+        const sentAt = createdAt ? parseServerTimestampMs(createdAt) : null;
+        if (!steeredBeforeReply) turnStartedAtRef.current = sentAt;
         // Reset here, not just at "result" -- a turn that never cleanly
         // reaches "result" (a timeout, an error) would otherwise leave this
         // pointed at some earlier turn's row forever, since the "set only if
@@ -1655,10 +1677,12 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         // accumulate for the whole turn instead of resetting per text block)
         // would otherwise leak stray reasoning/tool-call data into the next.
         firstAgentRowIdRef.current = null;
-        updateLiveReasoningText(null);
-        resetLiveToolLines();
-        pausedAtRef.current = null;
-        pausedTotalMsRef.current = 0;
+        if (!steeredBeforeReply) {
+          updateLiveReasoningText(null);
+          resetLiveToolLines();
+          pausedAtRef.current = null;
+          pausedTotalMsRef.current = 0;
+        }
         // Real per-message value now (server.rs's own human_message event,
         // that file's own comment has the full reasoning) -- not a
         // client-side "whatever this tab most recently sent" ref, which
@@ -1694,7 +1718,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           // every message before this feature existed, and any event type that
           // doesn't (see attach_created_at, backend/src/lib.rs), falls back to
           // this tab's own current time, same as before.
-          time: turnStartedAtRef.current !== null ? formatMessageTimestamp(turnStartedAtRef.current) : messageTime(),
+          time: sentAt !== null ? formatMessageTimestamp(sentAt) : messageTime(),
           eventId: event.event_id as number | undefined,
           branch: event.branch as { group: string; index: number; total: number } | undefined,
           relaySequence: typeof event.relay_sequence === "number" ? event.relay_sequence : undefined,
@@ -1878,6 +1902,13 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         replayingRef.current = false;
         if (typeof event.last_event_id === "number" && event.last_event_id > lastEventIdRef.current) {
           lastEventIdRef.current = event.last_event_id;
+        }
+        // Opened (or reconnected) while the agent is mid-turn: replayed history never marks a turn as
+        // running, so without this the compose box sent the next message as a new turn beside it.
+        if (event.turn_running === true) {
+          awaitingReplyRef.current = true;
+          setTurnInProgress(true);
+          setWaitingPhase((phase) => phase ?? "working");
         }
         // A resume after a dropped connection only sent what was missed: the transcript is already on
         // screen, so there is no first-load scroll or reveal to run again.
@@ -2136,6 +2167,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       }
 
       if (type === "agent_timeout") {
+        turnStartedAtRef.current = null;
         expireOpenPermissions();
         awaitingReplyRef.current = false;
         setTurnInProgress(false);
@@ -2145,6 +2177,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       }
 
       if (type === "turn_stopped") {
+        // The turn is over, so a message after it isn't a steer (the human_message handler above).
+        turnStartedAtRef.current = null;
         expireOpenPermissions();
         awaitingReplyRef.current = false;
         setTurnInProgress(false);
@@ -3181,13 +3215,6 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         {/* pb-10: room between the last message and the compose box (was pb-3, which crowded the
             last lines against it). */}
         <div ref={chatContentRef} className="t-chat-width relative mx-auto flex w-full flex-1 flex-col gap-3 pt-16 pb-10" style={{ maxWidth: "var(--chat-max-width)" }}>
-          {/* While the history loads: a quiet shimmer, shown only if loading takes a moment (the
-              CSS delays it), so a slow reopen isn't a blank screen that then snaps full. */}
-          {!historicalRowsRevealed && (
-            <div className="t-history-loading pointer-events-none absolute inset-x-0 top-0 flex h-[45vh] items-end justify-center" role="status">
-              <ThinkingState text={t("chat.loadingHistory")} />
-            </div>
-          )}
           {/* t-row-in -- per explicit request ("coming in very quickly, is there a
               transition like fade in"): every LIVE row mounting (human, agent, tool,
               reasoning, marker, command, permission alike) fades/slides in once,
