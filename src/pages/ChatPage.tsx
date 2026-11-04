@@ -1903,6 +1903,13 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         if (typeof event.last_event_id === "number" && event.last_event_id > lastEventIdRef.current) {
           lastEventIdRef.current = event.last_event_id;
         }
+        // Opened (or reconnected) while the agent is mid-turn: replayed history never marks a turn as
+        // running, so without this the compose box sent the next message as a new turn beside it.
+        if (event.turn_running === true) {
+          awaitingReplyRef.current = true;
+          setTurnInProgress(true);
+          setWaitingPhase((phase) => phase ?? "working");
+        }
         // A resume after a dropped connection only sent what was missed: the transcript is already on
         // screen, so there is no first-load scroll or reveal to run again.
         if (event.resumed) return;
