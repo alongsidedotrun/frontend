@@ -1644,7 +1644,29 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         // reconnect replaying history, or (once multiplayer sends land) another
         // participant's message.
         const createdAt = event.created_at as string | undefined;
-        turnStartedAtRef.current = createdAt ? parseServerTimestampMs(createdAt) : null;
+        // A message that lands while the turn is still running is a steer: the turn carries on with
+        // it. The work done before it stays on the reply it belongs to, settled as "Worked for Ns"
+        // up to the steer, instead of being cleared by the reset below; what follows starts its own.
+        const steeredRowId = firstAgentRowIdRef.current;
+        if (steeredRowId && createdAt && turnStartedAtRef.current !== null) {
+          const pausedMs = pausedTotalMsRef.current + (pausedAtRef.current !== null ? Date.now() - pausedAtRef.current : 0);
+          const workedDuration = formatWorkedDuration((parseServerTimestampMs(createdAt) - turnStartedAtRef.current - pausedMs) / 1000);
+          const settled = {
+            durationLabel: i18n.t("chat.workedFor", { duration: workedDuration }),
+            workedDuration,
+            workTitle: liveWorkTitleRef.current ?? undefined,
+            reasoningText: liveReasoningTextRef.current ?? undefined,
+            toolCallLines: liveToolCallLinesRef.current.length > 0 ? liveToolCallLinesRef.current : undefined,
+          };
+          const settle = (rows: ChatRow[]) => rows.map((row) => (row.id === steeredRowId && row.kind === "agent" ? { ...row, ...settled } : row));
+          if (pendingBranchReplayRef.current) pendingBranchReplayRef.current = settle(pendingBranchReplayRef.current);
+          else setRows(settle);
+        }
+        // Steered before the agent wrote anything: no reply to keep the work on, so it carries on
+        // into the work after the steer, with the turn's own start time.
+        const steeredBeforeReply = !steeredRowId && turnStartedAtRef.current !== null && liveToolCallLinesRef.current.length > 0;
+        const sentAt = createdAt ? parseServerTimestampMs(createdAt) : null;
+        if (!steeredBeforeReply) turnStartedAtRef.current = sentAt;
         // Reset here, not just at "result" -- a turn that never cleanly
         // reaches "result" (a timeout, an error) would otherwise leave this
         // pointed at some earlier turn's row forever, since the "set only if
@@ -1655,10 +1677,12 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         // accumulate for the whole turn instead of resetting per text block)
         // would otherwise leak stray reasoning/tool-call data into the next.
         firstAgentRowIdRef.current = null;
-        updateLiveReasoningText(null);
-        resetLiveToolLines();
-        pausedAtRef.current = null;
-        pausedTotalMsRef.current = 0;
+        if (!steeredBeforeReply) {
+          updateLiveReasoningText(null);
+          resetLiveToolLines();
+          pausedAtRef.current = null;
+          pausedTotalMsRef.current = 0;
+        }
         // Real per-message value now (server.rs's own human_message event,
         // that file's own comment has the full reasoning) -- not a
         // client-side "whatever this tab most recently sent" ref, which
@@ -1694,7 +1718,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           // every message before this feature existed, and any event type that
           // doesn't (see attach_created_at, backend/src/lib.rs), falls back to
           // this tab's own current time, same as before.
-          time: turnStartedAtRef.current !== null ? formatMessageTimestamp(turnStartedAtRef.current) : messageTime(),
+          time: sentAt !== null ? formatMessageTimestamp(sentAt) : messageTime(),
           eventId: event.event_id as number | undefined,
           branch: event.branch as { group: string; index: number; total: number } | undefined,
           relaySequence: typeof event.relay_sequence === "number" ? event.relay_sequence : undefined,
@@ -2136,6 +2160,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       }
 
       if (type === "agent_timeout") {
+        turnStartedAtRef.current = null;
         expireOpenPermissions();
         awaitingReplyRef.current = false;
         setTurnInProgress(false);
@@ -2145,6 +2170,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       }
 
       if (type === "turn_stopped") {
+        // The turn is over, so a message after it isn't a steer (the human_message handler above).
+        turnStartedAtRef.current = null;
         expireOpenPermissions();
         awaitingReplyRef.current = false;
         setTurnInProgress(false);
