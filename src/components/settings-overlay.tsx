@@ -349,7 +349,7 @@ const SECTIONS: { key: SettingsSection; label: string; labelKey: string; titleKe
   // Its own top-level section now, not a drill-in under Provider -- per
   // explicit correction ("Still inside providers its meant to be settings
   // > apps and not settings > providers > apps").
-  { key: "apps", label: "Apps", labelKey: "settings.nav.apps", icon: <IntegrationsIcon className="size-[14px]" /> },
+  { key: "apps", label: "Applications", labelKey: "settings.nav.apps", icon: <IntegrationsIcon className="size-[14px]" /> },
   { key: "skills", label: "Skills", labelKey: "settings.nav.skills", icon: <SkillIcon className="size-[14px]" /> },
   { key: "bots", label: "Bots", labelKey: "settings.nav.bots", icon: <BotIcon className="size-[14px]" /> },
   // Archived, one page per kind, so each lists only its own.
