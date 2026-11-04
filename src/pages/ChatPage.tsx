@@ -1851,7 +1851,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           if (typeof after === "number") {
             lastCompactedUsageRef.current = after;
             turnsSinceCompactRef.current = 0;
-            if (shouldHandoffAfterCompact(after, autocompactThresholdRef.current, automaticHandoffRef.current)) {
+            if (shouldHandoffAfterCompact(after, autocompactThresholdRef.current, automaticHandoffRef.current, replayingRef.current)) {
               void fetch(`/sessions/${sessionId}/handoff`, { method: "POST" });
             }
           }
@@ -2129,7 +2129,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         awaitingReplyRef.current = false;
         setTurnInProgress(false);
         setWaitingPhase(null);
-        if (automaticHandoffRef.current) {
+        if (automaticHandoffRef.current && !replayingRef.current) {
           void fetch(`/sessions/${sessionId}/handoff`, { method: "POST" });
         }
         return;
@@ -2318,7 +2318,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             compactedAboveRef.current = false;
             lastCompactedUsageRef.current = used;
             turnsSinceCompactRef.current = 0;
-            if (shouldHandoffAfterCompact(used, autocompactThresholdRef.current, automaticHandoffRef.current)) {
+            if (shouldHandoffAfterCompact(used, autocompactThresholdRef.current, automaticHandoffRef.current, replayingRef.current)) {
               void fetch(`/sessions/${sessionId}/handoff`, { method: "POST" });
             }
             return;

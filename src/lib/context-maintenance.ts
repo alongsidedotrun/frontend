@@ -18,6 +18,6 @@ export function contextMaintenanceAction({
   return "compact";
 }
 
-export function shouldHandoffAfterCompact(used: number, compactAt: number, automaticHandoff: boolean) {
-  return automaticHandoff && used >= compactAt / 2;
+export function shouldHandoffAfterCompact(used: number, compactAt: number, automaticHandoff: boolean, replaying = false) {
+  return !replaying && automaticHandoff && used >= compactAt / 2;
 }
