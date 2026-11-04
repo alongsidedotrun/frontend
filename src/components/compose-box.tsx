@@ -1122,20 +1122,13 @@ export function ComposeBox({
   // The same three for every provider; Plan mode lives in the + menu.
   const modes = MODES;
   const selectedProvider = selectedModels[0]?.provider;
-  const previousProviderRef = useRef(selectedProvider);
+  // A provider change keeps the permission chosen: every provider has the same three now, and the
+  // reset to Ask it used to do also fired when a chat's model settled on opening (a guess first,
+  // then the chat's own model once its history loads), so Full access kept dropping back to Ask.
+  // Only Plan goes off, for a provider that has no plan mode.
   useEffect(() => {
-    if (previousProviderRef.current === selectedProvider) return;
-    const previousProvider = previousProviderRef.current;
-    previousProviderRef.current = selectedProvider;
-    if (!selectedProvider) return;
-
-    // Do not overwrite an explicit first-message handoff when its model
-    // resolves just after mount. Real provider changes after that reset to
-    // the safest valid stance every provider now supports: Ask for approval.
-    if (previousProvider === undefined && (defaultPermissionValue || savedSettings)) return;
-    setMode("manual");
-    setPlanMode(false);
-  }, [defaultPermissionValue, selectedProvider]);
+    if (selectedProvider && !planSupported) setPlanMode(false);
+  }, [selectedProvider, planSupported]);
   // Keeps the selected mode valid for whichever list is now showing. A
   // provider switch must not leave the trigger showing a choice absent from
   // that provider's own dropdown.
