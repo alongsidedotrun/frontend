@@ -3,7 +3,8 @@ import { reloadSkills } from "@/lib/skills";
 import { EdgeFadeScroll } from "@/components/edge-fade-scroll";
 import type { IconComponent } from "@/lib/icon-context";
 import { cn } from "@/lib/utils";
-import { ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
+import { chatProviderMarks } from "@/lib/provider-marks";
+import { ProviderStack, type ProviderMark } from "@/components/provider-stack";
 import { forcedNoProvider } from "@/lib/dev-no-provider";
 import { PROVIDERS_CHANGED } from "@/lib/providers-changed";
 import { useLocation, useNavigate, useOutlet } from "react-router-dom";
@@ -87,32 +88,10 @@ type Chat = {
   // #504: the bot this chat talks to, and when it was last active.
   bot_id?: string | null;
   last_activity?: string | null;
-  // The models it has run on, newest first (GET /sessions).
+  // The models it has run on, in the order they joined it (GET /sessions).
   models?: { provider: string; model: string }[];
 };
 
-// A provider's mark, by the provider id a chat's models carry (the model's own icon when it's listed).
-const PROVIDER_MARKS: Record<string, { icon: string; invertInDark?: boolean }> = {
-  claude: { icon: "/icons/providers/claude.svg" },
-  codex: { icon: "/icons/providers/chatgpt.svg", invertInDark: true },
-  antigravity: { icon: "/icons/providers/gemini.svg" },
-  grok: { icon: "/icons/providers/grok.svg", invertInDark: true },
-};
-
-/** The marks of the providers a chat has run on, newest first (at most three). */
-function chatProviderMarks(chat: Chat) {
-  const seen = new Set<string>();
-  const marks: { value: string; icon: string; invertInDark?: boolean }[] = [];
-  for (const { provider, model } of chat.models ?? []) {
-    const id = provider.toLowerCase();
-    if (seen.has(id) || marks.length >= 3) continue;
-    seen.add(id);
-    const listed = QUICK_CHAT_MODELS.find((candidate) => candidate.value === model);
-    const mark = listed ?? (PROVIDER_MARKS[id] ? { value: model, ...PROVIDER_MARKS[id] } : null);
-    if (mark) marks.push({ value: mark.value, icon: mark.icon, invertInDark: mark.invertInDark });
-  }
-  return marks;
-}
 
 
 // A bot's face as a sidebar row icon, one component per look so rows don't remount on every render.
@@ -127,23 +106,14 @@ function botRowIcon(avatar: BotAvatar | null): IconComponent {
   return icon;
 }
 
-// A chat's provider marks as a sidebar row icon: each provider it has run on, overlapping like the top
+// A chat's provider marks as a sidebar row icon: each provider it has run on, stacked like the top
 // bar's. One component per set of marks so rows don't remount on every render.
 const providerIcons = new Map<string, IconComponent>();
-function providerRowIcon(marks: { value: string; icon: string; invertInDark?: boolean }[]): IconComponent {
+function providerRowIcon(marks: ProviderMark[]): IconComponent {
   const key = marks.map((mark) => mark.icon).join(" ");
   let icon = providerIcons.get(key);
   if (!icon) {
-    icon =
-      marks.length === 1
-        ? ({ className }: { className?: string }) => <ProviderIcon model={marks[0]} className={className} />
-        : ({ className }: { className?: string }) => (
-            <span className="flex shrink-0 items-center">
-              {marks.map((mark, index) => (
-                <ProviderIcon key={mark.icon} model={mark} className={cn(className, index > 0 && "-ml-1")} />
-              ))}
-            </span>
-          );
+    icon = () => <ProviderStack marks={marks} surface="bg-[var(--redesign-sidebar-surface)]" />;
     providerIcons.set(key, icon);
   }
   return icon;
@@ -764,7 +734,7 @@ export function RedesignPage() {
   ];
 
   const chatRow = (chat: Chat): SidebarSectionItem => {
-    // Each provider it has run on, newest first, as the top bar shows them; none before its first reply.
+    // Each provider it has run on, in the order they joined, as the top bar shows them; none before its first reply.
     const marks = chatProviderMarks(chat);
     return {
     id: chat.id,
@@ -1222,13 +1192,7 @@ export function RedesignPage() {
                   )}
                   {/* The provider it runs on (each, overlapping, if it changed), as the chat header had. */}
                   {chatProviderMarks(topBarChat).length > 0 && (
-                    <span className="mr-0.5 flex shrink-0 items-center">
-                      {chatProviderMarks(topBarChat).map((mark, index) => (
-                        <span key={mark.value} className={cn("grid size-4 place-items-center", index > 0 && "-ml-1")}>
-                          <ProviderIcon model={mark} className="size-4" />
-                        </span>
-                      ))}
-                    </span>
+                    <ProviderStack marks={chatProviderMarks(topBarChat)} size="md" className="mr-0.5" />
                   )}
                   <span className="truncate">{chatTitle(topBarChat)}</span>
                 </span>

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FocusEvent, type MouseEvent, type ReactNode } from "react";
+import { ProviderStack } from "@/components/provider-stack";
+import { chatProviderMarks } from "@/lib/provider-marks";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
@@ -1020,32 +1022,11 @@ function ProjectRow({
 // further follow-up ("increase the size a little bit more on the
 // sidebar as well, its hard to see").
 export function SidebarModelStack({ models }: { models: { provider: string; model: string }[] }) {
-  const visible = models.length > 4 ? models.slice(0, 3) : models.slice(0, 4);
-  return (
-    <span className="mr-1 flex shrink-0 -space-x-1">
-      {visible.map((entry, index) => {
-        const found = QUICK_CHAT_MODELS.find((m) => m.value === entry.model);
-        if (!found) return null;
-        return (
-          <span
-            key={`${entry.provider}-${entry.model}`}
-            className="flex size-4.5 shrink-0 items-center justify-center rounded-full bg-background ring-1 ring-background"
-            style={{ zIndex: models.length - index }}
-          >
-            <ProviderIcon model={found} className="size-4" />
-          </span>
-        );
-      })}
-      {models.length > 4 && (
-        <span
-          className="flex size-4.5 shrink-0 items-center justify-center rounded-full bg-hover-2 text-ui-2xs font-medium text-muted-foreground ring-1 ring-background"
-          style={{ zIndex: 0 }}
-        >
-          {models.length}
-        </span>
-      )}
-    </span>
-  );
+  // The same stack as the sidebar and top bar (provider-stack.tsx): one mark per provider, in the
+  // order they joined the chat, each on a borderless round disc.
+  const marks = chatProviderMarks({ models });
+  if (marks.length === 0) return null;
+  return <ProviderStack marks={marks} className="mr-1" />;
 }
 
 // A chat row -- Archive/Delete via its own "..." menu. Drag-and-drop was
