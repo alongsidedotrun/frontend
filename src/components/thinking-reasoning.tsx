@@ -264,7 +264,7 @@ export function ThinkingReasoning({
               {(stepsMounted ? steps : []).map((step, i) => {
                 const active = live && i === lastIndex;
                 return (
-                  <li key={i} className={styles.step + (live ? " " + styles.stepIn : "")}>
+                  <li key={i} className={styles.step}>
                     <div className={styles.stepRail}>
                       <span className={styles.stepIcon}>
                         <StepIcon step={step} />

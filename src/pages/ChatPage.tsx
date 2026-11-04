@@ -9,6 +9,7 @@ import { useLocation, useOutletContext, useParams } from "react-router-dom";
 import { addressedAgent, useChatAgents } from "@/lib/chat-agents";
 import { NewAgentDialog } from "@/components/new-agent-dialog";
 import { EarlierSummary, HandoffNotice } from "@/components/handoff-context-dialog";
+import { contextMaintenanceAction, shouldHandoffAfterCompact } from "@/lib/context-maintenance";
 import { ProviderNotice } from "@/components/provider-gate";
 import { QuestionCard, questionsOf } from "@/components/question-card";
 import { BotFace, moodFace, useBotMood, type BotAvatar, type BotMood } from "@/components/bot-face";
@@ -889,10 +890,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // the next crossing).
   const autocompactThresholdRef = useRef(500_000);
   const compactedAboveRef = useRef(false);
-  // Past the threshold, the handoff was refused because the agent left background work running
-  // (a dev server, a build watch): handing off would stop it. Shown above the compose box as just
-  // "Waiting on handoff", instead of the chat silently growing past its threshold.
-  const [handoffWaiting, setHandoffWaiting] = useState(false);
+  const [automaticHandoff, setAutomaticHandoff] = useState(true);
+  const automaticHandoffRef = useRef(true);
+  const compactionPendingRef = useRef(false);
+  const lastCompactedUsageRef = useRef<number | null>(null);
+  const turnsSinceCompactRef = useRef(0);
   const [autocompactValue, setAutocompactValue] = useState("500000");
   // Per explicit request ("Compact per chat as a describer or Context per project as
   // a describer"): the Context dropdown's own label reflects which scope is actually
@@ -1376,7 +1378,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     hasPinnedDefaultModelRef.current = false;
     projectIdRef.current = null;
     compactedAboveRef.current = false;
-    setHandoffWaiting(false);
+    compactionPendingRef.current = false;
+    lastCompactedUsageRef.current = null;
+    turnsSinceCompactRef.current = 0;
+    automaticHandoffRef.current = true;
+    setAutomaticHandoff(true);
 
     setRows([]);
     setHistoryWindow({ start: null, end: null });
@@ -1576,6 +1582,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         const model = event.default_model as string | null;
         const effort = event.default_effort as EffortLevel | null;
         const autocompact = event.default_autocompact as string | null;
+        const handoffAutomatically = event.automatic_handoff as boolean | undefined;
         const scope = event.autocompact_scope as "chat" | "project" | "global" | undefined;
         const projectId = event.project_id as string | null | undefined;
         if (model) {
@@ -1589,6 +1596,10 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           if (Number.isFinite(parsed)) autocompactThresholdRef.current = parsed;
         }
         if (scope) setAutocompactScope(scope);
+        if (handoffAutomatically !== undefined) {
+          automaticHandoffRef.current = handoffAutomatically;
+          setAutomaticHandoff(handoffAutomatically);
+        }
         if (projectId !== undefined) projectIdRef.current = projectId;
         return;
       }
@@ -1618,7 +1629,9 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         // size until the next reply (#552). 0 keeps the meter's space; the next result corrects it.
         setContextUsage({ used: 0 });
         compactedAboveRef.current = false;
-        setHandoffWaiting(false);
+        compactionPendingRef.current = false;
+        lastCompactedUsageRef.current = null;
+        turnsSinceCompactRef.current = 0;
         if (!replayingRef.current) saveLastContext({ used: 0 });
         return;
       }
@@ -1834,6 +1847,14 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           const usageValue = { used: typeof after === "number" ? after : 0 };
           setContextUsage(usageValue);
           compactedAboveRef.current = false;
+          compactionPendingRef.current = false;
+          if (typeof after === "number") {
+            lastCompactedUsageRef.current = after;
+            turnsSinceCompactRef.current = 0;
+            if (shouldHandoffAfterCompact(after, autocompactThresholdRef.current, automaticHandoffRef.current)) {
+              void fetch(`/sessions/${sessionId}/handoff`, { method: "POST" });
+            }
+          }
           if (!replayingRef.current) saveLastContext(usageValue);
           pushMarker(i18n.t("chat.compacted"));
           return;
@@ -2100,6 +2121,20 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         return;
       }
 
+      if (type === "provider_context_exhausted") {
+        const detail = typeof event.detail === "string" && event.detail.trim()
+          ? event.detail.trim()
+          : i18n.t("chat.errors.providerNoDetail");
+        pushMarker(detail);
+        awaitingReplyRef.current = false;
+        setTurnInProgress(false);
+        setWaitingPhase(null);
+        if (automaticHandoffRef.current) {
+          void fetch(`/sessions/${sessionId}/handoff`, { method: "POST" });
+        }
+        return;
+      }
+
       // Real event now (backend's own claude_direct.rs control-protocol handling)
       // -- the CLI is genuinely blocked on stdin waiting for this exact answer.
       // Real bug, confirmed directly, through two corrections: first "Waiting
@@ -2278,31 +2313,43 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           const usageValue = { used };
           setContextUsage(usageValue);
           saveLastContext(usageValue);
-          // Past the chat's threshold, every provider hands off instead of compacting
-          // (#502): the backend saves a checkpoint and the next turn starts a fresh
-          // session carrying it, the work state and the recent conversation, so nothing
-          // is lost to a compaction. (Claude no longer gets --autocompact for this.)
-          // Not for a replayed result: opening or reconnecting the chat replays its last
-          // turn, and that used to hand the chat off again each time.
+          if (compactionPendingRef.current) {
+            compactionPendingRef.current = false;
+            compactedAboveRef.current = false;
+            lastCompactedUsageRef.current = used;
+            turnsSinceCompactRef.current = 0;
+            if (shouldHandoffAfterCompact(used, autocompactThresholdRef.current, automaticHandoffRef.current)) {
+              void fetch(`/sessions/${sessionId}/handoff`, { method: "POST" });
+            }
+            return;
+          }
+          // The selected 100k/250k/500k margin means compact, exactly as the menu says.
+          // Same-provider handoff is separate: only when compaction stays too large or
+          // the native context regrows to the margin within two completed turns.
           if (used >= autocompactThresholdRef.current) {
             if (!compactedAboveRef.current && !replayingRef.current) {
               compactedAboveRef.current = true;
-              // Refused (a turn or background work still running, or nothing to hand off yet):
-              // ask again after the next turn rather than never.
-              void fetch(`/sessions/${sessionId}/handoff`, { method: "POST" })
-                .then(async (response) => {
-                  if (response.ok) return setHandoffWaiting(false);
-                  compactedAboveRef.current = false;
-                  const body = (await response.json().catch(() => null)) as { error?: string } | null;
-                  setHandoffWaiting(body?.error === "background_work_running");
-                })
-                .catch(() => {
-                  compactedAboveRef.current = false;
-                });
+              const action = contextMaintenanceAction({
+                used,
+                compactAt: autocompactThresholdRef.current,
+                automaticHandoff: automaticHandoffRef.current,
+                lastCompactedUsage: lastCompactedUsageRef.current,
+                turnsSinceCompact: turnsSinceCompactRef.current,
+              });
+              if (action === "handoff") {
+                void fetch(`/sessions/${sessionId}/handoff`, { method: "POST" });
+              } else {
+                compactionPendingRef.current = true;
+                if (modelRef.current.provider === "Codex") {
+                  void fetch(`/sessions/${sessionId}/compact`, { method: "POST" });
+                } else if (modelRef.current.provider === "Claude" || modelRef.current.provider === "Antigravity") {
+                  void sendMessage("/compact");
+                }
+              }
             }
           } else {
             compactedAboveRef.current = false;
-            setHandoffWaiting(false);
+            if (lastCompactedUsageRef.current !== null) turnsSinceCompactRef.current += 1;
           }
         }
         return;
@@ -3551,12 +3598,6 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             onPause={turnInProgress ? () => void stopTurn() : undefined}
           />
         ) : null}
-        {handoffWaiting && sessionId && (
-          // Same look as the "Continued in a fresh session" line it turns into.
-          <div className="mb-2 text-center text-chat-meta text-muted-foreground/70">
-            {t("chat.handoffWaiting")}
-          </div>
-        )}
         <ComposeBox
           // Forces a remount whenever a *new* edit starts (editMessage's
           // own comment above has the full reasoning) -- ComposeBox's own
@@ -3655,6 +3696,19 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             } else {
               void sendMessage("/compact");
             }
+          }}
+          automaticHandoff={automaticHandoff}
+          onSetAutomaticHandoff={(enabled) => {
+            automaticHandoffRef.current = enabled;
+            setAutomaticHandoff(enabled);
+            void fetch(`/sessions/${sessionId}/automatic-handoff`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ enabled, sender_name: getUserDisplayName() }),
+            });
+          }}
+          onHandoffNow={() => {
+            void fetch(`/sessions/${sessionId}/handoff`, { method: "POST" });
           }}
           // Claude and Codex take a message into the running turn (backend harness.rs's
           // supports_steer). One that can't land -- no turn live any more, or a failed
