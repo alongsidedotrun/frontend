@@ -3181,13 +3181,6 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         {/* pb-10: room between the last message and the compose box (was pb-3, which crowded the
             last lines against it). */}
         <div ref={chatContentRef} className="t-chat-width relative mx-auto flex w-full flex-1 flex-col gap-3 pt-16 pb-10" style={{ maxWidth: "var(--chat-max-width)" }}>
-          {/* While the history loads: a quiet shimmer, shown only if loading takes a moment (the
-              CSS delays it), so a slow reopen isn't a blank screen that then snaps full. */}
-          {!historicalRowsRevealed && (
-            <div className="t-history-loading pointer-events-none absolute inset-x-0 top-0 flex h-[45vh] items-end justify-center" role="status">
-              <ThinkingState text={t("chat.loadingHistory")} />
-            </div>
-          )}
           {/* t-row-in -- per explicit request ("coming in very quickly, is there a
               transition like fade in"): every LIVE row mounting (human, agent, tool,
               reasoning, marker, command, permission alike) fades/slides in once,
