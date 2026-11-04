@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dedentRows, mergeFileEdits, type DiffRow } from "./FileDiff";
+import { dedentRows, mergeFileEdits, unifiedDiffToRows, type DiffRow } from "./FileDiff";
 
 const add = (text: string): DiffRow => ({ old: null, cur: 1, type: "add", text }) as DiffRow;
 const file = (path: string, rows: DiffRow[] | null) => ({ name: path.split("/").pop()!, path, syncRows: rows });
@@ -11,7 +11,7 @@ describe("mergeFileEdits (#556)", () => {
     expect(out[0].syncRows?.map((r) => r.text)).toEqual(["1", "3"]);
   });
 
-  it("reads the file from disk when one of its edits has no diff", () => {
+  it("keeps counts unknown when one of its edits has no diff", () => {
     const out = mergeFileEdits([file("x", [add("1")]), file("x", null)], "append");
     expect(out[0].syncRows).toBeNull();
   });
@@ -20,6 +20,15 @@ describe("mergeFileEdits (#556)", () => {
     const out = mergeFileEdits([file("x", [add("old")]), file("x", [add("new")])], "replace");
     expect(out).toHaveLength(1);
     expect(out[0].syncRows?.map((r) => r.text)).toEqual(["new"]);
+  });
+});
+
+describe("unifiedDiffToRows", () => {
+  it("counts only the supplied hunk, not the whole existing file", () => {
+    const rows = unifiedDiffToRows("--- a/large.rs\n+++ b/large.rs\n@@ -2500,2 +2500,2 @@\n-old\n+new\n context\n");
+    expect(rows?.filter((row) => row.type === "add")).toHaveLength(1);
+    expect(rows?.filter((row) => row.type === "del")).toHaveLength(1);
+    expect(rows?.find((row) => row.type === "add")?.cur).toBe(2500);
   });
 });
 

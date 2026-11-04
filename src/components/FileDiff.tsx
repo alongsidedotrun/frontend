@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useState, type MouseEvent } from "react";
-import { diffLines } from "diff";
+import { diffLines, parsePatch } from "diff";
 import { FileExtensionBadge, stripExtension } from "@/components/file-extension-badge";
 import { FilePlusIcon } from "@/components/icons/untitled-ui";
 import { highlightLine } from "@/lib/diff-highlight";
@@ -52,6 +52,27 @@ export function diffToRows(oldText: string, newText: string): DiffRow[] {
     }
   }
   return rows;
+}
+
+export function unifiedDiffToRows(diff: string): DiffRow[] | null {
+  try {
+    const rows: DiffRow[] = [];
+    for (const file of parsePatch(diff)) {
+      for (const hunk of file.hunks) {
+        let oldLine = hunk.oldStart;
+        let newLine = hunk.newStart;
+        for (const line of hunk.lines) {
+          const prefix = line[0];
+          if (prefix === "+") rows.push({ old: null, cur: newLine++, type: "add", text: line.slice(1) });
+          else if (prefix === "-") rows.push({ old: oldLine++, cur: null, type: "del", text: line.slice(1) });
+          else if (prefix === " ") rows.push({ old: oldLine++, cur: newLine++, type: "ctx", text: line.slice(1) });
+        }
+      }
+    }
+    return rows.length ? rows : null;
+  } catch {
+    return null;
+  }
 }
 
 // An Edit's snippet usually comes from deep inside a file, and lines don't wrap, so its own
@@ -209,8 +230,8 @@ export function FileDiff({
 export type FileDiffGroupFile = { name: string; path: string; syncRows: DiffRow[] | null };
 
 // #556: a run of edits becomes one entry per file. Edits to the same file add up into one diff
-// ("append"); a file written more than once shows its last version ("replace"). If any edit's
-// diff isn't known, the file falls back to reading it from disk (syncRows null).
+// ("append"); a file written more than once shows its last version ("replace"). Null means the
+// provider did not supply a trustworthy before-state, so counts must remain unknown.
 export function mergeFileEdits(edits: FileDiffGroupFile[], mode: "append" | "replace"): FileDiffGroupFile[] {
   const byPath = new Map<string, FileDiffGroupFile>();
   for (const edit of edits) {
@@ -225,39 +246,6 @@ export function mergeFileEdits(edits: FileDiffGroupFile[], mode: "append" | "rep
     }
   }
   return [...byPath.values()];
-}
-
-// Antigravity's own write_to_file tool_use never carries the file's real
-// content (only TargetFile, the path) -- confirmed directly this session.
-// Since write_to_file always replaces a file's entire contents (same real
-// semantics as Claude's own Write), the file's current on-disk content
-// *is* the "new text" a diff needs -- fetched here via the same GET /files
-// endpoint FileEditorPanel/ChatFileListPanel (right-panel.tsx) already use,
-// no backend change needed. oldText is always "" (an all-green diff, same
-// as a fresh Claude Write already renders) since there's no prior snapshot
-// to diff against. Passing an empty path is this hook's own "don't fetch"
-// signal, for a file that already has syncRows and needs no disk read at
-// all -- keeps this callable unconditionally (real rule-of-hooks
-// requirement) from ResolvedFile below regardless of which path a given
-// file takes.
-function useDiskDiffRows(path: string): DiffRow[] | null {
-  const [rows, setRows] = useState<DiffRow[] | null>(null);
-  useEffect(() => {
-    if (!path) return;
-    let cancelled = false;
-    setRows(null);
-    fetch(`/files?path=${encodeURIComponent(path)}`)
-      .then((res) => (res.ok ? res.text() : null))
-      .then((text) => {
-        if (cancelled || text === null) return;
-        setRows(diffToRows("", text));
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [path]);
-  return rows;
 }
 
 // One file's own row inside a FileDiffGroup -- its own small component
@@ -301,8 +289,7 @@ function ResolvedFile({
   // needing to duplicate the diffing/counting itself.
   onResolved: (path: string, added: number, removed: number) => void;
 }) {
-  const diskRows = useDiskDiffRows(file.syncRows ? "" : file.path);
-  const rows = file.syncRows ?? diskRows;
+  const rows = file.syncRows;
   const added = rows?.filter((r) => r.type === "add").length ?? 0;
   const removed = rows?.filter((r) => r.type === "del").length ?? 0;
   // Real bug, confirmed directly via screenshot ("New 3 files... gave me
@@ -334,7 +321,7 @@ function ResolvedFile({
     // file.path/added/removed identify a real change worth reporting.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file.path, added, removed, !!rows]);
-  if (!rows || !visible) return null;
+  if (!visible) return null;
   const wrapperClass = nested
     ? `${styles.diffNestedFile}${isLast && !open ? ` ${styles.diffLastCollapsed}` : ""}`
     : undefined;
@@ -354,8 +341,8 @@ function ResolvedFile({
           </span>
         </button>
         <span className={styles.diffStat}>
-          <span className={styles.add}>+{added}</span>
-          <span className={styles.del}>-{removed}</span>
+          <span className={styles.add}>+{rows ? added : "?"}</span>
+          <span className={styles.del}>-{rows ? removed : "?"}</span>
         </span>
         {hasMore && (
           <DiffChevron
@@ -367,7 +354,7 @@ function ResolvedFile({
           />
         )}
       </div>
-      {open ? <DiffLines rows={rows} file={file.name} /> : !nested && <DiffLines rows={rows.slice(0, SNIPPET_LINES)} file={file.name} />}
+      {rows && (open ? <DiffLines rows={rows} file={file.name} /> : !nested && <DiffLines rows={rows.slice(0, SNIPPET_LINES)} file={file.name} />)}
     </div>
   );
 }
@@ -432,6 +419,7 @@ export function FileDiffGroup({
     (acc, c) => ({ added: acc.added + c.added, removed: acc.removed + c.removed }),
     { added: 0, removed: 0 }
   );
+  const hasUnknown = files.some((file) => file.syncRows === null);
   return (
     <div className={styles.diff}>
       <div className={styles.diffHead}>
@@ -448,8 +436,8 @@ export function FileDiffGroup({
           </span>
         </button>
         <span className={styles.diffStat}>
-          <span className={styles.add}>+{totals.added}</span>
-          <span className={styles.del}>-{totals.removed}</span>
+          <span className={styles.add}>+{hasUnknown ? "?" : totals.added}</span>
+          <span className={styles.del}>-{hasUnknown ? "?" : totals.removed}</span>
         </span>
         <DiffChevron
           open={open}

@@ -22,7 +22,7 @@ import { CommandChip, ComposeBox, leadingCommand, toImageInputs, type ImageAttac
 import { JoinRequests, type JoinRequest } from "@/components/join-requests";
 import { clearPresence, setPresence, type Person } from "@/lib/presence";
 import { openShareDialog } from "@/lib/use-share";
-import { FileDiffGroup, diffToRows, mergeFileEdits, type DiffRow } from "@/components/FileDiff";
+import { FileDiffGroup, diffToRows, mergeFileEdits, unifiedDiffToRows, type DiffRow } from "@/components/FileDiff";
 import type { SettingsSection } from "@/components/settings-overlay";
 import { effortLabel, type EffortLevel } from "@/lib/effort";
 import { isMonthFirstDateOrder, loadLanguage } from "@/lib/language";
@@ -4421,12 +4421,14 @@ function buildFileDiffRows(name: string, input: unknown): DiffRow[] | null {
   const record = input as Record<string, unknown>;
   let oldText: string | null = null;
   let newText: string | null = null;
-  if (name === "Write" && typeof record.content === "string") {
+  if (name === "Write" && typeof record.content === "string" && ["add", "create", "created"].includes(String(record.kind).toLowerCase())) {
     oldText = "";
     newText = record.content;
   } else if (name === "Edit" && typeof record.old_string === "string" && typeof record.new_string === "string") {
     oldText = record.old_string;
     newText = record.new_string;
+  } else if (name === "Edit" && typeof record.diff === "string") {
+    return unifiedDiffToRows(record.diff);
   }
   if (oldText === null || newText === null) return null;
   return diffToRows(oldText, newText);
