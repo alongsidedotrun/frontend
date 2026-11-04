@@ -12,7 +12,7 @@ import type { TFunction } from "i18next";
 import { ChevronRight, CircleArrowUp, Plus } from "lucide-react";
 import { JoinChatIcon } from "@/components/icons/join-chat-icon";
 import { BotIcon } from "@/components/icons/bot-icon";
-import { Pin02, Star01 } from "@untitledui/icons";
+import { InfoCircle, Pin02, Star01 } from "@untitledui/icons";
 import { BotFace, type BotAvatar } from "@/components/bot-face";
 import { NewAgentDialog } from "@/components/new-agent-dialog";
 import { showErrorToast } from "@/components/ui/app-toast";
@@ -257,9 +257,10 @@ const SETTINGS_COMMANDS: readonly { section: SettingsSection; labelKey: string; 
   { section: "archived-workspaces", labelKey: "settings.archived.workspaces.title", icon: WorkspacesIcon, keywords: ["archived", "restore", "delete", "workspace"] },
   { section: "archived-projects", labelKey: "settings.archived.projects.title", icon: FolderIcon, keywords: ["archived", "restore", "delete", "project"] },
   { section: "archived-chats", labelKey: "settings.archived.chats.title", icon: MessageChatCircleIcon, keywords: ["archived", "restore", "delete", "chat"] },
+  { section: "about", labelKey: "settings.nav.about", icon: InfoCircle, keywords: ["about", "version", "build", "release", "alpha", "commit"] },
 ];
 
-const SETTINGS_SECTIONS: readonly SettingsSection[] = ["profile", "general", "appearance", "chat", "provider", "apps", "skills", "bots", "archived-workspaces", "archived-projects", "archived-chats"];
+const SETTINGS_SECTIONS: readonly SettingsSection[] = ["profile", "general", "appearance", "chat", "provider", "apps", "skills", "bots", "archived-workspaces", "archived-projects", "archived-chats", "about"];
 
 function quickActionForPath(pathname: string) {
   if (pathname === "/overview") return "overview";

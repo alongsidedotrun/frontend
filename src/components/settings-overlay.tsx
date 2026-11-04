@@ -10,7 +10,8 @@ import { forcedNoProvider } from "@/lib/dev-no-provider";
 import { providersChanged } from "@/lib/providers-changed";
 import { resizeImageFile } from "@/lib/resize-image";
 import { LimitReminderRows } from "@/components/limit-reminders";
-import { Check, Plus, SearchMd } from "@untitledui/icons";
+import { Check, InfoCircle, Plus, SearchMd } from "@untitledui/icons";
+import { BUILD_INFO, buildSummary } from "@/lib/app-version";
 import { useLocation, useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useIsMac, useIsWindows } from "@/hooks/use-platform";
@@ -99,7 +100,7 @@ import { cn } from "@/lib/utils";
 // stays its own separate top-level section instead, and Danger zone was
 // removed entirely rather than folded into a new section (SETTINGS_NAV_GROUPS'
 // own comment below has the full reasoning).
-export type SettingsSection = "profile" | "general" | "appearance" | "chat" | "provider" | "apps" | "skills" | "bots" | "archived-workspaces" | "archived-projects" | "archived-chats";
+export type SettingsSection = "profile" | "general" | "appearance" | "chat" | "provider" | "apps" | "skills" | "bots" | "archived-workspaces" | "archived-projects" | "archived-chats" | "about";
 
 // ---------------------------------------------------------------------------
 // Style pass -- matches a reference open-source app called Synara's own
@@ -356,6 +357,8 @@ const SECTIONS: { key: SettingsSection; label: string; labelKey: string; titleKe
   { key: "archived-projects", label: "Archived projects", labelKey: "settings.nav.archivedProjects", titleKey: "settings.archived.projects.title", icon: <FolderIcon className="size-[14px]" /> },
   // Chats, plural: message-chat-circle. One chat (the rows) is the Chat icon.
   { key: "archived-chats", label: "Archived chats", labelKey: "settings.nav.archivedChats", titleKey: "settings.archived.chats.title", icon: <MessageChatCircleIcon className="size-[14px]" /> },
+  // Other > About: which version this is, for bug reports.
+  { key: "about", label: "About", labelKey: "settings.nav.about", icon: <InfoCircle className="size-[14px]" /> },
 ];
 
 // Group describers -- per explicit request ("we need to add section
@@ -379,6 +382,7 @@ const SETTINGS_NAV_GROUPS: { labelKey: string; keys: SettingsSection[] }[] = [
   { labelKey: "settings.nav.group.application", keys: ["general", "appearance", "chat", "profile"] },
   { labelKey: "settings.nav.group.connections", keys: ["provider", "apps", "skills", "bots"] },
   { labelKey: "settings.nav.group.archived", keys: ["archived-workspaces", "archived-projects", "archived-chats"] },
+  { labelKey: "settings.nav.group.other", keys: ["about"] },
 ];
 
 const SECTION_SUBTITLE_KEY: Record<SettingsSection, string> = {
@@ -393,6 +397,7 @@ const SECTION_SUBTITLE_KEY: Record<SettingsSection, string> = {
   "archived-workspaces": "settings.archived.workspaces.subtitle",
   "archived-projects": "settings.archived.projects.subtitle",
   "archived-chats": "settings.archived.chats.subtitle",
+  about: "settings.nav.subtitle.about",
 };
 
 // Search -- per explicit request ("Also build search + reset-to-default +
@@ -413,6 +418,7 @@ type SettingsSearchEntry = {
 };
 
 const SETTINGS_SEARCH_ENTRIES: SettingsSearchEntry[] = [
+  { id: "about-version", section: "about", titleKey: "settings.about.version.title", keywords: "about version build release alpha commit update", target: "setting-about-version" },
   { id: "log-out", section: "profile", titleKey: "common.logOut", keywords: "sign out session logout", target: "setting-log-out" },
   { id: "avatar", section: "profile", titleKey: "settings.profile.avatar.title", keywords: "avatar photo upload image picture", target: "setting-avatar" },
   { id: "default-provider", section: "chat", titleKey: "settings.chat.defaultProvider.title", keywords: "model claude codex ai new chat", target: "setting-default-provider" },
@@ -3416,6 +3422,42 @@ export function SettingsSidebarNav({ section, variant = "default", returnTo = "/
   );
 }
 
+// Settings > Other > About: the version, the commit it was built from and when, with one button to
+// copy all of it for a bug report.
+function AboutSection() {
+  const { t, i18n: i18nInstance } = useTranslation();
+  const [copied, setCopied] = useState(false);
+  const built = BUILD_INFO.built ? new Date(BUILD_INFO.built) : null;
+  const copy = () => {
+    navigator.clipboard?.writeText(buildSummary()).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }, () => {});
+  };
+  return (
+    <SettingsSection title="Alongside">
+      <SettingsRow id="setting-about-version" title={t("settings.about.version.title")} description={BUILD_INFO.release ? undefined : t("settings.about.version.dev")}>
+        <span className="text-ui-sm font-medium text-foreground tabular-nums select-text">{BUILD_INFO.version}</span>
+        <Button variant="secondary" size="sm" onClick={copy}>
+          {copied ? t("common.copied") : t("common.copy")}
+        </Button>
+      </SettingsRow>
+      {BUILD_INFO.commit && (
+        <SettingsRow title={t("settings.about.commit.title")}>
+          <span className="font-mono text-ui-sm text-muted-foreground select-text">{BUILD_INFO.commit}</span>
+        </SettingsRow>
+      )}
+      {built && !Number.isNaN(built.getTime()) && (
+        <SettingsRow title={t("settings.about.built.title")}>
+          <span className="text-ui-sm text-muted-foreground select-text">
+            {built.toLocaleString(i18nInstance.language, { dateStyle: "medium", timeStyle: "short" })}
+          </span>
+        </SettingsRow>
+      )}
+    </SettingsSection>
+  );
+}
+
 type ArchivedSnapshot = {
   workspaces: { id: string; name: string; logo?: string | null; color?: number | null }[];
   projects: { id: string; name: string; workspace_id: string | null; archive_scope: string; individually_archived: boolean }[];
@@ -3593,6 +3635,7 @@ export function SettingsSectionContent({ section }: { section: SettingsSection }
           {section === "archived-workspaces" && <ArchivedSection kind="workspace" />}
           {section === "archived-projects" && <ArchivedSection kind="project" />}
           {section === "archived-chats" && <ArchivedSection kind="chat" />}
+          {section === "about" && <AboutSection />}
         </PageContent>
       </ScrollArea>
     </div>

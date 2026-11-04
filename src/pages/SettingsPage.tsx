@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { SettingsSectionContent, type SettingsSection } from "@/components/settings-overlay";
 import { useIsSignedIn } from "@/lib/auth";
 
-const VALID_SECTIONS: SettingsSection[] = ["profile", "general", "appearance", "chat", "provider", "apps", "skills", "bots", "archived-workspaces", "archived-projects", "archived-chats"];
+const VALID_SECTIONS: SettingsSection[] = ["profile", "general", "appearance", "chat", "provider", "apps", "skills", "bots", "archived-workspaces", "archived-projects", "archived-chats", "about"];
 
 // Full page now, not a modal -- per explicit request ("we need to update
 // our settings to be exactly like it... i want a full page setting page"),

@@ -2,12 +2,41 @@ import path from "path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import { execSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+
+// Settings > About: which Alongside this is. ALONGSIDE_RELEASE_TAG ("v0.1.0-alpha.34") is set by the
+// release build; without it (Dev, a plain build) it's the app version from tauri.conf.json plus
+// "-dev". The commit is the main repo's, where the frontend pointer lives.
+function buildInfo() {
+  const git = (cmd: string) => {
+    try {
+      return execSync(cmd, { cwd: import.meta.dirname, stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+    } catch {
+      return "";
+    }
+  };
+  let appVersion = "0.0.0";
+  try {
+    appVersion = JSON.parse(readFileSync(path.resolve(import.meta.dirname, "../src-tauri/tauri.conf.json"), "utf8")).version ?? appVersion;
+  } catch {
+    // Not inside the main repo: keep the placeholder.
+  }
+  const tag = process.env.ALONGSIDE_RELEASE_TAG?.trim();
+  return {
+    version: tag ? tag.replace(/^v/, "") : `${appVersion}-dev`,
+    release: Boolean(tag),
+    commit: process.env.ALONGSIDE_COMMIT?.trim() || git("git -C .. rev-parse --short HEAD") || git("git rev-parse --short HEAD"),
+    built: new Date().toISOString(),
+  };
+}
 
 // Where the dev proxy sends API calls; ALONGSIDE_BACKEND overrides it when 3000 is taken.
 const backend = process.env.ALONGSIDE_BACKEND ?? "http://127.0.0.1:3000";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  define: { __ALONGSIDE_BUILD__: JSON.stringify(buildInfo()) },
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "./src"),
