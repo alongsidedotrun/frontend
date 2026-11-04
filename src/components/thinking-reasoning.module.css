@@ -150,6 +150,8 @@
   overflow-wrap: anywhere;
 }
 .stepTextActive { color: var(--foreground); }
+.stepStrong { font-weight: 600; color: var(--foreground); }
+.stepLink { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .stepText code {
   padding: 0 4px;
   border-radius: 4px;
