@@ -527,6 +527,9 @@ function ContextDropdown({
   model,
   modelCount,
   onCompactNow,
+  automaticHandoff = true,
+  onSetAutomaticHandoff = () => {},
+  onHandoffNow,
   autocompactValue,
   onSetAutocompact,
 }: {
@@ -534,6 +537,9 @@ function ContextDropdown({
   model?: (typeof QUICK_CHAT_MODELS)[number];
   modelCount: number;
   onCompactNow?: () => void;
+  automaticHandoff?: boolean;
+  onSetAutomaticHandoff?: (enabled: boolean) => void;
+  onHandoffNow?: () => void;
   // Per-chat now (per explicit request, "I want it to be per chat") -- owned by
   // ChatPage.tsx (its own "chat_defaults" WS handler comment has the full
   // reasoning), not fetched here, so every caller shares one real source of truth
@@ -608,9 +614,11 @@ function ContextDropdown({
         <div className="px-2.5 py-1.5 text-ui-sm text-muted-foreground">
           {t("compose.context.usage", { used: compactTokenCount(used), total: compactTokenCount(compactThreshold * Math.max(1, modelCount)) })}
         </div>
-        {(canCompact || canAutoCompact) && (
-          <>
+        <>
+          {(canCompact || canAutoCompact) && (
+            <>
             <DropdownSeparator />
+            <BaseDropdownLabel>{t("compose.compact.section")}</BaseDropdownLabel>
             {canAutoCompact &&
               AUTOCOMPACT_OPTIONS.map((option, i) => (
                 // Not `checked` -- that prop bolds the label (MenuItem's own shared
@@ -630,8 +638,24 @@ function ContextDropdown({
                 <BaseMenuItem index={AUTOCOMPACT_OPTIONS.length} label={t("compose.compactNow")} onSelect={onCompactNow} />
               </>
             )}
-          </>
-        )}
+            </>
+          )}
+          <DropdownSeparator />
+          <BaseDropdownLabel>{t("compose.handoff.section")}</BaseDropdownLabel>
+          <BaseMenuItem
+            index={AUTOCOMPACT_OPTIONS.length + 1}
+            label={t("compose.handoff.automatically")}
+            checked={automaticHandoff}
+            onSelect={() => onSetAutomaticHandoff(!automaticHandoff)}
+          />
+          {onHandoffNow && (
+            <BaseMenuItem
+              index={AUTOCOMPACT_OPTIONS.length + 2}
+              label={t("compose.handoff.now")}
+              onSelect={onHandoffNow}
+            />
+          )}
+        </>
       </BaseDropdownContent>
     </BaseDropdownMenu>
   );
@@ -786,6 +810,9 @@ export function ComposeBox({
   defaultPermissionValue,
   onPinDefaultModel,
   onCompactNow,
+  automaticHandoff = true,
+  onSetAutomaticHandoff = () => {},
+  onHandoffNow,
   onSteer,
   queue,
   notice,
@@ -876,6 +903,9 @@ export function ComposeBox({
   // Claude/Antigravity only -- see ChatPage.tsx's own call site comment for
   // the live-tested reasoning behind that split.
   onCompactNow?: () => void;
+  automaticHandoff?: boolean;
+  onSetAutomaticHandoff?: (enabled: boolean) => void;
+  onHandoffNow?: () => void;
   // Claude and Codex: a message taken into the running turn now (Steer on a
   // queued message, or Enter mid-turn with queueing off). The Stop button
   // stays, so the whole turn can still be cancelled. Undefined where the
@@ -2747,6 +2777,9 @@ export function ComposeBox({
             model={selectedModels[0]}
             modelCount={selectedModels.length}
             onCompactNow={onCompactNow}
+            automaticHandoff={automaticHandoff}
+            onSetAutomaticHandoff={onSetAutomaticHandoff}
+            onHandoffNow={onHandoffNow}
             autocompactValue={autocompactValue}
             onSetAutocompact={onSetAutocompact}
           />
