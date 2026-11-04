@@ -1844,7 +1844,7 @@ export const translations = {
     ja: "プロバイダー",
   },
   "settings.nav.apps": {
-    en: "Apps",
+    en: "Applications",
     "pt-BR": "Aplicativos",
     es: "Aplicaciones",
     fr: "Applications",
