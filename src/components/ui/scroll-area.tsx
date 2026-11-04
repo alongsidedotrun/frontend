@@ -92,7 +92,11 @@ const ScrollArea = forwardRef<
             >
               {/* Content gives Base UI an intrinsic size to measure
                   horizontal overflow against. */}
-              <ScrollAreaPrimitive.Content>
+              {/* Base UI gives Content min-width: fit-content, so with vertical-only scrolling the
+                  longest unbreakable string (a file path, a JSON error) set the width of everything
+                  inside and pushed it past the right edge, where the viewport clipped it. Content
+                  only needs to be wider than the viewport when it scrolls horizontally. */}
+              <ScrollAreaPrimitive.Content style={orientation === "vertical" ? { minWidth: 0 } : undefined}>
                 {children}
               </ScrollAreaPrimitive.Content>
             </ScrollAreaPrimitive.Viewport>

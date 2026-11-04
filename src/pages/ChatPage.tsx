@@ -4311,7 +4311,8 @@ function ChatRowViewInner({
           the human bubble used -- the two should read differently now, an
           AI reply spans nearly the full column while a human message stays
           visually distinct as a bubble. */}
-      <div className="w-full max-w-[95%] px-1 text-chat leading-relaxed transition-[max-width] duration-160">
+      {/* [overflow-wrap:anywhere]: a long path or JSON string wraps instead of running past the column. */}
+      <div className="w-full max-w-[95%] px-1 text-chat leading-relaxed [overflow-wrap:anywhere] transition-[max-width] duration-160">
         {/* A live run from someone else (#462) grows in place; StreamingText keeps its first text, so it's
             remounted on each update (without animation). */}
         {/* While the turn runs, this text is its live step in Working instead (above). */}
