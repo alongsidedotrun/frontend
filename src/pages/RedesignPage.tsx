@@ -127,13 +127,24 @@ function botRowIcon(avatar: BotAvatar | null): IconComponent {
   return icon;
 }
 
-// A provider's mark as a sidebar row icon, one component per mark so rows don't remount on every render.
+// A chat's provider marks as a sidebar row icon: each provider it has run on, overlapping like the top
+// bar's. One component per set of marks so rows don't remount on every render.
 const providerIcons = new Map<string, IconComponent>();
-function providerRowIcon(mark: { value: string; icon: string; invertInDark?: boolean }): IconComponent {
-  let icon = providerIcons.get(mark.icon);
+function providerRowIcon(marks: { value: string; icon: string; invertInDark?: boolean }[]): IconComponent {
+  const key = marks.map((mark) => mark.icon).join(" ");
+  let icon = providerIcons.get(key);
   if (!icon) {
-    icon = ({ className }: { className?: string }) => <ProviderIcon model={mark} className={className} />;
-    providerIcons.set(mark.icon, icon);
+    icon =
+      marks.length === 1
+        ? ({ className }: { className?: string }) => <ProviderIcon model={marks[0]} className={className} />
+        : ({ className }: { className?: string }) => (
+            <span className="flex shrink-0 items-center">
+              {marks.map((mark, index) => (
+                <ProviderIcon key={mark.icon} model={mark} className={cn(className, index > 0 && "-ml-1")} />
+              ))}
+            </span>
+          );
+    providerIcons.set(key, icon);
   }
   return icon;
 }
@@ -752,12 +763,12 @@ export function RedesignPage() {
   ];
 
   const chatRow = (chat: Chat): SidebarSectionItem => {
-    // The provider it runs on now (the top bar shows each, if it switched); none before its first reply.
-    const mark = chatProviderMarks(chat)[0];
+    // Each provider it has run on, newest first, as the top bar shows them; none before its first reply.
+    const marks = chatProviderMarks(chat);
     return {
     id: chat.id,
     label: chat.name,
-    icon: mark ? providerRowIcon(mark) : undefined,
+    icon: marks.length > 0 ? providerRowIcon(marks) : undefined,
     menu: chatMenu(chat),
     onRename: (name: string) => void renameChat(chat.id, name),
     };
