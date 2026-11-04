@@ -24,28 +24,6 @@ import {
   type ProviderUsageSnapshot,
 } from "@/lib/use-usage";
 
-// provider_usage.rs's own needs_auth detail strings ("Sign in with `codex
-// login` to see usage.") are written with backtick-quoted commands, same
-// markdown convention every other real command mention in this codebase
-// uses -- but this page rendered them as plain text, so the literal
-// backtick characters showed up on screen instead of styling the command.
-// Real bug, confirmed directly ("the `` still there in the description").
-// A tiny local split/wrap instead of pulling in a real markdown renderer
-// for one command-in-a-sentence case -- this only ever needs to handle
-// backend's own plain "text `code` more text" shape, not general markdown.
-function renderWithInlineCode(text: string) {
-  const parts = text.split(/`([^`]+)`/g);
-  return parts.map((part, i) =>
-    i % 2 === 1 ? (
-      <code key={i} className="rounded bg-muted px-1 py-0.5 font-mono text-ui-xs">
-        {part}
-      </code>
-    ) : (
-      part
-    )
-  );
-}
-
 // Each provider's usage, as rows in Settings > Providers' Usage section (settings-overlay.tsx's
 // ProvidersSection), under the providers -- it was its own page (/settings/provider/usage, now
 // redirected there). The avatar dropdown's usage bars (nav-user.tsx) link to it. Story:
@@ -417,7 +395,9 @@ export function ProviderUsageSection() {
                         own body below already renders from that same
                         snapshot. */}
                     <span className="text-ui-xs font-normal text-muted-foreground">
-                      {usageError || snapshot?.status === "needs_auth" || snapshot?.status === "error"
+                      {/* Only connected providers get a card (ProviderUsageSection), so a usage check that
+                          says "not signed in" is behind -- the sign-in just happened -- not a disconnect. */}
+                      {usageError || snapshot?.status === "error"
                         ? t("common.disconnected")
                         : t("common.connected")}
                     </span>
@@ -450,11 +430,8 @@ export function ProviderUsageSection() {
                       {snapshot && (snapshot.status === "needs_auth" ? (
                         // No reading yet: the message, over the bars' resting placeholder so the card keeps its shape.
                         <div className="flex flex-col gap-3">
-                          <p className="text-ui-sm font-normal text-muted-foreground">
-                            {renderWithInlineCode(
-                              snapshot.detail ?? t("models.needsSignIn", { provider: display?.primary ?? model.provider })
-                            )}
-                          </p>
+                          {/* No message: the provider is connected (only connected ones get a card), and its
+                              usage appears once it's used. */}
                           {/* The token rows come from the CLI's own logs, so they're real even before the limits are. */}
                           <UsageCardSkeleton active={false} barsOnly={snapshot.usage_lines.length > 0} />
                           {snapshot.usage_lines.length > 0 && (

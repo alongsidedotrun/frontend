@@ -1,3 +1,4 @@
+import { PROVIDERS_CHANGED } from "@/lib/providers-changed";
 import i18n from "@/i18n";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -120,6 +121,18 @@ export type ProviderUsageSnapshot = {
 // freshness level useUsageStats above already uses.
 export function useAllProviderUsage(): Record<string, ProviderUsageSnapshot | null> {
   const [snapshots, setSnapshots] = useState<Record<string, ProviderUsageSnapshot | null>>({});
+  // Checked again when a provider is connected or disconnected, and when the window comes back:
+  // a sign-in done just now otherwise kept the "not signed in" answer from before it.
+  const [round, setRound] = useState(0);
+  useEffect(() => {
+    const again = () => setRound((n) => n + 1);
+    window.addEventListener(PROVIDERS_CHANGED, again);
+    window.addEventListener("focus", again);
+    return () => {
+      window.removeEventListener(PROVIDERS_CHANGED, again);
+      window.removeEventListener("focus", again);
+    };
+  }, []);
   useEffect(() => {
     let cancelled = false;
     Promise.all(
@@ -130,12 +143,13 @@ export function useAllProviderUsage(): Record<string, ProviderUsageSnapshot | nu
           .catch(() => [m.provider, null] as const)
       )
     ).then((results) => {
-      if (!cancelled) setSnapshots(Object.fromEntries(results));
+      // A provider whose check failed this time keeps its last answer rather than going blank.
+      if (!cancelled) setSnapshots((prev) => ({ ...prev, ...Object.fromEntries(results.filter(([provider, data]) => data || !(provider in prev))) }));
     });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [round]);
   return snapshots;
 }
 
