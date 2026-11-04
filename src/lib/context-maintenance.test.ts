@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { contextMaintenanceAction, shouldHandoffAfterCompact } from "./context-maintenance";
 
 describe("context maintenance", () => {
+  it("never hands off from a replayed compaction event", () => {
+    expect(shouldHandoffAfterCompact(90_000, 100_000, true, true)).toBe(false);
+    expect(shouldHandoffAfterCompact(90_000, 100_000, true, false)).toBe(true);
+  });
   it("compacts at the selected margin without counting earlier compactions", () => {
     expect(contextMaintenanceAction({ used: 100_000, compactAt: 100_000, automaticHandoff: true, lastCompactedUsage: null, turnsSinceCompact: 99 })).toBe("compact");
     expect(shouldHandoffAfterCompact(30_000, 100_000, true)).toBe(false);
