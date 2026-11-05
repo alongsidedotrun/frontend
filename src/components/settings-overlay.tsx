@@ -2501,11 +2501,11 @@ function DefaultEffortRow() {
 // ContextDropdown, via ChatPage.tsx's chat_defaults handling of this same stored
 // value) -- "Context per chat"/"Context per project".
 // #502: automatic checkpoints (what a fresh session starts from after a handoff) are written by
-// the chat's provider, one small call per long stretch of chat. Off, they're written locally
-// from the chat's record and use no quota.
+// the chat's provider only when explicitly enabled. By default they're written locally from the
+// chat's record, so background housekeeping cannot silently spend provider quota.
 function CheckpointProviderRow() {
   const { t } = useTranslation();
-  const [useProvider, setUseProvider] = useState(true);
+  const [useProvider, setUseProvider] = useState(false);
   useEffect(() => {
     let cancelled = false;
     fetch("/settings/checkpoints")
