@@ -12,7 +12,7 @@ import { EarlierSummary, HandoffNotice } from "@/components/handoff-context-dial
 import { contextMaintenanceAction, shouldHandoffAfterCompact } from "@/lib/context-maintenance";
 import { ProviderNotice } from "@/components/provider-gate";
 import { QuestionCard, questionsOf } from "@/components/question-card";
-import { taskListAfterTurn } from "@/lib/task-list-state";
+import { applyClaudeTaskResults, applyClaudeTaskTool, taskListAfterTurn, type ActiveTaskList } from "@/lib/task-list-state";
 import { BotFace, moodFace, useBotMood, type BotAvatar, type BotMood } from "@/components/bot-face";
 import { AnimatePresence, motion } from "motion/react";
 import { spring } from "@/lib/springs";
@@ -217,11 +217,6 @@ type ChatRow =
       status: "pending" | "allow" | "deny" | "cancelled" | "timed_out";
     }
   | { kind: "marker"; id: string; text: string; handoffEventId?: number };
-
-type ActiveTaskList = {
-  title: string;
-  tasks: TaskProgressItem[];
-};
 
 function normalizeTaskStatus(value: unknown): TaskProgressStatus {
   if (value === "completed" || value === "done") return "completed";
@@ -1940,6 +1935,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       // pushMarker(raw) fallback -- this was simply missing that same
       // early return.
       if (type === "user") {
+        const content = (event.message as { content?: unknown } | undefined)?.content;
+        setActiveTaskList((current) => applyClaudeTaskResults(current, content));
         return;
       }
 
@@ -2549,6 +2546,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               // provider's internal tool name as a generic work trace.
               if (block.name === "TodoWrite") {
                 setActiveTaskList((current) => normalizeClaudeTodos(block.input, current));
+                setWaitingPhase("working");
+                continue;
+              }
+              if (block.name === "TaskCreate" || block.name === "TaskUpdate") {
+                setActiveTaskList((current) => applyClaudeTaskTool(current, block, i18n.t("chat.tasks.title")));
                 setWaitingPhase("working");
                 continue;
               }
