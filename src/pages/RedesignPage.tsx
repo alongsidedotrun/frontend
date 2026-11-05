@@ -30,7 +30,7 @@ import { useIdentity } from "@/lib/identity";
 import { signOut } from "@/lib/auth";
 import { moveLocalWorkspaceDetailsToBackend } from "@/lib/workspace-logos";
 import { ManageWorkspaceDialog, type WorkspaceChange } from "@/components/design-system/manage-workspace-dialog";
-import { ArchiveIcon, DeleteIcon, SkillIcon, BubbleChatIcon, EditIcon, FolderIcon, WorkspacesIcon, IntegrationsIcon, LogOutIcon, MessageChatCircleIcon, PaletteIcon, ProvidersIcon, Settings01Icon, SettingsIcon, UserIcon } from "@/components/icons/untitled-ui";
+import { ArchiveIcon, DeleteIcon, SkillIcon, BubbleChatIcon, EditIcon, FolderIcon, WorkspacesIcon, IntegrationsIcon, LogOutIcon, MessageChatCircleIcon, PaletteIcon, ProvidersIcon, Settings01Icon, SettingsIcon, SidebarRightIcon, UserIcon } from "@/components/icons/untitled-ui";
 import { SplitView } from "@/components/design-system/split-view";
 import { AppTopBar } from "@/components/app-top-bar";
 import { QuickActions, type QuickActionItem } from "@/components/design-system/quick-actions";
@@ -38,6 +38,7 @@ import { SidebarSections, type SidebarItemMenuEntry, type SidebarSection, type S
 import { SidebarSurfaceTransition } from "@/components/design-system/sidebar-surface-transition";
 import { GettingStartedSummary, SidebarAccountFooter, type GettingStartedStep } from "@/components/design-system/sidebar-footer";
 import { SettingsSidebarNav, type SettingsSection } from "@/components/settings-overlay";
+import { RightPanel, type RightPanelState } from "@/components/right-panel";
 import { CHATS_IMPORTED } from "@/lib/chat-import";
 import { DefaultAvatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,7 @@ import { ChatPage, type ChatPageShellContext } from "@/pages/ChatPage";
 import { HomePage, type HomePageShellContext } from "@/pages/HomePage";
 import { CommandMenuDemo } from "@/components/command-menu-demo";
 import type { CommandMenuItemData } from "@/components/ui/command-menu";
+import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
 import {
   WorkspaceSelector,
   type WorkspaceMenuAction,
@@ -344,6 +346,15 @@ export function RedesignPage() {
   const [newProjectName, setNewProjectName] = useState("");
   const [projectError, setProjectError] = useState<string | null>(null);
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
+  // Chat-scoped right panel (Library/Runs + file editor). AppLayout used to
+  // own this; the redesign shell is the live host now, so the same history
+  // stack lives here. Library-page panel snapshots stay out of scope.
+  type RightPanelEntry = RightPanelState;
+  const [panelNav, setPanelNav] = useState<{ history: RightPanelEntry[]; index: number }>({ history: [], index: -1 });
+  const [panelVisible, setPanelVisible] = useState(false);
+  const [filesTouchedTick, setFilesTouchedTick] = useState(0);
+  const [rightPanelWidth] = useState(420);
+  const rightPanel = panelVisible ? (panelNav.history[panelNav.index] ?? null) : null;
   // A session exists before its first message, while GET /sessions
   // deliberately lists only chats with real content. Keep that short-lived
   // local row so the newly-created chat can mount, send its queued message,
@@ -403,6 +414,45 @@ export function RedesignPage() {
     : "general";
   const activeChat = chats.find((chat) => chat.id === (routeChatId ?? activeChatId)) ?? null;
   const activeBot = activeChat?.bot_id ? botsById.get(activeChat.bot_id) : undefined;
+
+  useEffect(() => {
+    setPanelNav({ history: [], index: -1 });
+    setPanelVisible(false);
+  }, [routeChatId]);
+
+  function navigateRightPanel(entry: RightPanelEntry) {
+    setPanelNav(({ history, index }) => ({ history: [...history.slice(0, index + 1), entry], index: index + 1 }));
+    setPanelVisible(true);
+  }
+  function rightPanelGoBack() {
+    setPanelNav(({ history, index }) => ({ history, index: Math.max(0, index - 1) }));
+  }
+  function rightPanelGoForward() {
+    setPanelNav(({ history, index }) => ({ history, index: Math.min(history.length - 1, index + 1) }));
+  }
+  function onRightPanelClose() {
+    setPanelVisible(false);
+  }
+  function closeFileToLibrary() {
+    if (routeChatId) navigateRightPanel({ type: "list", chatId: routeChatId });
+    else onRightPanelClose();
+  }
+  function openChatFile(path: string) {
+    navigateRightPanel({ type: "file", path });
+  }
+  function notifyFilesTouched() {
+    setFilesTouchedTick((tick) => tick + 1);
+  }
+  function toggleRightPanel() {
+    if (rightPanel) {
+      onRightPanelClose();
+      return;
+    }
+    if (!routeChatId) return;
+    if (panelNav.history.length === 0) navigateRightPanel({ type: "list", chatId: routeChatId });
+    else setPanelVisible(true);
+  }
+
   const routedContent = useOutlet({
     workspaceId: activeWorkspace.id,
     chatName: activeChat ? chatTitle(activeChat) : t("shell.untitledChat"),
@@ -423,11 +473,11 @@ export function RedesignPage() {
     openSettings: (section: string) => navigate(`/settings/${section}`),
     // #504: New > Bot opens the bot's chat once it's made.
     onBotCreated: (bot: Bot) => void openBot(bot),
-    openFile: () => {},
+    openFile: openChatFile,
     renameOpenFile: () => {},
-    notifyFilesTouched: () => {},
+    notifyFilesTouched,
     primarySidebarCollapsed: false,
-    rightPanelOpen: false,
+    rightPanelOpen: rightPanel !== null,
     workspaceName: activeWorkspace.name,
     workspaceLogo: activeWorkspace.logo ?? null,
     workspaceColor: activeWorkspace.color ?? null,
@@ -549,9 +599,9 @@ export function RedesignPage() {
         .then(applyLoadedChats);
     },
     openSettings: (section) => navigate(`/settings/${section}`),
-    openFile: () => {},
-    rightPanelOpen: false,
-    notifyFilesTouched: () => {},
+    openFile: openChatFile,
+    rightPanelOpen: rightPanel !== null,
+    notifyFilesTouched,
   } : undefined;
   const redesignHomeContext: HomePageShellContext = {
     openSettings: (section) => navigate(`/settings/${section}`),
@@ -1199,12 +1249,30 @@ export function RedesignPage() {
               ) : null}
             </SidebarSurfaceTransition>
           }
-          // Invite (sharing the chat), at the right end, on a chat only: not a bot's (it's just you and it).
-          actions={topBarChat && !topBarChat.bot_id ? (
-            // 24px, a notch under compact, so it sits in the 40px bar with room around it.
-            <Button type="button" variant="tertiary" size="compact" className="h-6 rounded-[4px] px-2.5" onClick={() => openShare(topBarChat.id)}>
-              {t("shareChat.button")}
-            </Button>
+          // Chat files/Runs toggle on any open chat route; Share stays for
+          // non-bot chats that are already in the sidebar list.
+          actions={routeChatId ? (
+            <div className="flex items-center gap-1.5">
+              {topBarChat && !topBarChat.bot_id ? (
+                // 24px, a notch under compact, so it sits in the 40px bar with room around it.
+                <Button type="button" variant="tertiary" size="compact" className="h-6 rounded-[4px] px-2.5" onClick={() => openShare(topBarChat.id)}>
+                  {t("shareChat.button")}
+                </Button>
+              ) : null}
+              <button
+                type="button"
+                aria-label={t("chatHeader.chatFiles")}
+                aria-pressed={rightPanel !== null}
+                onClick={toggleRightPanel}
+                className={cn(
+                  "flex size-7 shrink-0 items-center justify-center rounded-lg text-foreground hover:bg-hover-2/50",
+                  PRESS_EFFECT,
+                  ICON_PRESS,
+                )}
+              >
+                <SidebarRightIcon className="size-3.5" />
+              </button>
+            </div>
           ) : null}
           titleClassName="absolute left-[calc(var(--redesign-sidebar-width)+16px)] max-w-[min(32rem,calc(100%-var(--redesign-sidebar-width)-6rem))] font-normal"
           showNotifications={false}
@@ -1336,43 +1404,62 @@ export function RedesignPage() {
       }
       contentClassName="flex min-h-0 overflow-hidden bg-background"
     >
-      <SidebarSurfaceTransition
-        // min-w-0 on both: a flex child otherwise can't shrink below its widest content, so a
-        // long line in a chat widened the whole pane past a 900px window and cropped the compose box.
-        className="flex min-h-0 min-w-0 flex-1 bg-background"
-        contentClassName="flex min-h-0 w-full min-w-0 flex-1 bg-background"
-        surfaceKey={redesignSurfaceKey}
-      >
-        {location.pathname === "/sign-in" ? (
-          <SignInDialog asPage open onOpenChange={() => leaveWorkspacePage()} />
-        ) : workspacePath === "/workspace/new" ? (
-          <CreateWorkspaceDialog asPage open onOpenChange={() => leaveWorkspacePage()} onCreate={createWorkspace} saving={saving} error={workspaceError} />
-        ) : workspacePath === "/workspace/manage" ? (
-          <ManageWorkspaceDialog
-            asPage
-            open
-            onOpenChange={() => leaveWorkspacePage()}
-            workspace={activeWorkspace}
-            onSave={(change) => updateWorkspace(activeWorkspace, change)}
-            onArchive={() => archiveWorkspace(activeWorkspace)}
-            canArchive={workspaces.length > 1}
-            projects={projects}
-            workspaces={workspaces}
-            onMoveProject={moveProjectToWorkspace}
-            saving={saving}
-            error={workspaceNameTaken ? null : workspaceError}
-            nameError={workspaceNameTaken ? workspaceError : null}
-          />
-        ) : routedContent ?? (activeQuickAction === "chats" && activeChat && redesignChatContext ? (
-          <ChatPage key={activeChat.id} sessionIdOverride={activeChat.id} shellContextOverride={redesignChatContext} />
-        ) : activeQuickAction === "chats" ? (
-          <HomePage shellContextOverride={redesignHomeContext} onSessionCreated={openCreatedChat} onBotCreated={(bot) => void openBot(bot)} />
-        ) : (
-          <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-            {null}
+      <div className="relative flex min-h-0 min-w-0 flex-1">
+        <SidebarSurfaceTransition
+          // min-w-0 on both: a flex child otherwise can't shrink below its widest content, so a
+          // long line in a chat widened the whole pane past a 900px window and cropped the compose box.
+          className="flex min-h-0 min-w-0 flex-1 bg-background"
+          contentClassName="flex min-h-0 w-full min-w-0 flex-1 bg-background"
+          surfaceKey={redesignSurfaceKey}
+        >
+          {location.pathname === "/sign-in" ? (
+            <SignInDialog asPage open onOpenChange={() => leaveWorkspacePage()} />
+          ) : workspacePath === "/workspace/new" ? (
+            <CreateWorkspaceDialog asPage open onOpenChange={() => leaveWorkspacePage()} onCreate={createWorkspace} saving={saving} error={workspaceError} />
+          ) : workspacePath === "/workspace/manage" ? (
+            <ManageWorkspaceDialog
+              asPage
+              open
+              onOpenChange={() => leaveWorkspacePage()}
+              workspace={activeWorkspace}
+              onSave={(change) => updateWorkspace(activeWorkspace, change)}
+              onArchive={() => archiveWorkspace(activeWorkspace)}
+              canArchive={workspaces.length > 1}
+              projects={projects}
+              workspaces={workspaces}
+              onMoveProject={moveProjectToWorkspace}
+              saving={saving}
+              error={workspaceNameTaken ? null : workspaceError}
+              nameError={workspaceNameTaken ? workspaceError : null}
+            />
+          ) : routedContent ?? (activeQuickAction === "chats" && activeChat && redesignChatContext ? (
+            <ChatPage key={activeChat.id} sessionIdOverride={activeChat.id} shellContextOverride={redesignChatContext} />
+          ) : activeQuickAction === "chats" ? (
+            <HomePage shellContextOverride={redesignHomeContext} onSessionCreated={openCreatedChat} onBotCreated={(bot) => void openBot(bot)} />
+          ) : (
+            <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+              {null}
+            </div>
+          ))}
+        </SidebarSurfaceTransition>
+        {rightPanel && (
+          <div
+            className="relative z-10 flex h-full shrink-0 overflow-hidden border-l border-border bg-background"
+            style={{ width: rightPanelWidth }}
+          >
+            <RightPanel
+              state={rightPanel}
+              onCloseFile={closeFileToLibrary}
+              onSelectFile={(path) => navigateRightPanel({ type: "file", path })}
+              onBack={rightPanelGoBack}
+              onForward={rightPanelGoForward}
+              canGoBack={panelNav.index > 0}
+              canGoForward={panelNav.index < panelNav.history.length - 1}
+              filesTouchedTick={filesTouchedTick}
+            />
           </div>
-        ))}
-      </SidebarSurfaceTransition>
+        )}
+      </div>
       <ShareChatDialog sessionId={shareChatId} open={shareOpen} onOpenChange={setShareOpen} />
       <Dialog open={projectToArchive !== null} onOpenChange={(open) => { if (!open) setProjectToArchive(null); }} backdropClassName="!z-[120]">
         <DialogContent className="!z-[120]">
