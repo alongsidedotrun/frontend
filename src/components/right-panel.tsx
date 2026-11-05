@@ -19,6 +19,7 @@ import { XIcon, File02Icon, ChevronLeftIcon, ChevronRightIcon, FolderIcon, Termi
 import { Button } from "@/components/ui/button";
 import { LibraryFileNameCell } from "@/components/library-file-row";
 import { formatRelativeTime } from "@/lib/relative-time";
+import { usageByRunId, type RunUsageObservation, type RunUsageSummary } from "@/lib/run-usage";
 import {
   DropdownMenu as BaseDropdownMenu,
   DropdownTrigger as BaseDropdownTrigger,
@@ -466,6 +467,7 @@ function AgentRunLog({ chatId }: { chatId: string }) {
   const { t } = useTranslation();
   const [runs, setRuns] = useState<AgentRun[] | null>(null);
   const [checkpointUsage, setCheckpointUsage] = useState<CheckpointUsage[] | null>(null);
+  const [runUsage, setRunUsage] = useState<Map<string, RunUsageSummary> | null>(null);
   const [error, setError] = useState(false);
   const [gitError, setGitError] = useState<string | null>(null);
   const [committing, setCommitting] = useState<string | null>(null);
@@ -474,15 +476,26 @@ function AgentRunLog({ chatId }: { chatId: string }) {
   useEffect(() => {
     let cancelled = false;
     const load = () => {
-      Promise.all([fetch(`/sessions/${chatId}/runs`), fetch(`/sessions/${chatId}/checkpoint-usage`)])
-        .then(async ([runsResponse, checkpointResponse]) => {
-          if (!runsResponse.ok || !checkpointResponse.ok) throw new Error(String(runsResponse.ok ? checkpointResponse.status : runsResponse.status));
-          return Promise.all([runsResponse.json() as Promise<AgentRun[]>, checkpointResponse.json() as Promise<CheckpointUsage[]>]);
+      Promise.all([
+        fetch(`/sessions/${chatId}/runs`),
+        fetch(`/sessions/${chatId}/checkpoint-usage`),
+        fetch(`/sessions/${chatId}/usage`),
+      ])
+        .then(async ([runsResponse, checkpointResponse, usageResponse]) => {
+          if (!runsResponse.ok || !checkpointResponse.ok || !usageResponse.ok) {
+            throw new Error(String(runsResponse.ok ? (checkpointResponse.ok ? usageResponse.status : checkpointResponse.status) : runsResponse.status));
+          }
+          return Promise.all([
+            runsResponse.json() as Promise<AgentRun[]>,
+            checkpointResponse.json() as Promise<CheckpointUsage[]>,
+            usageResponse.json() as Promise<RunUsageObservation[]>,
+          ]);
         })
-        .then(([rows, checkpoints]) => {
+        .then(([rows, checkpoints, usage]) => {
           if (!cancelled) {
             setRuns([...rows].reverse());
             setCheckpointUsage([...checkpoints].reverse());
+            setRunUsage(usageByRunId(usage));
             setError(false);
           }
         })
@@ -543,7 +556,7 @@ function AgentRunLog({ chatId }: { chatId: string }) {
   }
 
   if (error) return <p className="p-2 text-ui text-muted-foreground">{t("rightPanel.loadRunsFailed")}</p>;
-  if (runs === null || checkpointUsage === null) return <p className="p-2 text-ui text-muted-foreground">{t("rightPanel.loading")}</p>;
+  if (runs === null || checkpointUsage === null || runUsage === null) return <p className="p-2 text-ui text-muted-foreground">{t("rightPanel.loading")}</p>;
   if (runs.length === 0 && checkpointUsage.length === 0) return <p className="p-2 text-ui text-muted-foreground">{t("rightPanel.noRuns")}</p>;
 
   return (
@@ -569,7 +582,9 @@ function AgentRunLog({ chatId }: { chatId: string }) {
           ))}
         </div>
       )}
-      {runs.map((run) => (
+      {runs.map((run) => {
+        const usage = runUsage.get(run.id);
+        return (
         <div key={run.id} className="rounded-[6px] border border-border/70 px-2.5 py-2">
           <div className="flex items-center justify-between gap-2">
             <span className="truncate text-xs font-medium text-foreground">{run.model || run.provider}</span>
@@ -581,6 +596,16 @@ function AgentRunLog({ chatId }: { chatId: string }) {
             <span className="capitalize">{run.provider}</span>
             <span>{formatRelativeTime(run.started_at)}</span>
           </div>
+          <p className="mt-1 text-ui-2xs text-muted-foreground">
+            {usage?.contextTokens != null
+              ? t("rightPanel.runContext", { tokens: compactNumber(usage.contextTokens) })
+              : t("rightPanel.runContextUnavailable")}
+          </p>
+          <p className="mt-0.5 text-ui-2xs text-muted-foreground">
+            {usage?.processedScope === "session_cumulative" && usage.processedTokens != null
+              ? t("rightPanel.runProcessed", { tokens: compactNumber(usage.processedTokens) })
+              : t("rightPanel.runProcessedUnavailable")}
+          </p>
           {run.stop_reason && <p className="mt-1.5 line-clamp-2 text-ui-2xs text-muted-foreground">{run.stop_reason}</p>}
           {run.changed_files.length > 0 && (
             <div className="mt-2 border-t border-border/60 pt-2">
@@ -609,7 +634,8 @@ function AgentRunLog({ chatId }: { chatId: string }) {
             </div>
           )}
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

@@ -65,6 +65,7 @@ type SharedFile = { file_id: string; name: string; media_type: string; size: num
 // Provider brand names, as another participant's run reports which one it ran on (#462). Not translated.
 const PROVIDER_NAMES: Record<string, string> = { claude: "Claude", codex: "Codex", antigravity: "Antigravity", grok: "Grok" };
 import { lastUsedReady, loadLastContext, loadLastModel, saveLastContext, saveLastModel, type PermissionMode } from "@/lib/last-used";
+import { modelPayloadForSend } from "@/lib/model-payload-for-send";
 import type { QueuedMessage } from "@/lib/message-queue";
 import { useLimitWarning } from "@/components/limit-warning";
 import { useSkills } from "@/lib/skills";
@@ -1021,6 +1022,10 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   const modelRef = useRef<(typeof QUICK_CHAT_MODELS)[number]>(
     QUICK_CHAT_MODELS.find((m) => m.label === "Claude Sonnet 5") ?? QUICK_CHAT_MODELS[0]
   );
+  // The live session's model on the server (chat_defaults.current_model, then
+  // each model_changed). sendMessage only POSTs a model when the picker differs
+  // from this -- a stale modelRef must not flip the session mid-chat.
+  const serverModelRef = useRef<string | null>(null);
   // The model that actually produced the most recent reply row (rowModel,
   // set alongside pushRow below) -- the in-app notification pushed from
   // the "result" handler needs this same event.model-first attribution,
@@ -1046,31 +1051,30 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // onSubmit comment has the full reasoning).
   const sentEffortRef = useRef<EffortLevel>("medium");
 
-  // No removeItem after reading -- confirmed directly as a real bug: React 18
-  // StrictMode (dev only) double-invokes this effect on mount (mount, cleanup, mount
-  // again, specifically to catch missing cleanup, same behavior App.tsx's own
-  // AppRoutes comment documents elsewhere in this app), so the "consume once" pattern
-  // this used to have meant the *second* invocation always found sessionStorage
-  // already cleared by the first, silently falling back to the hardcoded "Claude
-  // Sonnet 5" default regardless of which model the chat actually started with (a
-  // Codex reply was confirmed showing this exact stale "Claude Sonnet 5" label,
-  // purely cosmetic -- the backend's own model routing was never affected, only this
-  // ref). HomePage.tsx's own createSession always calls setItem fresh on the next real
-  // "New chat", so there's no staleness risk from leaving these keys set between
-  // chats either.
+  // Only seed from sessionStorage for *this* chat's pending first message
+  // (HomePage createSession). Applying alongside_model_value on every open
+  // reused whichever model the last *new* chat was created with, which then
+  // looked like a deliberate mid-chat switch once send posted it (live Dev
+  // log: model_changed → gpt-5.6-sol while the chat was already on grok-4.5).
+  // No removeItem after reading -- React 18 StrictMode double-invokes this
+  // effect on mount; a consume-once clear made the second pass miss the value.
   useEffect(() => {
+    const pendingRaw = sessionStorage.getItem("alongside_pending_message");
+    let pendingForThisChat = false;
+    if (pendingRaw) {
+      try {
+        const pending = JSON.parse(pendingRaw) as { sessionId?: string };
+        pendingForThisChat = pending.sessionId === sessionId;
+      } catch {
+        pendingForThisChat = false;
+      }
+    }
+    if (!pendingForThisChat) return;
     const storedValue = sessionStorage.getItem("alongside_model_value");
     const found = storedValue ? QUICK_CHAT_MODELS.find((m) => m.value === storedValue) : undefined;
     if (found) modelRef.current = found;
-    // Only overwrite when there's a real stored value -- leaving this as
-    // `setDefaultModelValue(storedValue || undefined)` unconditionally
-    // reset the provisional fallback the useState initializer above now
-    // sets (that one's own comment has the full reasoning) back to
-    // undefined for any chat with nothing in sessionStorage, undoing it a
-    // tick after mount and re-triggering the exact pop-in this was meant
-    // to prevent.
     if (storedValue) setDefaultModelValue(storedValue);
-  }, []);
+  }, [sessionId]);
 
   // Whether the reader was at the newest message the last time they scrolled. Measuring after
   // content grows wasn't enough: a file card or a turn's text appearing at once moves the bottom
@@ -1376,6 +1380,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     resetLiveToolLines();
     sawRealReplyRef.current = false;
     hasPinnedDefaultModelRef.current = false;
+    serverModelRef.current = null;
     projectIdRef.current = null;
     compactedAboveRef.current = false;
     compactionPendingRef.current = false;
@@ -1580,11 +1585,17 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       // effort) rather than being overwritten with undefined.
       if (type === "chat_defaults") {
         const model = event.default_model as string | null;
+        const currentModel = event.current_model as string | null | undefined;
         const effort = event.default_effort as EffortLevel | null;
         const autocompact = event.default_autocompact as string | null;
         const handoffAutomatically = event.automatic_handoff as boolean | undefined;
         const scope = event.autocompact_scope as "chat" | "project" | "global" | undefined;
         const projectId = event.project_id as string | null | undefined;
+        // Live session model arrives before history replay so mid-chat sends
+        // can omit an unchanged model instead of posting a stale picker value.
+        if (typeof currentModel === "string" && currentModel) {
+          serverModelRef.current = currentModel;
+        }
         if (model) {
           setDefaultModelValue(model);
           hasPinnedDefaultModelRef.current = true;
@@ -1637,12 +1648,24 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       }
 
       if (type === "model_changed") {
+        const value = event.model as string;
+        // Always track the server session model, including during history replay,
+        // so sendMessage can tell a real picker switch from a stale client ref.
+        if (typeof value === "string" && value) serverModelRef.current = value;
         // A bot's chat switches models in the background ("Let the bot choose"): no marker, and the
         // picker stays as it is.
         if (isBotChatRef.current || modelRef.current.value === AUTO_BOT_MODEL.value) return;
-        const value = event.model as string;
-        const found = QUICK_CHAT_MODELS.find((m) => m.value === value);
-        if (found) modelRef.current = found;
+        // During replay, don't thrash the compose picker through every historical
+        // switch; replay_complete syncs once to the final server model.
+        if (replayingRef.current) {
+          pushMarker(i18n.t("chat.switchedTo", { model: modelFor(value)?.label ?? value }));
+          return;
+        }
+        const found = modelFor(value) ?? QUICK_CHAT_MODELS.find((m) => m.value === value);
+        if (found) {
+          modelRef.current = found;
+          setDefaultModelValue(found.value);
+        }
         pushMarker(i18n.t("chat.switchedTo", { model: found?.label ?? value }));
         return;
       }
@@ -1982,21 +2005,20 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           setHistoricalRowsRevealed(true);
         });
 
-        // Reopening an existing chat now defaults the model picker to
-        // whichever model this chat's own history actually last replied
-        // with -- real bug, confirmed directly ("the model that I
-        // initially created or left at should remain because now after
-        // opening an existing chat, i have to select the model again"):
-        // without a real per-chat pin ("Set as default for this chat",
-        // chat_defaults above), defaultModelValue only ever came from
-        // sessionStorage's own "whichever model the last *newly created*
-        // chat used" -- unrelated to this specific chat's own history.
-        // hasPinnedDefaultModelRef takes priority when set (an explicit
-        // pin beats "whatever it happened to end on"); sawRealReplyRef
-        // guards a brand-new, still-empty chat, which has no real history
-        // to derive this from yet.
-        if (!hasPinnedDefaultModelRef.current && sawRealReplyRef.current) {
-          setDefaultModelValue(lastReplyModelRef.current.value);
+        // Reopening an existing chat defaults the picker to the live session
+        // model (serverModelRef from chat_defaults / last model_changed), then
+        // the last reply. A per-chat pin still wins. Prefer serverModelRef over
+        // lastReply alone so a stale sessionStorage seed cannot survive past
+        // replay and get posted as a fake mid-chat switch.
+        if (!hasPinnedDefaultModelRef.current) {
+          const serverModel = serverModelRef.current;
+          if (serverModel) {
+            const found = modelFor(serverModel) ?? QUICK_CHAT_MODELS.find((m) => m.value === serverModel);
+            if (found) modelRef.current = found;
+            setDefaultModelValue(serverModel);
+          } else if (sawRealReplyRef.current) {
+            setDefaultModelValue(lastReplyModelRef.current.value);
+          }
         }
 
         // HomePage.tsx's own createSession queues a brand-new chat's first message
@@ -2838,20 +2860,16 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     const res = await fetch(`/sessions/${sessionId}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      // model: real now -- was silently dropped server-side (server.rs's own
-      // SendMessageRequest had no field for it at all), confirmed directly via a
-      // session log that picking a different model in the compose box never
-      // actually changed which model a turn ran on. Always the current pick, not
-      // just on a real change -- the backend only records a model_changed event
-      // (and a visible marker, ChatPage's own handling of it below) when this
-      // actually differs from the session's current model, so resending the same
-      // value here on every turn is harmless.
+      // model: only when the picker differs from the server session model.
+      // Posting the picker on every turn made any stale modelRef (another chat's
+      // sessionStorage seed, replay thrash, edit/cancel remount) look like an
+      // intentional switch -- live Dev: model_changed → gpt-5.6-sol on a Grok chat.
       body: JSON.stringify({
         prompt: trimmed,
         sender_name: getUserDisplayName(),
         // Lets the backend ignore this send if it is repeated after a dropped connection.
         client_message_id: crypto.randomUUID(),
-        model: modelRef.current.value,
+        model: modelPayloadForSend(modelRef.current.value, serverModelRef.current),
         images: images.length > 0 ? toImageInputs(images) : undefined,
         // Real now (compose-box.tsx's own Effort slider, its own comment has the
         // confirmed --effort values) -- only actually applied server-side for
@@ -3090,6 +3108,14 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // clearing the compose box back out.
   function cancelEdit() {
     setPendingEditEventId(null);
+    // Edit remounts ComposeBox with the edited turn's model; cancel must put the
+    // picker back on the live session model, or the next send looks like a switch.
+    const serverModel = serverModelRef.current;
+    if (serverModel) {
+      const found = modelFor(serverModel) ?? QUICK_CHAT_MODELS.find((m) => m.value === serverModel);
+      if (found) modelRef.current = found;
+      setDefaultModelValue(serverModel);
+    }
     // Back to the draft from before Edit (an edit's own text is never saved as the draft).
     setPrompt(readDraft(sessionId));
   }
