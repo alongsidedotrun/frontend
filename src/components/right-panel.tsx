@@ -443,9 +443,29 @@ type AgentRun = {
   parent_run_id: string | null;
 };
 
+type CheckpointUsage = {
+  id: string;
+  provider: string;
+  model: string | null;
+  outcome: "completed" | "failed" | "invalid_response";
+  source_chars: number;
+  source_estimated_tokens: number;
+  usage_source: "provider_reported" | "unavailable";
+  input_tokens: number | null;
+  cached_input_tokens: number | null;
+  output_tokens: number | null;
+  total_tokens: number | null;
+  created_at: string;
+};
+
+function compactNumber(value: number) {
+  return new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 }).format(value);
+}
+
 function AgentRunLog({ chatId }: { chatId: string }) {
   const { t } = useTranslation();
   const [runs, setRuns] = useState<AgentRun[] | null>(null);
+  const [checkpointUsage, setCheckpointUsage] = useState<CheckpointUsage[] | null>(null);
   const [error, setError] = useState(false);
   const [gitError, setGitError] = useState<string | null>(null);
   const [committing, setCommitting] = useState<string | null>(null);
@@ -454,14 +474,15 @@ function AgentRunLog({ chatId }: { chatId: string }) {
   useEffect(() => {
     let cancelled = false;
     const load = () => {
-      fetch(`/sessions/${chatId}/runs`)
-        .then((res) => {
-          if (!res.ok) throw new Error(String(res.status));
-          return res.json();
+      Promise.all([fetch(`/sessions/${chatId}/runs`), fetch(`/sessions/${chatId}/checkpoint-usage`)])
+        .then(async ([runsResponse, checkpointResponse]) => {
+          if (!runsResponse.ok || !checkpointResponse.ok) throw new Error(String(runsResponse.ok ? checkpointResponse.status : runsResponse.status));
+          return Promise.all([runsResponse.json() as Promise<AgentRun[]>, checkpointResponse.json() as Promise<CheckpointUsage[]>]);
         })
-        .then((rows: AgentRun[]) => {
+        .then(([rows, checkpoints]) => {
           if (!cancelled) {
             setRuns([...rows].reverse());
+            setCheckpointUsage([...checkpoints].reverse());
             setError(false);
           }
         })
@@ -522,12 +543,32 @@ function AgentRunLog({ chatId }: { chatId: string }) {
   }
 
   if (error) return <p className="p-2 text-ui text-muted-foreground">{t("rightPanel.loadRunsFailed")}</p>;
-  if (runs === null) return <p className="p-2 text-ui text-muted-foreground">{t("rightPanel.loading")}</p>;
-  if (runs.length === 0) return <p className="p-2 text-ui text-muted-foreground">{t("rightPanel.noRuns")}</p>;
+  if (runs === null || checkpointUsage === null) return <p className="p-2 text-ui text-muted-foreground">{t("rightPanel.loading")}</p>;
+  if (runs.length === 0 && checkpointUsage.length === 0) return <p className="p-2 text-ui text-muted-foreground">{t("rightPanel.noRuns")}</p>;
 
   return (
     <div className="flex flex-col gap-1">
       {gitError && <p className="rounded-[6px] border border-destructive/30 px-2.5 py-2 text-ui-2xs text-destructive">{gitError}</p>}
+      {checkpointUsage.length > 0 && (
+        <div className="mb-1 flex flex-col gap-1">
+          <p className="px-0.5 text-ui-2xs font-medium text-muted-foreground">{t("rightPanel.checkpointCalls")}</p>
+          {checkpointUsage.map((checkpoint) => (
+            <div key={checkpoint.id} className="rounded-[6px] border border-border/70 px-2.5 py-2 text-ui-2xs text-muted-foreground">
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate font-medium text-foreground">{checkpoint.model || checkpoint.provider}</span>
+                <span className={checkpoint.outcome === "completed" ? "text-emerald-500" : "text-muted-foreground"}>{checkpoint.outcome.replace("_", " ")}</span>
+              </div>
+              <p className="mt-1">{t("rightPanel.checkpointSource", { characters: compactNumber(checkpoint.source_chars), tokens: compactNumber(checkpoint.source_estimated_tokens) })}</p>
+              <p className="mt-0.5">
+                {checkpoint.usage_source === "provider_reported" && checkpoint.total_tokens !== null
+                  ? t("rightPanel.checkpointReported", { total: compactNumber(checkpoint.total_tokens) })
+                  : t("rightPanel.checkpointUnavailable")}
+              </p>
+              <p className="mt-0.5">{formatRelativeTime(checkpoint.created_at)}</p>
+            </div>
+          ))}
+        </div>
+      )}
       {runs.map((run) => (
         <div key={run.id} className="rounded-[6px] border border-border/70 px-2.5 py-2">
           <div className="flex items-center justify-between gap-2">
