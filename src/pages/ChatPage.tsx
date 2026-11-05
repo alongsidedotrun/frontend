@@ -12,6 +12,7 @@ import { EarlierSummary, HandoffNotice } from "@/components/handoff-context-dial
 import { contextMaintenanceAction, shouldHandoffAfterCompact } from "@/lib/context-maintenance";
 import { ProviderNotice } from "@/components/provider-gate";
 import { QuestionCard, questionsOf } from "@/components/question-card";
+import { taskListAfterTurn } from "@/lib/task-list-state";
 import { BotFace, moodFace, useBotMood, type BotAvatar, type BotMood } from "@/components/bot-face";
 import { AnimatePresence, motion } from "motion/react";
 import { spring } from "@/lib/springs";
@@ -1944,6 +1945,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
 
       if (type === "replay_complete") {
         replayingRef.current = false;
+        if (event.turn_running !== true) setActiveTaskList(taskListAfterTurn);
         if (typeof event.last_event_id === "number" && event.last_event_id > lastEventIdRef.current) {
           lastEventIdRef.current = event.last_event_id;
         }
@@ -2246,6 +2248,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
 
       if (type === "result") {
         expireOpenPermissions();
+        setActiveTaskList(taskListAfterTurn);
         awaitingReplyRef.current = false;
         setTurnInProgress(false);
         setWaitingPhase(null);
