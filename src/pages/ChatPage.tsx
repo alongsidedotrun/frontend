@@ -731,6 +731,10 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // replaced: the old state cleared the instant ANY renderable content arrived,
   // vanishing the compose box's Stop button mid-turn on longer, multi-step runs).
   const [turnInProgress, setTurnInProgress] = useState(false);
+  // A message just sent, shown at once (with Waiting) until the backend records it: recording can take a
+  // while (the first turn after a handoff gathers the chat's history first), and nothing showed meanwhile.
+  // The recorded message takes this row's place.
+  const provisionalSendRef = useRef<{ rowId: string; text: string } | null>(null);
   // Messages written while a turn runs (compose-box.tsx's queue prop), sent one per turn
   // as each ends. queueSending: one has gone out and its turn hasn't started yet.
   const [queuedMessages, setQueuedMessages] = useState<QueuedMessage[]>([]);
@@ -1761,7 +1765,14 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           noEntranceRowIdsRef.current.add(humanRow.id);
           suppressInitialHandoffHumanEntranceRef.current = false;
         }
-        pushRow(humanRow);
+        const provisional = provisionalSendRef.current;
+        if (provisional && historyReplayedRef.current && event.mine !== false && provisional.text === text.trim()) {
+          // The message shown at send time: replaced in place (same row, so it doesn't animate in again).
+          provisionalSendRef.current = null;
+          setRows((prev) => prev.map((row) => (row.id === provisional.rowId ? { ...humanRow, id: provisional.rowId } : row)));
+        } else {
+          pushRow(humanRow);
+        }
         // Only show the waiting indicator for a live message, not while
         // replaying history -- otherwise every replayed human message
         // spawns its own indicator ahead of a reply that already exists a
@@ -2862,6 +2873,17 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     // own human_message broadcast (this POST triggers one) is the real source
     // now -- every client, this tab included, sets sentEffortRef from that
     // event instead (this file's own human_message handler, above).
+    // Shown now, with Waiting, rather than once the backend records it (provisionalSendRef). Not for an
+    // edit (it replaces history) or a shared chat (the relay's echo decides who sees what).
+    let provisionalRowId: string | null = null;
+    if (editFromEventId === undefined && !sharedChat && !turnInProgress) {
+      provisionalRowId = nextRowId();
+      provisionalSendRef.current = { rowId: provisionalRowId, text: trimmed };
+      pushRow({ kind: "human", id: provisionalRowId, text: trimmed, displayName: getUserDisplayName(), time: messageTime(), mine: true });
+      firstAgentRowIdRef.current = null;
+      awaitingReplyRef.current = true;
+      setWaitingPhase((phase) => phase ?? "waiting");
+    }
     const res = await fetch(`/sessions/${sessionId}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2900,6 +2922,14 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       }),
     });
 
+    if (!res.ok && provisionalRowId) {
+      // The failed message is shown below, with its error and Retry, instead.
+      const failedId = provisionalRowId;
+      if (provisionalSendRef.current?.rowId === failedId) provisionalSendRef.current = null;
+      setRows((prev) => prev.filter((row) => row.id !== failedId));
+      awaitingReplyRef.current = false;
+      setWaitingPhase(null);
+    }
     if (!res.ok) {
       // Real bug, confirmed directly ("my messaged should have gone to the
       // chat and with an error underneath so i can click retry"): this used
