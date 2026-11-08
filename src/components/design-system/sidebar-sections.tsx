@@ -50,17 +50,14 @@ export type SidebarSectionAction = {
   onSelect: () => void;
 };
 
-/** An entry in a section's "..." menu (e.g. Chats: New chat, New project). */
-export type SidebarSectionMenuEntry = { id: string; label: string; icon?: IconComponent; onSelect: () => void };
-
 export type SidebarSection = {
   id: string;
   label: string;
   items?: readonly SidebarSectionItem[];
   emptyLabel?: string;
-  action?: SidebarSectionAction;
-  /** A "..." menu left of the action (+), shown with it: on hover for a drawer. */
-  menu?: readonly SidebarSectionMenuEntry[];
+  /** Buttons at the end of the heading, in order (e.g. Chats: New project, then the +): on hover
+   *  for a drawer. */
+  actions?: readonly SidebarSectionAction[];
   /** A drawer: its heading shows an arrow that opens and closes its rows (closed at first; what's
    *  open is remembered on this device), and its action (+) only on hover. */
   collapsible?: boolean;
@@ -130,22 +127,20 @@ export function SidebarSections({ sections, activeItemId, onItemSelect, expanded
                 {section.label}
               </h2>
             )}
-            {section.menu && section.menu.length > 0 && (
-              <SectionMenu section={section} entries={section.menu} />
-            )}
-            {section.action ? (() => {
-              const Icon = section.action.icon;
+            {section.actions?.map((action, index) => {
+              const Icon = action.icon;
               return (
                 <button
+                  key={action.label}
                   type="button"
-                  aria-label={section.action.label}
-                  onClick={section.action.onSelect}
+                  aria-label={action.label}
+                  onClick={action.onSelect}
                   className={cn(
                     "flex size-[var(--redesign-quick-actions-icon-size)] items-center justify-center rounded-[var(--redesign-dropdown-row-radius)] text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    // The menu, when there is one, comes first and takes the push to the right.
-                    !section.menu?.length && "ml-auto",
-                    // A drawer's + only while its heading is hovered (or reached with the keyboard).
-                    section.collapsible && "opacity-0 transition-opacity duration-160 group-hover/section-header:opacity-100 focus-visible:opacity-100",
+                    // The first takes the push to the right; the rest sit beside it.
+                    index === 0 && "ml-auto",
+                    // A drawer's buttons only while its heading is hovered (or reached with the keyboard).
+                    section.collapsible && "opacity-0 transition-opacity duration-160 group-hover/section-header:opacity-100 group-has-[:focus-visible]/section-header:opacity-100",
                     PRESS_EFFECT,
                     ICON_PRESS,
                   )}
@@ -153,7 +148,7 @@ export function SidebarSections({ sections, activeItemId, onItemSelect, expanded
                   <Icon aria-hidden="true" strokeWidth={2} className="size-[calc(var(--redesign-font-size-compact)-1px)]" />
                 </button>
               );
-            })() : null}
+            })}
             {section.collapsible && (
               // The same arrow as a project row's, turned down when open. The heading is its button for
               // keyboards and screen readers; this one is for the pointer.
@@ -162,7 +157,7 @@ export function SidebarSections({ sections, activeItemId, onItemSelect, expanded
                 tabIndex={-1}
                 aria-hidden="true"
                 onClick={() => toggleSection(section.id)}
-                className={cn("flex size-[var(--redesign-quick-actions-icon-size)] shrink-0 items-center justify-center text-muted-foreground", !section.action && "ml-auto")}
+                className={cn("flex size-[var(--redesign-quick-actions-icon-size)] shrink-0 items-center justify-center text-muted-foreground", !section.actions?.length && "ml-auto")}
               >
                 <svg
                   viewBox="0 0 24 24"
@@ -252,37 +247,6 @@ export function SidebarSections({ sections, activeItemId, onItemSelect, expanded
 
 /** A section heading's "..." menu: the row menu's trigger and dropdown, shown like the section's +
  *  (on hover for a drawer, always otherwise) and kept visible while open. */
-function SectionMenu({ section, entries }: { section: SidebarSection; entries: readonly SidebarSectionMenuEntry[] }) {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  return (
-    <DropdownMenu size="compact" open={open} onOpenChange={setOpen}>
-      <div
-        className={cn(
-          "ml-auto flex transition-opacity duration-160",
-          section.collapsible && !open && "opacity-0 group-hover/section-header:opacity-100 group-has-[:focus-visible]/section-header:opacity-100",
-        )}
-      >
-        <DropdownTrigger
-          render={
-            <MoreTrigger
-              aria-label={t("shell.rowOptions", { name: section.label })}
-              active={open}
-              autoHide={false}
-              className={cn(PRESS_EFFECT, ICON_PRESS)}
-            />
-          }
-        />
-      </div>
-      <DropdownContent side="bottom" align="start" sideOffset={4} className="w-48 min-w-0">
-        {entries.map((entry, index) => (
-          <MenuItem key={entry.id} index={index} icon={entry.icon} label={entry.label} className="text-ui-sm" onSelect={entry.onSelect} />
-        ))}
-      </DropdownContent>
-    </DropdownMenu>
-  );
-}
-
 /** One row: the item itself, its "..." menu on hover, and in-place rename. */
 const REVEAL = { type: "spring" as const, duration: 0.26, bounce: 0 };
 const REVEAL_EXIT = { duration: 0.18, ease: [0.4, 0, 0.2, 1] as const };
