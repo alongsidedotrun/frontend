@@ -43,7 +43,7 @@ type ClaudeToolResult = { type?: string; tool_use_id?: string; content?: unknown
 
 export function applyClaudeTaskResults(list: ActiveTaskList | null, content: unknown): ActiveTaskList | null {
   if (!list || !Array.isArray(content)) return list;
-  return content.reduce((current, entry) => {
+  return content.reduce<ActiveTaskList>((current, entry) => {
     const result = entry as ClaudeToolResult;
     if (result.type !== "tool_result" || typeof result.tool_use_id !== "string" || typeof result.content !== "string") return current;
     const match = /^Task #(\d+) created successfully(?::|$)/.exec(result.content);
