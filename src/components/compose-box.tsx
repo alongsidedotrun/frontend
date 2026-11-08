@@ -462,16 +462,9 @@ function compactTokenCount(n: number) {
 // this at all) renders nothing at all rather than an empty/zeroed ring --
 // per explicit request, this should stay fully invisible until a real
 // turn actually completes and reports real usage, not just visually faded.
-// Claude and Antigravity only (Codex has no compact capability at all --
-// see canCompact's own comment below). For Claude this is the real
-// --autocompact flag (claude_direct.rs), a documented value within its own
-// "auto, or 100k-1M tokens" range. Antigravity has no such flag, so the same
-// stored value is instead read back client-side (ChatPage.tsx's own usage
-// handler) to fire a real "/compact" turn once usage crosses it -- one
-// shared threshold setting driving a real mechanism either way, just a
-// different mechanism per provider. Per explicit request ("Compact at 500k
-// set by default, Compact at 250k, Compact at 100k"), 500k is the default,
-// not "Auto".
+// The chat's handoff threshold (#606): once a turn leaves the context at or past it, the chat
+// hands off to a fresh session carrying the checkpoint (ChatPage.tsx's usage handler). Alongside
+// never compacts. The same for every provider; 500k is the default.
 const AUTOCOMPACT_OPTIONS = [
   { value: "500000", threshold: "500k" },
   { value: "250000", threshold: "250k" },
@@ -526,7 +519,6 @@ function ContextDropdown({
   used,
   model,
   modelCount,
-  onCompactNow,
   automaticHandoff = true,
   onSetAutomaticHandoff = () => {},
   onHandoffNow,
@@ -536,7 +528,6 @@ function ContextDropdown({
   used: number;
   model?: (typeof QUICK_CHAT_MODELS)[number];
   modelCount: number;
-  onCompactNow?: () => void;
   automaticHandoff?: boolean;
   onSetAutomaticHandoff?: (enabled: boolean) => void;
   onHandoffNow?: () => void;
@@ -550,14 +541,6 @@ function ContextDropdown({
   onSetAutocompact: (value: string) => void;
 }) {
   const { t } = useTranslation();
-  // "Compact now" -- Claude/Antigravity via a real "/compact" chat turn,
-  // Codex (issue #265) via the real `thread/compact/start` RPC behind
-  // POST /sessions/{id}/compact (see ChatPage.tsx's own call site comment).
-  const canCompact = model?.provider === "Claude" || model?.provider === "Antigravity" || model?.provider === "Codex";
-  // Threshold auto-compact -- Claude's real --autocompact flag, and a client-side
-  // threshold watcher (ChatPage.tsx) for both Antigravity (sends "/compact") and Codex
-  // (calls the real thread/compact/start endpoint) once usage crosses the chosen value.
-  const canAutoCompact = model?.provider === "Claude" || model?.provider === "Antigravity" || model?.provider === "Codex";
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -615,42 +598,29 @@ function ContextDropdown({
           {t("compose.context.usage", { used: compactTokenCount(used), total: compactTokenCount(compactThreshold * Math.max(1, modelCount)) })}
         </div>
         <>
-          {(canCompact || canAutoCompact) && (
-            <>
-            <DropdownSeparator />
-            <BaseDropdownLabel>{t("compose.compact.section")}</BaseDropdownLabel>
-            {canAutoCompact &&
-              AUTOCOMPACT_OPTIONS.map((option, i) => (
-                // Not `checked` -- that prop bolds the label (MenuItem's own shared
-                // styling), and per explicit request the selected option here should
-                // read as an active background at normal weight instead, not bold text.
-                <BaseMenuItem
-                  key={option.value}
-                  index={i}
-                  label={t("compose.compactAt", { threshold: option.threshold })}
-                  className={autocompactValue === option.value ? "bg-hover-2" : undefined}
-                  onSelect={() => onSetAutocompact(option.value)}
-                />
-              ))}
-            {canCompact && onCompactNow && (
-              <>
-                <DropdownSeparator />
-                <BaseMenuItem index={AUTOCOMPACT_OPTIONS.length} label={t("compose.compactNow")} onSelect={onCompactNow} />
-              </>
-            )}
-            </>
-          )}
           <DropdownSeparator />
           <BaseDropdownLabel>{t("compose.handoff.section")}</BaseDropdownLabel>
+          {AUTOCOMPACT_OPTIONS.map((option, i) => (
+            // Not `checked` -- that prop bolds the label (MenuItem's own shared
+            // styling), and per explicit request the selected option here should
+            // read as an active background at normal weight instead, not bold text.
+            <BaseMenuItem
+              key={option.value}
+              index={i}
+              label={t("compose.handoffAt", { threshold: option.threshold })}
+              className={autocompactValue === option.value ? "bg-hover-2" : undefined}
+              onSelect={() => onSetAutocompact(option.value)}
+            />
+          ))}
           <BaseMenuItem
-            index={AUTOCOMPACT_OPTIONS.length + 1}
+            index={AUTOCOMPACT_OPTIONS.length}
             label={t("compose.handoff.automatically")}
             checked={automaticHandoff}
             onSelect={() => onSetAutomaticHandoff(!automaticHandoff)}
           />
           {onHandoffNow && (
             <BaseMenuItem
-              index={AUTOCOMPACT_OPTIONS.length + 2}
+              index={AUTOCOMPACT_OPTIONS.length + 1}
               label={t("compose.handoff.now")}
               onSelect={onHandoffNow}
             />
@@ -809,7 +779,6 @@ export function ComposeBox({
   defaultEffortValue,
   defaultPermissionValue,
   onPinDefaultModel,
-  onCompactNow,
   automaticHandoff = true,
   onSetAutomaticHandoff = () => {},
   onHandoffNow,
@@ -900,9 +869,6 @@ export function ComposeBox({
   // refresh, per explicit request), a real per-chat default after.
   onPinDefaultModel?: (modelValue: string) => void;
   onPinDefaultEffort?: (level: EffortLevel) => void;
-  // Claude/Antigravity only -- see ChatPage.tsx's own call site comment for
-  // the live-tested reasoning behind that split.
-  onCompactNow?: () => void;
   automaticHandoff?: boolean;
   onSetAutomaticHandoff?: (enabled: boolean) => void;
   onHandoffNow?: () => void;
@@ -2776,7 +2742,6 @@ export function ComposeBox({
             used={contextUsage.used}
             model={selectedModels[0]}
             modelCount={selectedModels.length}
-            onCompactNow={onCompactNow}
             automaticHandoff={automaticHandoff}
             onSetAutomaticHandoff={onSetAutomaticHandoff}
             onHandoffNow={onHandoffNow}

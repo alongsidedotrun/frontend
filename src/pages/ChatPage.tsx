@@ -9,7 +9,7 @@ import { useLocation, useOutletContext, useParams } from "react-router-dom";
 import { addressedAgent, useChatAgents } from "@/lib/chat-agents";
 import { NewAgentDialog } from "@/components/new-agent-dialog";
 import { EarlierSummary, HandoffNotice } from "@/components/handoff-context-dialog";
-import { contextMaintenanceAction, shouldHandoffAfterCompact } from "@/lib/context-maintenance";
+import { shouldHandOff } from "@/lib/context-maintenance";
 import { ProviderNotice } from "@/components/provider-gate";
 import { QuestionCard, questionsOf } from "@/components/question-card";
 import { applyClaudeTaskResults, applyClaudeTaskTool, taskListAfterTurn, type ActiveTaskList } from "@/lib/task-list-state";
@@ -876,26 +876,14 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // below still corrects the numbers the moment this chat's own real
   // usage is known.
   const [contextUsage, setContextUsage] = useState<{ used: number } | null>(() => loadLastContext());
-  // Antigravity has no real auto-compact CLI flag (confirmed via `agy
-  // --help`), unlike Claude's own --autocompact -- so the same threshold the
-  // Context dropdown lets a user pick is read back here and enforced
-  // client-side for Antigravity (and Codex, via the real compact endpoint)
-  // specifically: once usage first crosses it, this fires a real compact
-  // itself. Per-chat now (db.rs's own default_autocompact comment has the
-  // full "I want it to be per chat" reasoning), sourced from the same
-  // "chat_defaults" WS message default_model/default_effort already use,
-  // not a separate global settings fetch. autocompactThresholdRef avoids
-  // re-checking on every usage update; compactedAboveRef stops this from
-  // firing again on every later message once already above threshold (a
-  // real compact naturally drops `used` back down, which re-arms it for
-  // the next crossing).
+  // The chat's handoff threshold (the Context menu's "Hand off at"), per chat and sourced from
+  // the "chat_defaults" WS message (db.rs's default_autocompact). Once a turn leaves the context
+  // at or past it, the chat hands off to a fresh session (#606). handedOffAboveRef keeps that to
+  // once per crossing; the fresh session starts small, which re-arms it.
   const autocompactThresholdRef = useRef(500_000);
-  const compactedAboveRef = useRef(false);
+  const handedOffAboveRef = useRef(false);
   const [automaticHandoff, setAutomaticHandoff] = useState(true);
   const automaticHandoffRef = useRef(true);
-  const compactionPendingRef = useRef(false);
-  const lastCompactedUsageRef = useRef<number | null>(null);
-  const turnsSinceCompactRef = useRef(0);
   const [autocompactValue, setAutocompactValue] = useState("500000");
   // Per explicit request ("Compact per chat as a describer or Context per project as
   // a describer"): the Context dropdown's own label reflects which scope is actually
@@ -1382,10 +1370,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     hasPinnedDefaultModelRef.current = false;
     serverModelRef.current = null;
     projectIdRef.current = null;
-    compactedAboveRef.current = false;
-    compactionPendingRef.current = false;
-    lastCompactedUsageRef.current = null;
-    turnsSinceCompactRef.current = 0;
+    handedOffAboveRef.current = false;
     automaticHandoffRef.current = true;
     setAutomaticHandoff(true);
 
@@ -1639,10 +1624,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         // The fresh session starts nearly empty: the meter kept showing the old session's
         // size until the next reply (#552). 0 keeps the meter's space; the next result corrects it.
         setContextUsage({ used: 0 });
-        compactedAboveRef.current = false;
-        compactionPendingRef.current = false;
-        lastCompactedUsageRef.current = null;
-        turnsSinceCompactRef.current = 0;
+        handedOffAboveRef.current = false;
         if (!replayingRef.current) saveLastContext({ used: 0 });
         return;
       }
@@ -1870,21 +1852,14 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       // messages all through a turn (thinking_tokens, task progress), and each one used to pull the
       // label back to Thinking, so it swapped Working -> Thinking -> Working over and over (#551).
       if (type === "system") {
-        // A compact finished (Compact now, or Claude's own): the meter drops to the compacted size
-        // the CLI reports, instead of keeping the size from before it (#552).
+        // A provider compacted on its own near its real window (Alongside itself hands off instead,
+        // #606): the meter drops to the compacted size the CLI reports, instead of keeping the size
+        // from before it (#552).
         if (event.subtype === "compact_boundary") {
           const after = (event.compact_metadata as { post_tokens?: number } | undefined)?.post_tokens;
           const usageValue = { used: typeof after === "number" ? after : 0 };
           setContextUsage(usageValue);
-          compactedAboveRef.current = false;
-          compactionPendingRef.current = false;
-          if (typeof after === "number") {
-            lastCompactedUsageRef.current = after;
-            turnsSinceCompactRef.current = 0;
-            if (shouldHandoffAfterCompact(after, autocompactThresholdRef.current, automaticHandoffRef.current, replayingRef.current)) {
-              void fetch(`/sessions/${sessionId}/handoff`, { method: "POST" });
-            }
-          }
+          handedOffAboveRef.current = false;
           if (!replayingRef.current) saveLastContext(usageValue);
           pushMarker(i18n.t("chat.compacted"));
           return;
@@ -2346,43 +2321,12 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           const usageValue = { used };
           setContextUsage(usageValue);
           saveLastContext(usageValue);
-          if (compactionPendingRef.current) {
-            compactionPendingRef.current = false;
-            compactedAboveRef.current = false;
-            lastCompactedUsageRef.current = used;
-            turnsSinceCompactRef.current = 0;
-            if (shouldHandoffAfterCompact(used, autocompactThresholdRef.current, automaticHandoffRef.current, replayingRef.current)) {
-              void fetch(`/sessions/${sessionId}/handoff`, { method: "POST" });
-            }
-            return;
-          }
-          // The selected 100k/250k/500k margin means compact, exactly as the menu says.
-          // Same-provider handoff is separate: only when compaction stays too large or
-          // the native context regrows to the margin within two completed turns.
-          if (used >= autocompactThresholdRef.current) {
-            if (!compactedAboveRef.current && !replayingRef.current) {
-              compactedAboveRef.current = true;
-              const action = contextMaintenanceAction({
-                used,
-                compactAt: autocompactThresholdRef.current,
-                automaticHandoff: automaticHandoffRef.current,
-                lastCompactedUsage: lastCompactedUsageRef.current,
-                turnsSinceCompact: turnsSinceCompactRef.current,
-              });
-              if (action === "handoff") {
-                void fetch(`/sessions/${sessionId}/handoff`, { method: "POST" });
-              } else {
-                compactionPendingRef.current = true;
-                if (modelRef.current.provider === "Codex") {
-                  void fetch(`/sessions/${sessionId}/compact`, { method: "POST" });
-                } else if (modelRef.current.provider === "Claude" || modelRef.current.provider === "Antigravity") {
-                  void sendMessage("/compact");
-                }
-              }
-            }
-          } else {
-            compactedAboveRef.current = false;
-            if (lastCompactedUsageRef.current !== null) turnsSinceCompactRef.current += 1;
+          // #606: at the chat's threshold the chat hands off to a fresh session; it never compacts.
+          if (used < autocompactThresholdRef.current) {
+            handedOffAboveRef.current = false;
+          } else if (shouldHandOff({ used, threshold: autocompactThresholdRef.current, automaticHandoff: automaticHandoffRef.current, handedOffAbove: handedOffAboveRef.current, replaying: replayingRef.current })) {
+            handedOffAboveRef.current = true;
+            void fetch(`/sessions/${sessionId}/handoff`, { method: "POST" });
           }
         }
         return;
@@ -3740,23 +3684,6 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ value, sender_name: getUserDisplayName() }),
             });
-          }}
-          // Claude/Antigravity: sends the literal "/compact" text as an
-          // actual turn (bypasses the draft entirely, so no async
-          // value/onChange race) -- live-tested, both recognize it as a
-          // real command outside interactive mode (Claude's own response:
-          // "Not enough messages to compact" on a fresh session, not an
-          // echo of the text). Codex (issue #265): a real backend call
-          // instead -- `codex exec`'s own "/compact" is just ordinary text
-          // (confirmed live), but `codex app-server`'s real
-          // `thread/compact/start` RPC now backs this same button via
-          // POST /sessions/{id}/compact (server.rs's own compact_turn).
-          onCompactNow={() => {
-            if (modelRef.current.provider === "Codex") {
-              void fetch(`/sessions/${sessionId}/compact`, { method: "POST" });
-            } else {
-              void sendMessage("/compact");
-            }
           }}
           automaticHandoff={automaticHandoff}
           onSetAutomaticHandoff={(enabled) => {
