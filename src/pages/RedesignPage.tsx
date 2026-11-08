@@ -833,12 +833,9 @@ export function RedesignPage() {
       // Pinned lists chats and bots together; Chats and Bots are drawers.
       collapsible: true,
       // Projects list here with their chats.
-      action: { label: t("common.newChat"), icon: Plus, onSelect: startNewChat },
-      // What can be created here, beside the +: a chat, or a project to gather chats in.
-      menu: [
-        { id: "new-chat", label: t("common.newChat"), icon: BubbleChatIcon, onSelect: startNewChat },
+      // A project to gather chats in, then a chat: the same kind of button, side by side.
+      actions: [
         {
-          id: "new-project",
           label: t("shell.rowMenu.newProject"),
           icon: FolderIcon,
           onSelect: () => {
@@ -847,6 +844,7 @@ export function RedesignPage() {
             setNewProjectOpen(true);
           },
         },
+        { label: t("common.newChat"), icon: Plus, onSelect: startNewChat },
       ],
       items: [
         ...workspaceProjects.map((project) => ({
@@ -869,7 +867,7 @@ export function RedesignPage() {
       id: "bots",
       collapsible: true,
       label: t("bots.title"),
-      action: { label: t("bots.new"), icon: Plus, onSelect: () => { setActiveChatId(null); navigate("/?new=bot"); } },
+      actions: [{ label: t("bots.new"), icon: Plus, onSelect: () => { setActiveChatId(null); navigate("/?new=bot"); } }],
       // Its chat's id once it has one, so the open bot chat is the selected row.
       items: bots.filter((bot) => !bot.chat_id || !pinnedIds.has(bot.chat_id)).map((bot) => botRow(bot, bot.chat_id ?? `bot:${bot.id}`)),
       emptyLabel: t("shell.sections.noBots"),
