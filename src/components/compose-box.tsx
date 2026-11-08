@@ -464,7 +464,7 @@ function compactTokenCount(n: number) {
 // turn actually completes and reports real usage, not just visually faded.
 // The chat's handoff threshold (#606): once a turn leaves the context at or past it, the chat
 // hands off to a fresh session carrying the checkpoint (ChatPage.tsx's usage handler). Alongside
-// never compacts. The same for every provider; 500k is the default.
+// never compacts. The same for every provider; 100k is the default.
 const AUTOCOMPACT_OPTIONS = [
   { value: "500000", threshold: "500k" },
   { value: "250000", threshold: "250k" },
@@ -475,11 +475,10 @@ const AUTOCOMPACT_OPTIONS = [
 // the toolbar) and turned into a real dropdown instead of a hover-only tooltip,
 // per explicit request. First row is the same real usage readout the old
 // tooltip showed; "Set auto compact levels" (Claude only) is new.
-// Ring fill denominator -- per explicit request ("Default context window
-// should be 500K"), one flat default applied to every provider/model rather
-// than a per-model table (Codex/Antigravity's CLIs report no window size at
-// all, and no verified real number was available for the current model set).
-const DEFAULT_CONTEXT_WINDOW_TOKENS = 500_000;
+// Ring fill denominator when the chat has no threshold of its own: the default handoff
+// threshold (#606), one flat value for every provider/model rather than a per-model table
+// (Codex/Antigravity's CLIs report no window size at all).
+const DEFAULT_CONTEXT_WINDOW_TOKENS = 100_000;
 
 // Ring color per provider -- per explicit request ("black for chatgpt,
 // orange for claude, blue for gemini").

@@ -880,11 +880,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // the "chat_defaults" WS message (db.rs's default_autocompact). Once a turn leaves the context
   // at or past it, the chat hands off to a fresh session (#606). handedOffAboveRef keeps that to
   // once per crossing; the fresh session starts small, which re-arms it.
-  const autocompactThresholdRef = useRef(500_000);
+  const autocompactThresholdRef = useRef(100_000);
   const handedOffAboveRef = useRef(false);
   const [automaticHandoff, setAutomaticHandoff] = useState(true);
   const automaticHandoffRef = useRef(true);
-  const [autocompactValue, setAutocompactValue] = useState("500000");
+  const [autocompactValue, setAutocompactValue] = useState("100000");
   // Per explicit request ("Compact per chat as a describer or Context per project as
   // a describer"): the Context dropdown's own label reflects which scope is actually
   // active, and writes route to the matching endpoint -- /sessions/{id}/... for
@@ -1386,7 +1386,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     setViewportVisibleRowIds(new Set());
     setHistoricalRowsRevealed(false);
     setDefaultEffortValue(undefined);
-    setAutocompactValue("500000");
+    setAutocompactValue("100000");
     setAutocompactScope("chat");
   }, [sessionId]);
 
