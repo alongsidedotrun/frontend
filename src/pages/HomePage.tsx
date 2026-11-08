@@ -398,7 +398,7 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
           // pre-chat), so these two are dead props in practice -- kept simple, static
           // values just to satisfy ComposeBox's required prop types rather than
           // making them optional there for the sake of this one non-using caller.
-          autocompactValue="500000"
+          autocompactValue="100000"
           onSetAutocompact={() => {}}
           defaultModelValue={defaultModel}
           onOpenSettings={() => openSettings("provider")}

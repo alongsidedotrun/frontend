@@ -1,23 +1,17 @@
-export type ContextMaintenanceAction = "compact" | "handoff" | null;
-
-export function contextMaintenanceAction({
+// #606: Alongside never compacts. Once a turn leaves the context at or past the chat's
+// threshold, the chat hands off to a fresh session carrying the checkpoint, once per crossing.
+export function shouldHandOff({
   used,
-  compactAt,
+  threshold,
   automaticHandoff,
-  lastCompactedUsage,
-  turnsSinceCompact,
+  handedOffAbove,
+  replaying,
 }: {
   used: number;
-  compactAt: number;
+  threshold: number;
   automaticHandoff: boolean;
-  lastCompactedUsage: number | null;
-  turnsSinceCompact: number;
-}): ContextMaintenanceAction {
-  if (used < compactAt) return null;
-  if (automaticHandoff && lastCompactedUsage !== null && turnsSinceCompact <= 2) return "handoff";
-  return "compact";
-}
-
-export function shouldHandoffAfterCompact(used: number, compactAt: number, automaticHandoff: boolean, replaying = false) {
-  return !replaying && automaticHandoff && used >= compactAt / 2;
+  handedOffAbove: boolean;
+  replaying: boolean;
+}): boolean {
+  return used >= threshold && automaticHandoff && !handedOffAbove && !replaying;
 }
