@@ -2492,15 +2492,6 @@ function DefaultEffortRow() {
   );
 }
 
-// Real backend setting (server.rs's own get/set_autocompact_scope), not local storage --
-// has to be consistent for every chat regardless of which device/tab set it. Two
-// separate switches, not one binary toggle -- per explicit follow-up ("one toggle for
-// context per chat and another context per project"): each switch IS its own scope
-// value, mutually exclusive (turning one on turns the other off), rather than one
-// switch whose "off" state has to be inferred as meaning the other option. Whichever
-// is on also drives the Context dropdown's own label (compose-box.tsx's own
-// ContextDropdown, via ChatPage.tsx's chat_defaults handling of this same stored
-// value) -- "Context per chat"/"Context per project".
 // #502: automatic checkpoints (what a fresh session starts from after a handoff) are written by
 // the chat's provider only when explicitly enabled. By default they're written locally from the
 // chat's record, so background housekeeping cannot silently spend provider quota.
@@ -2538,61 +2529,6 @@ function CheckpointProviderRow() {
     >
       <Switch checked={useProvider} onToggle={() => void update(!useProvider)} aria-label={t("settings.chat.checkpointProvider.title")} />
     </SettingsRow>
-  );
-}
-
-function CompactScopeRows() {
-  const { t } = useTranslation();
-  // Three independent flags, not one enum -- server.rs's own set_autocompact_scope
-  // comment has the full resolution/invariant rules (chat > project > global,
-  // disabling chat alone enables global without touching project, enabling global
-  // directly overrides both).
-  const [flags, setFlags] = useState({ chat: true, project: true, global: false });
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/settings/autocompact-scope")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { chat: boolean; project: boolean; global: boolean } | null) => {
-        if (!cancelled && data) setFlags(data);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  async function update(field: "chat" | "project" | "global", value: boolean) {
-    const res = await fetch("/settings/autocompact-scope", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ field, value }),
-    });
-    if (res.ok) setFlags(await res.json());
-  }
-
-  return (
-    <>
-      <SettingsRow
-        id="setting-compact-per-chat"
-        title={t("settings.chat.compactPerChat.title")}
-        description={t("settings.chat.compactPerChat.description")}
-      >
-        <Switch checked={flags.chat} onToggle={() => void update("chat", !flags.chat)} aria-label={t("settings.chat.compactPerChat.title")} />
-      </SettingsRow>
-      <SettingsRow
-        id="setting-compact-per-project"
-        title={t("settings.chat.compactPerProject.title")}
-        description={t("settings.chat.compactPerProject.description")}
-      >
-        <Switch checked={flags.project} onToggle={() => void update("project", !flags.project)} aria-label={t("settings.chat.compactPerProject.title")} />
-      </SettingsRow>
-      <SettingsRow
-        id="setting-compact-global"
-        title={t("settings.chat.compactGlobal.title")}
-        description={t("settings.chat.compactGlobal.description")}
-      >
-        <Switch checked={flags.global} onToggle={() => void update("global", !flags.global)} aria-label="Global context" />
-      </SettingsRow>
-    </>
   );
 }
 
@@ -2744,7 +2680,6 @@ function ChatSection() {
       </SettingsSection>
 
       <SettingsSection title={t("settings.chat.compact.title")}>
-        <CompactScopeRows />
         <CheckpointProviderRow />
       </SettingsSection>
 

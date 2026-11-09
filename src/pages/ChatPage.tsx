@@ -1,6 +1,5 @@
 import { Trans, useTranslation } from "react-i18next";
 import { clearDraft, readDraft, saveDraft } from "@/lib/compose-drafts";
-import { contextTokensUsed, type TurnUsage } from "@/lib/context-usage";
 import { addTurnText, type TurnNote } from "@/lib/turn-reply";
 import type { ToolLine } from "@/lib/work-steps";
 import i18n from "@/i18n";
@@ -9,7 +8,6 @@ import { useLocation, useOutletContext, useParams } from "react-router-dom";
 import { addressedAgent, useChatAgents } from "@/lib/chat-agents";
 import { NewAgentDialog } from "@/components/new-agent-dialog";
 import { EarlierSummary, HandoffNotice } from "@/components/handoff-context-dialog";
-import { shouldHandOff } from "@/lib/context-maintenance";
 import { ProviderNotice } from "@/components/provider-gate";
 import { QuestionCard, questionsOf } from "@/components/question-card";
 import { applyClaudeTaskResults, applyClaudeTaskTool, taskListAfterTurn, type ActiveTaskList } from "@/lib/task-list-state";
@@ -65,7 +63,7 @@ type SharedFile = { file_id: string; name: string; media_type: string; size: num
 
 // Provider brand names, as another participant's run reports which one it ran on (#462). Not translated.
 const PROVIDER_NAMES: Record<string, string> = { claude: "Claude", codex: "Codex", antigravity: "Antigravity", grok: "Grok" };
-import { lastUsedReady, loadLastContext, loadLastModel, saveLastContext, saveLastModel, type PermissionMode } from "@/lib/last-used";
+import { loadLastModel, saveLastModel, type PermissionMode } from "@/lib/last-used";
 import { modelPayloadForSend } from "@/lib/model-payload-for-send";
 import type { QueuedMessage } from "@/lib/message-queue";
 import { useLimitWarning } from "@/components/limit-warning";
@@ -837,65 +835,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // mechanism as defaultModelValue above, per explicit request ("update set
   // as default to set as default for this chat").
   const [defaultEffortValue, setDefaultEffortValue] = useState<EffortLevel | undefined>(undefined);
-  // Real data for compose-box.tsx's own ContextDropdown -- built from each
-  // provider's own `result` event `usage` field (backend/src/*.rs's own
-  // spawn modules forward that field on the wire). No `max` here any more --
-  // real bug, confirmed directly ("remove the silent denominator"): this
-  // used to hardcode 200_000 as "the" context window size, but that was
-  // never actually right even for Claude alone (its own CLI reports a real,
-  // per-model contextWindow -- 1,000,000 for claude-sonnet-5, confirmed
-  // live -- that this app doesn't currently forward), let alone for Codex/
-  // Antigravity, which don't expose a window size at all (confirmed via
-  // their own --help). A fabricated denominator is worse than none: it
-  // asserts a specific number is true when it isn't. Only a real per-turn
-  // token count is shown now, no percentage-of-an-invented-total.
-  // loadLastContext() as the initial value, not null -- per explicit
-  // request ("context is loading at the bottom right push both Manual and
-  // Medium to the left... last_context saved as well for loading
-  // purposes"): the meter popping in only once the first turn actually
-  // completes visibly shoved its neighbors left the moment it appeared.
-  // Seeding this with whatever usage was last actually reported (this file
-  // itself, below) means the meter -- and the layout space it takes --
-  // is already there from the first frame; the real "result" handler
-  // below still corrects the numbers the moment this chat's own real
-  // usage is known.
-  const [contextUsage, setContextUsage] = useState<{ used: number } | null>(() => loadLastContext());
-  // The chat's handoff threshold (the Context menu's "Hand off at"), per chat and sourced from
-  // the "chat_defaults" WS message (db.rs's default_autocompact). Once a turn leaves the context
-  // at or past it, the chat hands off to a fresh session (#606). handedOffAboveRef keeps that to
-  // once per crossing; the fresh session starts small, which re-arms it.
-  const autocompactThresholdRef = useRef(100_000);
-  const handedOffAboveRef = useRef(false);
-  const [automaticHandoff, setAutomaticHandoff] = useState(true);
-  const automaticHandoffRef = useRef(true);
-  const [autocompactValue, setAutocompactValue] = useState("100000");
-  // Per explicit request ("Compact per chat as a describer or Context per project as
-  // a describer"): the Context dropdown's own label reflects which scope is actually
-  // active, and writes route to the matching endpoint -- /chats/{id}/... for
-  // "chat", /projects/{id}/... for "project" (chat_defaults's own project_id, only
-  // meaningful once autocompactScope is "project").
-  const [autocompactScope, setAutocompactScope] = useState<"chat" | "project" | "global">("chat");
+  // The chat's project, from the "chat_defaults" message: the permission card offers project-wide rules.
   const projectIdRef = useRef<string | null>(null);
-  // Real bug, confirmed directly ("I can't see the context anymore"):
-  // loadLastContext() above reads last-used.ts's own in-memory cache, which
-  // is still empty at the exact moment this component's first render runs --
-  // it only fills in once that module's own background GET actually lands
-  // (lastUsedReady), a real network round trip that's always slower than a
-  // synchronous useState initializer. Nothing ever re-read the cache once it
-  // did resolve, so a freshly mounted ChatPage (a reload, or opening a chat
-  // that hasn't produced a new reply yet this session) stayed stuck on null
-  // forever, even though the backend genuinely had a real last-known value.
-  useEffect(() => {
-    let cancelled = false;
-    void lastUsedReady.then(() => {
-      if (cancelled) return;
-      const cached = loadLastContext();
-      if (cached) setContextUsage((prev) => prev ?? cached);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const chatLogRef = useRef<HTMLDivElement>(null);
   // The inner content column (rows.map + the waiting indicator), not
@@ -1354,9 +1295,6 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     hasPinnedDefaultModelRef.current = false;
     serverModelRef.current = null;
     projectIdRef.current = null;
-    handedOffAboveRef.current = false;
-    automaticHandoffRef.current = true;
-    setAutomaticHandoff(true);
 
     setRows([]);
     setHistoryWindow({ start: null, end: null });
@@ -1370,8 +1308,6 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     setViewportVisibleRowIds(new Set());
     setHistoricalRowsRevealed(false);
     setDefaultEffortValue(undefined);
-    setAutocompactValue("100000");
-    setAutocompactScope("chat");
   }, [sessionId]);
 
   // A turn that ended (result, stop, timeout) can't be asked anything any more: a request it left
@@ -1556,9 +1492,6 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         const model = event.default_model as string | null;
         const currentModel = event.current_model as string | null | undefined;
         const effort = event.default_effort as EffortLevel | null;
-        const autocompact = event.default_autocompact as string | null;
-        const handoffAutomatically = event.automatic_handoff as boolean | undefined;
-        const scope = event.autocompact_scope as "chat" | "project" | "global" | undefined;
         const projectId = event.project_id as string | null | undefined;
         // Live session model arrives before history replay so mid-chat sends
         // can omit an unchanged model instead of posting a stale picker value.
@@ -1570,16 +1503,6 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           hasPinnedDefaultModelRef.current = true;
         }
         if (effort) setDefaultEffortValue(effort);
-        if (autocompact) {
-          setAutocompactValue(autocompact);
-          const parsed = Number(autocompact);
-          if (Number.isFinite(parsed)) autocompactThresholdRef.current = parsed;
-        }
-        if (scope) setAutocompactScope(scope);
-        if (handoffAutomatically !== undefined) {
-          automaticHandoffRef.current = handoffAutomatically;
-          setAutomaticHandoff(handoffAutomatically);
-        }
         if (projectId !== undefined) projectIdRef.current = projectId;
         return;
       }
@@ -1605,11 +1528,6 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       if (type === "handoff") {
         // Opens to what the fresh session was given (#502).
         pushRow({ kind: "marker", id: nextRowId(), text: i18n.t("chat.handedOff"), handoffEventId: typeof event.event_id === "number" ? event.event_id : undefined });
-        // The fresh session starts nearly empty: the meter kept showing the old session's
-        // size until the next reply (#552). 0 keeps the meter's space; the next result corrects it.
-        setContextUsage({ used: 0 });
-        handedOffAboveRef.current = false;
-        if (!replayingRef.current) saveLastContext({ used: 0 });
         return;
       }
 
@@ -1836,15 +1754,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       // messages all through a turn (thinking_tokens, task progress), and each one used to pull the
       // label back to Thinking, so it swapped Working -> Thinking -> Working over and over (#551).
       if (type === "system") {
-        // A provider compacted on its own near its real window (Alongside itself hands off instead,
-        // #606): the meter drops to the compacted size the CLI reports, instead of keeping the size
-        // from before it (#552).
+        // A provider compacted on its own near its real window (Alongside itself hands off instead, #606).
         if (event.subtype === "compact_boundary") {
-          const after = (event.compact_metadata as { post_tokens?: number } | undefined)?.post_tokens;
-          const usageValue = { used: typeof after === "number" ? after : 0 };
-          setContextUsage(usageValue);
-          handedOffAboveRef.current = false;
-          if (!replayingRef.current) saveLastContext(usageValue);
           pushMarker(i18n.t("chat.compacted"));
           return;
         }
@@ -2120,7 +2031,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         awaitingReplyRef.current = false;
         setTurnInProgress(false);
         setWaitingPhase(null);
-        if (automaticHandoffRef.current && !replayingRef.current) {
+        if (!replayingRef.current) {
           void fetch(`${CHATS_API}/${sessionId}/handoff`, { method: "POST" });
         }
         return;
@@ -2298,21 +2209,6 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             timestamp: Date.now(),
           });
         }
-        // The context the next turn starts from (lib/context-usage.ts).
-        // 0: a turn that made no model call (a compact reports its size at compact_boundary, above).
-        const used = event.usage ? contextTokensUsed(event.usage as TurnUsage) : null;
-        if (used !== null && used > 0) {
-          const usageValue = { used };
-          setContextUsage(usageValue);
-          saveLastContext(usageValue);
-          // #606: at the chat's threshold the chat hands off to a fresh session; it never compacts.
-          if (used < autocompactThresholdRef.current) {
-            handedOffAboveRef.current = false;
-          } else if (shouldHandOff({ used, threshold: autocompactThresholdRef.current, automaticHandoff: automaticHandoffRef.current, handedOffAbove: handedOffAboveRef.current, replaying: replayingRef.current })) {
-            handedOffAboveRef.current = true;
-            void fetch(`${CHATS_API}/${sessionId}/handoff`, { method: "POST" });
-          }
-        }
         return;
       }
 
@@ -2355,13 +2251,6 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       }
 
       if (type === "assistant" && event.message) {
-        // The context meter follows the turn live: each step's usage is the context so far (its prompt
-        // plus its reply). Only the turn's result is saved or can start a handoff (below, at "result").
-        const stepUsage = (event.message as { usage?: TurnUsage }).usage;
-        if (stepUsage && !replayingRef.current) {
-          const used = contextTokensUsed(stepUsage);
-          if (used > 0) setContextUsage((prev) => (prev?.used === used ? prev : { used }));
-        }
         const content = (
           event.message as {
             content?: { type: string; text?: string; thinking?: string; name?: string; input?: Record<string, unknown> }[];
@@ -3628,52 +3517,6 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           defaultPermissionValue={handoffPermissionMode}
           isMultiplayer={sharedChat}
           chatId={sessionId}
-          contextUsage={contextUsage}
-          autocompactValue={autocompactValue}
-          onSetAutocompact={(value) => {
-            setAutocompactValue(value);
-            const parsed = Number(value);
-            if (Number.isFinite(parsed)) autocompactThresholdRef.current = parsed;
-            // Real routing per the active scope -- writing to the chat's own row
-            // while scope is "project" would silently do nothing (get_chat_defaults
-            // ignores it in that mode), so this has to write through whichever
-            // endpoint is actually authoritative right now.
-            if (autocompactScope === "project" && projectIdRef.current) {
-              void fetch(`/projects/${projectIdRef.current}/default-autocompact`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ value }),
-              });
-              return;
-            }
-            if (autocompactScope === "global") {
-              void fetch("/settings/autocompact-global", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ value }),
-              });
-              return;
-            }
-            if (!sessionId) return;
-            void fetch(`${CHATS_API}/${sessionId}/default-autocompact`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ value, sender_name: getUserDisplayName() }),
-            });
-          }}
-          automaticHandoff={automaticHandoff}
-          onSetAutomaticHandoff={(enabled) => {
-            automaticHandoffRef.current = enabled;
-            setAutomaticHandoff(enabled);
-            void fetch(`${CHATS_API}/${sessionId}/automatic-handoff`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ enabled, sender_name: getUserDisplayName() }),
-            });
-          }}
-          onHandoffNow={() => {
-            void fetch(`${CHATS_API}/${sessionId}/handoff`, { method: "POST" });
-          }}
           // Claude and Codex take a message into the running turn (backend harness.rs's
           // supports_steer). One that can't land -- no turn live any more, or a failed
           // write -- goes back to the front of the queue rather than vanishing.

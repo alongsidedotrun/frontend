@@ -1,5 +1,5 @@
 // The compose box's own real "last actually used" values (model, effort,
-// permission mode, context usage) -- per explicit correction ("I don't
+// permission mode) -- per explicit correction ("I don't
 // want provisional guess. I want us to capture this data whenever we
 // change it so we have that freshly available, on hosted and enterprise
 // this is part of the redis cache but in local i guess is memory?"): a
@@ -24,14 +24,12 @@ interface LastUsedCache {
   model: string | null;
   effort: EffortLevel | null;
   permissionMode: PermissionMode | null;
-  contextUsage: { used: number } | null;
 }
 
 const cache: LastUsedCache = {
   model: null,
   effort: null,
   permissionMode: null,
-  contextUsage: null,
 };
 
 // Resolves once the initial GET actually lands -- callers that need to
@@ -47,12 +45,10 @@ export const lastUsedReady: Promise<void> = (async () => {
       model: string | null;
       effort: string | null;
       permission_mode: string | null;
-      context_usage: string | null;
     };
     cache.model = data.model;
     cache.effort = isEffortLevel(data.effort) ? data.effort : null;
     cache.permissionMode = isPermissionMode(data.permission_mode) ? data.permission_mode : null;
-    cache.contextUsage = parseContextUsage(data.context_usage);
   } catch {
     // Best-effort -- the cache just stays empty, same as a fresh install.
   } finally {
@@ -66,22 +62,6 @@ function isEffortLevel(value: string | null): value is EffortLevel {
 
 function isPermissionMode(value: string | null): value is PermissionMode {
   return value === "manual" || value === "ask" || value === "auto" || value === "plan";
-}
-
-// No `max` any more -- real bug, confirmed directly ("remove the silent
-// denominator"): a stored value from before this fix may still carry an old
-// fabricated max on disk, so a plain `used` check (not requiring/reading max
-// at all) is what keeps an old cached row from silently poisoning a fresh
-// read with a number that was never real to begin with.
-function parseContextUsage(raw: string | null): { used: number } | null {
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    if (typeof parsed?.used === "number") return { used: parsed.used };
-  } catch {
-    // Malformed/stale value -- treat as absent rather than throwing.
-  }
-  return null;
 }
 
 function persist(body: Record<string, string>) {
@@ -123,13 +103,4 @@ export function loadLastPermissionMode(): PermissionMode | null {
 export function saveLastPermissionMode(mode: PermissionMode) {
   cache.permissionMode = mode;
   persist({ permission_mode: mode });
-}
-
-export function loadLastContext(): { used: number } | null {
-  return cache.contextUsage;
-}
-
-export function saveLastContext(usage: { used: number }) {
-  cache.contextUsage = usage;
-  persist({ context_usage: JSON.stringify(usage) });
 }
