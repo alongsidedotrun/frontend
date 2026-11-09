@@ -5,6 +5,7 @@ import { openSignInDialog } from "@/lib/use-sign-in";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useIsSignedIn } from "@/lib/auth";
+import { CHATS_API } from "@/lib/chats-api";
 
 // Joining a shared chat (Epic #413, story #412: the relay is the production path). The invite link
 // arrives from the operating system (the app's own `alongside://join` link, which the desktop shell
@@ -70,7 +71,7 @@ export function JoinPage() {
 
   const startRelaySync = useCallback(
     async (chatId: string, invite: RelayInvite, acknowledgedDisclosure: boolean) => {
-      const response = await fetch(`/sessions/${chatId}/relay/start`, {
+      const response = await fetch(`${CHATS_API}/${chatId}/relay/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -101,7 +102,7 @@ export function JoinPage() {
 
   const joinRelay = useCallback(
     async (invite: RelayInvite) => {
-      const created = await fetch("/sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      const created = await fetch(CHATS_API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
       if (cancelled.current) return;
       if (created.status === 401) {
         setNeedsSignIn(true);

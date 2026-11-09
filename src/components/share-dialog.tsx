@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { CHATS_API } from "@/lib/chats-api";
 
 type Status = { syncing: boolean; relay_url: string | null };
 type Invite = { id: string; role: "editor" | "reader"; expires_at: number; max_uses: number | null; uses: number; status: "active" | "expired" | "used_up" | "revoked" };
@@ -46,11 +47,11 @@ export function ShareDialog({ sessionId, open, onOpenChange }: { sessionId: stri
 
   const load = useCallback(async () => {
     try {
-      const response = await fetch(`/sessions/${sessionId}/relay/status`);
+      const response = await fetch(`${CHATS_API}/${sessionId}/relay/status`);
       const current = (await response.json()) as Status;
       setStatus(current);
       if (current.syncing) {
-        const invitesResponse = await fetch(`/sessions/${sessionId}/relay/invites`);
+        const invitesResponse = await fetch(`${CHATS_API}/${sessionId}/relay/invites`);
         setInvites(invitesResponse.ok ? ((await invitesResponse.json()) as Invite[]) : []);
       } else {
         setInvites([]);
@@ -73,7 +74,7 @@ export function ShareDialog({ sessionId, open, onOpenChange }: { sessionId: stri
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch(`/sessions/${sessionId}/relay/start`, {
+      const response = await fetch(`${CHATS_API}/${sessionId}/relay/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(acknowledgedDisclosure ? { acknowledged_disclosure: true } : {}),
@@ -100,7 +101,7 @@ export function ShareDialog({ sessionId, open, onOpenChange }: { sessionId: stri
     setBusy(true);
     setCreated(null);
     try {
-      await fetch(`/sessions/${sessionId}/relay/stop`, { method: "POST" });
+      await fetch(`${CHATS_API}/${sessionId}/relay/stop`, { method: "POST" });
       await load();
     } finally {
       setBusy(false);
@@ -112,7 +113,7 @@ export function ShareDialog({ sessionId, open, onOpenChange }: { sessionId: stri
     setError(null);
     setCopied(false);
     try {
-      const response = await fetch(`/sessions/${sessionId}/relay/invites`, {
+      const response = await fetch(`${CHATS_API}/${sessionId}/relay/invites`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role, ttl_seconds: ttl, max_uses: singleUse ? 1 : null }),
@@ -131,7 +132,7 @@ export function ShareDialog({ sessionId, open, onOpenChange }: { sessionId: stri
   }
 
   async function revoke(id: string) {
-    await fetch(`/sessions/${sessionId}/relay/invites/${id}/revoke`, { method: "POST" });
+    await fetch(`${CHATS_API}/${sessionId}/relay/invites/${id}/revoke`, { method: "POST" });
     await load();
   }
 

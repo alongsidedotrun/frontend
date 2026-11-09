@@ -5,6 +5,7 @@ import { StreamingText } from "@/components/streaming-text";
 import tr from "@/components/thinking-reasoning.module.css";
 import { useMountedWhileOpen } from "@/components/thinking-reasoning";
 import { checkpointText, parseConversation, parseHandoff, parseWorkState, splitSummary, type HandoffSection, type WorkBlock } from "@/lib/handoff-context";
+import { CHATS_API } from "@/lib/chats-api";
 
 // #502: "Continued in a fresh session" opens to show exactly what the next agent was given about
 // the chat before it -- the checkpoint, the live task list, recent work -- so a handoff is never a
@@ -22,7 +23,7 @@ export function EarlierSummary({ sessionId, eventId, onLoadEarlier }: { sessionI
   useEffect(() => {
     if (eventId === undefined) return;
     let cancelled = false;
-    fetch(`/sessions/${sessionId}/handoffs/${eventId}`)
+    fetch(`${CHATS_API}/${sessionId}/handoffs/${eventId}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { context: string | null } | null) => {
         const checkpoint = data?.context ? parseHandoff(data.context)?.find((s) => s.tag === "checkpoint") : undefined;
@@ -71,7 +72,7 @@ export function HandoffNotice({ sessionId, eventId, text }: { sessionId: string;
     let cancelled = false;
     setDetails(null);
     setRaw(false);
-    fetch(`/sessions/${sessionId}/handoffs/${eventId}`)
+    fetch(`${CHATS_API}/${sessionId}/handoffs/${eventId}`)
       .then((res) => (res.ok ? res.json() : Promise.reject(res.status)))
       .then((data: { context: string | null; preview: boolean }) => !cancelled && setDetails(data))
       .catch(() => !cancelled && setDetails("error"));

@@ -11,6 +11,7 @@ import { LibraryFileNameCell } from "@/components/library-file-row";
 import { formatRelativeTime } from "@/lib/relative-time";
 import { spring } from "@/lib/springs";
 import { AlongsideLogo } from "@/components/icons/alongside-logo";
+import { CHATS_API } from "@/lib/chats-api";
 
 // Which project/chat rows are left expanded, persisted across visits --
 // per explicit request ("chats and projects in the library should open
@@ -214,7 +215,7 @@ export function LibraryPage() {
   // real sidebar/topbar show instead of a plain chat-bubble icon -- per
   // explicit request. GET /library/files itself has no model data (it's
   // built from chat_events/tool_use rows, not chat metadata), so this
-  // reuses /sessions, the same endpoint AppLayout.tsx's own sidebar
+  // reuses /chats, the same endpoint AppLayout.tsx's own sidebar
   // already fetches for this exact purpose.
   const [chatModels, setChatModels] = useState<Record<string, { provider: string; model: string }[]>>({});
 
@@ -224,7 +225,7 @@ export function LibraryPage() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/sessions")
+    fetch(CHATS_API)
       .then((res) => (res.ok ? res.json() : []))
       .then((data: { id: string; models?: { provider: string; model: string }[] }[]) => {
         if (cancelled) return;

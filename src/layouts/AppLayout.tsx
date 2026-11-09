@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/dropdown";
 import { MenuItem as BaseMenuItem } from "@/components/ui/menu-item";
 import { MoreTrigger } from "@/components/ui/more-trigger";
+import { CHATS_API } from "@/lib/chats-api";
 
 // Only two real routes exist today (Home, Chat), so this is a plain
 // pathname check rather than route-handle-driven breadcrumbs -- revisit
@@ -641,7 +642,7 @@ export function AppLayout() {
   // from add to project").
   async function assignChatToProject(projectId: string | null) {
     if (!sessionId) return;
-    await fetch(`/sessions/${sessionId}/project`, {
+    await fetch(`${CHATS_API}/${sessionId}/project`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ project_id: projectId }),
@@ -851,7 +852,7 @@ export function AppLayout() {
   // lookup below entirely, leaving chatName stuck on its own "Untitled
   // chat" default instead of resolving the real name on first load.
   const lastSessionIdRef = useRef<string | undefined | typeof NOT_YET_RUN>(NOT_YET_RUN);
-  // Real chats/projects now (GET /sessions, GET /projects -- the SQLite
+  // Real chats/projects now (GET /chats, GET /projects -- the SQLite
   // migration's own new endpoints, backend/src/server.rs), not the sample
   // data SAMPLE_RECENTS/SIDEBAR_PROJECTS (this file's own comment further
   // down, lib/sample-recents.ts) used to be. Refetched on mount and on every
@@ -876,7 +877,7 @@ export function AppLayout() {
   >([]);
   const [sidebarProjects, setSidebarProjects] = useState<{ id: string; label: string }[]>([]);
   async function refreshSidebarLists() {
-    const [sessionsRes, projectsRes] = await Promise.all([fetch("/sessions"), fetch("/projects")]);
+    const [sessionsRes, projectsRes] = await Promise.all([fetch(CHATS_API), fetch("/projects")]);
     // Both .json() bodies parsed together (Promise.all), not one `await`ed
     // and applied (setRecents) before the other's parse even starts --
     // confirmed directly as the cause of a real visible bug ("the projects
@@ -966,7 +967,7 @@ export function AppLayout() {
     setChatName(trimmed);
     if (!sessionId || trimmed === lastSavedChatNameRef.current) return;
     lastSavedChatNameRef.current = trimmed;
-    await fetch(`/sessions/${sessionId}/name`, {
+    await fetch(`${CHATS_API}/${sessionId}/name`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: trimmed }),

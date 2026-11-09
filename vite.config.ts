@@ -50,13 +50,13 @@ export default defineConfig({
   // needs its own proxy entry below, or those calls 404 against Vite itself
   // (served the SPA's own index.html by its catch-all, not a real backend
   // response) instead of ever reaching the backend. 127.0.0.1:3000 matches
-  // backend/src/main.rs's own BIND_ADDR default. ws: true on /sessions is
-  // required for ChatPage's `/sessions/{id}/ws` -- Vite's proxy only forwards
+  // backend/src/main.rs's own BIND_ADDR default. ws: true on /chats is
+  // required for ChatPage's `/chats/{id}/ws` -- Vite's proxy only forwards
   // a WebSocket upgrade when explicitly told to, the plain string shorthand
   // (used for /cli, all regular HTTP) doesn't enable it.
   server: {
     proxy: {
-      "/sessions": { target: backend, ws: true },
+      "/chats": { target: backend, ws: true },
       "/cli": backend,
       // Sign-in state and the sign-in callback (backend/src/auth.rs).
       "/identity": backend,
@@ -64,7 +64,7 @@ export default defineConfig({
       "/remote": backend,
       // Whether any chat here was shared or joined through the relay, for
       // Getting started (backend/src/relay_endpoints.rs). Per-chat relay
-      // routes are under /sessions.
+      // routes are under /chats.
       "/relay": backend,
       // /projects, /settings, /secrets -- confirmed directly as a real gap
       // (GET /projects returning Vite's own SPA index.html, 200 OK but

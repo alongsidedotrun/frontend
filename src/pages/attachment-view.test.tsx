@@ -7,9 +7,9 @@ const png = { file_id: "f1", name: "diagram.png", media_type: "image/png", size:
 
 describe("a file in a shared chat (#460)", () => {
   it("shows a received picture from this device's own copy", async () => {
-    mockFetch(({ path }) => (path === "/sessions/chat-1/relay/files/f1" ? { body: "bytes" } : undefined));
+    mockFetch(({ path }) => (path === "/chats/chat-1/relay/files/f1" ? { body: "bytes" } : undefined));
     render(<AttachmentView sessionId="chat-1" file={png} sender="Alice" mine={false} />);
-    expect(await screen.findByRole("img", { name: "diagram.png" })).toHaveAttribute("src", "/sessions/chat-1/relay/files/f1");
+    expect(await screen.findByRole("img", { name: "diagram.png" })).toHaveAttribute("src", "/chats/chat-1/relay/files/f1");
   });
 
   it("says it's on its way while it's still being fetched", async () => {

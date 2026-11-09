@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { RELAY_JOIN_REQUESTED_EVENT } from "@/lib/use-share";
+import { CHATS_API } from "@/lib/chats-api";
 
 // Someone waiting to be let into a shared chat (#460), as the backend lists them.
 export type WaitingJoin = { chat_id?: string; chat_name?: string | null; request_id: string; actor: string; name: string; created_at: number; expires_at: number };
@@ -12,7 +13,7 @@ const REFRESH_MS = 20_000;
 // on a timer, when the window regains focus, and at once when the backend says someone just asked.
 export function useJoinRequests(chatId?: string | null, enabled = true) {
   const [requests, setRequests] = useState<WaitingJoin[]>([]);
-  const url = chatId ? `/sessions/${chatId}/relay/join-requests` : "/relay/join-requests";
+  const url = chatId ? `${CHATS_API}/${chatId}/relay/join-requests` : "/relay/join-requests";
 
   const refresh = useCallback(async () => {
     if (!enabled) return;
@@ -46,7 +47,7 @@ export function useJoinRequests(chatId?: string | null, enabled = true) {
     async (request: WaitingJoin, action: "approve" | "deny", inChat = chatId) => {
       const chat = inChat ?? request.chat_id;
       if (!chat) return false;
-      const response = await fetch(`/sessions/${chat}/relay/join-requests/${request.request_id}/${action}`, { method: "POST" }).catch(() => null);
+      const response = await fetch(`${CHATS_API}/${chat}/relay/join-requests/${request.request_id}/${action}`, { method: "POST" }).catch(() => null);
       setRequests((current) => current.filter((r) => r.request_id !== request.request_id));
       void refresh();
       return Boolean(response?.ok);

@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dropdown";
 import { MenuItem as BaseMenuItem } from "@/components/ui/menu-item";
 import { MoreTrigger } from "@/components/ui/more-trigger";
+import { CHATS_API } from "@/lib/chats-api";
 
 // Real Plate.js block editor -- replaces BlockNote (issue #299 originally
 // built this on BlockNote; migrated per explicit request, "give me other
@@ -477,9 +478,9 @@ function AgentRunLog({ chatId }: { chatId: string }) {
     let cancelled = false;
     const load = () => {
       Promise.all([
-        fetch(`/sessions/${chatId}/runs`),
-        fetch(`/sessions/${chatId}/checkpoint-usage`),
-        fetch(`/sessions/${chatId}/usage`),
+        fetch(`${CHATS_API}/${chatId}/runs`),
+        fetch(`${CHATS_API}/${chatId}/checkpoint-usage`),
+        fetch(`${CHATS_API}/${chatId}/usage`),
       ])
         .then(async ([runsResponse, checkpointResponse, usageResponse]) => {
           if (!runsResponse.ok || !checkpointResponse.ok || !usageResponse.ok) {

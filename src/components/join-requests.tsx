@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
+import { CHATS_API } from "@/lib/chats-api";
 
 export type JoinRequest = { id: string; display_name: string };
 
@@ -19,7 +20,7 @@ export function JoinRequests({ sessionId, requests, onDecided }: { sessionId: st
     setBusy(id);
     setFailed(false);
     try {
-      const response = await fetch(`/sessions/${sessionId}/join-requests/${id}/${action}`, {
+      const response = await fetch(`${CHATS_API}/${sessionId}/join-requests/${id}/${action}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(role ? { role } : {}),

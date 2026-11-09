@@ -53,6 +53,7 @@ import {
   type WorkspaceMenuAction,
   type WorkspaceOption,
 } from "@/components/design-system/workspace-selector";
+import { CHATS_API } from "@/lib/chats-api";
 
 type WorkspaceRecord = {
   id: string;
@@ -90,7 +91,7 @@ type Chat = {
   // #504: the bot this chat talks to, and when it was last active.
   bot_id?: string | null;
   last_activity?: string | null;
-  // The models it has run on, in the order they joined it (GET /sessions).
+  // The models it has run on, in the order they joined it (GET /chats).
   models?: { provider: string; model: string }[];
 };
 
@@ -355,7 +356,7 @@ export function RedesignPage() {
   const [filesTouchedTick, setFilesTouchedTick] = useState(0);
   const [rightPanelWidth] = useState(420);
   const rightPanel = panelVisible ? (panelNav.history[panelNav.index] ?? null) : null;
-  // A session exists before its first message, while GET /sessions
+  // A session exists before its first message, while GET /chats
   // deliberately lists only chats with real content. Keep that short-lived
   // local row so the newly-created chat can mount, send its queued message,
   // and be visible in the sidebar straight away.
@@ -466,7 +467,7 @@ export function RedesignPage() {
       setChats((current) => current.map((chat) => chat.id === chatId ? { ...chat, name } : chat));
     },
     refreshSidebarLists: () => {
-      void fetch("/sessions")
+      void fetch(CHATS_API)
         .then((response) => response.ok ? response.json() as Promise<Chat[]> : [])
         .then(applyLoadedChats);
     },
@@ -567,7 +568,7 @@ export function RedesignPage() {
     if (activeQuickAction !== "chats") return;
     void Promise.all([
       fetch("/projects").then((response) => response.ok ? response.json() as Promise<Project[]> : []),
-      fetch("/sessions").then((response) => response.ok ? response.json() as Promise<Chat[]> : []),
+      fetch(CHATS_API).then((response) => response.ok ? response.json() as Promise<Chat[]> : []),
     ])
       .then(([loadedProjects, loadedChats]) => {
         setProjects(loadedProjects);
@@ -594,7 +595,7 @@ export function RedesignPage() {
       setChats((current) => current.map((chat) => chat.id === activeChat.id ? { ...chat, name } : chat));
     },
     refreshSidebarLists: () => {
-      void fetch("/sessions")
+      void fetch(CHATS_API)
         .then((response) => response.ok ? response.json() as Promise<Chat[]> : [])
         .then(applyLoadedChats);
     },
@@ -612,7 +613,7 @@ export function RedesignPage() {
     workspaceColor: activeWorkspace.color ?? null,
   };
 
-  // Opens a bot's chat (#504), listing it straight away: until its first message it isn't in /sessions.
+  // Opens a bot's chat (#504), listing it straight away: until its first message it isn't in /chats.
   function showBotChat(chatId: string, bot: Bot) {
     pendingChatIdsRef.current.add(chatId);
     setChats((current) => current.some((chat) => chat.id === chatId)
@@ -652,7 +653,7 @@ export function RedesignPage() {
       ? current
       : [{ id: sessionId, name: t("shell.untitledChat"), workspace_id: activeWorkspace.id }, ...current]);
     setActiveChatId(sessionId);
-    void fetch("/sessions")
+    void fetch(CHATS_API)
       .then((response) => response.ok ? response.json() as Promise<Chat[]> : [])
       .then(applyLoadedChats);
   }
@@ -675,7 +676,7 @@ export function RedesignPage() {
   // ---- Sidebar row actions (each row's "..." menu) ----
   async function renameChat(chatId: string, name: string) {
     setChats((current) => current.map((chat) => chat.id === chatId ? { ...chat, name } : chat));
-    await fetch(`/sessions/${encodeURIComponent(chatId)}/name`, {
+    await fetch(`${CHATS_API}/${encodeURIComponent(chatId)}/name`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name }),
@@ -684,7 +685,7 @@ export function RedesignPage() {
 
   async function setChatPinned(chatId: string, pinned: boolean) {
     setChats((current) => current.map((chat) => (chat.id === chatId ? { ...chat, pinned } : chat)));
-    await fetch(`/sessions/${encodeURIComponent(chatId)}/pin`, {
+    await fetch(`${CHATS_API}/${encodeURIComponent(chatId)}/pin`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pinned }),
@@ -700,7 +701,7 @@ export function RedesignPage() {
       project_id: projectId,
       workspace_id: targetWorkspaceId ?? chat.workspace_id,
     } : chat));
-    await fetch(`/sessions/${encodeURIComponent(chatId)}/project`, {
+    await fetch(`${CHATS_API}/${encodeURIComponent(chatId)}/project`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ project_id: projectId }),
@@ -708,7 +709,7 @@ export function RedesignPage() {
   }
 
   async function archiveChat(chatId: string) {
-    const response = await fetch(`/sessions/${encodeURIComponent(chatId)}/archive`, { method: "POST" }).catch(() => null);
+    const response = await fetch(`${CHATS_API}/${encodeURIComponent(chatId)}/archive`, { method: "POST" }).catch(() => null);
     if (!response?.ok) return;
     setChats((current) => current.filter((chat) => chat.id !== chatId));
     // Archiving the open chat leaves it for a new one.

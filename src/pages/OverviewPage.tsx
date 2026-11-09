@@ -12,6 +12,7 @@ import { MenuItem as BaseMenuItem } from "@/components/ui/menu-item";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { GUEST_NAME, useUserDisplayName } from "@/lib/user";
+import { CHATS_API } from "@/lib/chats-api";
 
 type TaskBucket = "today" | "week" | "later";
 
@@ -144,7 +145,7 @@ export function OverviewPage() {
 
   useEffect(() => {
     void Promise.all([
-      fetch("/sessions").then((response) => response.ok ? response.json() as Promise<RecentSession[]> : []),
+      fetch(CHATS_API).then((response) => response.ok ? response.json() as Promise<RecentSession[]> : []),
       fetch("/inbox-mentions").then((response) => response.ok ? response.json() as Promise<Mention[]> : []),
     ])
       .then(([sessions, loadedMentions]) => {

@@ -14,6 +14,7 @@ import { SHARE_ERRORS } from "@/lib/use-share";
 import { useJoinRequests, type WaitingJoin } from "@/lib/use-join-requests";
 import { openSignInDialog } from "@/lib/use-sign-in";
 import { cn } from "@/lib/utils";
+import { CHATS_API } from "@/lib/chats-api";
 
 type Status = { syncing: boolean; chat_id: string | null; shared_before?: boolean };
 type JoinCode = { code?: string; status: "active" | "expired" | "used"; expires_at: number; role?: Role } | null;
@@ -72,8 +73,8 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
   const refreshAccess = useCallback(async () => {
     if (!sessionId) return;
     const [codeResponse, membersResponse] = await Promise.all([
-      fetch(`/sessions/${sessionId}/relay/code`).catch(() => null),
-      fetch(`/sessions/${sessionId}/relay/members`).catch(() => null),
+      fetch(`${CHATS_API}/${sessionId}/relay/code`).catch(() => null),
+      fetch(`${CHATS_API}/${sessionId}/relay/members`).catch(() => null),
     ]);
     if (codeResponse?.ok) setCode((await codeResponse.json()) as JoinCode);
     if (membersResponse?.ok) setMembers((await membersResponse.json()) as Member[]);
@@ -82,7 +83,7 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
   const load = useCallback(async () => {
     if (!sessionId) return null;
     try {
-      const current = (await (await fetch(`/sessions/${sessionId}/relay/status`)).json()) as Status;
+      const current = (await (await fetch(`${CHATS_API}/${sessionId}/relay/status`)).json()) as Status;
       setStatus(current);
       if (current.syncing) await refreshAccess();
       return current;
@@ -134,7 +135,7 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
   async function share(acknowledged: boolean): Promise<string | null> {
     if (!sessionId) return null;
     for (const resume of status?.shared_before && status.chat_id ? [true, false] : [false]) {
-      const response = await fetch(`/sessions/${sessionId}/relay/start`, {
+      const response = await fetch(`${CHATS_API}/${sessionId}/relay/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -167,7 +168,7 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
     if (!sessionId) return;
     setBusy(true);
     try {
-      await fetch(`/sessions/${sessionId}/relay/stop`, { method: "POST" });
+      await fetch(`${CHATS_API}/${sessionId}/relay/stop`, { method: "POST" });
       setCode(null);
       setMembers([]);
       await load();
@@ -188,7 +189,7 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
       if (!chatId) return null;
       setDisclosure(null);
       setPhase("ready");
-      const response = await fetch(`/sessions/${sessionId}/relay/code`, {
+      const response = await fetch(`${CHATS_API}/${sessionId}/relay/code`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role }),
@@ -218,7 +219,7 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
     setBusy(true);
     setError(null);
     const left: MemberEdits = { roles: {}, removals: [] };
-    const memberPath = (id: string) => `/sessions/${sessionId}/relay/members/${encodeURIComponent(id)}`;
+    const memberPath = (id: string) => `${CHATS_API}/${sessionId}/relay/members/${encodeURIComponent(id)}`;
     for (const id of edits.removals) {
       const response = await fetch(memberPath(id), { method: "DELETE" }).catch(() => null);
       if (!response?.ok) {
@@ -253,7 +254,7 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch(`/sessions/${sessionId}/relay/code`, {
+      const response = await fetch(`${CHATS_API}/${sessionId}/relay/code`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role }),
@@ -273,7 +274,7 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
 
   async function revokeCode() {
     if (!sessionId) return;
-    await fetch(`/sessions/${sessionId}/relay/code`, { method: "DELETE" }).catch(() => null);
+    await fetch(`${CHATS_API}/${sessionId}/relay/code`, { method: "DELETE" }).catch(() => null);
     setCode(null);
     await refreshAccess();
   }

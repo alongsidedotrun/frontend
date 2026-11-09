@@ -21,39 +21,39 @@ function backend(options: { sharedBefore?: boolean; startError?: string; staysDi
   let waiting = options.waiting ? [{ request_id: "req-1", actor: "acct-bob", name: "Bob", created_at: 0, expires_at: 0 }] : [];
   let members = [{ id: "acct-gio", name: "Gio", role: "owner", online: true }, ...(options.alone ? [] : [{ id: "acct-alice", name: "Alice", role: "editor", online: false }])];
   return mockFetch(({ method, path, body }) => {
-    if (path === `/sessions/${CHAT}/relay/status`) return { body: { syncing, chat_id: "7KQ2M-9XF4T", shared_before: syncing || Boolean(options.sharedBefore) } };
-    if (path === `/sessions/${CHAT}/relay/start`) {
+    if (path === `/chats/${CHAT}/relay/status`) return { body: { syncing, chat_id: "7KQ2M-9XF4T", shared_before: syncing || Boolean(options.sharedBefore) } };
+    if (path === `/chats/${CHAT}/relay/start`) {
       if (options.startError) return { status: 502, body: { error: options.startError } };
       if (!(body as { acknowledged_disclosure?: boolean }).acknowledged_disclosure) return { status: 428, body: { error: "disclosure_required", disclosure: DISCLOSURE } };
       syncing = !options.staysDisconnected;
       return { body: { relay_session_id: "7KQ2M-9XF4T" } };
     }
-    if (path === `/sessions/${CHAT}/relay/code` && method === "POST") {
+    if (path === `/chats/${CHAT}/relay/code` && method === "POST") {
       code = { code: "K7QF-2M9X", status: "active", expires_at: inFifteen(), role: (body as { role: string }).role } as typeof code;
       return { body: code };
     }
-    if (path === `/sessions/${CHAT}/relay/code` && method === "GET") return { body: code };
-    if (path === `/sessions/${CHAT}/relay/code` && method === "DELETE") {
+    if (path === `/chats/${CHAT}/relay/code` && method === "GET") return { body: code };
+    if (path === `/chats/${CHAT}/relay/code` && method === "DELETE") {
       code = null;
       return { status: 204 };
     }
-    if (path === `/sessions/${CHAT}/relay/members`) return { body: members };
-    if (path === `/sessions/${CHAT}/relay/members/acct-alice` && method === "PUT") {
+    if (path === `/chats/${CHAT}/relay/members`) return { body: members };
+    if (path === `/chats/${CHAT}/relay/members/acct-alice` && method === "PUT") {
       members = members.map((m) => (m.id === "acct-alice" ? { ...m, role: (body as { role: string }).role } : m));
       return { status: 204 };
     }
-    if (path === `/sessions/${CHAT}/relay/members/acct-alice` && method === "DELETE") {
+    if (path === `/chats/${CHAT}/relay/members/acct-alice` && method === "DELETE") {
       if (options.removeFails) return { status: 502, body: { error: "relay_request_failed" } };
       members = members.filter((m) => m.id !== "acct-alice");
       return { status: 204 };
     }
-    if (path === `/sessions/${CHAT}/relay/join-requests`) return { body: waiting };
-    if (path === `/sessions/${CHAT}/relay/join-requests/req-1/approve` && method === "POST") {
+    if (path === `/chats/${CHAT}/relay/join-requests`) return { body: waiting };
+    if (path === `/chats/${CHAT}/relay/join-requests/req-1/approve` && method === "POST") {
       waiting = [];
       members = [...members, { id: "acct-bob", name: "Bob", role: "editor", online: false }];
       return { status: 204 };
     }
-    if (path === `/sessions/${CHAT}/relay/stop`) {
+    if (path === `/chats/${CHAT}/relay/stop`) {
       syncing = false;
       return { status: 204 };
     }
