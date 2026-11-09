@@ -457,9 +457,6 @@ export type ChatPageShellContext = {
   receiveChatNameFromServer: (name: string) => void;
   refreshSidebarLists: () => void;
   openSettings: (section: SettingsSection) => void;
-  openFile: (path: string) => void;
-  rightPanelOpen: boolean;
-  notifyFilesTouched: () => void;
 };
 
 type ChatPageProps = {
@@ -514,27 +511,14 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // chat_name_updated) -- receiveChatNameFromServer's own existing refresh
   // call only fires on a successful rename, not on every real message.
   const outletContext = useOutletContext<ChatPageShellContext>();
-  const { chatName, contextLabel, receiveChatNameFromServer, refreshSidebarLists, openSettings, openFile, rightPanelOpen, notifyFilesTouched, bot, providerReady } =
+  const { chatName, contextLabel, receiveChatNameFromServer, refreshSidebarLists, openSettings, bot, providerReady } =
     shellContextOverride ?? outletContext;
   // For the chat's event handler (set up once per connection): whether this is a bot's chat.
   const isBotChatRef = useRef(false);
   isBotChatRef.current = Boolean(bot);
   // The chat had nothing in it when it opened (replay_complete with no events).
   const [emptyAtOpen, setEmptyAtOpen] = useState(false);
-  // Real correction, per explicit follow-up ("we reduce to 400px but
-  // there's so much space around it, instead of reducing the content to
-  // 400px, keep that as 800px and reduce the outside paddings on left and
-  // right"): forcing max-width down to 400px shrank the actual message
-  // bubbles/readable line-length, leaving a visibly empty gutter on both
-  // sides of that narrower content inside the now-wider-than-400px left
-  // Panel -- not what was wanted. The real 800px (or Expanded) cap stays
-  // untouched; only the side padding shrinks while the panel is open, so
-  // content still grows to fill however much of that cap the narrower
-  // Panel can actually offer, without an artificial extra margin.
-  // px-[50px], not px-1.5 -- per explicit follow-up ("keep a padding of at
-  // least 100px maybe? 50px on left and 50px right? because now its too
-  // close to the borders").
-  const chatSidePadding = rightPanelOpen ? "px-[50px]" : "px-3 sm:px-5";
+  const chatSidePadding = "px-3 sm:px-5";
   const [chatHeaderMenuOpen, setChatHeaderMenuOpen] = useState(false);
   const [chatHeaderRenaming, setChatHeaderRenaming] = useState(false);
   const [chatHeaderName, setChatHeaderName] = useState(contextLabel ?? chatName);
@@ -621,8 +605,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // not on every keystroke in the compose box or every streamed word. That needs the handlers rows
   // get to keep their identity; each one calls the newest version of its function.
   const fileCardRef = useRef<(rowIds: string[]) => ReactNode>(() => null);
-  const rowHandlersRef = useRef({ cancelEdit, retryLastMessage, retryFailedMessage, resendMessage, editMessage, switchBranch, openFile });
-  rowHandlersRef.current = { cancelEdit, retryLastMessage, retryFailedMessage, resendMessage, editMessage, switchBranch, openFile };
+  const rowHandlersRef = useRef({ cancelEdit, retryLastMessage, retryFailedMessage, resendMessage, editMessage, switchBranch });
+  rowHandlersRef.current = { cancelEdit, retryLastMessage, retryFailedMessage, resendMessage, editMessage, switchBranch };
   const [rowHandlers] = useState(() => ({
     cancelEdit: () => rowHandlersRef.current.cancelEdit(),
     retryLastMessage: () => void rowHandlersRef.current.retryLastMessage(),
@@ -630,7 +614,6 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     resendMessage: (row: Extract<ChatRow, { kind: "human" }>) => void rowHandlersRef.current.resendMessage(row),
     editMessage: (row: Extract<ChatRow, { kind: "human" }>) => rowHandlersRef.current.editMessage(row),
     switchBranch: (group: string, index: number) => void rowHandlersRef.current.switchBranch(group, index),
-    openFile: (path: string) => rowHandlersRef.current.openFile(path),
     // A turn's file edits (their chat rows), as the diff card drawn inside its Working steps.
     fileCards: (rowIds: string[]) => fileCardRef.current(rowIds),
   }));
@@ -680,7 +663,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   const fileCard = (group: Extract<ChatRow, { kind: "tool" }>[]) => {
     const hit = fileCardCacheRef.current.get(group[0].id);
     if (hit && sameList(hit.group, group)) return hit.card;
-    const card = renderFileDiffGroupCard(group, rowHandlers.openFile);
+    const card = renderFileDiffGroupCard(group);
     fileCardCacheRef.current.set(group[0].id, { group, card });
     return card;
   };
@@ -2541,13 +2524,6 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                 // The edit is also a step in the turn's Working list, in the order it happened, and its
                 // diff card is drawn there instead of after the reply. Not the provider's own files.
                 if (!isProviderOwnPath(filePath)) addLiveToolCallLine(toolName, filePath ?? undefined, fileRowId);
-                // Real bug, confirmed directly ("the files at the right
-                // sidebar and library are not updating in real time so i
-                // have to refresh"): right-panel.tsx's own ChatFileListPanel
-                // only fetches once per chat, with nothing telling it a new
-                // file just landed here. Write/Edit is exactly the moment
-                // that becomes true.
-                notifyFilesTouched();
               } else {
                 // Every other tool call (Bash, Read, Grep, run_command,
                 // etc. -- any provider, same ContentBlock::ToolUse shape)
@@ -3452,7 +3428,6 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                   sessionId={sessionId}
                   fileStates={fileStates}
                   onSwitchBranch={rowHandlers.switchBranch}
-                  onOpenFile={rowHandlers.openFile}
                   toolGroup={groupStarts.get(row.id)}
                   liveWorking={liveWorking}
                   renderFiles={rowHandlers.fileCards}
@@ -3814,7 +3789,6 @@ function ChatRowViewInner({
   sessionId,
   fileStates,
   onSwitchBranch,
-  onOpenFile,
   toolGroup,
   liveWorking,
   renderFiles,
@@ -3834,7 +3808,6 @@ function ChatRowViewInner({
   sessionId?: string;
   fileStates?: Record<string, string>;
   onSwitchBranch: (group: string, index: number) => void;
-  onOpenFile: (path: string) => void;
   // Set only on the first row of a run of consecutive same-kind Write/Edit
   // tool rows (computeToolGroups, below) -- the full run this one row
   // stands in for, rendered as a single FileDiffGroup card instead of N
@@ -3928,7 +3901,7 @@ function ChatRowViewInner({
     if (toolGroup && (row.name === "Write" || row.name === "Edit")) {
       // Only the provider's own files (its memory): nothing to show.
       if (toolGroup.every((r) => isProviderOwnPath(summarizeToolInput(r.input)))) return null;
-      const card = renderFileDiffGroupCard(toolGroup, onOpenFile);
+      const card = renderFileDiffGroupCard(toolGroup);
       if (card) return card;
     }
     return <ToolRow name={row.name} summary={row.summary} input={row.input} />;
@@ -4444,7 +4417,6 @@ function isProviderOwnPath(path: string | null | undefined): boolean {
 
 function renderFileDiffGroupCard(
   toolGroup: Extract<ChatRow, { kind: "tool" }>[],
-  onOpenFile: (path: string) => void
 ): ReactNode {
   const name = toolGroup[0].name;
   const edits = toolGroup
@@ -4457,7 +4429,7 @@ function renderFileDiffGroupCard(
   // #556: one entry per file, with all of this run's edits to it.
   const files = mergeFileEdits(edits, name === "Write" ? "replace" : "append");
   if (files.length === 0) return null;
-  return <FileDiffGroup kind={name === "Write" ? "New" : "Edited"} files={files} onExpandFile={onOpenFile} />;
+  return <FileDiffGroup kind={name === "Write" ? "New" : "Edited"} files={files} />;
 }
 
 function ToolRow({ name, summary, input }: { name: string; summary: string | null; input: unknown }) {
