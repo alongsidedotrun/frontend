@@ -127,14 +127,6 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
   // undefined (not fetched yet) is a no-op for ComposeBox's own
   // defaultModelValue prop, same as it always was before this existed.
   const [defaultModel, setDefaultModel] = useState<string | undefined>(undefined);
-  // Real bug, confirmed directly ("the context is showing at new chat, that should
-  // fade in only after the chat is created"): this used to seed contextUsage from
-  // the last known value (last-used.ts), which is real data but from a DIFFERENT,
-  // already-existing chat -- showing it here, before this brand-new chat has even
-  // been created, implied it already had real usage it doesn't have yet. HomePage's
-  // own compose box never shows the Context indicator at all now (always null);
-  // ChatPage.tsx picks up the real per-chat value the moment a chat actually exists.
-  const contextUsage = null;
 
   async function chooseWorkingDirectory() {
     if (choosingDirectory) return;
@@ -394,13 +386,6 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
           initialHeight={!transitioningToChat}
           workFromFolderPath={workingDirectory}
           onSelectWorkFromFolder={chooseWorkingDirectory}
-          contextUsage={contextUsage}
-          // ContextDropdown never actually renders here (contextUsage is always null
-          // pre-chat), so these two are dead props in practice -- kept simple, static
-          // values just to satisfy ComposeBox's required prop types rather than
-          // making them optional there for the sake of this one non-using caller.
-          autocompactValue="100000"
-          onSetAutocompact={() => {}}
           defaultModelValue={defaultModel}
           onOpenSettings={() => openSettings("provider")}
           onPinDefaultModel={(value) => {

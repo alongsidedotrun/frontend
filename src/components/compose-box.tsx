@@ -451,186 +451,6 @@ function AnimatedPlaceholder({ messages }: { messages: string[] }) {
   );
 }
 
-function compactTokenCount(n: number) {
-  if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k`;
-  return `${n}`;
-}
-
-// How full the model's context is, as a ring next to the model trigger --
-// real data (ChatPage's own `contextUsage`, built from the SDK's actual
-// `result` event `usage` field), not decorative. Undefined/null (no result
-// event has landed yet -- a fresh chat, or HomePage, which never passes
-// this at all) renders nothing at all rather than an empty/zeroed ring --
-// per explicit request, this should stay fully invisible until a real
-// turn actually completes and reports real usage, not just visually faded.
-// The chat's handoff threshold (#606): once a turn leaves the context at or past it, the chat
-// hands off to a fresh session carrying the checkpoint (ChatPage.tsx's usage handler). Alongside
-// never compacts. The same for every provider; 100k is the default.
-const AUTOCOMPACT_OPTIONS = [
-  { value: "500000", threshold: "500k" },
-  { value: "250000", threshold: "250k" },
-  { value: "100000", threshold: "100k" },
-] as const;
-
-// Moved to sit beside the model name (was its own separate item further along
-// the toolbar) and turned into a real dropdown instead of a hover-only tooltip,
-// per explicit request. First row is the same real usage readout the old
-// tooltip showed; "Set auto compact levels" (Claude only) is new.
-// Ring fill denominator when the chat has no threshold of its own: the default handoff
-// threshold (#606), one flat value for every provider/model rather than a per-model table
-// (Codex/Antigravity's CLIs report no window size at all).
-const DEFAULT_CONTEXT_WINDOW_TOKENS = 100_000;
-
-// Ring color per provider -- per explicit request ("black for chatgpt,
-// orange for claude, blue for gemini").
-const PROVIDER_RING_COLOR: Record<string, string> = {
-  Codex: "#000000",
-  Claude: "#F97316",
-  Antigravity: "#4285F4",
-};
-
-function ContextRing({ fraction, color }: { fraction: number; color: string }) {
-  const size = 14;
-  const stroke = 2;
-  const radius = (size - stroke) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const clamped = Math.min(1, Math.max(0, fraction));
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="shrink-0 -rotate-90">
-      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="currentColor" strokeWidth={stroke} className="text-border" />
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke={color}
-        strokeWidth={stroke}
-        strokeLinecap="round"
-        strokeDasharray={circumference}
-        strokeDashoffset={circumference * (1 - clamped)}
-        // Grows smoothly as the context fills during a turn, instead of jumping.
-        className="transition-[stroke-dashoffset] duration-500 ease-out motion-reduce:transition-none"
-      />
-    </svg>
-  );
-}
-
-function ContextDropdown({
-  used,
-  model,
-  modelCount,
-  automaticHandoff = true,
-  onSetAutomaticHandoff = () => {},
-  onHandoffNow,
-  autocompactValue,
-  onSetAutocompact,
-}: {
-  used: number;
-  model?: (typeof QUICK_CHAT_MODELS)[number];
-  modelCount: number;
-  automaticHandoff?: boolean;
-  onSetAutomaticHandoff?: (enabled: boolean) => void;
-  onHandoffNow?: () => void;
-  // Per-chat now (per explicit request, "I want it to be per chat") -- owned by
-  // ChatPage.tsx (its own "chat_defaults" WS handler comment has the full
-  // reasoning), not fetched here, so every caller shares one real source of truth
-  // instead of this dropdown racing its own separate fetch against it.
-  autocompactValue: string;
-  // Drives the dropdown's own label ("Context per chat"/"Context per project") --
-  // per explicit request. Settings > General > Compact's own scope toggle.
-  onSetAutocompact: (value: string) => void;
-}) {
-  const { t } = useTranslation();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
-  // Real bug, confirmed directly ("I changed to compact at 100K so that should have
-  // updated the text"): the dropdown's own denominator was hardcoded to
-  // DEFAULT_CONTEXT_WINDOW_TOKENS (500k) regardless of the actually-selected
-  // threshold, so picking 100k/250k never changed what "X out of Y" showed. The
-  // selected autocompact value is exactly the real ceiling being watched against, so
-  // it's the right denominator to show.
-  const compactThreshold = Number(autocompactValue) || DEFAULT_CONTEXT_WINDOW_TOKENS;
-
-  // Opens on hover, stays open once clicked -- Base UI's own native
-  // openOnHover/delay/closeDelay on Menu.Trigger (real, documented API, not
-  // a hand-rolled mouseenter/mouseleave pair), which already tracks the
-  // pointer across the trigger AND the portalled popup content together via
-  // its own floating-ui wiring -- a manual pair on a wrapping <div> can't do
-  // that, since the popup itself renders through Menu.Portal, outside that
-  // div entirely. Same shared DropdownContent/motion.div fade already used
-  // by every other dropdown in the app (this file's own comment above it),
-  // so open/close now plays that same transition instead of snapping.
-  return (
-    <BaseDropdownMenu size="compact">
-      <BaseDropdownTrigger
-        openOnHover
-        delay={80}
-        closeDelay={150}
-        render={
-          // Plain text, not an icon -- same reasoning as the Effort control's
-          // own recent fix (that component's own comment has the full
-          // context): a small glyph here would need its own hover/tooltip to
-          // explain itself, same complaint that one drew.
-          <button
-            type="button"
-            aria-label={t("compose.context.ariaLabel", { used: compactTokenCount(used) })}
-            className={`flex shrink-0 items-center gap-1 rounded-full px-1 text-ui-xs text-ink-3 transition-opacity duration-240 hover:text-foreground focus:outline-none ${mounted ? "opacity-100" : "opacity-0"}`}
-          >
-            <ContextRing
-              fraction={used / (compactThreshold * Math.max(1, modelCount))}
-              color={PROVIDER_RING_COLOR[model?.provider ?? ""] ?? "currentColor"}
-            />
-          </button>
-        }
-      />
-      <BaseDropdownContent side="bottom" align="center" sideOffset={6} className="w-52 min-w-0">
-        <BaseDropdownLabel>
-          {/* Just "Context": the scope (chat, project, global) is a Settings choice, not news here. */}
-          {t("compose.context.title")}
-        </BaseDropdownLabel>
-        {/* No provider icon/name here any more -- per explicit request ("remove the
-            providers at the dropdown as that does not make sense"): the compact
-            threshold is a per-chat setting now, not tied to any one provider's
-            identity, so showing a provider mark next to it implied a scoping that
-            no longer exists. */}
-        <div className="px-2.5 py-1.5 text-ui-sm text-muted-foreground">
-          {t("compose.context.usage", { used: compactTokenCount(used), total: compactTokenCount(compactThreshold * Math.max(1, modelCount)) })}
-        </div>
-        <>
-          <DropdownSeparator />
-          <BaseDropdownLabel>{t("compose.handoff.section")}</BaseDropdownLabel>
-          {AUTOCOMPACT_OPTIONS.map((option, i) => (
-            // Not `checked` -- that prop bolds the label (MenuItem's own shared
-            // styling), and per explicit request the selected option here should
-            // read as an active background at normal weight instead, not bold text.
-            <BaseMenuItem
-              key={option.value}
-              index={i}
-              label={t("compose.handoffAt", { threshold: option.threshold })}
-              className={autocompactValue === option.value ? "bg-hover-2" : undefined}
-              onSelect={() => onSetAutocompact(option.value)}
-            />
-          ))}
-          <BaseMenuItem
-            index={AUTOCOMPACT_OPTIONS.length}
-            label={t("compose.handoff.automatically")}
-            checked={automaticHandoff}
-            onSelect={() => onSetAutomaticHandoff(!automaticHandoff)}
-          />
-          {onHandoffNow && (
-            <BaseMenuItem
-              index={AUTOCOMPACT_OPTIONS.length + 1}
-              label={t("compose.handoff.now")}
-              onSelect={onHandoffNow}
-            />
-          )}
-        </>
-      </BaseDropdownContent>
-    </BaseDropdownMenu>
-  );
-}
-
 // Screenshot-matched redesign, per explicit request ("lets build a slider
 // again but instead of the icon on the left with the thunder, we will say
 // Effort"): a discrete 5-stop dot track (one stop per EFFORT_LEVELS entry),
@@ -772,21 +592,15 @@ export function ComposeBox({
   onModelsChange,
   allowBotChoice = false,
   botAvatar,
-  contextUsage,
   onOpenSettings,
   chatId,
   isMultiplayer,
   defaultEffortValue,
   defaultPermissionValue,
   onPinDefaultModel,
-  automaticHandoff = true,
-  onSetAutomaticHandoff = () => {},
-  onHandoffNow,
   onSteer,
   queue,
   notice,
-  autocompactValue,
-  onSetAutocompact,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -828,13 +642,6 @@ export function ComposeBox({
   // to Sonnet the moment it opens.
   defaultModelValue?: string;
   onModelsChange?: (models: typeof QUICK_CHAT_MODELS) => void;
-  // Chat-only, real data (ChatPage's own contextUsage state, built from the
-  // SDK's actual `result` event `usage` field) -- undefined until the
-  // first turn actually completes and reports it, which is what keeps the
-  // meter (ContextMeter above) fully absent until then rather than showing
-  // an empty/zeroed ring from the moment the chat opens. Never passed on
-  // HomePage, which has no session/turns yet for there to be usage of.
-  contextUsage?: { used: number } | null;
   // Opens the real SettingsOverlay at Providers (AppLayout's own outlet
   // context openSettings("provider"), threaded down by HomePage.tsx/
   // ChatPage.tsx) -- the model picker's own "Add provider" row (below)
@@ -869,9 +676,6 @@ export function ComposeBox({
   // refresh, per explicit request), a real per-chat default after.
   onPinDefaultModel?: (modelValue: string) => void;
   onPinDefaultEffort?: (level: EffortLevel) => void;
-  automaticHandoff?: boolean;
-  onSetAutomaticHandoff?: (enabled: boolean) => void;
-  onHandoffNow?: () => void;
   // Claude and Codex: a message taken into the running turn now (Steer on a
   // queued message, or Enter mid-turn with queueing off). The Stop button
   // stays, so the whole turn can still be cancelled. Undefined where the
@@ -893,12 +697,6 @@ export function ComposeBox({
     onAdd: (message: Omit<QueuedMessage, "id">) => void;
     onRemove: (id: string) => void;
   };
-  // Per-chat compact threshold (ChatPage.tsx owns the real state/persistence --
-  // see ContextDropdown's own comment for the full reasoning). HomePage.tsx never
-  // renders ContextDropdown at all (contextUsage is always null pre-chat), so
-  // these are only ever exercised from ChatPage's own call site.
-  autocompactValue: string;
-  onSetAutocompact: (value: string) => void;
 }) {
   const { t } = useTranslation();
   // The models a default can name: the catalog, and in a bot's chat "Let the bot choose".
@@ -2735,20 +2533,6 @@ export function ComposeBox({
             />
           </BaseDropdownContent>
         </BaseDropdownMenu>
-        {/* Moved here from its own separate spot next to Effort, per explicit
-            request ("move context to the right side of the model name"). */}
-        {contextUsage && (
-          <ContextDropdown
-            used={contextUsage.used}
-            model={selectedModels[0]}
-            modelCount={selectedModels.length}
-            automaticHandoff={automaticHandoff}
-            onSetAutomaticHandoff={onSetAutomaticHandoff}
-            onHandoffNow={onHandoffNow}
-            autocompactValue={autocompactValue}
-            onSetAutocompact={onSetAutocompact}
-          />
-        )}
         </motion.div>
         <AnimatePresence>
           {listening && (
