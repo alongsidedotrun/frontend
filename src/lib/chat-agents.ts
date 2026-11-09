@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { CHATS_API } from "@/lib/chats-api";
 
 // A chat's specialised agents (#507 part 2): a chat is the room, an agent is a specialist anyone in it
 // can ask with "@name". Asking runs it in the background as a short-lived sub-agent on the asker's own
@@ -43,7 +44,7 @@ export function useChatAgents(sessionId: string | undefined) {
 
   const reload = useCallback(async () => {
     if (!sessionId) return;
-    const res = await fetch(`/sessions/${sessionId}/agents`).catch(() => null);
+    const res = await fetch(`${CHATS_API}/${sessionId}/agents`).catch(() => null);
     if (res?.ok) setAgents((await res.json()) as ChatAgent[]);
   }, [sessionId]);
 
@@ -55,7 +56,7 @@ export function useChatAgents(sessionId: string | undefined) {
   const add = useCallback(
     async (name: string, instructions: string): Promise<AddAgentError | null> => {
       if (!sessionId) return { reason: "failed" };
-      const res = await fetch(`/sessions/${sessionId}/agents`, {
+      const res = await fetch(`${CHATS_API}/${sessionId}/agents`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, instructions }),
@@ -71,7 +72,7 @@ export function useChatAgents(sessionId: string | undefined) {
   const remove = useCallback(
     async (id: string) => {
       if (!sessionId) return;
-      const res = await fetch(`/sessions/${sessionId}/agents/${id}`, { method: "DELETE" }).catch(() => null);
+      const res = await fetch(`${CHATS_API}/${sessionId}/agents/${id}`, { method: "DELETE" }).catch(() => null);
       if (res?.ok) setAgents((current) => current.filter((agent) => agent.id !== id));
     },
     [sessionId],

@@ -17,9 +17,9 @@ const LOCAL = "local-1";
 function backend(start: { refuse?: string; status?: number; disclosure?: boolean } = {}) {
   let disclosureShown = false;
   return mockFetch(({ method, path, body }) => {
-    if (path === "/sessions" && method === "POST") return { body: { session_id: LOCAL } };
-    if (path === `/sessions/${LOCAL}` && method === "DELETE") return { status: 204 };
-    if (path === `/sessions/${LOCAL}/relay/start`) {
+    if (path === "/chats" && method === "POST") return { body: { session_id: LOCAL } };
+    if (path === `/chats/${LOCAL}` && method === "DELETE") return { status: 204 };
+    if (path === `/chats/${LOCAL}/relay/start`) {
       const ack = (body as { acknowledged_disclosure?: boolean }).acknowledged_disclosure;
       if (start.disclosure && !ack && !disclosureShown) {
         disclosureShown = true;
@@ -98,7 +98,7 @@ describe("Join chat page (#213, #459)", () => {
     expect(await screen.findByText("Joining sends your messages through the relay.")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /agree/i }));
     expect(await screen.findByText("chat page")).toBeInTheDocument();
-    expect(calls.filter((c) => c.path === "/sessions" && c.method === "POST")).toHaveLength(1);
+    expect(calls.filter((c) => c.path === "/chats" && c.method === "POST")).toHaveLength(1);
   });
 
   for (const [refuse, status, tag] of [
@@ -116,7 +116,7 @@ describe("Join chat page (#213, #459)", () => {
       await typeBoth();
       await userEvent.click(screen.getByRole("button", { name: "Join" }));
       expect(await screen.findByRole("alert")).toHaveTextContent(`(${tag})`);
-      await waitFor(() => expect(calls.some((c) => c.method === "DELETE" && c.path === `/sessions/${LOCAL}`)).toBe(true));
+      await waitFor(() => expect(calls.some((c) => c.method === "DELETE" && c.path === `/chats/${LOCAL}`)).toBe(true));
     });
   }
 

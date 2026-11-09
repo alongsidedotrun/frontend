@@ -53,6 +53,7 @@ import {
   XIcon,
 } from "@/components/icons/untitled-ui";
 import GlideMenu from "@/components/primitives/glide-menu";
+import { CHATS_API } from "@/lib/chats-api";
 
 /* ─────────────────────────────────────────────────────────
  * SIDEBAR NAV
@@ -1692,7 +1693,7 @@ export default function SidebarNav({
   }
 
   // A recent row's own id IS a real chat id now (recents, its own prop doc
-  // comment, is backed by GET /sessions -- the SQLite migration) -- its
+  // comment, is backed by GET /chats -- the SQLite migration) -- its
   // click handler (below) navigates to /chat/:id for real. Derived directly
   // from the URL (not local click-only state) so the highlight actually
   // clears when the route changes some other way -- New Chat, browser
@@ -1754,7 +1755,7 @@ export default function SidebarNav({
   // project or new project"). project_id: null clears it back to the root
   // "Chats" list ("Remove from project").
   async function assignChatToProject(chatId: string, projectId: string | null) {
-    await fetch(`/sessions/${chatId}/project`, {
+    await fetch(`${CHATS_API}/${chatId}/project`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ project_id: projectId }),
@@ -1769,7 +1770,7 @@ export default function SidebarNav({
 
   async function handleArchiveRecent(id: string) {
     setMenuOpenId(null);
-    await fetch(`/sessions/${id}/archive`, { method: "POST" });
+    await fetch(`${CHATS_API}/${id}/archive`, { method: "POST" });
     onRecentsChanged?.();
   }
 
@@ -1783,7 +1784,7 @@ export default function SidebarNav({
   // performs the delete `local_only` already tells the truth about,
   // regardless of what copy the row showed beforehand.
   async function handleConfirmDelete(id: string) {
-    const res = await fetch(`/sessions/${id}`, {
+    const res = await fetch(`${CHATS_API}/${id}`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sender_name: getUserDisplayName() }),
@@ -1792,7 +1793,7 @@ export default function SidebarNav({
     // shared chat/session completely untouched (this device isn't its
     // owner, hosting is on) -- the only real effect is on this device,
     // so it has to be recorded here to keep the chat hidden past a
-    // reload (the shared GET /sessions list still returns it forever
+    // reload (the shared GET /chats list still returns it forever
     // otherwise, since nothing about it actually changed server-side).
     const data: { local_only: boolean } | null = res.ok ? await res.json() : null;
     if (data?.local_only) hideChatLocally(id);

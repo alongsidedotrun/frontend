@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CheckIcon, XIcon } from "@/components/icons/untitled-ui";
+import { CHATS_API } from "@/lib/chats-api";
 
 // An agent's multiple-choice question (Claude's AskUserQuestion, Grok's x.ai/ask_user_question,
 // which the backend reshapes to the same input), shown above the compose box like the approval
@@ -67,7 +68,7 @@ export function QuestionCard({
     if (!sessionId || submitting) return;
     setSubmitting(true);
     try {
-      const response = await fetch(`/sessions/${sessionId}/permissions/${requestId}`, {
+      const response = await fetch(`${CHATS_API}/${sessionId}/permissions/${requestId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

@@ -1,4 +1,4 @@
-/** One foreground usage_observations row from GET /sessions/:id/usage. */
+/** One foreground usage_observations row from GET /chats/:id/usage. */
 export type RunUsageObservation = {
   event_id: number;
   message_event_id: number | null;

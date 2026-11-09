@@ -7,6 +7,7 @@ import { ErrorText } from "@/lib/error-code";
 import { SHARE_ERRORS, formatTypedId } from "@/lib/use-share";
 import { openSignInDialog } from "@/lib/use-sign-in";
 import { cn } from "@/lib/utils";
+import { CHATS_API } from "@/lib/chats-api";
 
 const CHAT_ID_GROUPS = [5, 5] as const;
 const CODE_GROUPS = [4, 4] as const;
@@ -50,7 +51,7 @@ export function JoinChatPage() {
   async function discardPending() {
     const id = pendingChat.current;
     pendingChat.current = null;
-    if (id) await fetch(`/sessions/${id}`, { method: "DELETE" }).catch(() => null);
+    if (id) await fetch(`${CHATS_API}/${id}`, { method: "DELETE" }).catch(() => null);
   }
 
   async function join(acknowledged: boolean) {
@@ -60,7 +61,7 @@ export function JoinChatPage() {
     try {
       let localChat = pendingChat.current;
       if (!localChat) {
-        const created = await fetch("/sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+        const created = await fetch(CHATS_API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
         if (created.status === 401) {
           openSignInDialog();
           return;
@@ -72,7 +73,7 @@ export function JoinChatPage() {
         localChat = ((await created.json()) as { session_id: string }).session_id;
         pendingChat.current = localChat;
       }
-      const response = await fetch(`/sessions/${localChat}/relay/start`, {
+      const response = await fetch(`${CHATS_API}/${localChat}/relay/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ relay_session_id: chatId, join_code: code, ...(acknowledged ? { acknowledged_disclosure: true } : {}) }),

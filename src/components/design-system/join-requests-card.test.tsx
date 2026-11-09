@@ -11,7 +11,7 @@ function backend(options: { decideFails?: boolean } = {}) {
   let waiting = [alice];
   const calls = mockFetch(({ method, path }) => {
     if (path === "/relay/join-requests") return { body: waiting };
-    if (method === "POST" && path.startsWith("/sessions/chat-1/relay/join-requests/req-1/")) {
+    if (method === "POST" && path.startsWith("/chats/chat-1/relay/join-requests/req-1/")) {
       if (options.decideFails) return { status: 502, body: { error: "relay_unavailable" } };
       waiting = [];
       return { status: 204 };

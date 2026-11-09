@@ -80,6 +80,7 @@ import {
   type TaskProgressItem,
   type TaskProgressStatus,
 } from "@/components/design-system/task-progress";
+import { CHATS_API } from "@/lib/chats-api";
 
 // A real agent reply now shows its own provider's mark (ProviderIcon, same as every
 // other place in this app a model icon renders), not always AlongsideLogo -- per
@@ -434,7 +435,7 @@ function nextRowId() {
 // wiring -- frontend/ is superseded now that the sidebar/auth/home shell
 // lives here (see Story 4.14, github.com/alongsidedotrun/alongside/issues/92). Same backend
 // endpoints and event shapes (the SDK's raw Message JSON over the
-// `/sessions/{id}/ws` WebSocket, plus the app's own human_message/
+// `/chats/{id}/ws` WebSocket, plus the app's own human_message/
 // user_joined/host_notice/chat_name_updated/replay_complete/rate_limited/
 // agent_timeout/turn_stopped events) as the old page, adapted to React
 // state instead of direct DOM manipulation.
@@ -590,7 +591,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     setChatHeaderName(name);
     if (!sessionId || name === chatName) return;
 
-    const response = await fetch(`/sessions/${sessionId}/name`, {
+    const response = await fetch(`${CHATS_API}/${sessionId}/name`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name }),
@@ -600,7 +601,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
 
   async function assignChatHeaderProject(projectId: string) {
     if (!sessionId) return;
-    const response = await fetch(`/sessions/${sessionId}/project`, {
+    const response = await fetch(`${CHATS_API}/${sessionId}/project`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ project_id: projectId }),
@@ -694,7 +695,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     if (!sessionId) return;
     let cancelled = false;
     const check = () =>
-      void fetch(`/sessions/${sessionId}/relay/status`)
+      void fetch(`${CHATS_API}/${sessionId}/relay/status`)
         .then((response) => (response.ok ? (response.json() as Promise<{ syncing?: boolean; role?: "owner" | "admin" | "editor" | "participant" | "reader" }>) : null))
         .then((status) => {
           if (!cancelled) {
@@ -887,7 +888,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   const [autocompactValue, setAutocompactValue] = useState("100000");
   // Per explicit request ("Compact per chat as a describer or Context per project as
   // a describer"): the Context dropdown's own label reflects which scope is actually
-  // active, and writes route to the matching endpoint -- /sessions/{id}/... for
+  // active, and writes route to the matching endpoint -- /chats/{id}/... for
   // "chat", /projects/{id}/... for "project" (chat_defaults's own project_id, only
   // meaningful once autocompactScope is "project").
   const [autocompactScope, setAutocompactScope] = useState<"chat" | "project" | "global">("chat");
@@ -1476,7 +1477,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   useEffect(() => {
     if (!sessionId) return;
     let cancelled = false;
-    fetch(`/sessions/${sessionId}/join-requests`)
+    fetch(`${CHATS_API}/${sessionId}/join-requests`)
       .then((response) => (response.ok ? response.json() : []))
       .then((pending: JoinRequest[]) => {
         if (!cancelled) setJoinRequests(pending);
@@ -2046,7 +2047,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               // "Claude Sonnet 5", its own hardcoded initial value) the moment
               // this very first message went out, which the backend then read as
               // a deliberate mid-chat switch.
-              void fetch(`/sessions/${sessionId}/messages`, {
+              void fetch(`${CHATS_API}/${sessionId}/messages`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -2137,7 +2138,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         setTurnInProgress(false);
         setWaitingPhase(null);
         if (automaticHandoffRef.current && !replayingRef.current) {
-          void fetch(`/sessions/${sessionId}/handoff`, { method: "POST" });
+          void fetch(`${CHATS_API}/${sessionId}/handoff`, { method: "POST" });
         }
         return;
       }
@@ -2326,7 +2327,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             handedOffAboveRef.current = false;
           } else if (shouldHandOff({ used, threshold: autocompactThresholdRef.current, automaticHandoff: automaticHandoffRef.current, handedOffAbove: handedOffAboveRef.current, replaying: replayingRef.current })) {
             handedOffAboveRef.current = true;
-            void fetch(`/sessions/${sessionId}/handoff`, { method: "POST" });
+            void fetch(`${CHATS_API}/${sessionId}/handoff`, { method: "POST" });
           }
         }
         return;
@@ -2668,7 +2669,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       replayingRef.current = true;
       // Resume from the last event this view has instead of replaying the whole chat on top of it.
       const after = lastEventIdRef.current > 0 ? `&after=${lastEventIdRef.current}` : "";
-      const ws = new WebSocket(`${protocol}://${location.host}/sessions/${sessionId}/ws?name=${wsUserName}${after}`);
+      const ws = new WebSocket(`${protocol}://${location.host}${CHATS_API}/${sessionId}/ws?name=${wsUserName}${after}`);
       wsRef.current = ws;
       ws.onopen = () => {
         retryDelayMs = 1000;
@@ -2756,7 +2757,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   useEffect(() => {
     function onPageHide() {
       if (awaitingReplyRef.current && sessionId) {
-        navigator.sendBeacon(`/sessions/${sessionId}/stop-turn`);
+        navigator.sendBeacon(`${CHATS_API}/${sessionId}/stop-turn`);
       }
     }
     window.addEventListener("pagehide", onPageHide);
@@ -2828,7 +2829,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       awaitingReplyRef.current = true;
       setWaitingPhase((phase) => phase ?? "waiting");
     }
-    const res = await fetch(`/sessions/${sessionId}/messages`, {
+    const res = await fetch(`${CHATS_API}/${sessionId}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       // model: only when the picker differs from the server session model.
@@ -2925,7 +2926,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     if (/^\/subtask(?:\s|$)/i.test(trimmed)) addTaskSubtask(trimmed);
     if (trimmed === "/summarize") {
       if (!sessionId) return false;
-      void fetch(`/sessions/${sessionId}/summarize`, { method: "POST" })
+      void fetch(`${CHATS_API}/${sessionId}/summarize`, { method: "POST" })
         .then(async (response) => {
           // Success shows as the recorded "Checkpoint saved" notice (live and on replay); a
           // row here as well made two messages for one checkpoint.
@@ -2994,7 +2995,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
 
   async function stopTurn() {
     if (!sessionId) return;
-    await fetch(`/sessions/${sessionId}/stop-turn`, { method: "POST" });
+    await fetch(`${CHATS_API}/${sessionId}/stop-turn`, { method: "POST" });
   }
 
   async function retryLastMessage() {
@@ -3105,7 +3106,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // back over the socket (this file's own handleEvent, above).
   async function switchBranch(group: string, index: number) {
     if (!sessionId) return;
-    await fetch(`/sessions/${sessionId}/branch-groups/${group}/select`, {
+    await fetch(`${CHATS_API}/${sessionId}/branch-groups/${group}/select`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ index }),
@@ -3679,7 +3680,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               return;
             }
             if (!sessionId) return;
-            void fetch(`/sessions/${sessionId}/default-autocompact`, {
+            void fetch(`${CHATS_API}/${sessionId}/default-autocompact`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ value, sender_name: getUserDisplayName() }),
@@ -3689,14 +3690,14 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           onSetAutomaticHandoff={(enabled) => {
             automaticHandoffRef.current = enabled;
             setAutomaticHandoff(enabled);
-            void fetch(`/sessions/${sessionId}/automatic-handoff`, {
+            void fetch(`${CHATS_API}/${sessionId}/automatic-handoff`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ enabled, sender_name: getUserDisplayName() }),
             });
           }}
           onHandoffNow={() => {
-            void fetch(`/sessions/${sessionId}/handoff`, { method: "POST" });
+            void fetch(`${CHATS_API}/${sessionId}/handoff`, { method: "POST" });
           }}
           // Claude and Codex take a message into the running turn (backend harness.rs's
           // supports_steer). One that can't land -- no turn live any more, or a failed
@@ -3708,7 +3709,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                   if (!trimmed || !sessionId) return;
                   if (/^\/subtask(?:\s|$)/i.test(trimmed)) addTaskSubtask(trimmed, "pickedUp");
                   const requeue = () => setQueuedMessages((queued) => [{ ...message, text: trimmed, id: crypto.randomUUID() }, ...queued]);
-                  void fetch(`/sessions/${sessionId}/steer`, {
+                  void fetch(`${CHATS_API}/${sessionId}/steer`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ text: trimmed, sender_name: getUserDisplayName() }),
@@ -4719,7 +4720,7 @@ function PermissionCard({
     if (!sessionId || submitting) return;
     setSubmitting(true);
     try {
-      const response = await fetch(`/sessions/${sessionId}/permissions/${requestId}`, {
+      const response = await fetch(`${CHATS_API}/${sessionId}/permissions/${requestId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -5174,7 +5175,7 @@ function sharedSendError(status: number): string | null {
 // kinds. Still on its way: "Receiving…". Gone before it got here: ask the sender to send it again.
 export function AttachmentView({ sessionId, file, sender, mine }: { sessionId: string; file: SharedFile; sender: string; mine: boolean }) {
   const { t } = useTranslation();
-  const url = `/sessions/${sessionId}/relay/files/${file.file_id}`;
+  const url = `${CHATS_API}/${sessionId}/relay/files/${file.file_id}`;
   const [state, setState] = useState<"loading" | "ready" | "pending" | "gone">("loading");
   useEffect(() => {
     let cancelled = false;

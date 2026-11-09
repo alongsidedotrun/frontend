@@ -56,6 +56,7 @@ import {
   TaskIcon,
   XIcon,
 } from "@/components/icons/untitled-ui";
+import { CHATS_API } from "@/lib/chats-api";
 
 type SpeechRecognitionLike = {
   start: () => void;
@@ -224,7 +225,7 @@ function nextImageId() {
 }
 
 // Shared by HomePage.tsx's own createSession and ChatPage.tsx's own sendMessage --
-// both send images to the same POST /sessions/{id}/messages endpoint (server.rs's
+// both send images to the same POST /chats/{id}/messages endpoint (server.rs's
 // own SendMessageRequest.images), which expects a bare media type and base64
 // payload, not the data: URL a <img src> preview needs.
 export function toImageInputs(images: ImageAttachment[]) {
@@ -1007,7 +1008,7 @@ export function ComposeBox({
   // onModelsChange also called here, not just set locally -- confirmed
   // directly as a second real bug on top of the above: HomePage.tsx's own
   // selectedModelsRef (what createSession actually reads to build the POST
-  // /sessions body) is only ever updated by selectModel's own manual-pick
+  // /chats body) is only ever updated by selectModel's own manual-pick
   // path below, so a model that only ever arrived via this async re-sync
   // left that ref permanently empty. This component's own visible trigger
   // and shake-check (selectedModels, local state) looked correctly
@@ -1310,7 +1311,7 @@ export function ComposeBox({
     // sender_name -- the chat-scoped endpoint owner-gates on it
     // (server.rs's own comment on set_chat_default_model has the full
     // reasoning).
-    await fetch(`/sessions/${chatId}/default-model`, {
+    await fetch(`${CHATS_API}/${chatId}/default-model`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ model: model.value, sender_name: getUserDisplayName() }),

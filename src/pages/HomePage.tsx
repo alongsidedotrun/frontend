@@ -22,12 +22,13 @@ import { WorkspaceBrandIcon, workspaceMonogram } from "@/components/design-syste
 import type { SettingsSection } from "@/components/settings-overlay";
 import { getUserDisplayName } from "@/lib/user";
 import type { PermissionMode } from "@/lib/last-used";
+import { CHATS_API } from "@/lib/chats-api";
 
 // Real port of frontend/index.html's "start a new chat" compose box --
 // frontend/ is superseded now that the sidebar/auth shell lives here (see
 // Story 4.14, github.com/alongsidedotrun/alongside/issues/92), so this is the one place that
 // flow should exist going forward, not a second copy kept in sync. Same
-// backend endpoints (POST /sessions, then POST /sessions/{id}/messages)
+// backend endpoints (POST /chats, then POST /chats/{id}/messages)
 // and the same alongside_api_key/alongside_user_name localStorage keys -- there's
 // still no real Settings UI to set the API key from inside this app, that
 // gap already exists independent of this page.
@@ -139,7 +140,7 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
     if (choosingDirectory) return;
     setChoosingDirectory(true);
     try {
-      const response = await fetch("/sessions/working-directory/pick", { method: "POST" });
+      const response = await fetch(`${CHATS_API}/working-directory/pick`, { method: "POST" });
       if (!response.ok) throw new Error(`Folder picker failed: ${response.status}`);
       const result: { path: string | null } = await response.json();
       if (result.path) setWorkingDirectory(result.path);
@@ -200,7 +201,7 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
       // Only the first selected model actually starts the session --
       // real multi-model "fusion" sessions aren't a thing the backend
       // supports yet, so a multi-select just picks which one leads today.
-      const res = await fetch("/sessions", {
+      const res = await fetch(CHATS_API, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -226,14 +227,14 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
       const senderName = userName;
       await Promise.all([
         pinnedDefaultModelRef.current
-          ? fetch(`/sessions/${data.session_id}/default-model`, {
+          ? fetch(`${CHATS_API}/${data.session_id}/default-model`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ model: pinnedDefaultModelRef.current, sender_name: senderName }),
             })
           : undefined,
         pinnedDefaultEffortRef.current
-          ? fetch(`/sessions/${data.session_id}/default-effort`, {
+          ? fetch(`${CHATS_API}/${data.session_id}/default-effort`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ effort: pinnedDefaultEffortRef.current, sender_name: senderName }),
@@ -244,7 +245,7 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
         // model/effort calls for the same reason: real before ChatPage's own
         // WS connects, not a race.
         pendingProjectId
-          ? fetch(`/sessions/${data.session_id}/project`, {
+          ? fetch(`${CHATS_API}/${data.session_id}/project`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ project_id: pendingProjectId }),

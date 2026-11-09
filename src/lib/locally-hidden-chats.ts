@@ -4,7 +4,7 @@
 // bug fix, confirmed directly: "delete in multiplayer should be something
 // like: The chat will be deleted at your local storage, other users will
 // not be affected"), so hiding it durably has to live here instead -- the
-// shared GET /sessions list keeps returning it forever otherwise, since
+// shared GET /chats list keeps returning it forever otherwise, since
 // nothing about it actually changed server-side. A Free tier chat (solo,
 // or this device's own chat even when hosting is on) never reaches this
 // path at all -- delete_session does a real delete for those -- so this

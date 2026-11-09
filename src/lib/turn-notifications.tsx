@@ -1,5 +1,6 @@
 import i18n from "@/i18n";
 import { useSyncExternalStore } from "react";
+import { CHATS_API } from "@/lib/chats-api";
 
 // In-app companion to the OS-level "Notify when a chat turn completes"
 // setting (lib/notify-turn-complete.ts) -- per explicit request ("the
@@ -58,7 +59,7 @@ export function dismissAllTurnNotifications() {
 export async function pruneMissingChatNotifications(): Promise<void> {
   if (notifications.length === 0) return;
   try {
-    const response = await fetch("/sessions");
+    const response = await fetch(CHATS_API);
     if (!response.ok) return;
     const sessions = (await response.json()) as Array<{ id: string }>;
     const liveIds = new Set(sessions.map((s) => s.id));

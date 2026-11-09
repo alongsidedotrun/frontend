@@ -88,6 +88,7 @@ import { Command, Loader2, RotateCcw, Trash2 } from "lucide-react";
 import { showErrorToast } from "@/components/ui/app-toast";
 import { ShellDialog, ShellDialogActions, SHELL_CARD_BOX, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
 import { cn } from "@/lib/utils";
+import { CHATS_API } from "@/lib/chats-api";
 
 // General owns the language and timezone controls. Story: Settings
 // "Application" section
@@ -3494,9 +3495,9 @@ function ArchivedSection({ kind }: { kind: ArchivedEntity["kind"] }) {
 
   async function mutate(entity: ArchivedEntity, action: "restore" | "delete") {
     setBusy(`${entity.kind}:${entity.id}`);
-    const plural = entity.kind === "workspace" ? "workspaces" : entity.kind === "project" ? "projects" : "sessions";
+    const plural = entity.kind === "workspace" ? "/workspaces" : entity.kind === "project" ? "/projects" : CHATS_API;
     const suffix = action === "restore" ? "/restore" : "";
-    const base = entity.kind === "chat" && action === "delete" ? "/archived/sessions" : `/${plural}`;
+    const base = entity.kind === "chat" && action === "delete" ? `/archived${CHATS_API}` : plural;
     const response = await fetch(`${base}/${encodeURIComponent(entity.id)}${suffix}`, { method: action === "restore" ? "POST" : "DELETE" }).catch(() => null);
     setBusy(null);
     if (!response?.ok) return;
