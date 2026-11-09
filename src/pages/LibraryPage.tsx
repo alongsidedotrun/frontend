@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useOutletContext } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { hotkeysCoreFeature, syncDataLoaderFeature } from "@headless-tree/core";
 import { useTree } from "@headless-tree/react";
@@ -97,12 +96,10 @@ function buildTreeItems(files: LibraryFile[]): Record<string, LibraryTreeItem> {
 
 function LibraryTreeView({
   files,
-  onOpenFile,
   onDeleteFile,
   onRenameFile,
 }: {
   files: LibraryFile[];
-  onOpenFile: (path: string) => void;
   onDeleteFile: (path: string) => void;
   onRenameFile: (path: string, newLeaf: string) => void;
 }) {
@@ -145,11 +142,6 @@ function LibraryTreeView({
                   <button> -- so MoreTrigger (a real <button>) has no
                   button ancestor to conflict with. */}
               <TreeItemLabel
-                // Opens the real right-side editor panel (issue #288, phase 1)
-                // instead of navigating to the source chat -- per that issue's
-                // own explicit direction, superseding Library's original
-                // "click opens the chat" behavior (issue #286).
-                onClick={() => onOpenFile(file.filePath)}
                 className="flex min-w-0 flex-1 items-center gap-1.5 py-1 pr-2 pl-2 text-xs text-foreground transition-colors hover:bg-hover-2/50"
               >
                 <LibraryFileNameCell
@@ -185,11 +177,6 @@ type ProjectGroup = { projectId: string; label: string; chats: ChatGroup[]; file
 // for its own search filtering) rather than needing a query param per view.
 export function LibraryPage() {
   const { t } = useTranslation();
-  const { openFile, rightPanelOpen, renameOpenFile } = useOutletContext<{
-    openFile: (path: string) => void;
-    rightPanelOpen: boolean;
-    renameOpenFile: (oldPath: string, newPath: string) => void;
-  }>();
   const [files, setFiles] = useState<LibraryFile[]>([]);
   const [loaded, setLoaded] = useState(false);
   // A Projects section (each expanding into the real headless-tree file
@@ -331,11 +318,6 @@ export function LibraryPage() {
   // directory, so it's just patched locally on success rather than
   // refetched; an older chat that touched this file under its old name
   // keeps pointing at the now-missing path until it's opened again.
-  // renameOpenFile -- real bug, confirmed directly ("the right sidebar
-  // still showing the not updated file name"): the file editor panel's
-  // own path prop, and everything it derives from that (the title,
-  // splitTitle's own filename fallback), never changes on its own just
-  // because Library renamed the file elsewhere -- it has to be told.
   async function renameFile(filePath: string, newLeaf: string) {
     const res = await fetch("/files/rename", {
       method: "POST",
@@ -345,7 +327,6 @@ export function LibraryPage() {
     if (!res.ok) return;
     const { path: newPath }: { path: string } = await res.json();
     setFiles((prev) => prev.map((f) => (f.filePath === filePath ? { ...f, filePath: newPath } : f)));
-    renameOpenFile(filePath, newPath);
   }
 
   function toggleProject(projectId: string) {
@@ -413,17 +394,7 @@ export function LibraryPage() {
                 chats' worth of nested folders) and a Chats section (each
                 expanding into a flat file list -- a single chat's own
                 files don't need folder-nesting UI). */}
-            {/* border-r dropped whenever a file is open (rightPanelOpen) --
-                real bug, confirmed directly ("our right sidebar has a
-                thick border because the left panel inside library has a
-                right border already"): AppLayout.tsx's own right-panel
-                drawer always draws a full-height 1px seam strip right
-                alongside this column once a file is open, so keeping this
-                border-r too doubled the line. Kept only for the "no file
-                open" state, where that strip isn't rendered at all and
-                this is the only thing separating the sidebar from the
-                empty space past it. */}
-            <div className={`flex w-64 shrink-0 flex-col gap-3 overflow-y-auto px-2 pt-2 pb-4 ${rightPanelOpen ? "" : "border-r border-border"}`}>
+            <div className="flex w-64 shrink-0 flex-col gap-3 overflow-y-auto border-r border-border px-2 pt-2 pb-4">
               <div className="flex flex-col gap-0.5">
                 <div className="mb-0.5 flex h-5 items-center px-2 text-xs font-normal text-foreground select-none">
                   <span className="opacity-50">{t("nav.projects")}</span>
@@ -447,7 +418,7 @@ export function LibraryPage() {
                         </button>
                         {expanded && (
                           <div className="pl-5">
-                            <LibraryTreeView files={project.files} onOpenFile={openFile} onDeleteFile={deleteFile} onRenameFile={renameFile} />
+                            <LibraryTreeView files={project.files} onDeleteFile={deleteFile} onRenameFile={renameFile} />
                           </div>
                         )}
                       </div>
@@ -487,20 +458,9 @@ export function LibraryPage() {
                                 // day ago and not after"): MoreTrigger is
                                 // itself a real <button>, which can't nest
                                 // inside another <button> without invalid
-                                // HTML. role="button"/tabIndex/onKeyDown below
-                                // keep the same click-and-keyboard-activate
-                                // behavior a real button gave for free.
+                                // HTML.
                                 <div
                                   key={file.filePath}
-                                  role="button"
-                                  tabIndex={0}
-                                  onClick={() => openFile(file.filePath)}
-                                  onKeyDown={(event) => {
-                                    if (event.key === "Enter" || event.key === " ") {
-                                      event.preventDefault();
-                                      openFile(file.filePath);
-                                    }
-                                  }}
                                   className="group flex w-full items-center gap-1.5 rounded-[6px] py-1 pr-2 pl-2 text-left text-xs text-foreground transition-colors hover:bg-hover-2/50"
                                 >
                                   <LibraryFileNameCell
