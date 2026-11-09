@@ -1438,7 +1438,7 @@ function BotsSection() {
               <BotFace avatar={bot.avatar ?? undefined} className="size-6" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-ui-sm font-medium text-foreground">@{bot.name}</span>
+              <span className="block truncate text-ui-sm font-medium text-foreground">{bot.name}</span>
               <span className="line-clamp-2 text-ui-2xs font-normal text-muted-foreground">{bot.description || t("settings.bots.noDescription")}</span>
             </span>
           </button>
@@ -1475,7 +1475,7 @@ function BotSettingsView({ bot, onOpenChat }: { bot: Bot; onOpenChat: (chatId: s
       <div className="mt-4 flex items-center gap-3">
         <BotFace avatar={bot.avatar ?? undefined} className="size-10 shrink-0" />
         <div className="min-w-0 flex-1">
-          <div className="truncate text-ui font-medium text-foreground">@{bot.name}</div>
+          <div className="truncate text-ui font-medium text-foreground">{bot.name}</div>
           <div className="truncate text-ui font-normal text-muted-foreground">{bot.description || t("settings.bots.noDescription")}</div>
         </div>
         {bot.chat_id ? (
