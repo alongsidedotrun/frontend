@@ -29,7 +29,7 @@ const suggestionPlugin = SuggestionPlugin as WithRequiredKey<SuggestionConfig>;
 
 export const suggestionVariants = cva(
   cn(
-    'bg-emerald-100 text-emerald-700 no-underline transition-colors duration-200'
+    'bg-emerald-100 text-emerald-700 no-underline transition-colors duration-160'
   ),
   {
     defaultVariants: {
@@ -286,9 +286,9 @@ export function SuggestionLineBreakContent({
   const { setOption } = useEditorPlugin(suggestionPlugin);
   const lineBreakBadgeClassName = cn(
     isInsert &&
-      'bg-transparent! text-emerald-700! transition-colors duration-200',
+      'bg-transparent! text-emerald-700! transition-colors duration-160',
     isInsert && (isActive || isHover) && 'bg-transparent! text-emerald-700!',
-    isRemove && 'bg-transparent! text-red-700! transition-colors duration-200',
+    isRemove && 'bg-transparent! text-red-700! transition-colors duration-160',
     isRemove && (isActive || isHover) && 'bg-transparent! text-red-700!'
   );
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { cn } from "@/lib/utils";
 
 // A bot's look (#504): Alongside's bot face in a colour, or an uploaded image.
@@ -12,7 +13,34 @@ export const BOT_EYES: readonly BotEyes[] = ["classic", "small", "close", "curio
 
 // The faces in public/bot-faces/alongside-bots-sprite.svg. The default is the bot at rest; the others are
 // its states (thinking while it works, happy when it's done...).
-export type BotExpression = "default" | "happy" | "thinking" | "sleeping" | "excited";
+export type BotExpression = "default" | "happy" | "thinking" | "sleeping" | "excited" | "curious" | "sad";
+
+/**
+ * What a bot is doing, as its face shows it (after OpenBot's avatar moods): at rest; excited while the
+ * person types to it; curious while it waits (on a provider, or for the person); thinking; working
+ * (attentive, breathing); pleased with a fresh reply, before settling back; sad when a turn failed.
+ */
+export type BotMood = "idle" | "typing" | "waiting" | "thinking" | "working" | "responded" | "failed";
+
+/** The face for a mood, and whether it breathes (a busy mood keeps moving). */
+export function moodFace(mood: BotMood): { expression: BotExpression; breathe: boolean } {
+  switch (mood) {
+    case "typing":
+      return { expression: "excited", breathe: false };
+    case "waiting":
+      return { expression: "curious", breathe: false };
+    case "thinking":
+      return { expression: "thinking", breathe: true };
+    case "working":
+      return { expression: "default", breathe: true };
+    case "responded":
+      return { expression: "happy", breathe: false };
+    case "failed":
+      return { expression: "sad", breathe: false };
+    default:
+      return { expression: "default", breathe: false };
+  }
+}
 
 // The face colours a bot can have, in the picker's order; the last (grey) is the default.
 export const BOT_COLORS = [
@@ -63,11 +91,13 @@ export function botGradient(color: string) {
   return `linear-gradient(to bottom, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0) 50%), linear-gradient(to bottom, ${top}, ${bottom})`;
 }
 
-// White eyes; only the white face's are dark, or they'd vanish into it.
+// White eyes; the white and cream faces' are dark, or they'd vanish into it (cream's white eyes were
+// hard to make out at sidebar size).
 const EYE = "#FFFFFF";
 const EYE_ON_LIGHT = "#111111";
+const LIGHT_BOT_COLORS = new Set(["#FFFFFF", "#EADBC0"]);
 function isLightBotColor(color: string) {
-  return color.toUpperCase() === "#FFFFFF";
+  return LIGHT_BOT_COLORS.has(color.toUpperCase());
 }
 // Arcs draw in the eyes' colour, whatever face they're on.
 const arc = (d: string) => <path d={d} fill="none" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />;
@@ -105,6 +135,20 @@ const EYES: Record<BotExpression, ReactNode> = {
       <circle cx="84" cy="54" r="10" />
     </>
   ),
+  // One eye a little smaller, as if tilting its head.
+  curious: (
+    <>
+      <rect x="38" y="39" width="12" height="30" rx="6" />
+      <rect x="78" y="45" width="12" height="20" rx="6" />
+    </>
+  ),
+  // Shorter eyes, their tops tipped in.
+  sad: (
+    <>
+      <rect x="38" y="46" width="12" height="22" rx="6" transform="rotate(-18 44 57)" />
+      <rect x="78" y="46" width="12" height="22" rx="6" transform="rotate(18 84 57)" />
+    </>
+  ),
 };
 
 // Each resting face: pill eyes set a few ways (the sprite's default is "classic"), or one of its faces.
@@ -120,8 +164,8 @@ const RESTING: Record<BotEyes, ReactNode> = {
 };
 
 // A blink: the eyes squash shut quickly and open a little slower. Changing face swaps them while shut.
-const CLOSE_MS = 90;
-const OPEN_MS = 150;
+const CLOSE_MS = 110;
+const OPEN_MS = 180;
 const SHUT_MS = 40;
 // A glance: the eyes slide to one side and back.
 const GLANCE_MS = 220;
@@ -134,6 +178,15 @@ const GAZE_DOWN = 12;
 const GAZE_UP = 6;
 const GAZE_MS = 120;
 const GAZE_IDLE_MS = 2500;
+// Changing face: the old eyes shrink away as the new ones grow in, overlapping a little (a glide, not
+// a blink). A face holds at least HOLD_MS, so a turn flicking between thinking and working (each
+// tool call) reads as one calm change rather than a twitch; the latest face asked for wins.
+const FACE_OUT = { duration: 0.18, ease: [0.4, 0, 1, 1] as const };
+const FACE_IN = { duration: 0.28, ease: [0.2, 0.8, 0.2, 1] as const, delay: 0.08 };
+const HOLD_MS = 900;
+// Breathing: a slow swell while busy; stopping, it eases back instead of jumping to rest.
+const BREATHE = { duration: 2.4, repeat: Infinity, ease: "easeInOut" as const };
+const BREATHE_STOP = { duration: 0.6, ease: [0.2, 0.8, 0.2, 1] as const };
 
 function prefersReducedMotion() {
   return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -148,11 +201,14 @@ export function BotFace({
   avatar = DEFAULT_BOT_AVATAR,
   expression = "default",
   animated = false,
+  breathe = false,
   className,
 }: {
   avatar?: BotAvatar;
   expression?: BotExpression;
   animated?: boolean;
+  /** A busy bot (thinking, working): it swells and settles slowly, like breathing. */
+  breathe?: boolean;
   className?: string;
 }) {
   const [shown, setShown] = useState(expression);
@@ -165,24 +221,22 @@ export function BotFace({
   const gradientId = `bot-face-${useId().replace(/:/g, "")}`;
   // Woken up (sleeping, then at rest): it looks around once its eyes are open.
   const [woke, setWoke] = useState(false);
-  const moving = animated && !prefersReducedMotion();
+  const reduceMotion = prefersReducedMotion();
+  const moving = animated && !reduceMotion;
 
-  // A new expression: blink into it, looking ahead.
+  // A new expression: it glides in (below), looking ahead, once the current one has held long enough.
+  const changedAt = useRef(0);
   useEffect(() => {
     if (expression === shown) return;
-    if (!moving) {
-      setShown(expression);
-      return;
-    }
-    setShut(true);
-    setLook(0);
+    const wait = reduceMotion ? 0 : Math.max(0, changedAt.current + HOLD_MS - Date.now());
     const swap = window.setTimeout(() => {
+      changedAt.current = Date.now();
+      setLook(0);
       setWoke(shown === "sleeping" && expression === "default");
       setShown(expression);
-      setShut(false);
-    }, CLOSE_MS + SHUT_MS);
+    }, wait);
     return () => window.clearTimeout(swap);
-  }, [expression, shown, moving]);
+  }, [expression, shown, reduceMotion]);
 
   // At rest: just woken, a look to each side; then every 3 to 4 seconds a blink or a glance.
   useEffect(() => {
@@ -261,7 +315,12 @@ export function BotFace({
   }
   const { top, bottom } = botShades(avatar.color);
   return (
-    <svg ref={svgRef} viewBox="0 0 128 128" aria-hidden="true" className={cn("shrink-0 overflow-visible", className)}>
+    <svg
+      ref={svgRef}
+      viewBox="0 0 128 128"
+      aria-hidden="true"
+      className={cn("shrink-0 overflow-visible", className)}
+    >
       <defs>
         <linearGradient id={gradientId} x1="0" y1="4" x2="0" y2="124" gradientUnits="userSpaceOnUse">
           <stop stopColor={top} />
@@ -272,12 +331,19 @@ export function BotFace({
           <stop offset="1" stopColor="white" stopOpacity="0" />
         </linearGradient>
       </defs>
+      <motion.g
+        style={{ transformBox: "fill-box", transformOrigin: "center" } as CSSProperties}
+        initial={false}
+        animate={breathe && !reduceMotion ? { scale: [1, 1.06, 1] } : { scale: 1 }}
+        transition={breathe && !reduceMotion ? BREATHE : BREATHE_STOP}
+      >
       <circle cx="64" cy="64" r="60" fill={`url(#${gradientId})`} />
       {!isSolidBotColor(avatar.color) && <circle cx="64" cy="64" r="60" fill={`url(#${gradientId}-sheen)`} />}
       <g
         style={{
           transform: gaze ? `translate(${gaze.x}px, ${gaze.y}px)` : `translateX(${look * GLANCE_X}px)`,
-          transition: moving ? `transform ${gaze ? GAZE_MS : GLANCE_MS}ms ${gaze ? "cubic-bezier(0, 0, 0.2, 1)" : "cubic-bezier(0.4, 0, 0.2, 1)"}` : undefined,
+          // Always eased (not only while it moves): a face that stops being the live one glides home.
+          transition: reduceMotion ? undefined : `transform ${gaze ? GAZE_MS : GLANCE_MS}ms ${gaze ? "cubic-bezier(0, 0, 0.2, 1)" : "cubic-bezier(0.4, 0, 0.2, 1)"}`,
         }}
       >
       <g
@@ -287,12 +353,23 @@ export function BotFace({
           transformBox: "fill-box",
           transformOrigin: "center",
           transform: shut ? "scaleY(0.1)" : "scaleY(1)",
-          transition: moving ? `transform ${shut ? CLOSE_MS : OPEN_MS}ms ${shut ? "cubic-bezier(0.4, 0, 1, 1)" : "cubic-bezier(0, 0, 0.2, 1)"}` : undefined,
+          transition: reduceMotion ? undefined : `transform ${shut ? CLOSE_MS : OPEN_MS}ms ${shut ? "cubic-bezier(0.4, 0, 1, 1)" : "cubic-bezier(0, 0, 0.2, 1)"}`,
         } as CSSProperties}
       >
-        {shown === "default" ? RESTING[avatar.eyes as BotEyes] ?? RESTING.classic : EYES[shown]}
+        <AnimatePresence initial={false}>
+          <motion.g
+            key={shown}
+            style={{ transformBox: "fill-box", transformOrigin: "center" } as CSSProperties}
+            initial={{ opacity: 0, scaleY: 0.3 }}
+            animate={{ opacity: 1, scaleY: 1, transition: reduceMotion ? { duration: 0 } : FACE_IN }}
+            exit={{ opacity: 0, scaleY: 0.3, transition: reduceMotion ? { duration: 0 } : FACE_OUT }}
+          >
+            {shown === "default" ? RESTING[avatar.eyes as BotEyes] ?? RESTING.classic : EYES[shown]}
+          </motion.g>
+        </AnimatePresence>
       </g>
       </g>
+      </motion.g>
     </svg>
   );
 }

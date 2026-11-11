@@ -26,8 +26,8 @@ export function ToggleElement(props: PlateElementProps) {
         <ChevronRight
           className={
             open
-              ? 'rotate-90 transition-transform duration-75'
-              : 'rotate-0 transition-transform duration-75'
+              ? 'rotate-90 transition-transform duration-80'
+              : 'rotate-0 transition-transform duration-80'
           }
         />
       </Button>

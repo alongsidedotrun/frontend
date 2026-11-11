@@ -232,7 +232,7 @@ function CodeBlockCombobox({
             className="h-9"
             value={searchValue}
             onValueChange={(value) => setSearchValue(value)}
-            placeholder="Search language..."
+            placeholder="Search language"
           />
           <CommandEmpty>No language found.</CommandEmpty>
 

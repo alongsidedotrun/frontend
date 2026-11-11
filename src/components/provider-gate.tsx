@@ -30,7 +30,7 @@ export function ProviderGate({ onConnect }: { onConnect: () => void }) {
       </div>
       <div>
         <h1 className="text-[length:clamp(15px,calc(12.55px+0.545cqw),18px)] font-normal text-foreground">{t("providerGate.title")}</h1>
-        <p className="mt-1.5 text-[length:var(--redesign-chat-text)] text-muted-foreground">{t("providerGate.body")}</p>
+        <p className="mt-1.5 text-chat text-muted-foreground">{t("providerGate.body")}</p>
       </div>
       <ShapeProvider defaultShape="pill">
         <Button type="button" variant="primary" className="h-9 px-5" leadingIcon={ProvidersIcon} onClick={onConnect}>
@@ -50,7 +50,7 @@ export function ProviderNotice({ onConnect }: { onConnect: () => void }) {
       // The limit warning's place and shape (tucked under the composer's top edge), in neutral colours.
       className="relative -mb-[var(--compose-shell-radius)] overflow-hidden rounded-t-[var(--compose-shell-radius)] border border-b-0 border-border bg-muted text-foreground"
     >
-      <div className="flex min-h-7 items-center gap-2 px-4 pt-1.5 pb-[calc(var(--compose-shell-radius)+0.375rem)] text-[length:var(--redesign-chat-meta)]">
+      <div className="flex min-h-7 items-center gap-2 px-4 pt-1.5 pb-[calc(var(--compose-shell-radius)+0.375rem)] text-chat-meta">
         <ProvidersIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate">{t("providerGate.notice")}</span>
         <button

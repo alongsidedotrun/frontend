@@ -101,6 +101,8 @@ export function loadLastModel(): string | null {
 }
 
 export function saveLastModel(value: string) {
+  // "Let the bot choose" (a bot's chat) isn't a model: "last used" stays the last one picked.
+  if (value === "auto") return;
   cache.model = value;
   persist({ model: value });
 }

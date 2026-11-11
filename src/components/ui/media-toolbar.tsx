@@ -87,7 +87,7 @@ export function MediaToolbar({
 
               <FloatingMediaPrimitive.UrlInput
                 className={inputVariants()}
-                placeholder="Paste the embed link..."
+                placeholder="Paste the embed link"
                 options={{ plugin }}
               />
             </div>

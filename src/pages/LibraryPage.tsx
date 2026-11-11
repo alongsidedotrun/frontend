@@ -380,8 +380,8 @@ export function LibraryPage() {
               <AlongsideLogo className="size-[32px] text-black dark:text-white" />
             </div>
             <div className="absolute left-1/2 w-full max-w-[22rem] -translate-x-1/2 text-center" style={{ top: "calc(50% + 16px + 12px)" }}>
-              <h1 className="text-[18px] font-normal text-foreground">{t("library.empty.heading")}</h1>
-              <p className="mt-2 text-[13px] font-normal text-muted-foreground">{t("library.empty.subheading")}</p>
+              <h1 className="text-ui-2xl font-normal text-foreground">{t("library.empty.heading")}</h1>
+              <p className="mt-2 text-ui font-normal text-muted-foreground">{t("library.empty.subheading")}</p>
             </div>
           </motion.div>
         ) : (

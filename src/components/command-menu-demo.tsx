@@ -15,10 +15,15 @@ import {
 } from "@/components/ui/command-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 
+// Listed first while nothing is typed: starting something, then Settings.
+const SUGGESTIONS = ["new-chat", "new-bot", "join-chat", "settings"];
+
 type CommandMenuDemoProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   items: readonly CommandMenuItemData[];
+  /** No provider yet: ⌘K opens nothing (the sidebar's Quick actions is disabled too). */
+  disabled?: boolean;
 };
 
 /**
@@ -26,11 +31,11 @@ type CommandMenuDemoProps = {
  * filtering, keyboard navigation, focus trapping, and the full-screen dialog
  * backdrop; the shell supplies only real, currently available actions.
  */
-export function CommandMenuDemo({ open, onOpenChange, items }: CommandMenuDemoProps) {
+export function CommandMenuDemo({ open, onOpenChange, items, disabled = false }: CommandMenuDemoProps) {
   const { t } = useTranslation();
   // Tab and type values are the items' group names, which the shell sets from
   // the same keys (RedesignPage), so filtering matches in every language.
-  const groups = [t("shell.commands.group.actions"), t("nav.chats"), t("nav.settings")];
+  const groups = [t("shell.commands.group.actions"), t("bots.title"), t("nav.chats"), t("nav.settings")];
   const tabs = [{ value: "all", label: t("commandMenu.tabs.all") }, ...groups.map((group) => ({ value: group, label: group }))];
   const types = [{ value: "all", label: t("commandMenu.filters.allTypes") }, ...groups.map((group) => ({ value: group, label: group }))];
   const sorts = [
@@ -49,15 +54,15 @@ export function CommandMenuDemo({ open, onOpenChange, items }: CommandMenuDemoPr
 
   return (
     <CommandMenuDialog
-      open={open}
+      open={open && !disabled}
       onOpenChange={onOpenChange}
-      shortcut="mod+k"
+      shortcut={disabled ? null : "mod+k"}
       title={t("shell.quickActions")}
       description={t("commandMenu.description")}
       className="!border !border-white/[0.08] !bg-background/80 backdrop-blur-xl"
       backdropClassName="!bg-background/45 !backdrop-blur-sm"
     >
-      <CommandMenu items={visibleItems} suggestions={["new-chat", "new-project", "settings"]} suggestionsLabel={t("commandMenu.suggestions")}>
+      <CommandMenu items={visibleItems} suggestions={SUGGESTIONS} suggestionsLabel={t("commandMenu.suggestions")}>
         <CommandMenuInput placeholder={t("commandMenu.placeholder")} />
         <CommandMenuTabs tabs={tabs} value={tab} onValueChange={setTab} tabsLabel={t("commandMenu.filterResults")}>
           <CommandMenuFilters>

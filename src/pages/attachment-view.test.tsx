@@ -15,7 +15,7 @@ describe("a file in a shared chat (#460)", () => {
   it("says it's on its way while it's still being fetched", async () => {
     mockFetch(() => ({ status: 404, body: { state: "pending" } }));
     render(<AttachmentView sessionId="chat-1" file={png} sender="Alice" mine={false} />);
-    expect(await screen.findByText("Receiving…")).toBeInTheDocument();
+    expect(await screen.findByText("Receiving")).toBeInTheDocument();
   });
 
   it("asks for it again when it expired before it arrived", async () => {

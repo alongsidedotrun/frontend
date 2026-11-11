@@ -1,4 +1,4 @@
-import { useState, type ComponentType, type ReactNode } from "react";
+import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { ICON_PRESS, PRESS_EFFECT } from "@/lib/press-effect";
@@ -49,13 +49,31 @@ export type SidebarSectionAction = {
   onSelect: () => void;
 };
 
+/** An entry in a section's "..." menu (e.g. Chats: New chat, New project). */
+export type SidebarSectionMenuEntry = { id: string; label: string; icon?: IconComponent; onSelect: () => void };
+
 export type SidebarSection = {
   id: string;
   label: string;
   items?: readonly SidebarSectionItem[];
   emptyLabel?: string;
   action?: SidebarSectionAction;
+  /** A "..." menu left of the action (+), shown with it: on hover for a drawer. */
+  menu?: readonly SidebarSectionMenuEntry[];
+  /** A drawer: its heading shows an arrow that opens and closes its rows (closed at first; what's
+   *  open is remembered on this device), and its action (+) only on hover. */
+  collapsible?: boolean;
 };
+
+const OPEN_SECTIONS_KEY = "alongside_sidebar_open_sections";
+
+function readOpenSections(): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(OPEN_SECTIONS_KEY) ?? "[]") as string[]);
+  } catch {
+    return new Set();
+  }
+}
 
 type SidebarSectionsProps = {
   sections: readonly SidebarSection[];
@@ -72,17 +90,48 @@ type SidebarSectionsProps = {
  * rows later without changing the surrounding navigation layout.
  */
 export function SidebarSections({ sections, activeItemId, onItemSelect, expandedIds, onToggleExpanded, className }: SidebarSectionsProps) {
+  const [openSections, setOpenSections] = useState<Set<string>>(readOpenSections);
+  const toggleSection = (id: string) => {
+    setOpenSections((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      try {
+        localStorage.setItem(OPEN_SECTIONS_KEY, JSON.stringify([...next]));
+      } catch {
+        // storage blocked: as toggled, for this session
+      }
+      return next;
+    });
+  };
   return (
     <div className={cn("flex flex-col gap-[var(--redesign-sidebar-section-gap)]", className)}>
       {sections.map((section) => (
         <section key={section.id} aria-labelledby={`sidebar-section-${section.id}`}>
-          <div className="flex h-[var(--redesign-quick-actions-row-height)] items-center px-[var(--redesign-quick-actions-padding)]">
-            <h2
-              id={`sidebar-section-${section.id}`}
-              className="text-[length:var(--redesign-font-size-compact)] font-medium text-muted-foreground"
-            >
-              {section.label}
-            </h2>
+          <div className="group/section-header flex h-[var(--redesign-quick-actions-row-height)] items-center px-[var(--redesign-quick-actions-padding)]">
+            {section.collapsible ? (
+              // The heading opens and closes the drawer (so does its arrow, at the end).
+              <button
+                type="button"
+                aria-expanded={openSections.has(section.id)}
+                onClick={() => toggleSection(section.id)}
+                className="flex h-full min-w-0 flex-1 items-center text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <h2 id={`sidebar-section-${section.id}`} className="truncate text-ui-xs font-medium text-muted-foreground">
+                  {section.label}
+                </h2>
+              </button>
+            ) : (
+              <h2
+                id={`sidebar-section-${section.id}`}
+                className="text-ui-xs font-medium text-muted-foreground"
+              >
+                {section.label}
+              </h2>
+            )}
+            {section.menu && section.menu.length > 0 && (
+              <SectionMenu section={section} entries={section.menu} />
+            )}
             {section.action ? (() => {
               const Icon = section.action.icon;
               return (
@@ -90,16 +139,52 @@ export function SidebarSections({ sections, activeItemId, onItemSelect, expanded
                   type="button"
                   aria-label={section.action.label}
                   onClick={section.action.onSelect}
-                  className={cn("ml-auto flex size-[var(--redesign-quick-actions-icon-size)] items-center justify-center rounded-[var(--redesign-dropdown-row-radius)] text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", PRESS_EFFECT, ICON_PRESS)}
+                  className={cn(
+                    "flex size-[var(--redesign-quick-actions-icon-size)] items-center justify-center rounded-[var(--redesign-dropdown-row-radius)] text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    // The menu, when there is one, comes first and takes the push to the right.
+                    !section.menu?.length && "ml-auto",
+                    // A drawer's + only while its heading is hovered (or reached with the keyboard).
+                    section.collapsible && "opacity-0 transition-opacity duration-160 group-hover/section-header:opacity-100 focus-visible:opacity-100",
+                    PRESS_EFFECT,
+                    ICON_PRESS,
+                  )}
                 >
                   <Icon aria-hidden="true" strokeWidth={2} className="size-[calc(var(--redesign-font-size-compact)-1px)]" />
                 </button>
               );
             })() : null}
+            {section.collapsible && (
+              // The same arrow as a project row's, turned down when open. The heading is its button for
+              // keyboards and screen readers; this one is for the pointer.
+              <button
+                type="button"
+                tabIndex={-1}
+                aria-hidden="true"
+                onClick={() => toggleSection(section.id)}
+                className={cn("flex size-[var(--redesign-quick-actions-icon-size)] shrink-0 items-center justify-center text-muted-foreground", !section.action && "ml-auto")}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={cn(
+                    "size-3.5 transform-gpu transition-[opacity,scale,rotate] duration-160 ease-out hover:opacity-70 active:scale-[0.9] motion-reduce:transition-none",
+                    openSections.has(section.id) && "rotate-90",
+                  )}
+                >
+                  <path d="M9 6L15 12L9 18" />
+                </svg>
+              </button>
+            )}
           </div>
-          {section.items ? (
-            // No flex gap: each row carries its own gap inside RowReveal, so a
-            // row collapsing to zero takes its gap with it instead of jumping.
+          <AnimatePresence initial={false}>
+          {section.items && (!section.collapsible || openSections.has(section.id)) ? (
+          <RowReveal key="rows" gap={false}>
+            {/* No flex gap: each row carries its own gap inside RowReveal, so a
+                row collapsing to zero takes its gap with it instead of jumping. */}
             <div className="mt-[calc(var(--redesign-sidebar-section-row-offset)-var(--redesign-quick-actions-row-gap))] flex flex-col">
               <AnimatePresence initial={false}>
                 {section.items.map((item) => {
@@ -127,7 +212,7 @@ export function SidebarSections({ sections, activeItemId, onItemSelect, expanded
                                 ))
                               ) : item.childrenEmptyLabel ? (
                                 <RowReveal key="empty">
-                                  <p className="flex h-[var(--redesign-quick-actions-row-height)] items-center pr-[var(--redesign-quick-actions-padding)] pl-[calc(var(--redesign-quick-actions-padding)+12px)] text-[length:var(--redesign-font-size-base)] font-medium text-muted-foreground opacity-70">
+                                  <p className="flex h-[var(--redesign-quick-actions-row-height)] items-center pr-[var(--redesign-quick-actions-padding)] pl-[calc(var(--redesign-quick-actions-padding)+12px)] text-chat font-medium text-muted-foreground opacity-70">
                                     {item.childrenEmptyLabel}
                                   </p>
                                 </RowReveal>
@@ -142,17 +227,52 @@ export function SidebarSections({ sections, activeItemId, onItemSelect, expanded
                 {/* In the same list, so the last row leaving cross-fades into it. */}
                 {!section.items.length && section.emptyLabel ? (
                   <RowReveal key="__empty">
-                    <p className="flex h-[var(--redesign-quick-actions-row-height)] items-center px-[var(--redesign-quick-actions-padding)] text-[length:var(--redesign-font-size-base)] font-medium text-muted-foreground opacity-70">
+                    <p className="flex h-[var(--redesign-quick-actions-row-height)] items-center px-[var(--redesign-quick-actions-padding)] text-chat font-medium text-muted-foreground opacity-70">
                       {section.emptyLabel}
                     </p>
                   </RowReveal>
                 ) : null}
               </AnimatePresence>
             </div>
+          </RowReveal>
           ) : null}
+          </AnimatePresence>
         </section>
       ))}
     </div>
+  );
+}
+
+/** A section heading's "..." menu: the row menu's trigger and dropdown, shown like the section's +
+ *  (on hover for a drawer, always otherwise) and kept visible while open. */
+function SectionMenu({ section, entries }: { section: SidebarSection; entries: readonly SidebarSectionMenuEntry[] }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  return (
+    <DropdownMenu size="compact" open={open} onOpenChange={setOpen}>
+      <div
+        className={cn(
+          "ml-auto flex transition-opacity duration-160",
+          section.collapsible && !open && "opacity-0 group-hover/section-header:opacity-100 group-has-[:focus-visible]/section-header:opacity-100",
+        )}
+      >
+        <DropdownTrigger
+          render={
+            <MoreTrigger
+              aria-label={t("shell.rowOptions", { name: section.label })}
+              active={open}
+              autoHide={false}
+              className={cn(PRESS_EFFECT, ICON_PRESS)}
+            />
+          }
+        />
+      </div>
+      <DropdownContent side="bottom" align="start" sideOffset={4} className="w-48 min-w-0">
+        {entries.map((entry, index) => (
+          <MenuItem key={entry.id} index={index} icon={entry.icon} label={entry.label} className="text-ui-sm" onSelect={entry.onSelect} />
+        ))}
+      </DropdownContent>
+    </DropdownMenu>
   );
 }
 
@@ -160,15 +280,49 @@ export function SidebarSections({ sections, activeItemId, onItemSelect, expanded
 const REVEAL = { type: "spring" as const, duration: 0.26, bounce: 0 };
 const REVEAL_EXIT = { duration: 0.18, ease: [0.4, 0, 0.2, 1] as const };
 
+const SMOOTH_FRAME_MS = 34;
+const SETTLE_MAX_MS = 800;
+
+/** True once two frames in a row have come quickly (the page isn't busy), or after SETTLE_MAX_MS. */
+function useSmoothFrames() {
+  const [smooth, setSmooth] = useState(false);
+  useEffect(() => {
+    let frame = 0;
+    let last = performance.now();
+    let quick = 0;
+    const started = last;
+    const tick = (now: number) => {
+      quick = now - last < SMOOTH_FRAME_MS ? quick + 1 : 0;
+      last = now;
+      if (quick >= 2 || now - started > SETTLE_MAX_MS) {
+        setSmooth(true);
+        return;
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  return smooth;
+}
+
 /** Grows a row (or a project's drawer) open from zero height while fading
  *  it in, and the reverse on the way out. Clipping is only on while moving,
  *  so focus rings aren't cut off at rest. */
 function RowReveal({ children, gap = true }: { children: ReactNode; gap?: boolean }) {
   const reduceMotion = useReducedMotion();
+  // A row usually arrives while the page is busy (a new chat or bot opening): frames 100-400ms apart, so
+  // an animation started then jumps to its end. It waits, closed, until frames run smoothly again (at
+  // most SETTLE_MAX_MS), then opens. A row already there when the list first shows doesn't animate.
+  const settled = useSmoothFrames();
   return (
     <motion.div
       initial={{ height: 0, opacity: 0, overflow: "hidden" }}
-      animate={{ height: "auto", opacity: 1, transition: reduceMotion ? { duration: 0 } : REVEAL, transitionEnd: { overflow: "visible" } }}
+      animate={
+        settled || reduceMotion
+          ? { height: "auto", opacity: 1, transition: reduceMotion ? { duration: 0 } : REVEAL, transitionEnd: { overflow: "visible" } }
+          : { height: 0, opacity: 0, overflow: "hidden" }
+      }
       exit={{ height: 0, opacity: 0, overflow: "hidden", transition: reduceMotion ? { duration: 0 } : REVEAL_EXIT }}
       className={cn("flex flex-col", gap && "pt-[var(--redesign-quick-actions-row-gap)]")}
     >
@@ -200,7 +354,7 @@ function SidebarRow({
   // A child row without its own icon (a chat inside a project) gets a bullet in its place.
   const bullet = nested && !Icon && <span aria-hidden="true" className="size-1 shrink-0 rounded-full bg-current opacity-60" />;
   const rowClass = cn(
-    "flex h-[var(--redesign-quick-actions-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-left text-[length:var(--redesign-sidebar-primary-font-size)] font-normal text-muted-foreground transition-colors",
+    "flex h-[var(--redesign-quick-actions-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-left text-chat font-normal text-muted-foreground transition-colors",
     // Only the open chat looks selected; opening a row's "..." menu doesn't.
     active && "bg-muted font-medium text-foreground",
     // Children sit indented under their parent, behind a bullet.
@@ -218,7 +372,7 @@ function SidebarRow({
       // The cog's press feedback: fades on hover, dips when pressed (on it or
       // anywhere on the row, since the whole row toggles).
       className={cn(
-        "ml-auto size-3.5 shrink-0 text-muted-foreground transform-gpu transition-[opacity,scale,rotate] duration-150 ease-out hover:opacity-70 active:scale-[0.9] group-active/row-button:scale-[0.9] motion-reduce:transition-none motion-reduce:active:scale-100",
+        "ml-auto size-3.5 shrink-0 text-muted-foreground transform-gpu transition-[opacity,scale,rotate] duration-160 ease-out hover:opacity-70 active:scale-[0.9] group-active/row-button:scale-[0.9] motion-reduce:transition-none motion-reduce:active:scale-100",
         expanded && "rotate-90",
       )}
     >
@@ -285,7 +439,7 @@ function SidebarRow({
               (PRESS_EFFECT, like the cog) doesn't fight it. */}
           <div
             className={cn(
-              "absolute top-1/2 flex -translate-y-1/2 transition-opacity duration-150",
+              "absolute top-1/2 flex -translate-y-1/2 transition-opacity duration-160",
               // Past the chevron (14px) and a small gap, or at the edge when there's none.
               menuBeforeChevron ? "right-[calc(var(--redesign-quick-actions-padding)+18px)]" : "right-1.5",
               menuOpen ? "opacity-100" : "opacity-0 group-hover/sidebar-row:opacity-100 group-has-[:focus-visible]/sidebar-row:opacity-100",
@@ -307,9 +461,9 @@ function SidebarRow({
               if (entry.kind === "separator") return <DropdownSeparator key={entry.id} />;
               if (entry.kind === "submenu") {
                 return (
-                  <DropdownSubMenuItem key={entry.id} index={index++} icon={entry.icon} label={entry.label} chevron className="text-[12px]">
+                  <DropdownSubMenuItem key={entry.id} index={index++} icon={entry.icon} label={entry.label} chevron className="text-ui-sm">
                     {entry.entries.map((sub) => (
-                      <DropdownSubItem key={sub.id} className="justify-between gap-2 py-1.5 pl-2.5 text-[12px]" onClick={sub.onSelect}>
+                      <DropdownSubItem key={sub.id} className="justify-between gap-2 py-1.5 pl-2.5 text-ui-sm" onClick={sub.onSelect}>
                         <span className="truncate">{sub.label}</span>
                         {sub.checked && (
                           <svg aria-hidden="true" viewBox="0 0 24 24" className="size-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -328,7 +482,7 @@ function SidebarRow({
                   icon={entry.icon}
                   label={entry.label}
                   destructive={entry.kind === "action" && entry.destructive}
-                  className="text-[12px]"
+                  className="text-ui-sm"
                   onSelect={() => {
                     if (entry.kind === "rename") {
                       setDraft(item.label);

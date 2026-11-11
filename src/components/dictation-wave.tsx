@@ -59,7 +59,7 @@ export function DictationWave({ stream, className }: { stream: MediaStream | nul
         <span
           key={index}
           className={cn(
-            "w-[2px] rounded-full transition-[height,background-color] duration-75",
+            "w-[2px] rounded-full transition-[height,background-color] duration-80",
             level < QUIET ? "bg-muted-foreground/50" : "bg-foreground",
           )}
           style={{ height: level < QUIET ? 2 : Math.max(4, Math.round(level * 16)) }}

@@ -1,7 +1,7 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { BotIcon } from "@/components/icons/bot-icon";
-import { ShellDialog, ShellDialogActions, ShellField, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
+import { ShellDialog, ShellDialogActions, ShellField, SHELL_CARD_BOX, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE, useShellCard } from "@/components/design-system/shell-dialog";
 import { AGENT_NAME_PATTERN, type AddAgentError } from "@/lib/chat-agents";
 import { BotAvatarPicker, BotEyesPicker, BotSwatches } from "@/components/bot-avatar-picker";
 import { BotFace, DEFAULT_BOT_AVATAR, useBotMood, type BotAvatar, type BotExpression } from "@/components/bot-face";
@@ -76,6 +76,7 @@ export function BotFields({
   const nameId = useId();
   const descriptionId = useId();
   const instructionsId = useId();
+  const card = useShellCard();
   const [pickerOpen, setPickerOpen] = useState(false);
   return (
     <div className="flex flex-col gap-3">
@@ -119,7 +120,7 @@ export function BotFields({
       )}
       {!bare && <ShellField label={t("agents.fields.name")} htmlFor={nameId}>
         {/* An agent is asked by @name in its chat; a bot is talked to directly, so no @. */}
-        {!forBot && <span className="text-[13px] text-muted-foreground">@</span>}
+        {!forBot && <span className="text-ui text-muted-foreground">@</span>}
         <input
           id={nameId}
           autoFocus={autoFocus}
@@ -145,8 +146,8 @@ export function BotFields({
       {/* The New bot page has no instructions: they're given once the bot exists. */}
       {/* A bot's instructions are given in its chat; only a chat's agent is told its speciality here. */}
       {!bare && !forBot && (
-        <section className={cn("flex flex-col gap-1 px-3 pt-2 pb-1", SHELL_RADIUS, SHELL_SURFACE)}>
-          <label htmlFor={instructionsId} className="text-[12px] text-muted-foreground">{t("agents.fields.instructions")}</label>
+        <section className={cn("flex flex-col gap-1", card ? cn("px-4 pt-2.5 pb-1.5", SHELL_CARD_BOX) : cn("px-3 pt-2 pb-1", SHELL_RADIUS, SHELL_SURFACE))}>
+          <label htmlFor={instructionsId} className="text-ui-sm text-muted-foreground">{t("agents.fields.instructions")}</label>
           <textarea
             id={instructionsId}
             value={draft.instructions}
@@ -154,7 +155,7 @@ export function BotFields({
             placeholder={t("agents.fields.instructionsPlaceholder")}
             maxLength={8000}
             rows={5}
-            className="resize-none bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground/70"
+            className="resize-none bg-transparent text-ui text-foreground outline-none placeholder:text-muted-foreground/70"
           />
         </section>
       )}

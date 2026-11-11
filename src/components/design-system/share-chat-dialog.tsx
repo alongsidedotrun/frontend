@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { ShapeProvider } from "@/lib/shape-context";
 import { MoreTrigger } from "@/components/ui/more-trigger";
-import { ShellDialog, ShellDialogActions, ShellField, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
+import { ShellDialog, ShellDialogActions, ShellField, SHELL_CARD_BOX, SHELL_RADIUS, SHELL_SURFACE, useShellCard } from "@/components/design-system/shell-dialog";
 import { useIsSignedIn } from "@/lib/auth";
 import { ErrorText } from "@/lib/error-code";
 import { SHARE_ERRORS } from "@/lib/use-share";
@@ -246,6 +246,31 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
     await refreshAccess();
   }
 
+  // New code: replaces the chat's join code (the old one stops working at once; a chat has one live
+  // code), for the role picked, without copying an invite as Invite does.
+  async function newCode() {
+    if (!sessionId || !sharing) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(`/sessions/${sessionId}/relay/code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+      });
+      if (!response.ok) {
+        setError(t(await errorKeyOf(response, "shareChat.errors.code")));
+        return;
+      }
+      const made = (await response.json()) as { code: string; expires_at: number; role?: Role };
+      setCode({ code: made.code, status: "active", expires_at: made.expires_at, role: made.role ?? role });
+    } catch {
+      setError(t("shareChat.errors.code"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function revokeCode() {
     if (!sessionId) return;
     await fetch(`/sessions/${sessionId}/relay/code`, { method: "DELETE" }).catch(() => null);
@@ -285,7 +310,10 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
   const state: ChatState = !sharing ? "notShared" : members.length > 1 ? "shared" : "pending";
 
   return (
+    // The waitlist pages' card style (ShellLook): the Alongside mark above a rounded card, pill fields and buttons.
     <ShellDialog
+      look="card"
+      headerAlign="left"
       open={open}
       onOpenChange={onOpenChange}
       top={
@@ -294,9 +322,9 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
           <ShapeProvider defaultShape="pill">
             <Tabs size="compact" value={tab} onValueChange={(value) => setTab(value as "invite" | "manage")} className="self-center">
               {/* The selected tab (the list's first child) as a white pill with a light shadow, like Library / Recents. */}
-              <TabsList className="[&>div:first-child]:!bg-background [&>div:first-child]:!shadow-[0_1px_2px_rgba(0,0,0,0.12),0_0_0_0.5px_rgba(0,0,0,0.08)] dark:[&>div:first-child]:!bg-white/12">
-                <TabItem value="invite" label={t("shareChat.tabs.invite")} className={TAB_CLASS} />
-                <TabItem value="manage" label={t("shareChat.tabs.manage")} className={TAB_CLASS} />
+              <TabsList>
+                <TabItem value="invite" label={t("shareChat.tabs.invite")} />
+                <TabItem value="manage" label={t("shareChat.tabs.manage")} />
               </TabsList>
             </Tabs>
           </ShapeProvider>
@@ -306,7 +334,7 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
       badge={
         // Pending or Shared; nothing until the chat is shared.
         signedIn && phase !== "loading" && state !== "notShared" && (
-          <span className="flex h-5 items-center gap-1.5 rounded-full border border-[var(--redesign-sidebar-border)] px-2 text-[11px] text-foreground">
+          <span className="flex h-5 items-center gap-1.5 rounded-full border border-[var(--redesign-sidebar-border)] px-2 text-ui-xs text-foreground">
             <span aria-hidden="true" className={cn("size-1.5 rounded-full", state === "shared" ? "bg-emerald-500" : "bg-amber-500")} />
             {t(`shareChat.state.${state}`)}
           </span>
@@ -318,10 +346,13 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
           cancelLabel={t("common.cancel")}
           onCancel={() => onOpenChange(false)}
           primary={
-            signedIn && phase === "ready"
-              ? // Invite on New invite; Save (the member changes) on Manage members.
-                { label: t(tab === "invite" ? "shareChat.invite" : "common.save"), disabled: busy || (tab === "manage" && !hasEdits(edits)), onClick: () => (tab === "invite" ? invite() : void save()) }
-              : undefined
+            !signedIn
+              ? // Signed out: the same invite, with Sign in as its action (the Sign in page).
+                { label: t("shareChat.signInButton"), onClick: () => { onOpenChange(false); openSignInDialog(); } }
+              : phase === "ready"
+                ? // Invite on New invite; Save (the member changes) on Manage members.
+                  { label: t(tab === "invite" ? "shareChat.invite" : "common.save"), disabled: busy || (tab === "manage" && !hasEdits(edits)), onClick: () => (tab === "invite" ? invite() : void save()) }
+                : undefined
           }
         />
       }
@@ -330,16 +361,19 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
       <div className="grid">
       <div className={cn(PAGE_CLASS, tab !== "invite" && "pointer-events-none opacity-0")} aria-hidden={tab !== "invite" || undefined} inert={tab !== "invite" || undefined}>
       {!signedIn ? (
-        <div className="flex flex-col items-center gap-3 text-center">
-          <p className="text-[12px] text-muted-foreground">{t("shareChat.signIn")}</p>
-          <Button type="button" variant="primary" size="compact" onClick={openSignInDialog}>
-            {t("shareChat.signInButton")}
-          </Button>
+        // Signed out: the invite as it will be (identifier, join code, roles), with both fields saying
+        // sharing needs an account, and Sign in as the action below.
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
+            <CopyField label={t("shareChat.chatId")} value={null} placeholder={t("shareChat.signedOutPlaceholder")} copied={false} onCopy={() => {}} />
+            <CopyField label={t("shareChat.joinCode")} value={null} copied={false} onCopy={() => {}} onNewCode={() => {}} newCodeDisabled />
+          </div>
+          <RolePicker role={role} onChange={setRole} />
         </div>
       ) : phase === "disclosure" ? (
-        <div className={cn("flex flex-col gap-3 p-4", SHELL_RADIUS, SHELL_SURFACE)}>
-          <h3 className="text-[13px] font-medium text-foreground">{t("share.disclosure.title")}</h3>
-          <p className="text-[12px] text-muted-foreground">{disclosure}</p>
+        <div className={cn("flex flex-col gap-3 p-4", SHELL_CARD_BOX)}>
+          <h3 className="text-ui font-medium text-foreground">{t("share.disclosure.title")}</h3>
+          <p className="text-ui-sm text-muted-foreground">{disclosure}</p>
           <div className="flex items-center gap-2">
             <Button type="button" variant="tertiary" size="compact" disabled={busy} onClick={() => { setDisclosure(null); setPhase("ready"); }}>
               {t("common.cancel")}
@@ -360,10 +394,13 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
               placeholder={t("shareChat.joinCodePending")}
               copied={copied === "code"}
               onCopy={(value) => copy("code", value)}
+              // Once Invite has made a code: replace it (the old one is dropped).
+              onNewCode={() => void newCode()}
+              newCodeDisabled={!sharing || !code || busy}
             />
           </div>
           {sharing && codeActive && code?.code ? (
-            <p className="flex items-center gap-1 text-[12px] text-muted-foreground">
+            <p className="flex items-center gap-1 text-ui-sm text-muted-foreground">
               {copied === "invite" ? (
                 <span role="status" className="text-foreground">{t("shareChat.inviteCopied")}</span>
               ) : (
@@ -374,9 +411,9 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
               </button>
             </p>
           ) : copied === "invite" ? (
-            <p role="status" className="text-[12px] text-foreground">{t("shareChat.inviteCopied")}</p>
+            <p role="status" className="text-ui-sm text-foreground">{t("shareChat.inviteCopied")}</p>
           ) : sharing && codeActive ? (
-            <p className="text-[12px] text-muted-foreground">{t("shareChat.codeHidden")}</p>
+            <p className="text-ui-sm text-muted-foreground">{t("shareChat.codeHidden")}</p>
           ) : null}
           <RolePicker role={role} onChange={setRole} />
         </div>
@@ -393,7 +430,7 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
 
       {/* Either page's error, outside both so it shows on the tab that caused it. */}
       {error && (
-        <p role="alert" className="-mt-2 text-[12px] text-destructive">
+        <p role="alert" className="-mt-2 text-ui-sm text-destructive">
           <ErrorText message={error} />
         </p>
       )}
@@ -402,10 +439,9 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
 }
 
 // A tab's page: both share one grid cell and cross-fade when switching.
-const PAGE_CLASS = "col-start-1 row-start-1 flex min-w-0 flex-col gap-3 transition-opacity duration-200 ease-out";
+const PAGE_CLASS = "col-start-1 row-start-1 flex min-w-0 flex-col gap-3 transition-opacity duration-160 ease-out";
 
 // A notch under the compact tabs: 22px, 12px text.
-const TAB_CLASS = "h-[22px] px-2.5 [&>span]:!text-[12px] [&>span]:!leading-none";
 
 // Lowest first: each role includes the ones below it.
 const ROLES: Role[] = ["reader", "participant", "editor", "admin"];
@@ -419,13 +455,14 @@ const ROLES: Role[] = ["reader", "participant", "editor", "admin"];
  */
 function RolePicker({ role, onChange }: { role: Role; onChange: (role: Role) => void }) {
   const { t } = useTranslation();
+  const card = useShellCard();
   const level = ROLES.indexOf(role);
   return (
-    <div className={cn("flex flex-col gap-1 p-1.5 pt-1", SHELL_RADIUS, SHELL_SURFACE)}>
+    <div className={cn("flex flex-col gap-1 p-1.5 pt-1", card ? SHELL_CARD_BOX : cn(SHELL_RADIUS, SHELL_SURFACE))}>
       {/* Headed like the sidebar's Projects and Chats. */}
-      <span className="flex h-5 items-center px-[var(--redesign-quick-actions-padding)] text-[length:var(--redesign-font-size-compact)] font-medium text-muted-foreground">{t("shareChat.roles")}</span>
+      <span className="flex h-5 items-center px-[var(--redesign-quick-actions-padding)] text-ui-xs font-medium text-muted-foreground">{t("shareChat.roles")}</span>
       {/* One background for all three, its corner nested inside the card's (STYLE_GUIDE.md: corner radius). */}
-      <ul className="flex flex-col rounded-[calc(32px*8/27-3px)] bg-[var(--redesign-sidebar-surface)] py-1">
+      <ul className={cn("flex flex-col bg-[var(--redesign-sidebar-surface)] py-1", card ? "rounded-[11px]" : "rounded-[calc(32px*8/27-3px)]")}>
         {[...ROLES].reverse().map((option) => {
           const index = ROLES.indexOf(option);
           const checked = index <= level;
@@ -441,8 +478,8 @@ function RolePicker({ role, onChange }: { role: Role; onChange: (role: Role) => 
                 className="mt-[3px] size-3 rounded-[3px] [&_svg]:!size-2.5 border-muted-foreground/40 data-checked:border-[var(--send-button-bg)] data-checked:bg-[var(--send-button-bg)] data-checked:text-white disabled:opacity-100 dark:data-checked:bg-[var(--send-button-bg)]"
               />
               <label htmlFor={id} className="flex min-w-0 flex-col gap-0.5">
-                <span className="text-[12px] font-medium text-foreground">{t(`shareChat.role.${option}`)}</span>
-                <span className="text-[11px] text-muted-foreground">{t(`shareChat.roleHint.${option}`)}</span>
+                <span className="text-ui-sm font-medium text-foreground">{t(`shareChat.role.${option}`)}</span>
+                <span className="text-ui-xs text-muted-foreground">{t(`shareChat.roleHint.${option}`)}</span>
               </label>
             </li>
           );
@@ -453,21 +490,45 @@ function RolePicker({ role, onChange }: { role: Role; onChange: (role: Role) => 
 }
 
 /** The identifier or join code, labelled, with a copy button; a placeholder until there is one. */
-function CopyField({ label, value, placeholder, copied, onCopy }: { label: string; value: string | null; placeholder?: string; copied: boolean; onCopy: (value: string) => void }) {
+function CopyField({
+  label,
+  value,
+  placeholder,
+  copied,
+  onCopy,
+  onNewCode,
+  newCodeDisabled = false,
+}: {
+  label: string;
+  value: string | null;
+  placeholder?: string;
+  copied: boolean;
+  onCopy: (value: string) => void;
+  /** The join code's New code button, left of copy. */
+  onNewCode?: () => void;
+  newCodeDisabled?: boolean;
+}) {
   const { t } = useTranslation();
   return (
     <ShellField
       label={label}
       trailing={
-        <Button type="button" variant="ghost" size="icon-compact" className="size-6" disabled={!value} aria-label={copied ? t("shareChat.copied") : t("shareChat.copy", { what: label })} onClick={() => value && onCopy(value)}>
-          {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
-        </Button>
+        <span className="flex items-center gap-0.5">
+          {onNewCode && (
+            <Button type="button" variant="ghost" size="icon-compact" className="size-6" disabled={newCodeDisabled} aria-label={t("shareChat.newCode")} title={t("shareChat.newCode")} onClick={onNewCode}>
+              <RefreshCw aria-hidden="true" />
+            </Button>
+          )}
+          <Button type="button" variant="ghost" size="icon-compact" className="size-6" disabled={!value} aria-label={copied ? t("shareChat.copied") : t("shareChat.copy", { what: label })} onClick={() => value && onCopy(value)}>
+            {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
+          </Button>
+        </span>
       }
     >
       {value ? (
         <span className="min-w-0 flex-1 truncate font-mono tracking-[0.1em] text-foreground select-all">{value}</span>
       ) : (
-        <span className="min-w-0 flex-1 truncate text-[12px] text-muted-foreground/70">{placeholder}</span>
+        <span className="min-w-0 flex-1 truncate text-ui-sm text-muted-foreground/70">{placeholder}</span>
       )}
     </ShellField>
   );
@@ -479,7 +540,7 @@ function Avatar({ name, waiting = false, online }: { name: string; waiting?: boo
   return (
     <span
       className={cn(
-        "relative flex size-7 shrink-0 items-center justify-center rounded-full text-[11px] font-medium text-foreground",
+        "relative flex size-7 shrink-0 items-center justify-center rounded-full text-ui-xs font-medium text-foreground",
         waiting ? "border border-dashed border-muted-foreground/50" : "bg-muted",
       )}
     >
@@ -500,13 +561,13 @@ const LIST_CLASS = "flex max-h-[168px] min-h-9 flex-col gap-2 overflow-y-auto";
 
 function NoMembers() {
   const { t } = useTranslation();
-  return <li className="flex h-9 items-center text-[12px] text-muted-foreground">{t("shareChat.access.noMembers")}</li>;
+  return <li className="flex h-9 items-center text-ui-sm text-muted-foreground">{t("shareChat.access.noMembers")}</li>;
 }
 
 function SectionTitle({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-2">
-      <h3 className="text-[13px] font-medium text-foreground">{children}</h3>
+      <h3 className="text-ui font-medium text-foreground">{children}</h3>
       {action}
     </div>
   );
@@ -550,7 +611,7 @@ function WhoHasAccess({
         <SectionTitle
           action={
             onStop && (
-              <button type="button" disabled={stopping} onClick={onStop} className="text-[12px] text-destructive underline-offset-2 hover:underline disabled:opacity-50">
+              <button type="button" disabled={stopping} onClick={onStop} className="text-ui-sm text-destructive underline-offset-2 hover:underline disabled:opacity-50">
                 {t("shareChat.stop")}
               </button>
             )
@@ -566,14 +627,14 @@ function WhoHasAccess({
               <li key={member.id} className={cn(ROW_CLASS, removing && "opacity-60")}>
                 <Avatar name={member.name} online={member.online} />
                 <span className="flex min-w-0 flex-1 flex-col">
-                  <span className={cn("truncate text-[13px] text-foreground", removing && "line-through")}>{member.name}</span>
-                  <span className="truncate text-[11px] text-muted-foreground">
+                  <span className={cn("truncate text-ui text-foreground", removing && "line-through")}>{member.name}</span>
+                  <span className="truncate text-ui-xs text-muted-foreground">
                     {removing ? t("shareChat.access.removing") : member.online ? t("presence.online") : t("presence.offline")}
                   </span>
                 </span>
                 {member.role === "owner" ? (
                   <span className="flex shrink-0 items-center gap-2">
-                    <span className="flex h-6 items-center rounded-full border border-[var(--redesign-sidebar-border)] px-2.5 text-[11px] text-foreground">{t("share.role.host")}</span>
+                    <span className="flex h-6 items-center rounded-full border border-[var(--redesign-sidebar-border)] px-2.5 text-ui-xs text-foreground">{t("share.role.host")}</span>
                     <span aria-hidden="true" className="size-5" />
                   </span>
                 ) : removing ? (
@@ -583,7 +644,7 @@ function WhoHasAccess({
                 ) : (
                   <span className="flex shrink-0 items-center gap-2">
                     <Select value={edits.roles[member.id] ?? member.role} onValueChange={(value) => setRole(member, value as Role)}>
-                      <SelectTrigger size="compact" aria-label={t("shareChat.access.roleFor", { name: member.name })} className="h-6 w-auto gap-1 rounded-full px-2.5 text-[11px]" />
+                      <SelectTrigger size="compact" aria-label={t("shareChat.access.roleFor", { name: member.name })} className="h-6 w-auto gap-1 rounded-full px-2.5 text-ui-xs" />
                       <SelectContent positionerClassName="!z-[130]">
                         {[...ROLES].reverse().map((role, index) => (
                           <SelectItem key={role} value={role} index={index}>{t(`shareChat.role.${role}`)}</SelectItem>
@@ -606,8 +667,8 @@ function WhoHasAccess({
             <li key={request.request_id} className={ROW_CLASS}>
               <Avatar name={request.name} waiting />
               <span className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-[13px] text-foreground">{request.name}</span>
-                <span className="truncate text-[11px] text-muted-foreground">{t("shareChat.access.asked")}</span>
+                <span className="truncate text-ui text-foreground">{request.name}</span>
+                <span className="truncate text-ui-xs text-muted-foreground">{t("shareChat.access.asked")}</span>
               </span>
               <Button type="button" variant="ghost" size="compact" onClick={() => onDecide(request, "deny")}>
                 {t("joinRequests.deny")}

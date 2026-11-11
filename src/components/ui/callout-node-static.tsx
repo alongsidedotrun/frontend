@@ -20,7 +20,7 @@ export function CalloutElementStatic({
     >
       <div className="flex w-full gap-2 rounded-md">
         <div
-          className="size-6 select-none text-[18px]"
+          className="size-6 select-none text-ui-2xl"
           style={{
             fontFamily:
               '"Apple Color Emoji", "Segoe UI Emoji", NotoColorEmoji, "Noto Color Emoji", "Segoe UI Symbol", "Android Emoji", EmojiSymbols',

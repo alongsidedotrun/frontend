@@ -1,13 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { TabItem, Tabs, TabsList } from "@/components/ui/tabs";
 import { ShapeProvider } from "@/lib/shape-context";
-import { ProviderUsageSection } from "@/components/provider-usage";
+import { ListEmptyState, ProvidersEmptyState, ProviderUsageSection } from "@/components/provider-usage";
 import { forcedNoProvider } from "@/lib/dev-no-provider";
+import { providersChanged } from "@/lib/providers-changed";
 import { resizeImageFile } from "@/lib/resize-image";
 import { LimitReminderRows } from "@/components/limit-reminders";
 import { Check, Plus, SearchMd } from "@untitledui/icons";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { AnimatePresence, motion } from "motion/react";
+import { useLocation, useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useIsMac, useIsWindows } from "@/hooks/use-platform";
 import { useIsTauri } from "@/hooks/use-tauri";
 import { useTheme } from "@/hooks/use-theme";
@@ -26,7 +27,7 @@ import { effortLabel, EFFORT_LEVELS, loadDefaultEffort, saveDefaultEffort, type 
 import { loadLanguage, saveLanguage, uiLocaleFor, type LanguageValue } from "@/lib/language";
 import { loadTimezone, saveTimezone } from "@/lib/timezones";
 import { LanguageDropdown, TimezoneDropdown } from "@/components/locale-dropdowns";
-import { Trans, useTranslation } from "react-i18next";
+import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { formatStorageBytes, useUsageStats } from "@/lib/use-usage";
 import { ErrorText } from "@/lib/error-code";
@@ -73,11 +74,14 @@ import {
   useUserDisplayName,
 } from "@/lib/user";
 import { signOut, useIsSignedIn } from "@/lib/auth";
+import { Checkbox } from "@/components/ui/checkbox";
+import { chatsImported, MAX_IMPORT_FILE_BYTES, type ImportableChat } from "@/lib/chat-import";
 import { openSignInDialog } from "@/lib/use-sign-in";
 import { useIdentity } from "@/lib/identity";
-import { Command, RotateCcw, Trash2 } from "lucide-react";
+import { Command, Loader2, RotateCcw, Trash2 } from "lucide-react";
+import { showErrorToast } from "@/components/ui/app-toast";
+import { ShellDialog, ShellDialogActions, SHELL_CARD_BOX, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
 import { cn } from "@/lib/utils";
-import { SwapLabel } from "@/components/ui/swap-label";
 
 // General owns the language and timezone controls. Story: Settings
 // "Application" section
@@ -125,7 +129,6 @@ const CONNECTED_MARK = CONNECTION_ADD;
 const CONNECTION_ROW = `flex w-full select-none items-center gap-3 ${SETTINGS_CARD_RADIUS} p-2 text-left`;
 
 type ConnectionFilter = "all" | "connected" | "available";
-const CONNECTION_TAB_CLASS = "h-[22px] px-2.5 [&>span]:!text-[12px] [&>span]:!leading-none";
 
 // Search shows once a list is this long; shorter ones are quicker to scan.
 const CONNECTION_SEARCH_FROM = 6;
@@ -158,10 +161,10 @@ function ConnectionToolbar({
     <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
       <ShapeProvider defaultShape="pill">
         <Tabs size="compact" value={filter} onValueChange={(next) => onFilter(next as ConnectionFilter)}>
-          <TabsList className="[&>div:first-child]:!bg-background [&>div:first-child]:!shadow-[0_1px_2px_rgba(0,0,0,0.12),0_0_0_0.5px_rgba(0,0,0,0.08)] dark:[&>div:first-child]:!bg-white/12">
-            <TabItem value="all" label={t("settings.connections.all")} className={CONNECTION_TAB_CLASS} />
-            <TabItem value="connected" label={t("settings.connections.connected")} className={CONNECTION_TAB_CLASS} />
-            <TabItem value="available" label={t("settings.connections.available")} className={CONNECTION_TAB_CLASS} />
+          <TabsList>
+            <TabItem value="all" label={t("settings.connections.all")} />
+            <TabItem value="connected" label={t("settings.connections.connected")} />
+            <TabItem value="available" label={t("settings.connections.available")} />
           </TabsList>
         </Tabs>
       </ShapeProvider>
@@ -171,17 +174,17 @@ function ConnectionToolbar({
           <div className="group/connection-search relative w-48 min-w-0">
             <SearchMd
               aria-hidden="true"
-              className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground transition-opacity duration-200 ease-in-out group-focus-within/connection-search:opacity-0 motion-reduce:transition-none"
+              className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground transition-opacity duration-160 ease-in-out group-focus-within/connection-search:opacity-0 motion-reduce:transition-none"
             />
             <Input
               value={query}
               onChange={(event) => onQuery(event.target.value)}
               placeholder={searchLabel}
               aria-label={searchLabel}
-              className="h-7 border border-border pl-8 text-[length:var(--redesign-chat-meta)] shadow-none transition-[border-color] duration-200 placeholder:text-transparent focus:pl-2.5 focus-visible:border-focus-accent dark:border-border dark:focus-visible:border-focus-accent"
+              className="h-7 border border-border pl-8 text-chat-meta shadow-none transition-[border-color] duration-160 placeholder:text-transparent focus:pl-2.5 focus-visible:border-focus-accent dark:border-border dark:focus-visible:border-focus-accent"
             />
             {!query && (
-              <span aria-hidden="true" className="pointer-events-none absolute top-1/2 left-8 -translate-y-1/2 truncate text-[length:var(--redesign-chat-meta)] text-muted-foreground transition-opacity duration-200 ease-in-out group-focus-within/connection-search:opacity-0 motion-reduce:transition-none">
+              <span aria-hidden="true" className="pointer-events-none absolute top-1/2 left-8 -translate-y-1/2 truncate text-chat-meta text-muted-foreground transition-opacity duration-160 ease-in-out group-focus-within/connection-search:opacity-0 motion-reduce:transition-none">
                 {searchLabel}
               </span>
             )}
@@ -200,32 +203,37 @@ function ConnectionToolbar({
  *  doesn't show. The list keeps the tallest height it has had this visit (and at least two rows), so
  *  a tab or search with fewer rows, or none, leaves blank space rather than moving the sections
  *  below; rows are taller when their text wraps, so a fixed height wouldn't do. */
-function ConnectionList({ filter, children }: { filter: ConnectionFilter; children: ReactNode }) {
-  const [tallest, setTallest] = useState(0);
-  const observer = useRef<ResizeObserver | null>(null);
-  const measure = useCallback((node: HTMLDivElement | null) => {
-    observer.current?.disconnect();
-    if (!node) return;
-    observer.current = new ResizeObserver(([entry]) => setTallest((height) => Math.max(height, entry.contentRect.height)));
-    observer.current.observe(node);
-  }, []);
-  // Two rows: 48px each (p-2 around the 32px icon frame) and the 2px gap between them.
-  return (
-    <div className="-mx-2 mt-3" style={{ minHeight: Math.max(98, tallest) }}>
-      {/* Switching tabs fades the old rows out, then the new ones in. */}
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.div
-          key={filter}
-          ref={measure}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1, transition: fade }}
-          exit={{ opacity: 0, transition: fade }}
-          className="grid grid-cols-2 content-start gap-x-2 gap-y-0.5"
-        >
-          {children}
-        </motion.div>
-      </AnimatePresence>
-    </div>
+// Switching tabs: what's below the tabs (the list, and on Providers its Usage too) fades out, changes
+// while it's hidden, then fades back in -- the app's tab-content fade (springs.ts `fade`, as Skills and
+// the New page), so nothing slides or snaps. `shown` is the tab whose content is on screen; the tabs
+// themselves follow the click at once. Each part fades with <motion.div {...tabFade.motion}>.
+function useTabFade<T>(value: T) {
+  const reduceMotion = useReducedMotion();
+  const [shown, setShown] = useState(value);
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    if (value === shown) return;
+    if (reduceMotion) {
+      setShown(value);
+      return;
+    }
+    setHidden(true);
+    // Once the fade out has ended (and a moment more), so the change is never seen.
+    const timer = setTimeout(() => {
+      setShown(value);
+      setHidden(false);
+    }, fade.duration * 1000 + 50);
+    return () => clearTimeout(timer);
+  }, [value, shown, reduceMotion]);
+  return { shown, motion: { initial: false, animate: { opacity: hidden ? 0 : 1 }, transition: fade } };
+}
+
+// The rows, two columns; or, with none in this tab, its placeholder in their place.
+function ConnectionList({ children, placeholder }: { children: ReactNode; placeholder?: ReactNode }) {
+  return placeholder ? (
+    <div className="mt-3">{placeholder}</div>
+  ) : (
+    <div className="-mx-2 mt-3 grid grid-cols-2 content-start gap-x-2 gap-y-0.5">{children}</div>
   );
 }
 const SETTINGS_CONTROL_RADIUS = "rounded-lg";
@@ -239,7 +247,7 @@ const SETTINGS_CONTROL_RADIUS = "rounded-lg";
 // different fixed height and font size that read as visibly inconsistent
 // next to those dropdowns) -- sized to each button's own label, not a
 // shared fixed width (tried first, reverted).
-const SETTINGS_ACTION_BUTTON_CLASS = `flex items-center gap-1.5 border border-border px-2.5 py-1.5 text-[12px] text-foreground transition-colors hover:bg-muted/30 disabled:pointer-events-none disabled:opacity-40 ${SETTINGS_CONTROL_RADIUS}`;
+const SETTINGS_ACTION_BUTTON_CLASS = `flex items-center gap-1.5 border border-border px-2.5 py-1.5 text-ui-sm text-foreground transition-colors hover:bg-muted/30 disabled:pointer-events-none disabled:opacity-40 ${SETTINGS_CONTROL_RADIUS}`;
 
 // Shared by every dropdown trigger in a settings row (Theme, Chat width)
 // -- per explicit request ("the dropdown of theme and chat width should
@@ -247,7 +255,7 @@ const SETTINGS_ACTION_BUTTON_CLASS = `flex items-center gap-1.5 border border-bo
 // and justify-between (icon+label left, chevron right) instead of each
 // trigger sizing to its own label's length, so the two line up instead of
 // one being visibly narrower.
-const SETTINGS_DROPDOWN_TRIGGER_BASE = `flex items-center justify-between gap-1.5 border border-border px-2.5 py-1.5 text-[12px] text-foreground hover:bg-muted/30 ${SETTINGS_CONTROL_RADIUS}`;
+const SETTINGS_DROPDOWN_TRIGGER_BASE = `flex items-center justify-between gap-1.5 border border-border px-2.5 py-1.5 text-ui-sm text-foreground hover:bg-muted/30 ${SETTINGS_CONTROL_RADIUS}`;
 const SETTINGS_DROPDOWN_TRIGGER_CLASS = `${SETTINGS_DROPDOWN_TRIGGER_BASE} w-32`;
 // Fits its content (never narrower than the standard w-32) -- for triggers whose
 // label length varies by language, instead of hardcoding a wider fixed width.
@@ -265,7 +273,7 @@ function SettingsSection({ title, children }: { title: string; children: ReactNo
   return (
     <section className="flex flex-col gap-1.5" style={{ marginTop: "0.875rem" }}>
       <div className="flex items-center justify-between gap-2 px-2 py-1">
-        <h3 className="text-[12px] font-normal text-muted-foreground/60">{title}</h3>
+        <h3 className="text-ui-sm font-normal text-muted-foreground/60">{title}</h3>
       </div>
       {/* divide-y hairlines are back -- per explicit request ("we need the
           divider from any further items that include more than one action
@@ -307,9 +315,9 @@ function SettingsRow({
       style={{ paddingTop: "0.375rem", paddingBottom: "0.375rem", scrollMarginTop: "6rem" }}
     >
       <div className="min-w-0">
-        <label className="text-[12px] font-medium text-foreground">{title}</label>
-        {description && <p className="mt-0.5 text-[12px] font-normal text-muted-foreground">{description}</p>}
-        {status && <p className="pt-1 text-[11px] font-normal text-muted-foreground"><ErrorText message={status} /></p>}
+        <label className="text-ui-sm font-medium text-foreground">{title}</label>
+        {description && <p className="mt-0.5 text-ui-sm font-normal text-muted-foreground">{description}</p>}
+        {status && <p className="pt-1 text-ui-xs font-normal text-muted-foreground"><ErrorText message={status} /></p>}
       </div>
       {children && <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto sm:justify-end">{children}</div>}
     </div>
@@ -464,10 +472,28 @@ const PROVIDER_DESCRIPTIONS: Record<string, string> = {
 // no real backend integration yet, so there's nothing real to link to for
 // them (ProviderCard's own "Install" falls back to opening the provider
 // picker instead when a provider has no entry here).
+// Providers Alongside installs itself, with the provider's official installer (backend cli_install.rs):
+// no terminal, npm or Homebrew. The others' + still opens their docs.
+const INSTALLABLE_PROVIDERS = new Set(["claude", "codex", "antigravity", "grok"]);
+
 const PROVIDER_DOCS_URLS: Record<string, string> = {
   claude: "https://code.claude.com/docs",
   codex: "https://github.com/openai/codex",
   antigravity: "https://antigravity.google/docs",
+  grok: "https://docs.x.ai/build/overview",
+};
+
+// Grok, through xAI's Grok Build: installed and signed in from here, though chats can't run on it yet
+// (alongsidedotrun/private#480), so it isn't in the model menu (QUICK_CHAT_MODELS).
+const GROK_PROVIDER: Provider = {
+  name: "Grok",
+  displayName: "Grok",
+  displayCaption: "via Grok Build",
+  description: "Run chats and agents using xAI's Grok models",
+  icon: "/icons/providers/grok.svg",
+  value: "grok",
+  invertInDark: true,
+  configured: false,
 };
 
 // Originally just Claude/Gemini/Codex ("for now, lets focus on gemini,
@@ -620,8 +646,10 @@ export function useCliAvailability(binary: string): {
         const isInstalled = !forced && Boolean(data.installed);
         // A forced answer isn't the real one: the cache keeps what the CLI said.
         if (!forced) {
+          const before = availabilityCache.get(binary)?.available;
           availabilityCache.set(binary, { available: isAvailable, installed: isInstalled });
           persistAvailabilityCache();
+          if (before !== undefined && before !== isAvailable) providersChanged();
         }
         setAvailable(isAvailable);
         setInstalled(isInstalled);
@@ -723,307 +751,189 @@ function ConnectionBadge({ state }: { state: ConnectionState | undefined }) {
             : t("settings.providers.notInstalled");
   const tone =
     shown === "connected"
-      ? "rounded-full px-2 py-0.5 text-[9px] font-medium bg-green-500/10 text-green-600 dark:text-green-400"
+      ? "rounded-full px-2 py-0.5 text-ui-2xs font-medium bg-green-500/10 text-green-600 dark:text-green-400"
       : isError
         ? "text-xs font-normal text-muted-foreground"
-        : "rounded-full px-2 py-0.5 text-[9px] font-medium bg-muted/50 text-muted-foreground";
+        : "rounded-full px-2 py-0.5 text-ui-2xs font-medium bg-muted/50 text-muted-foreground";
 
   return (
-    <span className={`shrink-0 transition-opacity duration-150 ${tone} ${visible ? "opacity-100" : "opacity-0"}`}>
+    <span className={`shrink-0 transition-opacity duration-160 ${tone} ${visible ? "opacity-100" : "opacity-0"}`}>
       <ErrorText message={label} />
     </span>
   );
 }
 
-// Reached by clicking any provider row -- per explicit request, connected
-// to check what connection is currently in use, not-connected to set one
-// up, both landing on the same view. Account only now -- API Key
-// connections are disabled and hidden (this component's own comment
-// further down has the full reasoning).
-function ProviderConnectionView({ provider }: { provider: Provider }) {
+// A provider's setup, over Settings (there are no provider pages): what connecting it does, in words,
+// and one action for where it stands -- install and sign in (Claude, Codex), its docs (the others),
+// sign in, or disconnect -- plus Update when a newer version is out. Opened from its row (the row, the
+// + and the check are one button). The row owns the state, so an install or sign-in carries on after
+// the overlay is closed.
+function ProviderSetupDialog({
+  provider,
+  open,
+  onClose,
+  status,
+  setup,
+  update,
+  onDisconnected,
+}: {
+  provider: Provider;
+  open: boolean;
+  onClose: () => void;
+  status: { available: boolean | undefined; installed: boolean | undefined; error: boolean };
+  setup: ReturnType<typeof useProviderSetup>;
+  update: ReturnType<typeof useCliUpdate>;
+  onDisconnected: () => Promise<boolean>;
+}) {
   const { t } = useTranslation();
-  // Guessed, not looked up anywhere real -- per explicit request to check "all
-  // providers", not just Claude/Codex (the two with a confirmed real binary name and
-  // login-status check, backend/src/server.rs's own cli_available). This may report
-  // unavailable for a provider that never had a CLI to begin with, not just one that's
-  // missing its install -- there's no per-provider metadata yet to distinguish those.
   const cliBinary = provider.name.toLowerCase();
-  const [cliMissing, setCliMissing] = useState(false);
-  const [loggingIn, setLoggingIn] = useState(false);
-  // Header badge below -- real, not the static QUICK_CHAT_MODELS `configured` any
-  // more (useCliAvailability's own comment has the full reasoning). Reused by "Log
-  // in" (below) too -- was a second, separate fetch on click before, which is what
-  // let this go straight to "nothing happens" once the CLI *was* found (the only
-  // branch that used to do anything was the missing-CLI dialog) -- there was no
-  // feedback at all for the success case. Same availability value either way, so
-  // there's nothing this second fetch could tell handleLogIn that useCliAvailability
-  // doesn't already know.
-  const { available, installed, error: cliCheckError, refetch: refetchAvailability } = useCliAvailability(cliBinary);
+  const installable = INSTALLABLE_PROVIDERS.has(cliBinary);
+  const docsUrl = PROVIDER_DOCS_URLS[cliBinary];
+  // "via Claude Code" -> "Claude Code": the app it runs through.
+  const tool = provider.displayCaption?.replace(/^via\s+/, "") ?? provider.displayName;
+  const names = { provider: provider.displayName, tool };
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [code, setCode] = useState("");
+  const { available, installed, error } = status;
+  const askingForCode = setup.phase === "code" || setup.phase === "finishing";
 
-  // Set while polling for sign-in to complete after "Setup now" (below) -- distinct
-  // from `loggingIn` (just the moment of spawning the login command itself, over in
-  // a second or two either way).
-  const [waitingForSignIn, setWaitingForSignIn] = useState(false);
-  // Distinct from the header badge's own "Connected" -- that's "will this work at
-  // all" (CLI present *and* signed in), this is "did clicking Log in specifically
-  // just confirm that". A already-available CLI is reported as already logged in via
-  // the personal account; one that's installed but not signed in opens the
-  // missing-CLI dialog (its own title/copy now branch on `installed` -- see below --
-  // since "not signed in" and "not installed at all" are different, differently
-  // actionable problems, confirmed directly as confusing when both showed the same
-  // "no PATH available" wording).
-  const [loggedInMessage, setLoggedInMessage] = useState<string | null>(null);
-  const [loggingOut, setLoggingOut] = useState(false);
+  const state: ConnectionState | undefined =
+    setup.phase === "signing-in" || askingForCode
+      ? "waiting"
+      : error
+        ? "error"
+        : available === undefined
+          ? undefined
+          : available
+            ? "connected"
+            : installed
+              ? "not-signed-in"
+              : "not-installed";
 
-  function handleLogIn() {
-    setLoggedInMessage(null);
-    if (cliCheckError) {
-      // Not the same dialog as a genuinely missing CLI -- confirmed directly (curl
-      // straight to /cli/{bin}/available) that a "PATH not available" report here
-      // was actually just this: the backend wasn't reachable at all (e.g. the web
-      // app open with no Tauri/backend process running), not that the CLI was
-      // really missing. Surfacing that distinction inline instead of the
-      // missing-CLI dialog avoids telling the user to (re)install something that's
-      // already installed.
-      setLoggedInMessage(t("settings.providers.noConnection"));
-    } else if (installed) {
-      // Straight to the real login flow, no overlay -- per explicit request
-      // ("when we click sign in we should do what the setup now does and
-      // completely avoid this overlay screen"). The missing-CLI dialog
-      // still has a real job for the OTHER case just below (genuinely not
-      // installed, nothing to log into yet -- "Visit provider
-      // documentation" is the only actionable step there).
-      void handleSetupNow();
-    } else {
-      setCliMissing(true);
-    }
+  const body =
+    setup.phase === "installing"
+      ? t("settings.providers.setup.installing", names)
+      : askingForCode
+        ? t("settings.providers.setup.code", names)
+        : state === "waiting"
+        ? t("settings.providers.setup.waiting", names)
+        : state === "error"
+          ? t("settings.providers.noConnection")
+          : state === "connected"
+            ? t("settings.providers.setup.connected", names)
+            : state === "not-signed-in"
+              ? t("settings.providers.setup.signIn", names)
+              : installable
+                ? t("settings.providers.setup.install", names)
+                : t("settings.providers.setup.docs", names);
+
+  async function disconnect() {
+    setDisconnecting(true);
+    const res = await fetch(`/cli/${encodeURIComponent(cliBinary)}/logout`, { method: "POST" }).catch(() => null);
+    setDisconnecting(false);
+    if (res?.ok) await onDisconnected();
+    else showErrorToast(res ? t("settings.providers.couldNotDisconnect") : t("settings.providers.noConnection"), { id: `logout-${cliBinary}` });
   }
 
-  // Replaces the old "Manage" click, which just re-stated "Already using
-  // your personal X account" every time -- confirmed directly as unwanted
-  // ("we should not spam" that message): a CLI-based personal-account
-  // connection has no real "manage" surface beyond signing out, so this is
-  // the one real action that button can actually take now.
-  async function handleDisconnect() {
-    setLoggedInMessage(null);
-    setLoggingOut(true);
-    try {
-      const res = await fetch(`/cli/${encodeURIComponent(cliBinary)}/logout`, { method: "POST" });
-      if (res.ok) {
-        await refetchAvailability();
-      } else {
-        setLoggedInMessage(t("settings.providers.couldNotDisconnect"));
+  const busy = setup.phase !== "idle";
+  const codeFormId = useId();
+  const primary = askingForCode
+    ? {
+        label: t("settings.providers.setup.finish"),
+        type: "submit" as const,
+        form: codeFormId,
+        disabled: code.trim() === "" || setup.phase === "finishing",
+        loading: setup.phase === "finishing",
       }
-    } catch {
-      setLoggedInMessage(t("settings.providers.noConnection"));
-    } finally {
-      setLoggingOut(false);
-    }
-  }
-
-  // "Setup now" (the missing-CLI dialog, below) -- was a pure no-op placeholder,
-  // confirmed directly as a real gap when the CLI genuinely needed signing in and
-  // clicking it did nothing. Real now: backend/src/server.rs's own cli_login route
-  // spawns the provider's actual login command (`codex login`/`claude auth login`),
-  // which opens the user's own default browser for them to complete. Only makes
-  // sense once the binary is confirmed installed (`installed`) -- there's nothing to
-  // log into if the CLI isn't even there, that case still routes to "Visit provider
-  // documentation" instead (its own onClick below).
-  //
-  // Polls afterward instead of just closing the dialog -- confirmed directly as a
-  // real gap: closing immediately after spawning login left the Connected badge
-  // showing stale "Not connected" until the whole Providers view was closed and
-  // reopened (useCliAvailability's own fetch only ever ran once, on mount), even
-  // though sign-in had genuinely completed in the browser tab that opened. 2s
-  // interval, 2 minutes max (60 attempts) -- long enough for a real OAuth flow
-  // (email, password, 2FA) without polling forever if the user abandons it.
-  async function handleSetupNow() {
-    setLoggingIn(true);
-    try {
-      await fetch(`/cli/${encodeURIComponent(cliBinary)}/login`, { method: "POST" });
-    } finally {
-      setLoggingIn(false);
-      setCliMissing(false);
-    }
-    setWaitingForSignIn(true);
-    for (let attempt = 0; attempt < 60; attempt++) {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      const isAvailable = await refetchAvailability();
-      if (isAvailable) break;
-    }
-    setWaitingForSignIn(false);
-  }
+    : state === "error" || state === undefined
+      ? undefined
+      : state === "connected"
+        ? { label: disconnecting ? t("settings.providers.disconnecting") : t("common.disconnect"), onClick: () => void disconnect(), disabled: disconnecting, destructive: true }
+        : state === "waiting"
+          ? { label: t("settings.providers.waitingForSignIn"), disabled: true, loading: true }
+          : state === "not-signed-in"
+            ? { label: t("settings.providers.signIn"), onClick: () => void setup.setUp(true), disabled: busy }
+            : installable
+              ? {
+                  label: setup.phase === "installing" ? t("settings.providers.installing") : t("settings.providers.setup.installAndSignIn"),
+                  onClick: () => void setup.setUp(false),
+                  disabled: busy,
+                  loading: setup.phase === "installing",
+                }
+              : docsUrl
+                ? { label: t("settings.providers.visitDocs"), onClick: () => void window.open(docsUrl, "_blank", "noopener,noreferrer") }
+                : undefined;
 
   return (
-    <div>
-      {/* Connected/Not connected badge, per explicit request -- icon stays left
-          (unchanged), min-w-0 flex-1 on the name/description column absorbs the
-          remaining space so the badge itself lands flush right, same "icon left,
-          badge right" layout the provider grid's own cards already use. */}
-      <div className="mt-4 flex items-center gap-3">
-        <span className="flex size-10 shrink-0 items-center justify-center">
-          <ProviderIcon model={provider} className="size-6" />
+    <ShellDialog
+      centered
+      open={open}
+      onOpenChange={(next) => { if (!next) onClose(); }}
+      icon={
+        <span className={cn("grid size-8 place-items-center", SHELL_RADIUS, SHELL_SURFACE)}>
+          <ProviderIcon model={provider} className="size-4.5" />
         </span>
-        <div className="min-w-0 flex-1">
-          {/* One shared size (13px) across name/caption/description/status
-              now, differentiated by weight and color instead of size --
-              per explicit request ("make these texts and icons consistent,
-              maybe icon 24px and text size medium"): the previous 14/12/10
-              mix (plus the icon's own 28px) read as an unintentional
-              mismatch rather than a deliberate hierarchy. */}
-          <div className="truncate text-[13px] font-medium text-foreground">
-            {provider.displayName}
-            {provider.displayCaption && (
-              <span className="ml-1.5 text-[13px] font-normal text-muted-foreground">{provider.displayCaption}</span>
-            )}
-          </div>
-          <div className="truncate text-[13px] font-normal text-muted-foreground">{provider.description}</div>
-        </div>
-        <ConnectionBadge
-          state={
-            waitingForSignIn
-              ? "waiting"
-              : cliCheckError
-                ? "error"
-                : available === undefined
-                  ? undefined
-                  : available
-                    ? "connected"
-                    : installed
-                      ? "not-signed-in"
-                      : "not-installed"
-          }
-        />
-      </div>
-
-      {/* Account only -- API Key connections are removed entirely, per
-          explicit decision: most people (including Team/Enterprise seats,
-          which still authenticate through a personal OAuth login, not a
-          shared key) use the Account path day to day, a real usage
-          endpoint (Story #217) only exists for that path anyway (an API
-          key is billed pay-per-token with no rate-limit window to show),
-          and an unused-but-present feature is worse for a new team
-          member reading this codebase than one that's genuinely gone --
-          the backend side (secrets.rs, /secrets/*, /settings/secret-backend,
-          the SecretStorageSection component) was deleted outright rather
-          than kept dormant. If a real API-key feature is ever requested,
-          that's new work built from scratch, not a tab re-added here. */}
-      <div className="mt-5">
-        <div className={`${SETTINGS_CARD_RADIUS} border border-border p-4`}>
-          <p className="text-[12px] font-medium text-foreground">{t("settings.providers.useOwnAccount", { provider: provider.displayName })}</p>
-          {/* Two variants, not one fixed sentence -- per explicit request
-              ("needs to be consistent around all providers"): the same
-              wording applies to every provider (no provider name in
-              either sentence), but which one shows depends on whether
-              there's actually a CLI to sign into yet (`installed`) --
-              ALS-003 (nothing installed) genuinely needs a different next
-              step (download it first) than ALS-004/already-connected
-              (just sign in, or check on an existing sign-in). */}
-          <p className="mt-1 text-[13px] font-normal text-muted-foreground">
-            {installed ? t("settings.providers.reusesLoginInstalled") : t("settings.providers.reusesLoginNotInstalled")}
-          </p>
-          <Button
-            variant="outline"
-            className="mt-3 h-8 text-[11px]"
-            onClick={available ? () => void handleDisconnect() : handleLogIn}
-            // `available`/`installed` both survive a connectivity error
-            // (useCliAvailability's check() only ever touches `error` in
-            // its catch, never resets these) -- so they still reflect the
-            // last real, persisted (availabilityCache/localStorage) answer
-            // even while cliCheckError is true, which is what lets
-            // "Disconnect"/"Set up" show up correctly instead of defaulting
-            // to "Log in" for a provider whose real state is already known.
-            // Disabled during a connectivity error outright -- per explicit
-            // request, logging in isn't the fix for "can't reach Alongside".
-            disabled={cliCheckError || available === undefined || loggingOut}
-          >
-            {available
-              ? loggingOut
-                ? t("settings.providers.disconnecting")
-                : t("common.disconnect")
-              : installed
-                ? t("settings.providers.signIn")
-                : t("settings.providers.setUp")}
-          </Button>
-          {loggedInMessage && (
-            <p className="mt-2 text-[10px] font-normal text-green-600 dark:text-green-400"><ErrorText message={loggedInMessage} /></p>
-          )}
-        </div>
-      </div>
-
-      {/* installed vs not -- two different, differently-actionable problems
-          (backend/src/server.rs's own cli_available comment), confirmed directly as
-          confusing when both showed the same "no PATH available" copy: a binary
-          that's genuinely installed but not signed in needs a login (Setup now, real
-          now -- handleSetupNow's own comment above), not a reinstall. The built-in
-          top-right X (DialogContent's own showCloseButton, default true) is the
-          "skip it" affordance per explicit request -- dismissing doesn't sign
-          anyone in, that's still only the real "Setup now" button above. */}
-      <Dialog open={cliMissing} onOpenChange={setCliMissing}>
-        <DialogContent>
-          <DialogHeader>
-            {/* Dynamic per-provider copy, not a generic "Not signed in yet"
-                -- per explicit request/screenshot ("looks not professional...
-                Sign in to {provider} is required... You are trying to use
-                Gemini via Antigravity... and sign in is required."):
-                provider.displayCaption already carries the real "via X"
-                wrapper name (PROVIDER_DISPLAY, quick-chat-models.tsx --
-                "via Antigravity" for Gemini, "via Claude Code" for Claude,
-                "via Codex" for Codex), so this reads correctly for every
-                provider without hardcoding one. */}
-            <DialogTitle>
-              {installed ? t("settings.providers.signInRequired", { provider: provider.displayName }) : t("settings.providers.notInstalledTitle")}
-            </DialogTitle>
-            <DialogDescription>
-              <ErrorText
-                message={
-                  installed
-                    ? t("settings.providers.tryingToUse", {
-                        name: `${provider.displayName}${provider.displayCaption ? ` ${provider.displayCaption}` : ""}`,
-                      })
-                    : t("settings.providers.commandNotFound", { binary: cliBinary })
-                }
-              />
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
+      }
+      title={provider.displayName}
+      // Where it stands, under the name (no "via ..." here: the overlay is about connecting it).
+      description={<ConnectionBadge state={state} />}
+      actions={<ShellDialogActions cancelLabel={t("common.close")} onCancel={onClose} primary={primary} />}
+    >
+      <p className={cn("px-4 py-3 text-ui-sm text-muted-foreground", SHELL_CARD_BOX)}>
+        <ErrorText message={body} />
+      </p>
+      {askingForCode && (
+        <form
+          id={codeFormId}
+          className="flex flex-col gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (code.trim() && setup.phase === "code") void setup.submitCode(code.trim()).then(() => setCode(""));
+          }}
+        >
+          <ShellField label={t("settings.providers.setup.codeLabel")} htmlFor={`${codeFormId}-code`}>
+            <input
+              id={`${codeFormId}-code`}
+              autoFocus
+              autoComplete="off"
+              spellCheck={false}
+              value={code}
+              onChange={(event) => setCode(event.target.value)}
+              placeholder={t("settings.providers.setup.codePlaceholder")}
+              className={SHELL_FIELD_INPUT}
+            />
+          </ShellField>
+          {/* The tab Google opened, again, if it was closed or never showed. */}
+          {setup.link && (
             <Button
               type="button"
-              // variant="secondary", not "outline" -- per explicit request
-              // ("should be our typical button style and not this
-              // transparent and black corner style"): outline's own
-              // dark:bg-input/30 fill reads as nearly invisible against
-              // this dialog's own dark surface, secondary is this app's
-              // real filled secondary-action style used elsewhere.
-              variant="secondary"
-              className="h-8 text-[11px]"
-              onClick={() => {
-                const url = PROVIDER_DOCS_URLS[cliBinary];
-                if (url) window.open(url, "_blank", "noopener,noreferrer");
-              }}
+              variant="tertiary"
+              className="h-10 w-full rounded-full"
+              onClick={() => window.open(setup.link ?? undefined, "_blank", "noopener,noreferrer")}
             >
-              {t("settings.providers.visitDocs")}
+              {t("settings.providers.setup.openGoogle")}
             </Button>
-            {installed && (
-              // type="button" -- per explicit request/bug report ("I
-              // pressed setup now and we should have been brought to sign
-              // in... as a new tab and not refresh our entire page"): a
-              // native <button> with no explicit type defaults to
-              // type="submit", which (if this dialog's portal ever renders
-              // inside an ancestor <form>) submits and navigates the whole
-              // page instead of just running onClick's own handler. The
-              // actual sign-in tab itself is opened by the backend's own
-              // spawned CLI login process (server.rs's own cli_login), not
-              // by this button directly -- this only has to stop being a
-              // stray form submit.
-              <Button type="button" onClick={handleSetupNow} disabled={loggingIn} className="h-8 text-[11px]">
-                {loggingIn ? t("settings.providers.opening") : t("settings.providers.setupNow")}
-              </Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+          )}
+        </form>
+      )}
+      {installed && update.updateAvailable && (
+        <Button
+          type="button"
+          variant="tertiary"
+          className="h-10 w-full rounded-full"
+          disabled={update.state === "updating"}
+          loading={update.state === "updating"}
+          title={update.state === "failed" && update.error ? update.error : undefined}
+          onClick={() => void update.update()}
+        >
+          {update.state === "updating"
+            ? t("settings.providers.updating")
+            : update.state === "failed"
+              ? t("settings.providers.updateFailed")
+              : t("settings.providers.setup.update", names)}
+        </Button>
+      )}
+    </ShellDialog>
   );
 }
 
@@ -1076,127 +986,198 @@ function useCliUpdate(binary: string, enabled: boolean, onUpdated: () => void) {
   return { updateAvailable, state, error, update };
 }
 
-/** The blue "Update available" badge beside a provider's check or +; clicking it updates the CLI. */
-function UpdatePill({ state, error, onUpdate }: { state: "idle" | "updating" | "failed"; error: string | null; onUpdate: () => void }) {
+// Setting a provider up from its row in one click: installing it when it isn't (Claude Code, Codex),
+// then its own sign-in in the browser, watched until it's connected (2s, for up to 2 minutes, as the
+// detail view's Setup now). A failed install says why in the toast (ALS-040), with no backend ALS-002.
+function useProviderSetup(binary: string, providerName: string, refetch: () => Promise<boolean>) {
   const { t } = useTranslation();
-  return (
-    <button
-      type="button"
-      disabled={state === "updating"}
-      title={state === "failed" && error ? error : undefined}
-      onClick={(event) => {
-        event.stopPropagation();
-        onUpdate();
-      }}
-      // A badge: the blue at 12% behind it, the full blue for its text (as the composer's command chips).
-      className="inline-flex h-[18px] shrink-0 items-center rounded-full bg-[color-mix(in_oklab,var(--focus-accent)_12%,transparent)] px-1.5 text-[8.5px] leading-none font-medium whitespace-nowrap text-[var(--focus-accent)] transition-colors hover:bg-[color-mix(in_oklab,var(--focus-accent)_18%,transparent)] disabled:cursor-default disabled:opacity-70 disabled:hover:bg-[color-mix(in_oklab,var(--focus-accent)_12%,transparent)]"
-    >
-      {/* The label changes with the app's text swap: the old one leaves, the badge's width glides, the new one arrives. */}
-      <SwapLabel swapKey={state}>
-        {state === "updating" ? t("settings.providers.updating") : state === "failed" ? t("settings.providers.updateFailed") : t("settings.providers.updateAvailable")}
-      </SwapLabel>
-    </button>
-  );
+  const [phase, setPhase] = useState<"idle" | "installing" | "signing-in" | "code" | "finishing">("idle");
+  // Antigravity's sign-in: the Google page it opened, which shows a code to paste here (antigravity_login.rs).
+  const [link, setLink] = useState<string | null>(null);
+
+  const install = async (): Promise<boolean> => {
+    setPhase("installing");
+    const res = await fetch(`/cli/${encodeURIComponent(binary)}/install`, { method: "POST" }).catch(() => null);
+    const detail = res && !res.ok ? (await res.text().catch(() => "")).trim() : "";
+    setPhase("idle");
+    if (res?.ok) {
+      await refetch();
+      return true;
+    }
+    // Only the backend's own failure has a reason in its body; none (or the dev proxy's empty 502) is no backend.
+    showErrorToast(detail ? t("settings.providers.installFailed", { provider: providerName, detail }) : t("settings.providers.noConnection"), { id: `install-${binary}` });
+    return false;
+  };
+
+  const signIn = async () => {
+    setPhase("signing-in");
+    const res = await fetch(`/cli/${encodeURIComponent(binary)}/login`, { method: "POST" }).catch(() => null);
+    // Antigravity answers with its Google link: the code from there finishes it (submitCode).
+    const answer = res?.status === 200 ? ((await res.json().catch(() => null)) as { url?: string; needs_code?: boolean } | null) : null;
+    if (answer?.needs_code && answer.url) {
+      setLink(answer.url);
+      setPhase("code");
+      return;
+    }
+    if (res && !res.ok && res.status !== 404) {
+      const detail = (await res.text().catch(() => "")).trim();
+      setPhase("idle");
+      showErrorToast(detail ? t("settings.providers.signInFailed", { provider: providerName, detail }) : t("settings.providers.noConnection"), { id: `login-${binary}` });
+      return;
+    }
+    for (let attempt = 0; attempt < 60; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      if (await refetch()) break;
+    }
+    setPhase("idle");
+  };
+
+  const setUp = async (installed: boolean | undefined) => {
+    if (!installed && !(await install())) return;
+    await signIn();
+  };
+
+  const submitCode = async (code: string) => {
+    setPhase("finishing");
+    const res = await fetch(`/cli/${encodeURIComponent(binary)}/login/code`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    }).catch(() => null);
+    if (res?.ok) {
+      await refetch();
+      setLink(null);
+      setPhase("idle");
+      return;
+    }
+    const detail = res ? (await res.text().catch(() => "")).trim() : "";
+    // Expired or refused: it starts again from Sign in.
+    setLink(null);
+    setPhase("idle");
+    showErrorToast(detail ? t("settings.providers.signInFailed", { provider: providerName, detail }) : t("settings.providers.noConnection"), { id: `login-${binary}` });
+  };
+
+  return { phase, link, install, setUp, submitCode };
 }
 
-function ProviderCard({ provider, onClick, filter = "all", query = "" }: { provider: Provider; onClick: () => void; filter?: ConnectionFilter; query?: string }) {
+// A provider's row: its icon, name and where it stands open its setup overlay (ProviderSetupDialog).
+// Beside them, the next step, done straight away: a + that installs it (Claude, ChatGPT, Gemini), with
+// a spinner in its place while it downloads; once installed, Sign in, which starts the provider's
+// sign-in (Gemini's overlay opens by itself for the code Google shows); once signed in, Connected,
+// which opens the overlay (to disconnect). Anything else (a provider to install from its docs, a failed
+// check) opens the overlay.
+function ProviderCard({
+  provider,
+  filter = "all",
+  query = "",
+  onStatus,
+}: {
+  provider: Provider;
+  filter?: ConnectionFilter;
+  query?: string;
+  /** Whether it's connected, once known: Providers shows a placeholder when a tab has none. */
+  onStatus?: (name: string, connected: boolean) => void;
+}) {
   const { t } = useTranslation();
   const cliBinary = provider.name.toLowerCase();
   const { available, installed, error: cliCheckError, refetch: refetchAvailability } = useCliAvailability(cliBinary);
   const cliUpdate = useCliUpdate(cliBinary, installed === true, () => void refetchAvailability());
-  // Every caller of this component now only ever passes an
-  // ACTIVE_PROVIDERS member (ProvidersSection's own activeProviders) --
-  // the "Coming soon" section stopped rendering real provider tiles
-  // entirely, per explicit request ("remove the providers at coming soon
-  // as we will only have the request a provider at our launch"), so the
-  // disabled/dimmed/"Coming soon" branch this component used to have for
-  // an inactive provider is dead code now, removed rather than kept
-  // around unreachable.
+  const setup = useProviderSetup(cliBinary, provider.displayName, refetchAvailability);
+  const installable = INSTALLABLE_PROVIDERS.has(cliBinary);
+  const [open, setOpen] = useState(false);
+  // Gemini's sign-in needs the code Google shows: its overlay opens for it.
+  useEffect(() => {
+    if (setup.phase === "code") setOpen(true);
+  }, [setup.phase]);
   const checking = !cliCheckError && available === undefined;
-  // `available` alone isn't enough here -- it's seeded from
-  // availabilityCache (useCliAvailability's own comment), so a provider
-  // that connected earlier this session can still read `available: true`
-  // from cache even while a fresh check just failed with cliCheckError
-  // (backend unreachable). Gating on both keeps the chevron/hover
-  // affordance in sync with the status text instead of showing a stale
-  // "Connected"-shaped row next to an ALS-002 message.
+  // `available` is seeded from availabilityCache, so a failed fresh check (cliCheckError) wins over it.
   const isConnected = available === true && !cliCheckError;
-  const statusLabel = cliCheckError
-    // Same coded message as ConnectionBadge's own "error" state -- per
-    // explicit request, a clear error instead of a vague "can't check"
-    // (that badge's own comment has the full ALS-002 reasoning).
-    ? t("settings.providers.noConnection")
-    : checking
-      ? t("settings.providers.checking")
-      : isConnected
-        ? t("common.connected")
-        : installed
-          ? t("settings.providers.notSignedInPlain")
-          : t("settings.providers.notInstalledPlain");
-  const docsUrl = PROVIDER_DOCS_URLS[cliBinary];
-  // Every row now gets the exact same edge-to-edge hover, regardless of
-  // connection state -- confirmed directly as a real inconsistency ("the
-  // hover for gemini should be the exact same as claude and chatgpt"): a
-  // not-yet-signed-in provider (Gemini, or Claude/Codex if they were ever
-  // logged out) used to carry a narrower hover on just its icon+name
-  // portion, stopping short of the Log in/Install button, while a
-  // Connected row got the full card. The border/padding/hover now live on
-  // this outer div unconditionally, and CSS's own hover bubbling means
-  // hovering the inner action button still lights up this same background
-  // -- no separate hover style needed on that button any more, so it can't
-  // visually compete with or fall out of step with the row's own.
-  const isFullCardButton = isConnected || cliCheckError;
+  const known = cliCheckError || available !== undefined;
+  useEffect(() => {
+    if (known) onStatus?.(provider.name, isConnected);
+  }, [known, isConnected, provider.name, onStatus]);
+  const statusLabel =
+    setup.phase === "installing"
+      ? t("settings.providers.installing")
+      : setup.phase === "signing-in"
+        ? t("settings.providers.waitingForSignIn")
+        : setup.phase === "code" || setup.phase === "finishing"
+          ? t("settings.providers.setup.waitingForCode")
+          : cliCheckError
+          ? t("settings.providers.noConnection")
+          : checking
+            ? t("settings.providers.checking")
+            : isConnected
+              ? t("common.connected")
+              : installed
+                ? t("settings.providers.notSignedInPlain")
+                : t("settings.providers.notInstalledPlain");
   if (!showsUnder(filter, isConnected, query, provider.displayName)) return null;
 
   return (
-    <div className={`flex select-none items-center gap-3 ${SETTINGS_CARD_RADIUS} p-2`}>
-      <button
-        type="button"
-        onClick={onClick}
-        className={`flex min-w-0 flex-1 select-none items-center gap-3 text-left ${isFullCardButton ? "w-full" : ""}`}
-      >
+    <>
+      <div className={`flex select-none items-center gap-3 ${SETTINGS_CARD_RADIUS} p-2`}>
+      <button type="button" onClick={() => setOpen(true)} className="flex min-w-0 flex-1 select-none items-center gap-3 text-left">
         <span className={PROVIDER_ICON_FRAME}>
           <ProviderIcon model={provider} className="size-5" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[12px] font-medium text-foreground">
+          <span className="block truncate text-ui-sm font-medium text-foreground">
             {provider.displayName}
-            {provider.displayCaption && (
-              <span className="ml-1.5 font-normal text-muted-foreground">{provider.displayCaption}</span>
-            )}
+            {provider.displayCaption && <span className="ml-1.5 font-normal text-muted-foreground">{provider.displayCaption}</span>}
           </span>
-          {/* line-clamp-2, not truncate -- per explicit request ("make the
-              requested providers description suit into two or more
-              lines/rows, we will need to allow this to other agents"). */}
-          <span className="line-clamp-2 text-[10px] font-normal text-muted-foreground"><ErrorText message={statusLabel} /></span>
+          <span className="line-clamp-2 text-ui-2xs font-normal text-muted-foreground"><ErrorText message={statusLabel} /></span>
         </span>
       </button>
-      {/* An update for the CLI (it's installed): left of the check or +. */}
-      {cliUpdate.updateAvailable && <UpdatePill state={cliUpdate.state} error={cliUpdate.error} onUpdate={() => void cliUpdate.update()} />}
-      {isConnected && (
-        // A check once connected; the row itself (the button before) opens it.
-        <span className={CONNECTED_MARK} aria-hidden="true">
-          <Check className="size-3.5" />
-        </span>
-      )}
-      {/* Not connected: a bordered + that does what its label says -- Log in (the CLI is there) or
-          Set up opens this provider's detail view, Install goes to its install docs. When the check
-          itself failed (the status line says why), it opens the detail view too. */}
-      {isConnected ? null : (
-        <button
-          type="button"
-          aria-label={!cliCheckError && installed ? t("settings.providers.logIn") : !cliCheckError && docsUrl ? t("settings.providers.install") : t("settings.providers.setUp")}
-          onClick={(event) => {
-            if (cliCheckError || installed || !docsUrl) return onClick();
-            event.stopPropagation();
-            window.open(docsUrl, "_blank", "noopener,noreferrer");
-          }}
-          className={CONNECTION_ADD}
-        >
-          <Plus className="size-3.5" />
-        </button>
-      )}
-    </div>
+        {/* A newer version is out: said here, updated from the overlay. */}
+        {installed && cliUpdate.updateAvailable && (
+          <span className="inline-flex h-[18px] shrink-0 items-center rounded-full bg-[color-mix(in_oklab,var(--focus-accent)_12%,transparent)] px-1.5 text-ui-2xs leading-none font-medium whitespace-nowrap text-[var(--focus-accent)]">
+            {t("settings.providers.updateAvailable")}
+          </span>
+        )}
+        {isConnected && setup.phase === "idle" ? (
+          <button type="button" onClick={() => setOpen(true)} className={cn(CONNECTED_MARK, "w-auto px-2 text-ui-xs font-medium")}>
+            {t("common.connected")}
+          </button>
+        ) : (
+          <button
+            type="button"
+            aria-label={installed ? t("settings.providers.signIn") : t("settings.providers.install")}
+            aria-busy={setup.phase !== "idle"}
+            disabled={setup.phase !== "idle" && setup.phase !== "code"}
+            onClick={() => {
+              if (setup.phase === "code" || cliCheckError || available === undefined) return setOpen(true);
+              if (installed) return void setup.setUp(true);
+              if (!installable) return setOpen(true);
+              void setup.install();
+            }}
+            className={cn(
+              CONNECTION_ADD,
+              // Sign in: the same bordered control, wide enough for its word.
+              installed && !cliCheckError && setup.phase === "idle" && "w-auto px-2 text-ui-xs font-medium",
+              "disabled:cursor-default",
+            )}
+          >
+            {setup.phase !== "idle" ? (
+              <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+            ) : installed && !cliCheckError ? (
+              t("settings.providers.signIn")
+            ) : (
+              <Plus className="size-3.5" />
+            )}
+          </button>
+        )}
+      </div>
+      <ProviderSetupDialog
+        provider={provider}
+        open={open}
+        onClose={() => setOpen(false)}
+        status={{ available, installed, error: cliCheckError }}
+        setup={setup}
+        update={cliUpdate}
+        onDisconnected={refetchAvailability}
+      />
+    </>
   );
 }
 
@@ -1230,7 +1211,22 @@ function AppsSection() {
     setSearchParams({ app: name }, { replace: true });
   }
   const [filter, setFilter] = useState<ConnectionFilter>("all");
+  const appsFade = useTabFade(filter);
   const [query, setQuery] = useState("");
+  // GitHub's connection, known once its status answers (the Google apps can't connect yet). Connected
+  // or Available with no app in it then gets a placeholder instead of an empty space.
+  const [githubUser, setGithubUser] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    fetch("/integrations/github/cli")
+      .then((res) => (res.ok ? (res.json() as Promise<GithubCliStatus>) : null))
+      .then((status) => setGithubUser(status?.username ?? null))
+      .catch(() => setGithubUser(null));
+  }, [selectedApp]);
+  const appsTabEmpty =
+    appsFade.shown !== "all" &&
+    githubUser !== undefined &&
+    !showsUnder(appsFade.shown, githubUser !== null, query, "GitHub") &&
+    !GOOGLE_APPS.some((app) => showsUnder(appsFade.shown, false, query, app.name));
 
   return (
     <AnimatePresence mode="wait" initial={false}>
@@ -1258,15 +1254,30 @@ function AppsSection() {
             onQuery={setQuery}
             searchLabel={t("settings.connections.searchApps")}
           />
-          <ConnectionList filter={filter}>
-            <GithubIntegrationCard filter={filter} query={query} onClick={() => openApp("github")} />
+          <motion.div {...appsFade.motion}>
+          <ConnectionList
+            placeholder={
+              !appsTabEmpty ? undefined : (
+                <ListEmptyState
+                  marks={[
+                    { key: "github", mark: <img src="/icons/providers/github.svg" alt="" className="size-3.5 shrink-0 grayscale dark:invert" /> },
+                    ...GOOGLE_APPS.map((app) => ({ key: app.id, mark: <img src={`/icons/google-${app.id}.svg`} alt="" className="size-3.5 shrink-0 object-contain grayscale" /> })),
+                  ]}
+                  title={appsFade.shown === "connected" ? t("settings.apps.empty.connected.title") : t("settings.apps.empty.available.title")}
+                  body={appsFade.shown === "connected" ? t("settings.apps.empty.connected.body") : t("settings.apps.empty.available.body")}
+                />
+              )
+            }
+          >
+            <GithubIntegrationCard connectedUsername={githubUser ?? null} filter={appsFade.shown} query={query} onClick={() => openApp("github")} />
             {GOOGLE_APPS.map((app) =>
-              showsUnder(filter, false, query, app.name) ? (
+              showsUnder(appsFade.shown, false, query, app.name) ? (
                 // No connection flow yet, so never connected, and the row does nothing for now.
                 <AppRow key={app.id} name={app.name} description={t(app.descriptionKey)} icon={app.icon} connected={false} onClick={() => {}} />
               ) : null,
             )}
           </ConnectionList>
+          </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
@@ -1280,8 +1291,8 @@ function AppRow({ name, description, icon, connected, onClick }: { name: string;
     <button type="button" onClick={onClick} className={CONNECTION_ROW}>
       <span className={PROVIDER_ICON_FRAME}>{icon}</span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[12px] font-medium text-foreground">{name}</span>
-        <span className="line-clamp-2 text-[10px] font-normal text-muted-foreground">{description}</span>
+        <span className="block truncate text-ui-sm font-medium text-foreground">{name}</span>
+        <span className="line-clamp-2 text-ui-2xs font-normal text-muted-foreground">{description}</span>
       </span>
       <span className={connected ? CONNECTED_MARK : CONNECTION_ADD} aria-hidden="true">
         {connected ? <Check className="size-3.5" /> : <Plus className="size-3.5" />}
@@ -1298,18 +1309,18 @@ const GOOGLE_APPS = (["drive", "docs", "sheets"] as const).map((id) => ({
   icon: <img src={`/icons/google-${id}.svg`} alt="" className="size-5 object-contain" />,
 }));
 
-function GithubIntegrationCard({ onClick, filter = "all", query = "" }: { onClick: () => void; filter?: ConnectionFilter; query?: string }) {
+function GithubIntegrationCard({
+  connectedUsername,
+  onClick,
+  filter = "all",
+  query = "",
+}: {
+  connectedUsername: string | null;
+  onClick: () => void;
+  filter?: ConnectionFilter;
+  query?: string;
+}) {
   const { t } = useTranslation();
-  const [connectedUsername, setConnectedUsername] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch("/integrations")
-      .then((res) => (res.ok ? res.json() : []))
-      .then((rows: { provider: string; connected_username: string | null }[]) => {
-        setConnectedUsername(rows.find((r) => r.provider === "github")?.connected_username ?? null);
-      });
-  }, []);
-
   const isConnected = connectedUsername !== null;
   if (!showsUnder(filter, isConnected, query, "GitHub")) return null;
 
@@ -1326,55 +1337,58 @@ function GithubIntegrationCard({ onClick, filter = "all", query = "" }: { onClic
   );
 }
 
-// The 3 real steps, per explicit direction almost verbatim: (1) create your
-// own GitHub OAuth App with this exact callback URL, (2) paste its client
-// id/secret, (3) use it in chat via @github. Bring-your-own-app rather than
-// one Alongside-owned OAuth App -- backend/src/integrations.rs has the
-// full "why" (sidesteps a shared secret across every user, and Google's
-// own "unverified app" limit once this same pattern extends there). A real
-// page (this component), not a Dialog -- per explicit correction, same
-// "icon+name header, content below" shape ProviderConnectionView uses.
+type GithubCliStatus = {
+  installed: boolean;
+  username: string | null;
+  login: { code: string; url: string } | null;
+};
+
+// GitHub through its own CLI (backend/src/github_cli.rs): download it if it isn't here, then its browser
+// sign-in, which shows a code to enter at GitHub. Each account has its own login, and every provider can
+// use it. A page, not a dialog, in the same "icon and name, content below" shape as other connections.
 function GithubAppConnectionView({ onBack }: { onBack: () => void }) {
   const { t } = useTranslation();
-  const [connectedUsername, setConnectedUsername] = useState<string | null>(null);
-  const [clientId, setClientId] = useState("");
-  const [clientSecret, setClientSecret] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const callbackUrl = `${location.protocol}//${location.host}/integrations/github/callback`;
+  const [status, setStatus] = useState<GithubCliStatus | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  const refresh = () => {
-    fetch("/integrations")
-      .then((res) => (res.ok ? res.json() : []))
-      .then((rows: { provider: string; connected_username: string | null }[]) => {
-        setConnectedUsername(rows.find((r) => r.provider === "github")?.connected_username ?? null);
-      });
-  };
-  useEffect(refresh, []);
+  const refresh = useCallback(() => {
+    fetch("/integrations/github/cli")
+      .then((res) => (res.ok ? (res.json() as Promise<GithubCliStatus>) : null))
+      .then(setStatus)
+      .catch(() => setStatus(null));
+  }, []);
+  useEffect(refresh, [refresh]);
+  // While waiting for the code to be entered at GitHub: nothing tells this page when that happens.
+  const waiting = Boolean(status?.login);
+  useEffect(() => {
+    if (!waiting) return;
+    const timer = setInterval(refresh, 2000);
+    return () => clearInterval(timer);
+  }, [waiting, refresh]);
 
-  async function connect() {
-    if (!clientId.trim() || !clientSecret.trim() || submitting) return;
-    setSubmitting(true);
+  async function run(url: string, method: "POST" | "DELETE" = "POST") {
+    setBusy(true);
     try {
-      await fetch("/integrations/github/connect", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ client_id: clientId.trim(), client_secret: clientSecret.trim() }),
-      });
-      setClientSecret("");
-      // The real result (connected_username) only lands once the user
-      // finishes GitHub's own consent screen in the system browser this
-      // just opened -- polled for here rather than assumed, since this
-      // response only means "the OAuth flow started", not "it finished".
-      setTimeout(refresh, 3000);
+      const response = await fetch(url, { method });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        showErrorToast(t("settings.apps.github.error", { detail: body.error ?? response.statusText }));
+      }
+    } catch {
+      showErrorToast(t("settings.providers.noConnection"));
     } finally {
-      setSubmitting(false);
+      setBusy(false);
+      refresh();
     }
   }
 
-  async function disconnect() {
-    await fetch("/integrations/github", { method: "DELETE" });
-    refresh();
-    onBack();
+  function copyCode() {
+    if (!status?.login) return;
+    void navigator.clipboard.writeText(status.login.code).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
   }
 
   return (
@@ -1384,48 +1398,41 @@ function GithubAppConnectionView({ onBack }: { onBack: () => void }) {
           <img src="/icons/providers/github.svg" alt="" className="size-6 dark:invert" />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[13px] font-medium text-foreground">GitHub</div>
-          <div className="truncate text-[13px] font-normal text-muted-foreground">
-            {connectedUsername ? t("settings.apps.github.connectedAs", { username: connectedUsername }) : t("settings.apps.github.notConnected")}
+          <div className="truncate text-ui font-medium text-foreground">GitHub</div>
+          <div className="truncate text-ui font-normal text-muted-foreground">
+            {status?.username ? t("settings.apps.github.connectedAs", { username: status.username }) : t("settings.apps.github.notConnected")}
           </div>
         </div>
       </div>
-      {connectedUsername ? (
+      {!status ? null : status.username ? (
         <div className="mt-5 flex flex-col gap-3">
-          <p className="text-[13px] text-muted-foreground">
-            <Trans i18nKey="settings.apps.github.useInChat" components={[<span className="font-mono" key="0" />]} />
-          </p>
-          <Button variant="outline" className="w-fit" onClick={() => void disconnect()}>
+          <p className="text-ui text-muted-foreground">{t("settings.apps.github.useInChat")}</p>
+          <Button variant="outline" className="w-fit" disabled={busy} onClick={() => void run("/integrations/github/cli", "DELETE").then(onBack)}>
             {t("common.disconnect")}
           </Button>
         </div>
+      ) : status.login ? (
+        <div className="mt-5 flex flex-col gap-3">
+          <p className="text-ui text-muted-foreground">{t("settings.apps.github.enterCode")}</p>
+          <div className="flex items-center gap-2">
+            <code className="rounded-lg bg-muted px-3 py-2 font-mono text-ui-xl tracking-[0.1em] text-foreground">{status.login.code}</code>
+            <Button variant="outline" onClick={copyCode}>{t(copied ? "common.copied" : "common.copy")}</Button>
+          </div>
+          <p className="text-ui-sm text-muted-foreground">{t("settings.apps.github.waiting")}</p>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => window.open(status.login?.url, "_blank", "noopener,noreferrer")}>{t("settings.apps.github.openGithub")}</Button>
+            <Button variant="outline" disabled={busy} onClick={() => void run("/integrations/github/cli/login", "DELETE")}>{t("common.cancel")}</Button>
+          </div>
+        </div>
+      ) : status.installed ? (
+        <div className="mt-5 flex flex-col gap-3">
+          <p className="text-ui text-muted-foreground">{t("settings.apps.github.connectDescription")}</p>
+          <Button className="w-fit" disabled={busy} onClick={() => void run("/integrations/github/cli/login")}>{t("common.connect")}</Button>
+        </div>
       ) : (
-        <div className="mt-5 flex flex-col gap-5">
-          <div className="flex flex-col gap-1">
-            <p className="text-[13px] font-medium text-foreground">{t("settings.apps.github.step1.title")}</p>
-            <p className="text-[12px] text-muted-foreground">{t("settings.apps.github.step1.description")}</p>
-            <code className="rounded-lg bg-muted px-2.5 py-1.5 text-[11px] break-all text-foreground">{callbackUrl}</code>
-          </div>
-          <div className="flex flex-col gap-2">
-            <p className="text-[13px] font-medium text-foreground">{t("settings.apps.github.step2.title")}</p>
-            <Input placeholder={t("settings.apps.github.clientId.placeholder")} value={clientId} onChange={(event) => setClientId(event.target.value)} />
-            <Input
-              type="password"
-              placeholder={t("settings.apps.github.clientSecret.placeholder")}
-              value={clientSecret}
-              onChange={(event) => setClientSecret(event.target.value)}
-            />
-            <p className="text-[11px] text-muted-foreground">{t("settings.apps.github.secretWarning")}</p>
-          </div>
-          <div className="flex flex-col gap-1">
-            <p className="text-[13px] font-medium text-foreground">{t("settings.apps.github.step3.title")}</p>
-            <p className="text-[12px] text-muted-foreground">
-              <Trans i18nKey="settings.apps.github.step3.description" components={[<span className="font-mono" key="0" />]} />
-            </p>
-          </div>
-          <Button className="w-fit" disabled={!clientId.trim() || !clientSecret.trim() || submitting} onClick={() => void connect()}>
-            {t("common.connect")}
-          </Button>
+        <div className="mt-5 flex flex-col gap-3">
+          <p className="text-ui text-muted-foreground">{t("settings.apps.github.installDescription")}</p>
+          <Button className="w-fit" disabled={busy} loading={busy} onClick={() => void run("/integrations/github/cli/install")}>{t("settings.apps.github.install")}</Button>
         </div>
       )}
     </div>
@@ -1433,27 +1440,8 @@ function GithubAppConnectionView({ onBack }: { onBack: () => void }) {
 }
 
 function ProvidersSection() {
-  // Driven by a real query param (?provider=<name>) now, not local state --
-  // confirmed directly as a real bug ("the < to return to the providers is
-  // not working"): opening a provider's connection view used to be a pure
-  // React-state swap with no URL of its own, so it never became an entry
-  // in SettingsSidebarNav's own settingsHistory stack (that stack only
-  // sees pathname changes) -- the sidebar's back chevron had nothing to
-  // walk back to. Routing this through the URL means selecting a provider
-  // is a real navigate(), which the existing stack already picks up for
-  // free.
+  // No page per provider: each row opens its setup as an overlay (ProviderSetupDialog).
   const { t } = useTranslation();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const selectedProviderName = searchParams.get("provider");
-  const selectedProvider = selectedProviderName ? (PROVIDERS.find((p) => p.name === selectedProviderName) ?? null) : null;
-  function openProvider(provider: Provider) {
-    // replace: true -- matches every other settings-internal navigation in
-    // this file (RailButton's onClick, goToResult), keeping the router's
-    // own history from growing a separate entry per click; settingsHistory
-    // (this file's own back/forward stack) is what actually tracks steps
-    // now, not the router's history.
-    setSearchParams({ provider: provider.name }, { replace: true });
-  }
   // Two real sections now, not one flat grid -- per explicit request
   // ("so we have two sections"), each under its own describer label
   // (the sidebar's own "Recent projects"/"Recent chats" describer
@@ -1466,6 +1454,19 @@ function ProvidersSection() {
   );
   const [filter, setFilter] = useState<ConnectionFilter>("all");
   const [query, setQuery] = useState("");
+  const listed = useMemo(() => [...activeProviders, GROK_PROVIDER], [activeProviders]);
+  // Each provider's connection, as its row learns it: Connected or Available with none in it (once
+  // every one has answered) gets a placeholder instead of an empty space.
+  const [connections, setConnections] = useState<Record<string, boolean>>({});
+  const reportStatus = useCallback((name: string, connected: boolean) => {
+    setConnections((current) => (current[name] === connected ? current : { ...current, [name]: connected }));
+  }, []);
+  const tabFade = useTabFade(filter);
+  const shownFilter = tabFade.shown;
+  const tabEmpty =
+    shownFilter !== "all" &&
+    listed.every((provider) => connections[provider.name] !== undefined) &&
+    !listed.some((provider) => showsUnder(shownFilter, connections[provider.name], query, provider.displayName));
 
   return (
     // Same crossfade AppLayout.tsx's own route transitions use (its
@@ -1473,23 +1474,7 @@ function ProvidersSection() {
     // per explicit request, this list <-> connection-detail swap should
     // feel like "the same as our page transition" even though it's a
     // local view swap inside the modal, not a real route change.
-    <AnimatePresence mode="wait" initial={false}>
-      {selectedProvider ? (
-        <motion.div
-          key="connection"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1, transition: spring.slow }}
-          exit={{ opacity: 0, transition: spring.slow.exit }}
-        >
-          <ProviderConnectionView provider={selectedProvider} />
-        </motion.div>
-      ) : (
-        <motion.div
-          key="list"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1, transition: spring.slow }}
-          exit={{ opacity: 0, transition: spring.slow.exit }}
-        >
+    <div>
           {/* Search bar removed -- per explicit request ("lets remove the
               search bar from providers as that's not needed for now"):
               only ACTIVE_PROVIDERS.size real tiles plus Request a
@@ -1507,33 +1492,34 @@ function ProvidersSection() {
                 onQuery={setQuery}
                 searchLabel={t("settings.connections.searchProviders")}
               />
-              <ConnectionList filter={filter}>
-                {activeProviders.map((provider) => (
-                  <ProviderCard key={provider.name} provider={provider} filter={filter} query={query} onClick={() => openProvider(provider)} />
+              <motion.div {...tabFade.motion}>
+              <ConnectionList
+                placeholder={
+                  !tabEmpty ? undefined : shownFilter === "connected" ? (
+                    <ProvidersEmptyState title={t("settings.providers.empty.connected.title")} body={t("settings.providers.empty.connected.body")} />
+                  ) : (
+                    <ProvidersEmptyState title={t("settings.providers.empty.available.title")} body={t("settings.providers.empty.available.body")} />
+                  )
+                }
+              >
+                {listed.map((provider) => (
+                  <ProviderCard key={provider.name} provider={provider} filter={shownFilter} query={query} onStatus={reportStatus} />
                 ))}
-                {/* Grok: a placeholder until the backend can run it (alongsidedotrun/private#480). */}
-                {showsUnder(filter, false, query, "Grok") && (
-                  <AppRow
-                    name="Grok"
-                    description={t("settings.apps.comingSoon")}
-                    icon={<img src="/icons/providers/grok.svg" alt="" className="size-5 dark:invert" />}
-                    connected={false}
-                    onClick={() => {}}
-                  />
-                )}
               </ConnectionList>
+              </motion.div>
             </>
           )}
-          {/* Each provider's usage, right here (it had its own page): a card each, with Filter and Sort. */}
-          <ProviderUsageSection />
+          {/* Each provider's usage, right here (it had its own page): a card each, with Filter and Sort.
+              It fades with the list when the tab changes, rather than moving. */}
+          <motion.div {...tabFade.motion}>
+            <ProviderUsageSection />
+          </motion.div>
           {/* Real integrations (issue #287) -- moved to their own top-level
               "Apps" settings section (AppsSection, below) per explicit
               correction ("Still inside providers its meant to be settings
               > apps and not settings > providers > apps") -- no longer
               reached from here at all. */}
-        </motion.div>
-      )}
-    </AnimatePresence>
+    </div>
   );
 }
 
@@ -1616,27 +1602,27 @@ function ProfileSection() {
             </AvatarFallback>
           </Avatar>
         </div>
-        <h2 className="text-[15px] font-medium text-foreground">{t("settings.nav.profile")}</h2>
-        <p className="text-[12px] text-muted-foreground">{t("settings.nav.subtitle.profile")}</p>
+        <h2 className="text-ui-xl font-medium text-foreground">{t("settings.nav.profile")}</h2>
+        <p className="text-ui-sm text-muted-foreground">{t("settings.nav.subtitle.profile")}</p>
       </div>
       <div className="flex flex-col gap-3">
         <ShellField label={t("settings.profile.name.title")}>
-          <span className="truncate text-[13px] text-foreground">{isSignedIn ? currentName : t("settings.profile.name.signedOut")}</span>
+          <span className="truncate text-ui text-foreground">{isSignedIn ? currentName : t("settings.profile.name.signedOut")}</span>
         </ShellField>
         <ShellField label={t("settings.profile.subscription.title")}>
-          <span className="text-[13px] text-foreground">{t(`settings.profile.subscription.${plan}`)}</span>
+          <span className="text-ui text-foreground">{t(`settings.profile.subscription.${plan}`)}</span>
         </ShellField>
         <div className="flex flex-col gap-1 px-1">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[12px] font-medium text-foreground">{t("settings.profile.avatar.title")}</p>
-              <p className="mt-0.5 text-[12px] text-muted-foreground">{t("settings.profile.avatar.description")}</p>
+              <p className="text-ui-sm font-medium text-foreground">{t("settings.profile.avatar.title")}</p>
+              <p className="mt-0.5 text-ui-sm text-muted-foreground">{t("settings.profile.avatar.description")}</p>
             </div>
             <button type="button" className={SETTINGS_ACTION_BUTTON_CLASS} disabled={!isSignedIn} onClick={() => setManageOpen(true)}>
               {t("settings.profile.avatar.managePhoto")}
             </button>
           </div>
-          {error && <p className="text-[11px] text-destructive"><ErrorText message={error} /></p>}
+          {error && <p className="text-ui-xs text-destructive"><ErrorText message={error} /></p>}
         </div>
         <input ref={fileInputRef} type="file" accept="image/jpeg,image/png" className="hidden" onChange={(event) => void handleFileSelected(event)} />
       </div>
@@ -1650,7 +1636,7 @@ function ProfileSection() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="text-sm font-semibold">{t("settings.profile.avatar.dialogTitle")}</DialogTitle>
-            <DialogDescription className="text-[13px] font-normal">
+            <DialogDescription className="text-ui font-normal">
               {avatarImage ? t("settings.profile.avatar.dialogDescription.withPhoto") : t("settings.profile.avatar.dialogDescription.noPhoto")}
             </DialogDescription>
           </DialogHeader>
@@ -1664,20 +1650,20 @@ function ProfileSection() {
           </div>
           <DialogFooter>
             {avatarImage && !pendingImage && (
-              <Button variant="outline" className="h-8 gap-1.5 text-[11px]" onClick={handleDownload}>
+              <Button variant="outline" className="h-8 gap-1.5 text-ui-xs" onClick={handleDownload}>
                 <DownloadIcon className="size-3.5" />
                 {t("common.download")}
               </Button>
             )}
             {avatarImage && !pendingImage && (
-              <Button className="h-8 bg-red-600 text-[11px] text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600" onClick={() => clearUserAvatarImage()}>
+              <Button className="h-8 bg-red-600 text-ui-xs text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600" onClick={() => clearUserAvatarImage()}>
                 {t("common.remove")}
               </Button>
             )}
             {pendingImage ? (
-              <Button className="h-8 text-[11px]" onClick={handleConfirmUpload}>{t("common.confirm")}</Button>
+              <Button className="h-8 text-ui-xs" onClick={handleConfirmUpload}>{t("common.confirm")}</Button>
             ) : (
-              <Button className="h-8 text-[11px]" onClick={() => fileInputRef.current?.click()}>{t("common.add")}</Button>
+              <Button className="h-8 text-ui-xs" onClick={() => fileInputRef.current?.click()}>{t("common.add")}</Button>
             )}
           </DialogFooter>
         </DialogContent>
@@ -1984,7 +1970,7 @@ function DefaultModelRow() {
           render={
             <button
               type="button"
-              className={`flex items-center gap-1.5 border border-border px-2.5 py-1.5 text-[12px] text-foreground hover:bg-muted/30 ${SETTINGS_CONTROL_RADIUS}`}
+              className={`flex items-center gap-1.5 border border-border px-2.5 py-1.5 text-ui-sm text-foreground hover:bg-muted/30 ${SETTINGS_CONTROL_RADIUS}`}
             >
               {/* size-3.5 (14px), not size-4 (16px) -- per an app-wide
                   compact-scale audit. */}
@@ -2058,7 +2044,7 @@ function DefaultEffortRow() {
           render={
             <button
               type="button"
-              className={`flex items-center gap-1.5 border border-border px-2.5 py-1.5 text-[12px] text-foreground hover:bg-muted/30 ${SETTINGS_CONTROL_RADIUS}`}
+              className={`flex items-center gap-1.5 border border-border px-2.5 py-1.5 text-ui-sm text-foreground hover:bg-muted/30 ${SETTINGS_CONTROL_RADIUS}`}
             >
               {defaultEffort ? effortLabel(defaultEffort) : t("common.none")}
               <ChevronDownIcon className="size-3.5 text-muted-foreground" />
@@ -2152,6 +2138,134 @@ function CompactScopeRows() {
   );
 }
 
+// Import (#539): chats made before signing in, which stop showing once you do, and `.md` files, the only
+// files import takes. Each comes into the workspace in view.
+function ImportChatsRows() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const signedIn = useIsSignedIn();
+  const workspaceId = useOutletContext<{ workspaceId?: string } | undefined>()?.workspaceId;
+  const [chats, setChats] = useState<ImportableChat[]>([]);
+  const [selected, setSelected] = useState<string[] | null>(null);
+  const [importing, setImporting] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!signedIn) {
+      setChats([]);
+      return;
+    }
+    fetch("/import/chats")
+      .then((response) => (response.ok ? (response.json() as Promise<ImportableChat[]>) : []))
+      .then(setChats)
+      .catch(() => setChats([]));
+  }, [signedIn]);
+
+  async function importSelected() {
+    if (!selected || importing) return;
+    setImporting(true);
+    try {
+      const response = await fetch("/import/chats", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selected, workspace_id: workspaceId }),
+      });
+      if (!response.ok) throw new Error();
+      setChats((current) => current.filter((chat) => !selected.includes(chat.id)));
+      setSelected(null);
+      chatsImported();
+    } catch {
+      showErrorToast(t("settings.chat.import.errors.failed"));
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  async function importFile(file: File) {
+    if (!file.name.toLowerCase().endsWith(".md")) return showErrorToast(t("settings.chat.import.errors.notMarkdown"));
+    if (file.size > MAX_IMPORT_FILE_BYTES) return showErrorToast(t("settings.chat.import.errors.unusable"));
+    setImporting(true);
+    try {
+      const response = await fetch("/import/chat-file", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ file_name: file.name, content: await file.text(), workspace_id: workspaceId }),
+      });
+      const body = (await response.json().catch(() => ({}))) as { session_id?: string; error?: string };
+      if (!response.ok || !body.session_id) {
+        const key = body.error === "not_markdown" ? "notMarkdown" : body.error === "empty" || body.error === "too_large" ? "unusable" : "failed";
+        return showErrorToast(t(`settings.chat.import.errors.${key}`));
+      }
+      chatsImported();
+      navigate(`/chat/${body.session_id}`);
+    } catch {
+      showErrorToast(t("settings.chat.import.errors.failed"));
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  return (
+    <>
+      {chats.length > 0 && (
+        <SettingsRow title={t("settings.chat.import.local.title")} description={t("settings.chat.import.local.description", { count: chats.length })}>
+          <Button size="compact" variant="tertiary" onClick={() => setSelected(chats.map((chat) => chat.id))}>
+            {t("settings.chat.import.local.choose")}
+          </Button>
+        </SettingsRow>
+      )}
+      <SettingsRow title={t("settings.chat.import.file.title")} description={t("settings.chat.import.file.description")}>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".md"
+          aria-label={t("settings.chat.import.file.title")}
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (file) void importFile(file);
+          }}
+        />
+        <Button size="compact" variant="tertiary" disabled={importing} onClick={() => fileRef.current?.click()}>
+          {t("settings.chat.import.file.choose")}
+        </Button>
+      </SettingsRow>
+      <ShellDialog
+        open={selected !== null}
+        onOpenChange={(open) => { if (!open) setSelected(null); }}
+        title={t("settings.chat.import.local.title")}
+        description={t("settings.chat.import.local.dialog")}
+        actions={
+          <ShellDialogActions
+            cancelLabel={t("common.cancel")}
+            onCancel={() => setSelected(null)}
+            primary={{ label: t("settings.chat.import.local.confirm"), onClick: () => void importSelected(), disabled: !selected?.length || importing, loading: importing }}
+          />
+        }
+      >
+        <ul className={cn("flex max-h-64 flex-col gap-1 overflow-y-auto p-2", SHELL_CARD_BOX)}>
+          {chats.map((chat) => (
+            <li key={chat.id} className="flex items-center gap-2.5 px-2 py-1.5">
+              <Checkbox
+                id={`import-${chat.id}`}
+                checked={selected?.includes(chat.id) ?? false}
+                onCheckedChange={(next) => setSelected((current) => (next ? [...(current ?? []), chat.id] : (current ?? []).filter((id) => id !== chat.id)))}
+              />
+              <label htmlFor={`import-${chat.id}`} className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
+                <span className="truncate text-ui text-foreground">{chat.name}</span>
+                <span className="shrink-0 text-ui-xs text-muted-foreground">
+                  {new Date(`${chat.created_at.replace(" ", "T")}Z`).toLocaleDateString()} · {t("settings.chat.import.local.messages", { count: chat.message_count })}
+                </span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      </ShellDialog>
+    </>
+  );
+}
+
 function ChatSection() {
   const { t } = useTranslation();
   // Moved here from General's own Usage section -- per explicit request
@@ -2175,6 +2289,10 @@ function ChatSection() {
         <CompactScopeRows />
       </SettingsSection>
 
+      <SettingsSection title={t("settings.chat.import.title")}>
+        <ImportChatsRows />
+      </SettingsSection>
+
       <SettingsSection title={t("settings.chat.usage")}>
         <SettingsRow
           id="setting-chat-usage"
@@ -2182,7 +2300,7 @@ function ChatSection() {
           description={t("settings.chat.usage.description")}
           status={usageError ? t("settings.providers.noConnection") : undefined}
         >
-          <span className="text-[12px] font-medium text-foreground">
+          <span className="text-ui-sm font-medium text-foreground">
             {usage ? formatStorageBytes(usage.storage_bytes) : usageError ? "--" : "..."}
           </span>
         </SettingsRow>
@@ -2191,7 +2309,7 @@ function ChatSection() {
       {/* The yellow note above the composer as a provider's 5-hour limit fills: 85% always,
           plus any levels added here (or from the note's own Reminders). */}
       <SettingsSection title={t("limits.reminders.title")}>
-        <p className="px-3 py-2 text-[12px] text-muted-foreground">{t("limits.reminders.hint")}</p>
+        <p className="px-3 py-2 text-ui-sm text-muted-foreground">{t("limits.reminders.hint")}</p>
         <LimitReminderRows variant="settings" />
       </SettingsSection>
 
@@ -2394,7 +2512,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
           <div className="group/settings-search relative mb-[var(--redesign-quick-actions-gap)] h-[var(--redesign-quick-actions-trigger-height)] w-full">
             <span
               aria-hidden
-              className="pointer-events-none absolute top-1/2 left-[var(--redesign-quick-actions-padding)] z-10 flex -translate-y-1/2 items-center gap-[var(--redesign-quick-actions-shortcut-gap)] text-[length:var(--redesign-sidebar-primary-font-size)] text-muted-foreground transition-opacity duration-200 group-focus-within/settings-search:opacity-0"
+              className="pointer-events-none absolute top-1/2 left-[var(--redesign-quick-actions-padding)] z-10 flex -translate-y-1/2 items-center gap-[var(--redesign-quick-actions-shortcut-gap)] text-chat text-muted-foreground transition-opacity duration-160 group-focus-within/settings-search:opacity-0"
             >
               <Command strokeWidth={2} className="size-[var(--redesign-quick-actions-command-icon-size)]" />
               <span>F</span>
@@ -2411,14 +2529,14 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
                 }
               }}
               placeholder={t("settings.search.placeholder")}
-              className="h-full rounded-[var(--redesign-control-radius)] border-[var(--redesign-sidebar-border)] bg-transparent pr-[var(--redesign-quick-actions-padding)] pl-[calc(var(--redesign-quick-actions-padding)+var(--redesign-quick-actions-command-icon-size)+var(--redesign-quick-actions-shortcut-gap)+0.5rem+var(--redesign-quick-actions-icon-gap))] text-[length:var(--redesign-sidebar-primary-font-size)] font-normal text-foreground hover:bg-muted/50 transition-[border-color,background-color] duration-200 placeholder:text-transparent focus:pl-[var(--redesign-quick-actions-padding)] focus-visible:border-focus-accent md:text-[length:var(--redesign-sidebar-primary-font-size)]"
+              className="h-full rounded-[var(--redesign-control-radius)] border-[var(--redesign-sidebar-border)] bg-transparent pr-[var(--redesign-quick-actions-padding)] pl-[calc(var(--redesign-quick-actions-padding)+var(--redesign-quick-actions-command-icon-size)+var(--redesign-quick-actions-shortcut-gap)+0.5rem+var(--redesign-quick-actions-icon-gap))] text-chat font-normal text-foreground hover:bg-muted/50 transition-[border-color,background-color] duration-160 placeholder:text-transparent focus:pl-[var(--redesign-quick-actions-padding)] focus-visible:border-focus-accent md:text-chat"
             />
             {/* The placeholder, drawn in place so it fades out where it is (with the ⌘F hint) while
                 typed text starts at the left straight away. */}
             {!query && (
               <span
                 aria-hidden
-                className="pointer-events-none absolute top-1/2 left-[calc(var(--redesign-quick-actions-padding)+var(--redesign-quick-actions-command-icon-size)+var(--redesign-quick-actions-shortcut-gap)+0.5rem+var(--redesign-quick-actions-icon-gap))] -translate-y-1/2 truncate text-[length:var(--redesign-sidebar-primary-font-size)] text-muted-foreground transition-opacity duration-200 ease-in-out group-focus-within/settings-search:opacity-0 motion-reduce:transition-none"
+                className="pointer-events-none absolute top-1/2 left-[calc(var(--redesign-quick-actions-padding)+var(--redesign-quick-actions-command-icon-size)+var(--redesign-quick-actions-shortcut-gap)+0.5rem+var(--redesign-quick-actions-icon-gap))] -translate-y-1/2 truncate text-chat text-muted-foreground transition-opacity duration-160 ease-in-out group-focus-within/settings-search:opacity-0 motion-reduce:transition-none"
               >
                 {t("settings.search.placeholder")}
               </span>
@@ -2428,7 +2546,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
           {searching ? (
             <div className="flex flex-col gap-[var(--redesign-quick-actions-row-gap)]">
               {results.length === 0 && (
-                <p className="px-[var(--redesign-quick-actions-padding)] py-2 text-[length:var(--redesign-font-size-base)] font-normal text-muted-foreground">
+                <p className="px-[var(--redesign-quick-actions-padding)] py-2 text-chat font-normal text-muted-foreground">
                   {t("settings.search.noResults", { query })}
                 </p>
               )}
@@ -2441,11 +2559,11 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
                     onClick={() => goToResult(entry)}
                     className="flex min-h-[var(--redesign-quick-actions-row-height)] flex-col items-start justify-center rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] py-1 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <span className="flex items-center gap-[var(--redesign-quick-actions-icon-gap)] text-[length:var(--redesign-font-size-base)] font-medium text-muted-foreground">
+                    <span className="flex items-center gap-[var(--redesign-quick-actions-icon-gap)] text-chat font-medium text-muted-foreground">
                       {s.icon}
                       {t(s.labelKey)}
                     </span>
-                    <span className="pl-[calc(var(--redesign-quick-actions-icon-size)+var(--redesign-quick-actions-icon-gap))] text-[length:var(--redesign-font-size-base)] text-foreground">
+                    <span className="pl-[calc(var(--redesign-quick-actions-icon-size)+var(--redesign-quick-actions-icon-gap))] text-chat text-foreground">
                       {entry.title}
                     </span>
                   </button>
@@ -2459,7 +2577,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
                   <div className="flex h-[var(--redesign-quick-actions-row-height)] items-center px-[var(--redesign-quick-actions-padding)]">
                     <h2
                       id={`settings-sidebar-group-${group.labelKey}`}
-                      className="text-[length:var(--redesign-font-size-compact)] font-medium text-muted-foreground"
+                      className="text-ui-xs font-medium text-muted-foreground"
                     >
                       {t(group.labelKey)}
                     </h2>
@@ -2475,7 +2593,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
                           onClick={() => navigate(`/settings/${key}`, { replace: true })}
                           aria-current={isActive ? "page" : undefined}
                           className={cn(
-                            "flex h-[var(--redesign-quick-actions-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-left text-[length:var(--redesign-sidebar-primary-font-size)] font-normal text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                            "flex h-[var(--redesign-quick-actions-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-left text-chat font-normal text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                             isActive && "bg-muted font-medium text-foreground",
                           )}
                         >
@@ -2498,7 +2616,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
             <button
               type="button"
               onClick={() => navigate("/")}
-              className="flex h-[var(--redesign-sidebar-footer-account-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-[length:var(--redesign-sidebar-primary-font-size)] font-normal text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex h-[var(--redesign-sidebar-footer-account-row-height)] w-full items-center gap-[var(--redesign-quick-actions-icon-gap)] rounded-[var(--redesign-control-radius)] px-[var(--redesign-quick-actions-padding)] text-chat font-normal text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <ArrowCircleBrokenLeftIcon aria-hidden="true" className="size-[var(--redesign-quick-actions-icon-size)] shrink-0" />
               <span className="truncate">{t("shell.returnToChats")}</span>
@@ -2614,7 +2732,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
               }
             }}
             placeholder={t("settings.search.placeholder")}
-            className="h-7 rounded-[var(--row-radius-sm)] border border-border bg-transparent pl-[30px] text-xs font-normal text-foreground placeholder:text-foreground placeholder:opacity-100 placeholder:transition-opacity placeholder:duration-200 focus:placeholder:opacity-0 focus-visible:border-focus-accent md:text-xs"
+            className="h-7 rounded-[var(--row-radius-sm)] border border-border bg-transparent pl-[30px] text-xs font-normal text-foreground placeholder:text-foreground placeholder:opacity-100 placeholder:transition-opacity placeholder:duration-160 focus:placeholder:opacity-0 focus-visible:border-focus-accent md:text-xs"
           />
           {!query && (
             <span
@@ -2642,7 +2760,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
           // custom row shape.
           <div className="mx-2 flex flex-col gap-0.5">
             {results.length === 0 && (
-              <p className="px-2 py-2 text-[11px] font-normal text-muted-foreground">{t("settings.search.noResults", { query })}</p>
+              <p className="px-2 py-2 text-ui-xs font-normal text-muted-foreground">{t("settings.search.noResults", { query })}</p>
             )}
             {results.map((entry) => {
               const s = SECTIONS.find((sec) => sec.key === entry.section)!;
@@ -2653,11 +2771,11 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
                   onClick={() => goToResult(entry)}
                   className="flex flex-col items-start rounded-[8px] px-2 py-1 text-left transition-colors hover:bg-hover-2/50"
                 >
-                  <span className="flex items-center gap-1.5 text-[10px] font-normal text-muted-foreground">
+                  <span className="flex items-center gap-1.5 text-ui-2xs font-normal text-muted-foreground">
                     {s.icon}
                     {t(s.labelKey)}
                   </span>
-                  <span className="pl-[22px] text-[12px] text-foreground">{entry.title}</span>
+                  <span className="pl-[22px] text-ui-sm text-foreground">{entry.title}</span>
                 </button>
               );
             })}
@@ -2760,7 +2878,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
                   ref={accountTriggerRef}
                   type="button"
                   aria-label={t("nav.account.ariaLabel")}
-                  className="flex h-7 flex-1 min-w-0 shrink-0 transform-gpu items-center gap-2 rounded-[var(--row-radius)] px-1.5 text-left transition-[background-color] duration-150 hover:bg-hover-2/50"
+                  className="flex h-7 flex-1 min-w-0 shrink-0 transform-gpu items-center gap-2 rounded-[var(--row-radius)] px-1.5 text-left transition-[background-color] duration-160 hover:bg-hover-2/50"
                 >
                   {/* DefaultAvatar (ui/avatar.tsx), not a hand-rolled flat
                       black/white badge -- same fix as sidebar-nav.tsx's own
@@ -2824,7 +2942,7 @@ export function SettingsSidebarNav({ section, variant = "default" }: SettingsSid
                   // text-foreground -- same fix as sidebar-nav.tsx's own
                   // identical Help trigger (that one's own comment has the
                   // full reasoning).
-                  className="flex h-7 w-7 shrink-0 transform-gpu items-center justify-center rounded-[var(--row-radius)] text-foreground transition-colors duration-150 hover:text-ink data-[popup-open]:text-ink"
+                  className="flex h-7 w-7 shrink-0 transform-gpu items-center justify-center rounded-[var(--row-radius)] text-foreground transition-colors duration-160 hover:text-ink data-[popup-open]:text-ink"
                 >
                   {/* Default strokeWidth -- same fix as sidebar-nav.tsx's
                       own identical Help trigger (that one's own comment
@@ -2898,7 +3016,7 @@ function ArchivedSection({ kind }: { kind: ArchivedEntity["kind"] }) {
   return (
     <div className="mt-4 flex flex-col gap-2">
       {rows.length === 0 ? (
-        <div className="rounded-xl border border-border bg-card px-4 py-8 text-center text-[13px] text-muted-foreground">{t(`archive.empty.${kind}`)}</div>
+        <div className="rounded-xl border border-border bg-card px-4 py-8 text-center text-ui text-muted-foreground">{t(`archive.empty.${kind}`)}</div>
       ) : rows.map((entity) => {
         const childProjects = entity.kind === "workspace" ? snapshot.projects.filter((item) => item.workspace_id === entity.id).length : 0;
         const childChats = entity.kind === "workspace"
@@ -2916,8 +3034,8 @@ function ArchivedSection({ kind }: { kind: ArchivedEntity["kind"] }) {
               <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-background"><Icon className="size-4" /></span>
             )}
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[13px] font-medium text-foreground">{entity.name}</p>
-              <p className="text-[12px] text-muted-foreground">{t(`archive.kind.${entity.kind}`)}{childProjects || childChats ? ` · ${t("archive.contents", { projects: childProjects, chats: childChats })}` : ""}</p>
+              <p className="truncate text-ui font-medium text-foreground">{entity.name}</p>
+              <p className="text-ui-sm text-muted-foreground">{t(`archive.kind.${entity.kind}`)}{childProjects || childChats ? ` · ${t("archive.contents", { projects: childProjects, chats: childChats })}` : ""}</p>
             </div>
             <Button size="compact" variant="tertiary" leadingIcon={RotateCcw} onClick={() => void mutate(entity, "restore")} disabled={busy !== null}>{t("archive.restore")}</Button>
             <Button size="compact" variant="accent" leadingIcon={Trash2} className={DESTRUCTIVE_BUTTON} onClick={() => setPendingDelete(entity)} disabled={busy !== null}>{t("archive.deletePermanently")}</Button>
@@ -2998,14 +3116,14 @@ export function SettingsSectionContent({ section }: { section: SettingsSection }
           {/* Profile and Skills draw their own header (Skills has actions beside it). */}
           {section !== "profile" && section !== "skills" && (
             <>
-              <h2 className="text-[16px] font-semibold text-foreground">
+              <h2 className="text-ui-xl font-semibold text-foreground">
                 {(() => {
                   const entry = SECTIONS.find((s) => s.key === section);
                   const key = entry?.titleKey ?? entry?.labelKey;
                   return key ? t(key) : null;
                 })()}
               </h2>
-              <p className="mt-0.5 text-[13px] font-normal text-muted-foreground">{t(SECTION_SUBTITLE_KEY[section])}</p>
+              <p className="mt-0.5 text-ui font-normal text-muted-foreground">{t(SECTION_SUBTITLE_KEY[section])}</p>
             </>
           )}
         </PageContent>

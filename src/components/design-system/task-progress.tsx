@@ -93,8 +93,8 @@ export function TaskProgressPanel({
     <section className="mb-2.5 overflow-hidden rounded-[var(--redesign-chat-bubble-radius)] border border-border bg-sidebar" aria-label={title}>
       <header className="flex h-10 items-center gap-2 border-b border-border px-3">
         <ProgressRing completedSteps={completed} totalSteps={tasks.length} spinning={running && completed < tasks.length} />
-        <span className="min-w-0 flex-1 truncate text-[length:var(--redesign-font-size-base)] font-medium text-foreground">{title}</span>
-        <span className="shrink-0 text-[length:var(--redesign-font-size-compact)] text-muted-foreground">
+        <span className="min-w-0 flex-1 truncate text-chat font-medium text-foreground">{title}</span>
+        <span className="shrink-0 text-ui-xs text-muted-foreground">
           {t("chat.tasks.count", { done: completed, total: tasks.length })}
         </span>
         {running && onPause ? (
@@ -117,18 +117,18 @@ export function TaskProgressPanel({
               {index < tasks.length - 1 ? <span aria-hidden="true" className="absolute top-4 bottom-0 left-[7px] w-px bg-border" /> : null}
               <span className="relative z-[1] mt-0.5 bg-sidebar"><TaskStatusMark status={task.status} running={running} /></span>
               <div className="min-w-0 flex-1">
-                <div className={cn("flex min-h-5 items-center gap-2 text-[length:var(--redesign-chat-text)]", muted ? "text-muted-foreground" : "text-foreground")}>
+                <div className={cn("flex min-h-5 items-center gap-2 text-chat", muted ? "text-muted-foreground" : "text-foreground")}>
                   <span className="min-w-0 flex-1">{task.title}</span>
-                  {task.durationLabel ? <span className="shrink-0 text-[length:var(--redesign-chat-meta)] tabular-nums text-muted-foreground/70">{task.durationLabel}</span> : null}
+                  {task.durationLabel ? <span className="shrink-0 text-chat-meta tabular-nums text-muted-foreground/70">{task.durationLabel}</span> : null}
                 </div>
                 {task.subtasks?.length ? (
                   <ul className="mt-2 flex flex-col gap-1.5">
                     {task.subtasks.map((subtask) => (
-                      <li key={subtask.id} className="flex min-h-8 items-center gap-2 rounded-[var(--redesign-control-radius)] bg-muted/70 px-2.5 text-[length:var(--redesign-font-size-base)]">
+                      <li key={subtask.id} className="flex min-h-8 items-center gap-2 rounded-[var(--redesign-control-radius)] bg-muted/70 px-2.5 text-chat">
                         <CornerDownRight aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                         <span className="min-w-0 flex-1 truncate text-foreground/90">{subtask.title}</span>
                         {subtask.status !== "pending" ? (
-                          <span className="shrink-0 text-[length:var(--redesign-font-size-compact)] text-[var(--focus-accent)]">
+                          <span className="shrink-0 text-ui-xs text-[var(--focus-accent)]">
                             ✓ {t(`chat.tasks.subtask.${subtask.status}`)}
                           </span>
                         ) : null}

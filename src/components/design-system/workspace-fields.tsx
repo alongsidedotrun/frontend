@@ -16,7 +16,7 @@ import { LOGO_MIME_TYPES, MAX_DESCRIPTION_LENGTH, readLogoFile } from "@/lib/wor
 import { WORKSPACE_HUE_COUNT, WORKSPACE_PALETTE, WORKSPACE_SWATCH_ORDER, paletteIndexForName } from "@/lib/identity-palette";
 import { SurfaceProvider } from "@/lib/surface-context";
 import { cn } from "@/lib/utils";
-import { ShellField, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE } from "@/components/design-system/shell-dialog";
+import { ShellField, SHELL_CARD_BOX, SHELL_FIELD_INPUT, SHELL_RADIUS, SHELL_SURFACE, useShellCard } from "@/components/design-system/shell-dialog";
 
 export type WorkspaceFieldValues = {
   name: string;
@@ -32,6 +32,8 @@ type WorkspaceFieldsProps = {
   // Shown under the name, e.g. a name already taken.
   nameError?: string | null;
   autoFocusName?: boolean;
+  // On the workspace pages: each label sits above its box, at its top left, not inside it.
+  labelsAbove?: boolean;
 };
 
 /**
@@ -39,42 +41,69 @@ type WorkspaceFieldsProps = {
  * Manage workspace dialogs. Its logo and colour are set from the tile on top
  * (WorkspaceTileMenu).
  */
-export function WorkspaceFields({ values, onChange, nameError, autoFocusName }: WorkspaceFieldsProps) {
+export function WorkspaceFields({ values, onChange, nameError, autoFocusName, labelsAbove }: WorkspaceFieldsProps) {
   const { t } = useTranslation();
   const nameId = useId();
   const descriptionId = useId();
   const set = (patch: Partial<WorkspaceFieldValues>) => onChange({ ...values, ...patch });
+  // The card look has its labels inside the fields, as everywhere else in it.
+  const card = useShellCard();
+
+  const nameInput = (
+    <input
+      id={nameId}
+      autoFocus={autoFocusName}
+      value={values.name}
+      onChange={(event) => set({ name: event.target.value })}
+      aria-invalid={nameError ? true : undefined}
+      placeholder={t("workspace.fields.namePlaceholder")}
+      maxLength={80}
+      className={SHELL_FIELD_INPUT}
+    />
+  );
+  const descriptionInput = (
+    <textarea
+      id={descriptionId}
+      value={values.description}
+      onChange={(event) => set({ description: event.target.value })}
+      placeholder={t("workspace.fields.descriptionPlaceholder")}
+      maxLength={MAX_DESCRIPTION_LENGTH}
+      rows={2}
+      className="w-full resize-none appearance-none rounded-none border-0 bg-transparent p-0 text-ui leading-[1.5] text-foreground shadow-none outline-none placeholder:text-muted-foreground/70"
+    />
+  );
+  const nameErrorLine = nameError && <p className="px-1 text-ui-sm text-destructive">{nameError}</p>;
+
+  if (labelsAbove && !card) {
+    const labelClass = "px-1 text-ui-sm text-muted-foreground";
+    return (
+      <>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor={nameId} className={labelClass}>{t("workspace.fields.name")}</label>
+          <div className={cn("flex h-9 items-center px-3", SHELL_RADIUS, SHELL_SURFACE)}>{nameInput}</div>
+          {nameErrorLine}
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor={descriptionId} className={labelClass}>{t("workspace.fields.description")}</label>
+          <div className={cn("flex flex-col px-3 py-2", SHELL_RADIUS, SHELL_SURFACE)}>{descriptionInput}</div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
       <div className="flex flex-col gap-1">
         <ShellField label={t("workspace.fields.name")} htmlFor={nameId}>
-          <input
-            id={nameId}
-            autoFocus={autoFocusName}
-            value={values.name}
-            onChange={(event) => set({ name: event.target.value })}
-            aria-invalid={nameError ? true : undefined}
-            placeholder={t("workspace.fields.namePlaceholder")}
-            maxLength={80}
-            className={SHELL_FIELD_INPUT}
-          />
+          {nameInput}
         </ShellField>
-        {nameError && <p className="px-1 text-[12px] text-destructive">{nameError}</p>}
+        {nameErrorLine}
       </div>
 
       {/* Description: a white card like the fields, its label on top. */}
-      <section className={cn("flex flex-col gap-1 px-3 pt-2 pb-1", SHELL_RADIUS, SHELL_SURFACE)}>
-        <label htmlFor={descriptionId} className="text-[12px] text-muted-foreground">{t("workspace.fields.description")}</label>
-        <textarea
-          id={descriptionId}
-          value={values.description}
-          onChange={(event) => set({ description: event.target.value })}
-          placeholder={t("workspace.fields.descriptionPlaceholder")}
-          maxLength={MAX_DESCRIPTION_LENGTH}
-          rows={2}
-          className="resize-none bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground/70"
-        />
+      <section className={cn("flex flex-col gap-1", card ? cn("px-4 pt-2.5 pb-1.5", SHELL_CARD_BOX) : cn("px-3 pt-2 pb-1", SHELL_RADIUS, SHELL_SURFACE))}>
+        <label htmlFor={descriptionId} className="text-ui-sm text-muted-foreground">{t("workspace.fields.description")}</label>
+        {descriptionInput}
       </section>
     </>
   );
@@ -121,7 +150,7 @@ export function WorkspaceTileMenu({ values, onChange, extra }: { values: Workspa
           />
           <BaseDropdownContent side="bottom" align="center" sideOffset={6} className="w-56 min-w-0">
             <BaseMenuItem index={0} icon={Upload} label={t("workspace.fields.uploadLogo")} className="gap-[7px]" onSelect={() => fileRef.current?.click()} />
-            <DropdownSubMenuItem index={1} icon={Palette} label={t("workspace.fields.useDefault")} chevron className="gap-[7px] text-[12px]">
+            <DropdownSubMenuItem index={1} icon={Palette} label={t("workspace.fields.useDefault")} chevron className="gap-[7px] text-ui-sm">
               <BaseDropdownLabel>{t("workspace.fields.tileColour")}</BaseDropdownLabel>
               {WORKSPACE_SWATCH_ORDER.map((index) => {
                 const swatch = WORKSPACE_PALETTE[index];
@@ -130,7 +159,7 @@ export function WorkspaceTileMenu({ values, onChange, extra }: { values: Workspa
                 return (
                   <DropdownSubItem
                     key={swatch.name}
-                    className="flex items-center gap-2 py-1.5 pl-2.5 text-[12px]"
+                    className="flex items-center gap-2 py-1.5 pl-2.5 text-ui-sm"
                     // The default tile: the name's letter on this colour, in place of any logo.
                     onClick={() => onChange({ ...values, logo: null, colorIndex: index })}
                   >
@@ -165,7 +194,7 @@ export function WorkspaceTileMenu({ values, onChange, extra }: { values: Workspa
           event.target.value = "";
         }}
       />
-      {logoError && <p className="text-[12px] text-destructive">{logoError}</p>}
+      {logoError && <p className="text-ui-sm text-destructive">{logoError}</p>}
     </div>
   );
 }

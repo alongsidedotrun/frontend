@@ -93,7 +93,7 @@ export function SetupDialog({
   return (
     <div
       className={cn(
-        "fixed inset-0 z-50 flex items-center justify-center p-3 backdrop-blur-sm transition-[background-color,opacity] duration-200 ease-out",
+        "fixed inset-0 z-50 flex items-center justify-center p-3 backdrop-blur-sm transition-[background-color,opacity] duration-160 ease-out",
         visible ? "bg-black/45 opacity-100 dark:bg-black/65" : "bg-black/0 opacity-0",
       )}
       onMouseDown={(event) => {
@@ -108,7 +108,7 @@ export function SetupDialog({
         aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
         className={cn(
-          "relative max-h-[calc(100dvh-1.5rem)] w-[calc(100vw-1.5rem)] max-w-[480px] overflow-y-auto rounded-[22px] border border-border bg-popover p-4 text-popover-foreground shadow-2xl shadow-black/30 outline-none transition-[opacity,transform] duration-200 ease-out sm:p-5",
+          "relative max-h-[calc(100dvh-1.5rem)] w-[calc(100vw-1.5rem)] max-w-[480px] overflow-y-auto rounded-[22px] border border-border bg-popover p-4 text-popover-foreground shadow-2xl shadow-black/30 outline-none transition-[opacity,transform] duration-160 ease-out sm:p-5",
           visible ? "scale-100 opacity-100" : "scale-[0.97] opacity-0",
           className,
         )}

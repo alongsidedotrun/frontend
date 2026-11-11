@@ -581,7 +581,7 @@ export function CommentCreateForm({
                   onAddComment();
                 }
               }}
-              placeholder="Reply..."
+              placeholder="Reply"
               autoComplete="off"
               autoFocus={autoFocus}
             />

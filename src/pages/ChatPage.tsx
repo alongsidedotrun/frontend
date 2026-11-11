@@ -5,7 +5,7 @@ import { useOutletContext, useParams } from "react-router-dom";
 import { addressedAgent, useChatAgents } from "@/lib/chat-agents";
 import { NewAgentDialog } from "@/components/new-agent-dialog";
 import { ProviderNotice } from "@/components/provider-gate";
-import { BotFace, type BotAvatar } from "@/components/bot-face";
+import { BotFace, moodFace, useBotMood, type BotAvatar, type BotMood } from "@/components/bot-face";
 import { AnimatePresence, motion } from "motion/react";
 import { spring } from "@/lib/springs";
 import { isAutoScrollSuppressed, suppressAutoScroll } from "@/lib/chat-scroll-suppress";
@@ -50,7 +50,7 @@ import {
   Volume2Icon,
   XIcon,
 } from "@/components/icons/untitled-ui";
-import { AUTO_BOT_MODEL, ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
+import { AUTO_BOT_MODEL, modelFor, ProviderIcon, QUICK_CHAT_MODELS } from "@/lib/quick-chat-models";
 import { RELAY_JOIN_REQUESTED_EVENT } from "@/lib/use-share";
 
 // A file in a shared chat (#460), as a message refers to it.
@@ -119,6 +119,8 @@ type ChatRow =
       mine?: boolean;
       // #460: files sent with it in a shared chat (read from this device's own copy).
       files?: SharedFile[];
+      // A bot's reaction to it (an emoji, e.g. a thumbs up for "understood"): see reactionOf.
+      reaction?: string;
     }
   | {
       kind: "agent";
@@ -319,12 +321,27 @@ function cleanRunCommand(command: string): string {
   return match ? match[1] : command;
 }
 
+// A bot can react to the message it's answering: its reply starts with "[[react:👍]]" (one emoji), and
+// may be nothing else when the reaction says it all (backend chat_agents::bot_preamble tells it so).
+const REACTION = /^\s*\[\[react:\s*([^\]\s]{1,16})\s*\]\]\s*/u;
+
+function reactionOf(text: string): { reaction: string | null; text: string } {
+  const match = REACTION.exec(text);
+  return match ? { reaction: match[1], text: text.slice(match[0].length) } : { reaction: null, text };
+}
+
 function normalizeToolName(name: string): string {
   return TOOL_NAME_ALIASES[name] ?? name;
 }
 
+// Times follow Settings > Language (English IE/UK: 24-hour, US: 12-hour, and so on), not the
+// UI translation ("en" alone reads as US English, so 12-hour everywhere).
+function clockTime(date: Date) {
+  return date.toLocaleTimeString(loadLanguage(), { hour: "2-digit", minute: "2-digit" });
+}
+
 function messageTime() {
-  return new Date().toLocaleTimeString(i18n.language, { hour: "2-digit", minute: "2-digit" });
+  return clockTime(new Date());
 }
 
 // Per explicit request: a message's own displayed time should read differently
@@ -344,14 +361,14 @@ function messageTime() {
 function formatMessageTimestamp(ms: number): string {
   const date = new Date(ms);
   const now = new Date();
-  const time = date.toLocaleTimeString(i18n.language, { hour: "2-digit", minute: "2-digit" });
+  const time = clockTime(date);
   const isSameDay = date.toDateString() === now.toDateString();
   if (isSameDay) return time;
   const oneDayMs = 24 * 60 * 60 * 1000;
   const daysAgo = Math.floor((now.getTime() - date.getTime()) / oneDayMs);
   const isSameWeek = daysAgo < 7 && date.getDay() !== now.getDay();
   if (isSameWeek) {
-    const dayName = date.toLocaleDateString(i18n.language, { weekday: "long" });
+    const dayName = date.toLocaleDateString(loadLanguage(), { weekday: "long" });
     return `${dayName} ${time}`;
   }
   const monthFirst = isMonthFirstDateOrder(loadLanguage());
@@ -477,6 +494,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   const outletContext = useOutletContext<ChatPageShellContext>();
   const { chatName, contextLabel, receiveChatNameFromServer, refreshSidebarLists, openSettings, openFile, rightPanelOpen, notifyFilesTouched, bot, providerReady } =
     shellContextOverride ?? outletContext;
+  // For the chat's event handler (set up once per connection): whether this is a bot's chat.
+  const isBotChatRef = useRef(false);
+  isBotChatRef.current = Boolean(bot);
+  // The chat had nothing in it when it opened (replay_complete with no events).
+  const [emptyAtOpen, setEmptyAtOpen] = useState(false);
   // Real correction, per explicit follow-up ("we reduce to 400px but
   // there's so much space around it, instead of reducing the content to
   // 400px, keep that as 800px and reduce the outside paddings on left and
@@ -1259,6 +1281,9 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       }
 
       if (type === "model_changed") {
+        // A bot's chat switches models in the background ("Let the bot choose"): no marker, and the
+        // picker stays as it is.
+        if (isBotChatRef.current || modelRef.current.value === AUTO_BOT_MODEL.value) return;
         const value = event.model as string;
         const found = QUICK_CHAT_MODELS.find((m) => m.value === value);
         if (found) modelRef.current = found;
@@ -1490,6 +1515,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         // A resume after a dropped connection only sent what was missed: the transcript is already on
         // screen, so there is no first-load scroll or reveal to run again.
         if (event.resumed) return;
+        // Nothing in the chat yet: a new bot's welcome is on its way (the effect on emptyAtOpen).
+        if (event.last_event_id === 0) setEmptyAtOpen(true);
         // One atomic swap-in for a branch-switch reconnect's own buffered
         // replay (pendingBranchReplayRef's own comment, above pushRow, has
         // the full reasoning) -- the old branch's rows are still what's on
@@ -1955,6 +1982,18 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               updateLiveReasoningText(block.thinking);
             } else if (block.type === "text" && block.text) {
               setWaitingPhase(null);
+              // A reaction goes on the message it answers (the last one sent); a reply that's only a
+              // reaction adds no row of its own.
+              const reacted = reactionOf(block.text);
+              if (reacted.reaction) {
+                const emoji = reacted.reaction;
+                setRows((prev) => {
+                  const at = prev.map((row) => row.kind).lastIndexOf("human");
+                  return at < 0 ? prev : prev.map((row, index) => (index === at && row.kind === "human" ? { ...row, reaction: emoji } : row));
+                });
+              }
+              if (!reacted.text.trim()) continue;
+              block.text = reacted.text;
               // event.model -- the real model that actually produced *this*
               // reply (backend/src/lib.rs's own record()/attach_model),
               // falling back to modelRef.current (the compose box's current
@@ -1966,7 +2005,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               // historical reply silently showed whichever model the
               // compose box currently has selected instead of the one that
               // actually generated it.
-              const eventModel = typeof event.model === "string" ? QUICK_CHAT_MODELS.find((m) => m.value === event.model) : undefined;
+              const eventModel = typeof event.model === "string" ? modelFor(event.model) : undefined;
               const rowModel = eventModel ?? modelRef.current;
               lastReplyModelRef.current = rowModel;
               sawRealReplyRef.current = true;
@@ -1974,7 +2013,9 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               // -- reopening some older, less-recently-used chat shouldn't
               // make its own history look like the most recent real usage
               // for every *other* chat's own provisional default.
-              if (historyReplayedRef.current) saveLastModel(rowModel.value);
+              // Nor a model the bot chose ("Let the bot choose"): "last used" means the person's own pick,
+              // and counting the bot's kept it on whichever provider it happened to start with.
+              if (historyReplayedRef.current && modelRef.current.value !== AUTO_BOT_MODEL.value) saveLastModel(rowModel.value);
               const agentRowId = nextRowId();
               // Turn-duration feature (alongsidedotrun/private#53) -- this turn's
               // own "result" event (below) patches this exact row with the final
@@ -2602,6 +2643,31 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // searchQueryRef -- real, not fabricated: the same WebSearch tool_use block's own
   // `input.query` field (see the "assistant" event handler above), shown only when
   // it actually arrived with one.
+  // A bot's face while a turn runs (after OpenBot's avatar moods): curious while it waits, thinking,
+  // then working (searching counts as working).
+  const waitingMood: BotMood | undefined =
+    waitingPhase === "waiting" ? "waiting" : waitingPhase === "thinking" || waitingPhase === "reasoning" ? "thinking" : waitingPhase ? "working" : undefined;
+  // The latest reply: its bot face is the live one.
+  let latestAgentRowId: string | undefined;
+  for (let index = rows.length - 1; index >= 0; index--) {
+    if (rows[index].kind === "agent") {
+      latestAgentRowId = rows[index].id;
+      break;
+    }
+  }
+  // A new bot's chat opens before its welcome is written (10-15s, in the background): it shows the bot
+  // Waiting from the start, as for a sent message, until the welcome lands (or a minute and a half).
+  const hasMessages = rows.some((row) => row.kind === "agent" || row.kind === "human");
+  useEffect(() => {
+    if (!bot || !emptyAtOpen || hasMessages) return;
+    awaitingReplyRef.current = true;
+    setWaitingPhase((phase) => phase ?? "waiting");
+    const giveUp = window.setTimeout(() => {
+      awaitingReplyRef.current = false;
+      setWaitingPhase(null);
+    }, 90_000);
+    return () => window.clearTimeout(giveUp);
+  }, [bot, emptyAtOpen, hasMessages]);
   const waitingPhaseLabel =
     (waitingPhase === "waiting"
       ? t("chat.phase.waiting")
@@ -2644,10 +2710,10 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                     setChatHeaderRenaming(false);
                   }
                 }}
-                className="h-5 w-44 rounded-sm border border-border bg-transparent px-1 text-[12px] font-normal text-foreground outline-none focus:border-ring"
+                className="h-5 w-44 rounded-sm border border-border bg-transparent px-1 text-ui-sm font-normal text-foreground outline-none focus:border-ring"
               />
             ) : (
-              <h1 className="max-w-56 truncate text-[12px] font-normal text-muted-foreground/60 transition-colors duration-150 group-hover/chat-context:text-foreground group-focus-within/chat-context:text-foreground">
+              <h1 className="max-w-56 truncate text-ui-sm font-normal text-muted-foreground/60 transition-colors duration-160 group-hover/chat-context:text-foreground group-focus-within/chat-context:text-foreground">
                 {contextLabel}
               </h1>
             )}
@@ -2664,7 +2730,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               <BaseDropdownContent side="bottom" align="start" className="w-40 overflow-hidden">
                 <BaseDropdownLabel>Chat</BaseDropdownLabel>
                 <DropdownSubItem
-                  className="gap-2 text-[12px]"
+                  className="gap-2 text-ui-sm"
                   onClick={() => {
                     setChatHeaderMenuOpen(false);
                     setChatHeaderRenaming(true);
@@ -2674,12 +2740,12 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                   Rename
                 </DropdownSubItem>
                 {headerProjects.length > 0 ? (
-                  <DropdownSubMenuItem index={1} icon={FolderIcon} label={t("nav.chat.addToProject")} className="gap-[7px] text-[12px]">
+                  <DropdownSubMenuItem index={1} icon={FolderIcon} label={t("nav.chat.addToProject")} className="gap-[7px] text-ui-sm">
                     <BaseDropdownLabel>{t("nav.projects")}</BaseDropdownLabel>
                     {headerProjects.map((project) => (
                       <DropdownSubItem
                         key={project.id}
-                        className="py-1.5 pl-2.5 text-[12px]"
+                        className="py-1.5 pl-2.5 text-ui-sm"
                         onClick={() => void assignChatHeaderProject(project.id)}
                       >
                         {project.name}
@@ -2687,7 +2753,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                     ))}
                   </DropdownSubMenuItem>
                 ) : (
-                  <DropdownSubItem className="gap-2 text-[12px]" disabled>
+                  <DropdownSubItem className="gap-2 text-ui-sm" disabled>
                     <FolderIcon className="size-3.5" />
                     {t("nav.chat.addToProject")}
                   </DropdownSubItem>
@@ -2721,7 +2787,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             at all -- scrollToBottomIfNear (this file, called from pushRow)
             and the replay_complete handler's own scrollTop = scrollHeight
             already handle it in JS, the exact same pattern dray uses. */}
-        <div ref={chatContentRef} className="t-chat-width mx-auto flex w-full flex-1 flex-col gap-3 pt-16 pb-3 [&_p]:font-[inherit] [&_p]:tracking-[inherit]" style={{ maxWidth: "var(--chat-max-width)" }}>
+        <div ref={chatContentRef} className="t-chat-width mx-auto flex w-full flex-1 flex-col gap-3 pt-16 pb-3" style={{ maxWidth: "var(--chat-max-width)" }}>
           {/* t-row-in -- per explicit request ("coming in very quickly, is there a
               transition like fade in"): every LIVE row mounting (human, agent, tool,
               reasoning, marker, command, permission alike) fades/slides in once,
@@ -2833,7 +2899,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               : !historicalRowsRevealed
                 ? "opacity-0"
                 : viewportVisibleRowIds.has(row.id)
-                  ? "opacity-100 transition-opacity duration-200"
+                  ? "opacity-100 transition-opacity duration-160"
                   : "opacity-100";
             // index > (not >=) -- confirmed directly as a real bug ("The
             // cancel button is not working"): the edited row itself is
@@ -2886,6 +2952,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                   onOpenFile={openFile}
                   toolGroup={groupStarts.get(row.id)}
                   liveWorking={liveWorking}
+                  latestReply={row.kind === "agent" && row.id === latestAgentRowId}
+                  botMood={liveWorking ? waitingMood : undefined}
                 />
               </div>
               {deferredCard && <div className={rowClassName}>{deferredCard}</div>}
@@ -2916,6 +2984,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
             // own agent-reply text size, same reasoning the row's
             // previous size bump already established.
             <div className="flex items-center gap-2 py-1">
+              {/* A bot's chat: the bot, its face showing what it's doing (still: only the latest reply's
+                  face moves), then the label. */}
+              {bot && waitingMood && (
+                <BotFace avatar={bot.avatar ?? undefined} expression={moodFace(waitingMood).expression} className="size-4 shrink-0" />
+              )}
               <TurnWorkDisclosure label={waitingPhaseLabel} detailText={liveReasoningText ?? undefined} live />
             </div>
           )}
@@ -2986,7 +3059,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         </AnimatePresence>
         {sessionId && <JoinRequests sessionId={sessionId} requests={joinRequests} onDecided={(id) => setJoinRequests((current) => current.filter((r) => r.id !== id))} />}
         {commenterChat ? (
-          <p className="mb-2 text-center text-[12px] text-muted-foreground">{t("chat.agentMode.commenterOnly")}</p>
+          <p className="mb-2 text-center text-ui-sm text-muted-foreground">{t("chat.agentMode.commenterOnly")}</p>
         ) : sharedChat ? (
           <AgentModeSwitch justChat={justChat} onChange={setJustChat} />
         ) : null}
@@ -3037,6 +3110,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           }}
           // A bot's chat starts on "Let the bot choose"; a model picked from the menu stays for the chat.
           allowBotChoice={Boolean(bot)}
+          botAvatar={bot?.avatar}
           defaultModelValue={bot ? AUTO_BOT_MODEL.value : defaultModelValue}
           defaultEffortValue={defaultEffortValue}
           defaultPermissionValue={handoffPermissionMode}
@@ -3138,7 +3212,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
 // rows were still on an older span, only the agent row's own had been resized.
 function MessageTime({ time }: { time: string }) {
   return (
-    <p className="px-1 text-[length:var(--redesign-chat-meta)] text-muted-foreground">
+    // The compact size (as section headings), a step under the sender's name.
+    <p className="px-1 text-ui-xs text-muted-foreground">
       {time}
     </p>
   );
@@ -3172,6 +3247,8 @@ function ChatRowView({
   onOpenFile,
   toolGroup,
   liveWorking,
+  latestReply = false,
+  botMood,
 }: {
   row: ChatRow;
   /** A bot's chat: its own replies are labelled with the bot, the model after it. */
@@ -3198,7 +3275,18 @@ function ChatRowView({
   // settled disclosure will occupy once the turn finishes, so nothing
   // visibly jumps between the live and settled states.
   liveWorking?: { label: string; detailText?: string };
+  /** The chat's latest reply: a bot's face there is alive (looking about; pleased when it arrives). */
+  latestReply?: boolean;
+  /** While this reply's turn still runs: the bot's mood (waiting, thinking, working). */
+  botMood?: BotMood;
 }) {
+  // A bot's fresh reply: pleased for a moment, then back at rest (OpenBot's "responded" mood).
+  const [replyMood, reactReply] = useBotMood();
+  useEffect(() => {
+    if (row.kind === "agent" && row.animate && bot) reactReply("happy");
+    // Once, as the reply arrives.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const { t } = useTranslation();
   const signedIn = useIsSignedIn();
   // Gates the actions row + disclaimer (agent branch, further down) until
@@ -3231,9 +3319,11 @@ function ChatRowView({
   // moment, so gating this too on top of it only ever adds delay, never
   // correctness (these icons are effectively always
   // preloadProviderIcons-cached well before that reveal fires anyway).
-  const [iconLoaded, setIconLoaded] = useState(() => row.kind !== "agent" || !row.animate);
+  // A bot's own reply shows its face (drawn here, no image to wait for), so it's ready at once; waiting
+  // for an onLoad that never comes left a live bot reply streaming in invisibly.
+  const [iconLoaded, setIconLoaded] = useState(() => row.kind !== "agent" || !row.animate || Boolean(bot && !row.runBy));
   if (row.kind === "marker") {
-    return <div className="text-center text-[length:var(--redesign-chat-meta)] text-muted-foreground/70"><ErrorText message={row.text} /></div>;
+    return <div className="text-center text-chat-meta text-muted-foreground/70"><ErrorText message={row.text} /></div>;
   }
 
   if (row.kind === "tool") {
@@ -3248,6 +3338,8 @@ function ChatRowView({
     // no syncRows, and FileDiffGroup's own ResolvedFile fetches the real
     // file content off disk instead -- same card either way.
     if (toolGroup && (row.name === "Write" || row.name === "Edit")) {
+      // Only the provider's own files (its memory): nothing to show.
+      if (toolGroup.every((r) => isProviderOwnPath(summarizeToolInput(r.input)))) return null;
       const card = renderFileDiffGroupCard(toolGroup, onOpenFile);
       if (card) return card;
     }
@@ -3338,7 +3430,7 @@ function ChatRowView({
             max-w-[85%]) and the margin push is a plain, unambiguous CSS
             mechanism that doesn't depend on flex cross-axis sizing at all. */}
         <div
-          className={`flex w-fit max-w-[85%] items-center gap-2.5 transition-[max-width] duration-200 ${isSelf ? "ml-auto" : "mr-auto"}`}
+          className={`flex w-fit max-w-[85%] items-center gap-2.5 transition-[max-width] duration-160 ${isSelf ? "ml-auto" : "mr-auto"}`}
         >
           {/* --redesign-chat-text leading-relaxed -- matches the agent reply's own text exactly
               (the block below this one's own comment has the same values), was text-sm
@@ -3364,11 +3456,35 @@ function ChatRowView({
               --foreground comment has the full history), so this is now a literal
               shared token rather than two colors that happened to match. */}
           <div
-            className={`rounded-[var(--redesign-chat-bubble-radius)] px-[var(--redesign-chat-bubble-padding-x)] py-[var(--redesign-chat-bubble-padding-y)] text-[length:var(--redesign-chat-text)] leading-relaxed whitespace-pre-wrap text-foreground ${
+            className={`relative rounded-[var(--redesign-chat-bubble-radius)] px-[var(--redesign-chat-bubble-padding-x)] py-[var(--redesign-chat-bubble-padding-y)] text-chat leading-relaxed whitespace-pre-wrap text-foreground ${
               row.failed ? "border border-destructive/40" : ""
-            } bg-accent`}
+            } ${row.reaction ? "mb-3" : ""} bg-accent`}
           >
             <MessageText text={row.text} />
+            {/* The bot's reaction, on the bubble's lower corner: its face and the emoji. */}
+            {/* The bot's reaction on the bubble's lower corner: just the emoji; hovering it says who. */}
+            {row.reaction && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    tabIndex={0}
+                    aria-label={bot ? t("chat.reactedBy", { name: bot.name, emoji: row.reaction }) : row.reaction}
+                    className={`absolute -bottom-3.5 flex h-6 min-w-6 cursor-default items-center justify-center rounded-full border border-border bg-background px-1 text-ui leading-none shadow-[0_1px_2px_rgb(0_0_0_/_0.08)] outline-none focus-visible:ring-2 focus-visible:ring-ring ${isSelf ? "left-2" : "right-2"}`}
+                  >
+                    {row.reaction}
+                  </span>
+                </TooltipTrigger>
+                {bot && (
+                  // The app's own floating surface (as menus), not the inverted default tooltip.
+                  <TooltipContent className="border border-[var(--redesign-sidebar-elevated-border)] bg-[var(--redesign-sidebar-overlay-surface)] text-foreground shadow-[var(--redesign-sidebar-elevated-shadow)]">
+                    <span className="flex items-center gap-1.5">
+                      <BotFace avatar={bot.avatar ?? undefined} className="size-3.5" />
+                      {t("chat.reactedBy", { name: bot.name, emoji: row.reaction })}
+                    </span>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            )}
           </div>
         </div>
         {row.files && row.files.length > 0 && sessionId && (
@@ -3384,11 +3500,11 @@ function ChatRowView({
           // see sendMessage's own comment (above) for why this row exists
           // at all instead of the window.alert() it replaced.
           <div className="flex items-center gap-2 px-1">
-            <span className="text-[length:var(--redesign-chat-meta)] text-destructive"><ErrorText message={row.failed.errorText} /></span>
+            <span className="text-chat-meta text-destructive"><ErrorText message={row.failed.errorText} /></span>
             <button
               type="button"
               onClick={() => onRetryFailedMessage(row)}
-              className="text-[length:var(--redesign-chat-meta)] font-medium text-muted-foreground underline hover:text-foreground"
+              className="text-chat-meta font-medium text-muted-foreground underline hover:text-foreground"
             >
               {t("common.retry")}
             </button>
@@ -3409,7 +3525,7 @@ function ChatRowView({
                   ever been edited, but total stays 1 until a second branch
                   genuinely exists) -- most messages never show this. */}
               {row.branch && row.branch.total > 1 && (
-                <div className="flex items-center gap-0.5 text-[length:var(--redesign-chat-meta)] text-muted-foreground">
+                <div className="flex items-center gap-0.5 text-chat-meta text-muted-foreground">
                   <button
                     type="button"
                     disabled={row.branch.index <= 0}
@@ -3454,7 +3570,7 @@ function ChatRowView({
                     <button
                       type="button"
                       onClick={onCancelEdit}
-                      className="flex size-5 items-center justify-center rounded-md text-muted-foreground outline-hidden transition-transform duration-100 ease-out hover:bg-hover-2/50 hover:text-foreground active:scale-[0.97]"
+                      className="flex size-5 items-center justify-center rounded-md text-muted-foreground outline-hidden transition-transform duration-80 ease-out hover:bg-hover-2/50 hover:text-foreground active:scale-[0.97]"
                     >
                       <XIcon className="size-3" />
                     </button>
@@ -3472,7 +3588,7 @@ function ChatRowView({
                       <button
                         type="button"
                         onClick={() => onResendMessage(row)}
-                        className="flex size-5 items-center justify-center rounded-md text-muted-foreground outline-hidden transition-transform duration-100 ease-out hover:bg-hover-2/50 hover:text-foreground active:scale-[0.97]"
+                        className="flex size-5 items-center justify-center rounded-md text-muted-foreground outline-hidden transition-transform duration-80 ease-out hover:bg-hover-2/50 hover:text-foreground active:scale-[0.97]"
                       >
                         <RotateCcwIcon className="size-3" />
                       </button>
@@ -3484,7 +3600,7 @@ function ChatRowView({
                       <button
                         type="button"
                         onClick={() => onEditMessage(row)}
-                        className="flex size-5 items-center justify-center rounded-md text-muted-foreground outline-hidden transition-transform duration-100 ease-out hover:bg-hover-2/50 hover:text-foreground active:scale-[0.97]"
+                        className="flex size-5 items-center justify-center rounded-md text-muted-foreground outline-hidden transition-transform duration-80 ease-out hover:bg-hover-2/50 hover:text-foreground active:scale-[0.97]"
                       >
                         <EditIcon className="size-3" />
                       </button>
@@ -3518,12 +3634,12 @@ function ChatRowView({
               label (row.displayName above) exactly: both are identity labels above
               a message, and this one read larger/bolder than its symmetric
               counterpart for no reason tied to anything on screen. */}
-          <span className="text-[length:var(--redesign-chat-meta)] text-muted-foreground">Alongside</span>
+          <span className="text-chat-meta text-muted-foreground">Alongside</span>
         </div>
         {/* max-w-[95%], matching the agent row's own reply width below (not
             the human bubble's 80%) -- this is Alongside's own /share reply,
             not a human message. */}
-        <div className="max-w-[95%] px-1 text-[length:var(--redesign-chat-text)] whitespace-pre-wrap transition-[max-width] duration-200"><ErrorText message={row.text} /></div>
+        <div className="max-w-[95%] px-1 text-chat whitespace-pre-wrap transition-[max-width] duration-160"><ErrorText message={row.text} /></div>
         <MessageTime time={row.time} />
       </div>
     );
@@ -3554,26 +3670,53 @@ function ChatRowView({
           gap. Only rendered when the disclosure itself renders something
           -- an empty wrapper would still add its own margin with nothing
           inside to justify it. */}
-      {(row.durationLabel || liveWorking) && (
-        <div className="mb-2">
-          {row.durationLabel ? (
-            <TurnWorkDisclosure label={row.durationLabel} detailText={row.reasoningText} toolLines={row.toolCallLines} />
-          ) : (
-            liveWorking && <TurnWorkDisclosure label={liveWorking.label} detailText={liveWorking.detailText} live />
-          )}
-        </div>
-      )}
+      {/* Grows open (and fades in) when it appears over a reply already on screen -- "Worked for Ns"
+          landing when the turn ends -- so the reply eases down instead of jumping. Clipping is only on
+          while it moves, so its own focus ring and open panel aren't cut off at rest. */}
+      <AnimatePresence initial={false}>
+        {(row.durationLabel || liveWorking) && (
+          <motion.div
+            key="work"
+            // History loading in shows it as it is; only a live turn's grows.
+            initial={row.kind === "agent" && row.animate ? { height: 0, opacity: 0, overflow: "hidden" } : false}
+            animate={{
+              height: "auto",
+              opacity: 1,
+              transition: { height: { duration: 0.32, ease: [0.2, 0.8, 0.2, 1] }, opacity: { duration: 0.24, delay: 0.08 } },
+              transitionEnd: { overflow: "visible" },
+            }}
+            exit={{ height: 0, opacity: 0, overflow: "hidden", transition: { duration: 0.2, ease: [0.4, 0, 1, 1] } }}
+          >
+            <div className="pb-2">
+              {row.durationLabel ? (
+                <TurnWorkDisclosure label={row.durationLabel} detailText={row.reasoningText} toolLines={row.toolCallLines} />
+              ) : (
+                liveWorking && <TurnWorkDisclosure label={liveWorking.label} detailText={liveWorking.detailText} live />
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div className="flex items-center gap-1.5 px-1">
         {/* size-4 (16px; was size-5) -- per explicit request ("make sure
             that both icons are size 5 to match the size of the font at
-            the messages"), matching the row's own text-[length:var(--redesign-chat-meta)] label next to
+            the messages"), matching the row's own text-chat-meta label next to
             it instead of running larger than it. */}
         {bot && !row.runBy ? (
           // #504: a bot's own reply -- the bot, then the model that answered for it.
           <>
-            <BotFace avatar={bot.avatar ?? undefined} className="size-4" />
-            <span className="text-[length:var(--redesign-chat-meta)] text-foreground">{bot.name}</span>
-            <span className="text-[length:var(--redesign-chat-meta)] text-muted-foreground">· {row.modelLabel}</span>
+            <BotFace
+              avatar={bot.avatar ?? undefined}
+              expression={botMood ? moodFace(botMood).expression : replyMood}
+              breathe={botMood ? moodFace(botMood).breathe : false}
+              animated={latestReply}
+              className="size-4"
+            />
+            <span className="text-chat-meta text-foreground">{bot.name}</span>
+            {/* The model that answered for it, with its provider's mark, as any reply shows. */}
+            <span className="text-chat-meta text-muted-foreground">·</span>
+            {row.model.value !== AUTO_BOT_MODEL.value && <ProviderIcon model={row.model} className="size-3.5" />}
+            <span className="text-chat-meta text-muted-foreground">{row.modelLabel}</span>
           </>
         ) : (
           <>
@@ -3581,7 +3724,7 @@ function ChatRowView({
             {/* text-xs, no font-medium -- same fix as the "command" row's own
                 "Alongside" label just above: matches the "human" row's sender-name
                 label exactly, its real symmetric counterpart. */}
-            <span className="text-[length:var(--redesign-chat-meta)] text-muted-foreground">{row.modelLabel}</span>
+            <span className="text-chat-meta text-muted-foreground">{row.modelLabel}</span>
           </>
         )}
       </div>
@@ -3597,7 +3740,7 @@ function ChatRowView({
           the human bubble used -- the two should read differently now, an
           AI reply spans nearly the full column while a human message stays
           visually distinct as a bubble. */}
-      <div className="max-w-[95%] px-1 text-[length:var(--redesign-chat-text)] leading-relaxed transition-[max-width] duration-200">
+      <div className="w-full max-w-[95%] px-1 text-chat leading-relaxed transition-[max-width] duration-160">
         {/* A live run from someone else (#462) grows in place; StreamingText keeps its first text, so it's
             remounted on each update (without animation). */}
         <StreamingText key={row.relayRunId ? row.text : undefined} text={row.text} animate={row.animate} onDone={() => setActionsVisible(true)} />
@@ -3623,8 +3766,7 @@ function ChatRowView({
         <div className="t-row-in flex w-full flex-col items-start gap-1">
           {/* #462: someone else's run -- their effort isn't known here, and retrying would rerun it as
               this person's own turn. */}
-          <AgentMessageActions text={row.text} onRetry={row.runBy ? undefined : onRetry} effort={row.runBy ? undefined : row.effort} />
-          <MessageTime time={row.time} />
+          <AgentMessageActions text={row.text} onRetry={row.runBy ? undefined : onRetry} effort={row.runBy ? undefined : row.effort} time={row.time} />
         </div>
       )}
     </div>
@@ -3665,6 +3807,12 @@ function buildFileDiffRows(name: string, input: unknown): DiffRow[] | null {
 // deferred-group handling further up (a group immediately followed by the
 // reply, moved to render after it instead -- see that loop's own comment) --
 // one real FileDiffGroup-building path, not two copies that could drift.
+// The provider's own files (its memory and settings: ~/.claude, ~/.codex, ~/.gemini, ~/.grok) aren't
+// the person's work, so a change to them isn't shown in the chat.
+function isProviderOwnPath(path: string | null | undefined): boolean {
+  return Boolean(path && /(^|[\\/])\.(claude|codex|gemini|grok)[\\/]/.test(path));
+}
+
 function renderFileDiffGroupCard(
   toolGroup: Extract<ChatRow, { kind: "tool" }>[],
   onOpenFile: (path: string) => void
@@ -3673,7 +3821,7 @@ function renderFileDiffGroupCard(
   const files = toolGroup
     .map((r) => {
       const path = summarizeToolInput(r.input);
-      if (!path) return null;
+      if (!path || isProviderOwnPath(path)) return null;
       return { name: path.split("/").filter(Boolean).pop() ?? path, path, syncRows: buildFileDiffRows(r.name, r.input) };
     })
     .filter((f): f is NonNullable<typeof f> => f !== null);
@@ -3690,7 +3838,7 @@ function ToolRow({ name, summary, input }: { name: string; summary: string | nul
         type="button"
         disabled={!hasInput}
         onClick={() => setOpen((prev) => !prev)}
-        className="flex items-center gap-1 text-[length:var(--redesign-chat-meta)] text-muted-foreground italic disabled:cursor-default"
+        className="flex items-center gap-1 text-chat-meta text-muted-foreground italic disabled:cursor-default"
       >
         <span>
           {name}
@@ -3701,7 +3849,7 @@ function ToolRow({ name, summary, input }: { name: string; summary: string | nul
         )}
       </button>
       {open && (
-        <pre className="mt-1 max-w-full overflow-x-auto rounded-lg bg-muted px-2.5 py-2 text-[length:var(--redesign-chat-meta)] whitespace-pre-wrap text-muted-foreground">
+        <pre className="mt-1 max-w-full overflow-x-auto rounded-lg bg-muted px-2.5 py-2 text-chat-meta whitespace-pre-wrap text-muted-foreground">
           {JSON.stringify(input, null, 2)}
         </pre>
       )}
@@ -3800,8 +3948,8 @@ function SourceLink({ source }: { source: { label: string; href: string } }) {
           onError={() => setFaviconFailed(true)}
         />
       )}
-      <span className="min-w-0 text-[length:var(--redesign-chat-meta)] text-foreground">
-        {source.label || hostname} <span className="font-mono text-[length:var(--redesign-chat-meta)] text-muted-foreground opacity-50">{hostname}</span>
+      <span className="min-w-0 text-chat-meta text-foreground">
+        {source.label || hostname} <span className="font-mono text-chat-meta text-muted-foreground opacity-50">{hostname}</span>
       </span>
     </a>
   );
@@ -3847,7 +3995,7 @@ function TurnWorkDisclosure({
   // Plain, non-interactive label instead, exactly like Claude's own replies
   // that genuinely didn't use extended thinking this turn.
   if (!trimmedDetail && !hasToolLines) {
-    const labelEl = live ? <ThinkingState text={label} /> : <span className="text-[length:var(--redesign-chat-meta)] text-muted-foreground">{label}</span>;
+    const labelEl = live ? <ThinkingState text={label} /> : <span className="text-chat-meta text-muted-foreground">{label}</span>;
     return <div className="px-1">{labelEl}</div>;
   }
   // ThinkingReasoning (per explicit request, adopted from
@@ -3990,7 +4138,7 @@ function PermissionCard({
             ? t("chat.perm.deniedNoResponse")
             : t("chat.perm.denied");
     return (
-      <div className="flex items-center gap-1.5 px-1 text-[length:var(--redesign-chat-meta)] text-muted-foreground">
+      <div className="flex items-center gap-1.5 px-1 text-chat-meta text-muted-foreground">
         {status === "allow" ? <CheckIcon className="size-3.5 shrink-0" /> : <XIcon className="size-3.5 shrink-0" />}
         <span>
           {toolName}: {label}
@@ -4004,7 +4152,7 @@ function PermissionCard({
       {/* No icon beside the title any more -- per explicit follow-up
           ("we should have no icons there at the title"). */}
       <div className="flex items-center gap-2">
-        <p className="min-w-0 flex-1 truncate text-[length:var(--redesign-chat-text)] font-medium text-foreground">{t("chat.perm.allowToRun", { tool: toolName })}</p>
+        <p className="min-w-0 flex-1 truncate text-chat font-medium text-foreground">{t("chat.perm.allowToRun", { tool: toolName })}</p>
         {/* Per explicit follow-up ("is missing the x at the right top to
             cancel it and fully stop the command") -- denies this specific
             permission (the same real endpoint Deny already calls) and
@@ -4025,7 +4173,7 @@ function PermissionCard({
         </button>
       </div>
       {commandText && (
-        <pre className="max-w-full overflow-x-auto rounded-lg bg-muted px-2.5 py-2 text-[length:var(--redesign-chat-meta)] whitespace-pre-wrap text-foreground">
+        <pre className="max-w-full overflow-x-auto rounded-lg bg-muted px-2.5 py-2 text-chat-meta whitespace-pre-wrap text-foreground">
           {commandText}
         </pre>
       )}
@@ -4057,7 +4205,7 @@ function PermissionCard({
         )}
         <PermissionOptionRow number={commandText ? 3 : 2} label={t("common.no")} onClick={() => void answer("deny")} disabled={submitting} />
         <div className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-1.5">
-          <span className="flex size-4 shrink-0 items-center justify-center rounded bg-hover-2/50 text-[10px] font-semibold text-muted-foreground">
+          <span className="flex size-4 shrink-0 items-center justify-center rounded bg-hover-2/50 text-ui-2xs font-semibold text-muted-foreground">
             4
           </span>
           <input
@@ -4069,11 +4217,11 @@ function PermissionCard({
               if (event.key === "Enter" && otherText.trim()) void answer("deny", otherText.trim());
             }}
             placeholder={t("chat.perm.other")}
-            className="min-w-0 flex-1 bg-transparent text-[length:var(--redesign-chat-text)] text-foreground outline-none placeholder:text-muted-foreground"
+            className="min-w-0 flex-1 bg-transparent text-chat text-foreground outline-none placeholder:text-muted-foreground"
           />
         </div>
       </div>
-      <p className="px-2.5 text-[length:var(--redesign-chat-meta)] text-muted-foreground">{t("chat.perm.escToCancel")}</p>
+      <p className="px-2.5 text-chat-meta text-muted-foreground">{t("chat.perm.escToCancel")}</p>
     </div>
   );
 }
@@ -4097,9 +4245,9 @@ function PermissionOptionRow({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 text-left text-[length:var(--redesign-chat-text)] text-foreground transition-colors hover:bg-hover-2/50 disabled:opacity-50"
+      className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 text-left text-chat text-foreground transition-colors hover:bg-hover-2/50 disabled:opacity-50"
     >
-      <span className="flex size-4 shrink-0 items-center justify-center rounded bg-hover-2/50 text-[10px] font-semibold text-muted-foreground">
+      <span className="flex size-4 shrink-0 items-center justify-center rounded bg-hover-2/50 text-ui-2xs font-semibold text-muted-foreground">
         {number}
       </span>
       <span className="min-w-0 flex-1 truncate">{label}</span>
@@ -4111,7 +4259,10 @@ function AgentMessageActions({
   text,
   onRetry,
   effort,
+  time,
 }: {
+  // On the same line as the actions, after them, rather than a line of its own under them.
+  time?: string;
   text: string;
   onRetry?: () => void;
   effort?: EffortLevel;
@@ -4189,7 +4340,7 @@ function AgentMessageActions({
   // the human row's own Resend/Edit/Cancel buttons (ChatRowView's own
   // comment on those has the matching note).
   const iconButtonClass = (active: boolean) =>
-    `flex size-5 items-center justify-center rounded-md text-muted-foreground outline-hidden transition-transform duration-100 ease-out hover:bg-hover-2/50 hover:text-foreground active:scale-[0.97] ${active ? "bg-hover-2/50 text-foreground" : ""}`;
+    `flex size-5 items-center justify-center rounded-md text-muted-foreground outline-hidden transition-transform duration-80 ease-out hover:bg-hover-2/50 hover:text-foreground active:scale-[0.97] ${active ? "bg-hover-2/50 text-foreground" : ""}`;
 
   return (
     // Outer flex-col: the sources panel (below) is a real block sibling under
@@ -4266,7 +4417,7 @@ function AgentMessageActions({
           having a graph that we can only see when we hover bc is not
           clear"): the graph on its own read as decorative until you
           hovered it, unlike every other real value on this row. */}
-      {effort && <span className="px-1 text-[length:var(--redesign-chat-meta)] text-muted-foreground">{effortLabel(effort)} effort</span>}
+      {effort && <span className="px-1 text-chat-meta text-muted-foreground">{t("chat.effortUsed", { level: effortLabel(effort) })}</span>}
       {/* Sources -- same row as every other action, after effort, per explicit
           request (was its own separate block below the row before). A real
           dropdown trigger now, not a hover tooltip -- per explicit request:
@@ -4283,10 +4434,11 @@ function AgentMessageActions({
           className={`${iconButtonClass(sourcesOpen)} w-auto gap-1 px-1.5`}
         >
           <ResearchIcon className="size-3 shrink-0" />
-          <span className="text-[length:var(--redesign-chat-meta)]">{t("chat.sources", { count: sources.length })}</span>
+          <span className="text-chat-meta">{t("chat.sources", { count: sources.length })}</span>
           <ChevronDownIcon className={`size-3 shrink-0 transition-transform ${sourcesOpen ? "rotate-180" : ""}`} />
         </button>
       )}
+      {time && <MessageTime time={time} />}
       </div>
       {sources.length > 0 && (
         // Always mounted (gated on sources.length, not sourcesOpen) so the
@@ -4298,7 +4450,7 @@ function AgentMessageActions({
         // guessed cap, and this drawer's real height already varies with
         // however many sources a given reply cited.
         <div
-          className={`grid transition-[grid-template-rows] duration-200 ease-out ${sourcesOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+          className={`grid transition-[grid-template-rows] duration-160 ease-out ${sourcesOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
         >
           <div className="overflow-hidden">
             {/* marginLeft measured to the Source button's own real position
@@ -4338,7 +4490,7 @@ function AgentMessageActions({
 function AgentModeSwitch({ justChat, onChange }: { justChat: boolean; onChange: (justChat: boolean) => void }) {
   const { t } = useTranslation();
   const option = (active: boolean) =>
-    `h-6 rounded-md px-2.5 text-[12px] transition-colors ${active ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"}`;
+    `h-6 rounded-md px-2.5 text-ui-sm transition-colors ${active ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"}`;
   return (
     <div role="radiogroup" aria-label={t("chat.agentMode.label")} className="mb-2 inline-flex items-center gap-0.5 self-start rounded-lg bg-muted/60 p-0.5">
       <button type="button" role="radio" aria-checked={!justChat} className={option(!justChat)} onClick={() => onChange(false)}>
@@ -4379,7 +4531,7 @@ export function AttachmentView({ sessionId, file, sender, mine }: { sessionId: s
       cancelled = true;
     };
   }, [url]);
-  const chip = "flex max-w-64 flex-col gap-0.5 rounded-[var(--redesign-chat-bubble-radius)] border border-[var(--redesign-sidebar-border)] px-3 py-2 text-[12px]";
+  const chip = "flex max-w-64 flex-col gap-0.5 rounded-[var(--redesign-chat-bubble-radius)] border border-[var(--redesign-sidebar-border)] px-3 py-2 text-ui-sm";
   if (state === "ready" && file.media_type.startsWith("image/")) {
     return <img src={url} alt={file.name} className="max-h-64 max-w-64 rounded-[var(--redesign-chat-bubble-radius)] object-contain" />;
   }

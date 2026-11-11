@@ -68,7 +68,7 @@ function CitationLink({ href, children, ...props }: React.ComponentProps<"a"> & 
       href={href}
       target="_blank"
       rel="noreferrer"
-      className="mx-0.5 inline-flex h-[18px] translate-y-[-1px] items-center gap-1 rounded-[5px] border border-border bg-muted px-1.5 align-middle font-mono text-[10.5px] text-muted-foreground no-underline transition-colors hover:bg-hover-2/50 hover:text-foreground"
+      className="mx-0.5 inline-flex h-[18px] translate-y-[-1px] items-center gap-1 rounded-[5px] border border-border bg-muted px-1.5 align-middle font-mono text-ui-2xs text-muted-foreground no-underline transition-colors hover:bg-hover-2/50 hover:text-foreground"
     >
       {faviconFailed ? (
         <ResearchIcon className="size-3 shrink-0" />
@@ -108,7 +108,7 @@ function CitationLink({ href, children, ...props }: React.ComponentProps<"a"> & 
 // gap-1 spacing below the reply text (ChatRowView's own outer flex-col).
 function Paragraph({ children, ...props }: React.ComponentProps<"p"> & ExtraProps) {
   return (
-    <p className="mb-3 text-[length:var(--redesign-chat-text)] leading-relaxed last:mb-0" {...props}>
+    <p className="mb-3 text-chat leading-relaxed last:mb-0" {...props}>
       {children}
     </p>
   );
@@ -116,7 +116,7 @@ function Paragraph({ children, ...props }: React.ComponentProps<"p"> & ExtraProp
 
 function Heading({ children, ...props }: React.ComponentProps<"p"> & ExtraProps) {
   return (
-    <p className="mb-2 text-[length:var(--redesign-chat-text)] leading-relaxed font-semibold last:mb-0" {...props}>
+    <p className="mb-2 text-chat leading-relaxed font-semibold last:mb-0" {...props}>
       {children}
     </p>
   );
@@ -139,7 +139,7 @@ function Heading({ children, ...props }: React.ComponentProps<"p"> & ExtraProps)
 function Table({ children, ...props }: React.ComponentProps<"table"> & ExtraProps) {
   return (
     <div className="mb-3 overflow-x-auto last:mb-0">
-      <table className="w-full border-collapse text-[length:var(--redesign-chat-text)]" {...props}>
+      <table className="w-full border-collapse text-chat" {...props}>
         {children}
       </table>
     </div>
@@ -147,14 +147,14 @@ function Table({ children, ...props }: React.ComponentProps<"table"> & ExtraProp
 }
 function TableHeaderCell({ children, ...props }: React.ComponentProps<"th"> & ExtraProps) {
   return (
-    <th className="border border-border bg-muted/40 px-3 py-1.5 text-left text-[length:var(--redesign-chat-text)] font-semibold" {...props}>
+    <th className="border border-border bg-muted/40 px-3 py-1.5 text-left text-chat font-semibold" {...props}>
       {children}
     </th>
   );
 }
 function TableCell({ children, ...props }: React.ComponentProps<"td"> & ExtraProps) {
   return (
-    <td className="border border-border px-3 py-1.5 text-left text-[length:var(--redesign-chat-text)] align-top" {...props}>
+    <td className="border border-border px-3 py-1.5 text-left text-chat align-top" {...props}>
       {children}
     </td>
   );
@@ -168,14 +168,23 @@ function TableCell({ children, ...props }: React.ComponentProps<"td"> & ExtraPro
 // app's own compact 13px scale, tighter than a full document's default.
 function UnorderedList({ children, ...props }: React.ComponentProps<"ul"> & ExtraProps) {
   return (
-    <ul className="mb-3 list-disc space-y-1 pl-5 text-[length:var(--redesign-chat-text)] leading-relaxed last:mb-0" {...props}>
+    <ul className="mb-3 list-disc space-y-1 pl-5 text-chat leading-relaxed last:mb-0" {...props}>
       {children}
     </ul>
   );
 }
+// Streamdown's own list items carry py-1 on top of the list's space-y-1, which spread a short list
+// further apart than the paragraphs around it.
+function ListItem({ children, ...props }: React.ComponentProps<"li"> & ExtraProps) {
+  return (
+    <li className="[&>p]:inline" {...props}>
+      {children}
+    </li>
+  );
+}
 function OrderedList({ children, ...props }: React.ComponentProps<"ol"> & ExtraProps) {
   return (
-    <ol className="mb-3 list-decimal space-y-1 pl-5 text-[length:var(--redesign-chat-text)] leading-relaxed last:mb-0" {...props}>
+    <ol className="mb-3 list-decimal space-y-1 pl-5 text-chat leading-relaxed last:mb-0" {...props}>
       {children}
     </ol>
   );
@@ -201,6 +210,28 @@ const FILE_LINK_PATTERN = /\[([^\]]+)\]\(file:\/\/[^\s)]+\)/g;
 function stripFileLinks(text: string): string {
   return text.replace(FILE_LINK_PATTERN, "$1");
 }
+
+// Both renderers (history and live) draw a reply the same way, so a reply doesn't change look on reload.
+const MARKDOWN_COMPONENTS = {
+  a: CitationLink,
+  p: Paragraph,
+  h1: Heading,
+  h2: Heading,
+  h3: Heading,
+  h4: Heading,
+  h5: Heading,
+  h6: Heading,
+  table: Table,
+  th: TableHeaderCell,
+  td: TableCell,
+  ul: UnorderedList,
+  ol: OrderedList,
+  li: ListItem,
+};
+// Copy on code blocks only.
+const MARKDOWN_CONTROLS = { code: { copy: true, download: false }, table: false, mermaid: false } as const;
+// Streamdown spaces its blocks with space-y-4 on top of their own margins; our blocks set their own.
+const MARKDOWN_CLASS = "space-y-0";
 
 export function StreamingText({ text: rawText, animate, onDone }: { text: string; animate: boolean; onDone?: () => void }) {
   const text = useRef(stripFileLinks(rawText)).current;
@@ -251,22 +282,9 @@ export function StreamingText({ text: rawText, animate, onDone }: { text: string
     return (
       <Streamdown
         mode="static"
-        controls={false}
-        components={{
-          a: CitationLink,
-          p: Paragraph,
-          h1: Heading,
-          h2: Heading,
-          h3: Heading,
-          h4: Heading,
-          h5: Heading,
-          h6: Heading,
-          table: Table,
-          th: TableHeaderCell,
-          td: TableCell,
-          ul: UnorderedList,
-          ol: OrderedList,
-        }}
+        className={MARKDOWN_CLASS}
+        controls={MARKDOWN_CONTROLS}
+        components={MARKDOWN_COMPONENTS}
       >
         {text}
       </Streamdown>
@@ -291,21 +309,9 @@ export function StreamingText({ text: rawText, animate, onDone }: { text: string
     <Streamdown
       mode="streaming"
       animated={false}
-      controls={false}
-      components={{
-        a: CitationLink,
-        h1: Heading,
-        h2: Heading,
-        h3: Heading,
-        h4: Heading,
-        h5: Heading,
-        h6: Heading,
-        table: Table,
-        th: TableHeaderCell,
-        td: TableCell,
-        ul: UnorderedList,
-        ol: OrderedList,
-      }}
+      className={MARKDOWN_CLASS}
+      controls={MARKDOWN_CONTROLS}
+      components={MARKDOWN_COMPONENTS}
     >
       {revealed}
     </Streamdown>
