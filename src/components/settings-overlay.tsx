@@ -893,7 +893,14 @@ function ProviderSetupDialog({
       title={provider.displayName}
       // Where it stands, under the name (no "via ..." here: the overlay is about connecting it).
       description={<ConnectionBadge state={state} />}
-      actions={<ShellDialogActions cancelLabel={t("common.close")} onCancel={onClose} primary={primary} />}
+      // While a sign-in waits, Cancel stops it (so a sign-in closed in the browser can start again).
+      actions={
+        state === "waiting" ? (
+          <ShellDialogActions cancelLabel={t("common.cancel")} onCancel={setup.cancel} primary={primary} />
+        ) : (
+          <ShellDialogActions cancelLabel={t("common.close")} onCancel={onClose} primary={primary} />
+        )
+      }
     >
       <p className={cn("px-4 py-3 text-ui-sm text-muted-foreground", SHELL_CARD_BOX)}>
         <ErrorText message={body} />
@@ -931,6 +938,17 @@ function ProviderSetupDialog({
             </Button>
           )}
         </form>
+      )}
+      {/* Grok's xAI sign-in, again, if its tab was closed or never showed. */}
+      {setup.phase === "signing-in" && setup.link && (
+        <Button
+          type="button"
+          variant="tertiary"
+          className="h-10 w-full rounded-full"
+          onClick={() => window.open(setup.link ?? undefined, "_blank", "noopener,noreferrer")}
+        >
+          {t("settings.providers.setup.openSignIn")}
+        </Button>
       )}
       {installed && update.updateAvailable && (
         <Button
@@ -1008,8 +1026,11 @@ function useCliUpdate(binary: string, enabled: boolean, onUpdated: () => void) {
 function useProviderSetup(binary: string, providerName: string, refetch: () => Promise<boolean>) {
   const { t } = useTranslation();
   const [phase, setPhase] = useState<"idle" | "installing" | "signing-in" | "code" | "finishing">("idle");
-  // Antigravity's sign-in: the Google page it opened, which shows a code to paste here (antigravity_login.rs).
+  // The sign-in page the backend opened, to open again: Antigravity's Google page, which shows a code to
+  // paste here (antigravity_login.rs), or Grok's xAI page, which finishes by itself (grok_login.rs).
   const [link, setLink] = useState<string | null>(null);
+  // Which sign-in is current: Cancel, or a newer Sign in, stops an older one's wait.
+  const attempt = useRef(0);
 
   const install = async (): Promise<boolean> => {
     setPhase("installing");
@@ -1026,10 +1047,14 @@ function useProviderSetup(binary: string, providerName: string, refetch: () => P
   };
 
   const signIn = async () => {
+    const mine = ++attempt.current;
     setPhase("signing-in");
     const res = await fetch(`/cli/${encodeURIComponent(binary)}/login`, { method: "POST" }).catch(() => null);
-    // Antigravity answers with its Google link: the code from there finishes it (submitCode).
+    if (attempt.current !== mine) return;
+    // Antigravity answers with its Google link: the code from there finishes it (submitCode). Grok
+    // answers with its xAI link, kept to open again while this waits.
     const answer = res?.status === 200 ? ((await res.json().catch(() => null)) as { url?: string; needs_code?: boolean } | null) : null;
+    if (attempt.current !== mine) return;
     if (answer?.needs_code && answer.url) {
       setLink(answer.url);
       setPhase("code");
@@ -1041,11 +1066,23 @@ function useProviderSetup(binary: string, providerName: string, refetch: () => P
       showErrorToast(detail ? t("settings.providers.signInFailed", { provider: providerName, detail }) : t("settings.providers.noConnection"), { id: `login-${binary}` });
       return;
     }
-    for (let attempt = 0; attempt < 60; attempt++) {
+    setLink(answer?.url ?? null);
+    for (let check = 0; check < 60; check++) {
       await new Promise((resolve) => setTimeout(resolve, 2000));
+      if (attempt.current !== mine) return;
       if (await refetch()) break;
     }
+    if (attempt.current !== mine) return;
+    setLink(null);
     setPhase("idle");
+  };
+
+  // Stops waiting, and stops the sign-in itself where Alongside runs it (Antigravity, Grok).
+  const cancel = () => {
+    attempt.current++;
+    setLink(null);
+    setPhase("idle");
+    void fetch(`/cli/${encodeURIComponent(binary)}/login`, { method: "DELETE" }).catch(() => null);
   };
 
   const setUp = async (installed: boolean | undefined) => {
@@ -1073,7 +1110,7 @@ function useProviderSetup(binary: string, providerName: string, refetch: () => P
     showErrorToast(detail ? t("settings.providers.signInFailed", { provider: providerName, detail }) : t("settings.providers.noConnection"), { id: `login-${binary}` });
   };
 
-  return { phase, link, install, setUp, submitCode };
+  return { phase, link, install, setUp, submitCode, cancel };
 }
 
 // A provider's row: its icon, name and where it stands open its setup overlay (ProviderSetupDialog).

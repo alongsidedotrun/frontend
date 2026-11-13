@@ -1000,6 +1000,15 @@ export const translations = {
     zh: "重新打开 Google 登录",
     ja: "Google のログインをもう一度開く",
   },
+  "settings.providers.setup.openSignIn": {
+    en: "Open the sign-in page again",
+    "pt-BR": "Abrir a página de login de novo",
+    es: "Volver a abrir la página de inicio de sesión",
+    fr: "Rouvrir la page de connexion",
+    de: "Anmeldeseite erneut öffnen",
+    zh: "重新打开登录页面",
+    ja: "ログインページをもう一度開く",
+  },
   "settings.providers.setup.waitingForCode": {
     en: "Waiting for your code",
     "pt-BR": "Aguardando o código",
