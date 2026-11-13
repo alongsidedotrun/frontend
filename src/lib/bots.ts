@@ -55,9 +55,9 @@ export async function deleteBot(id: string): Promise<boolean> {
 export async function openBotChat(id: string, workspaceId?: string): Promise<string | BotError> {
   const response = await send(`/bots/${encodeURIComponent(id)}/chat`, "POST", { workspace_id: workspaceId });
   if (!response?.ok) return failureOf(response);
-  const { session_id } = (await response.json()) as { session_id: string };
+  const { chat_id } = (await response.json()) as { chat_id: string };
   changed();
-  return session_id;
+  return chat_id;
 }
 
 /** Your bots, favourites first. `scope` reloads them when the account changes. */

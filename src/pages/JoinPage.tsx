@@ -21,13 +21,13 @@ type RelayInvite = { relayUrl: string; relaySessionId: string; token: string };
 
 // What either the host-embedded gateway or the relay can refuse with, as text for the person joining.
 // The relay's own invite refusals (invalid/expired/revoked/used-up token, story #408) are worded the same
-// as the older gateway's session-token equivalents, so they share the same translated text.
+// as the older gateway's share-token equivalents, so they share the same translated text.
 const REFUSALS: Record<string, string> = {
   invalid_invite_link: "join.errors.invalidLink",
-  invalid_session_token: "join.errors.invalidInvite",
-  session_token_expired: "join.errors.expired",
-  session_token_revoked: "join.errors.revoked",
-  session_token_used_up: "join.errors.usedUp",
+  invalid_share_token: "join.errors.invalidInvite",
+  share_token_expired: "join.errors.expired",
+  share_token_revoked: "join.errors.revoked",
+  share_token_used_up: "join.errors.usedUp",
   join_denied: "join.errors.denied",
   not_hosting: "join.errors.notHosting",
   not_entitled: "join.errors.notEntitled",
@@ -114,7 +114,7 @@ export function JoinPage() {
         setPhase("failed");
         return;
       }
-      const { session_id: chatId } = (await created.json()) as { session_id: string };
+      const { chat_id: chatId } = (await created.json()) as { chat_id: string };
       await startRelaySync(chatId, invite, false);
     },
     [startRelaySync, t]

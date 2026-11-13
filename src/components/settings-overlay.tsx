@@ -2585,13 +2585,13 @@ function ImportChatsRows() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ file_name: file.name, content: await file.text(), workspace_id: workspaceId }),
       });
-      const body = (await response.json().catch(() => ({}))) as { session_id?: string; error?: string };
-      if (!response.ok || !body.session_id) {
+      const body = (await response.json().catch(() => ({}))) as { chat_id?: string; error?: string };
+      if (!response.ok || !body.chat_id) {
         const key = body.error === "not_markdown" ? "notMarkdown" : body.error === "empty" || body.error === "too_large" ? "unusable" : "failed";
         return showErrorToast(t(`settings.chat.import.errors.${key}`));
       }
       chatsImported();
-      navigate(`/chat/${body.session_id}`);
+      navigate(`/chat/${body.chat_id}`);
     } catch {
       showErrorToast(t("settings.chat.import.errors.failed"));
     } finally {
