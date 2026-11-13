@@ -70,7 +70,7 @@ export function JoinChatPage() {
           setError(t("joinChat.errors.generic"));
           return;
         }
-        localChat = ((await created.json()) as { session_id: string }).session_id;
+        localChat = ((await created.json()) as { chat_id: string }).chat_id;
         pendingChat.current = localChat;
       }
       const response = await fetch(`${CHATS_API}/${localChat}/relay/start`, {

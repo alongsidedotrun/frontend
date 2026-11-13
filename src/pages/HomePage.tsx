@@ -208,7 +208,7 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
         window.alert(t("home.createSessionFailed", { status: res.status }));
         return;
       }
-      const data: { session_id: string } = await res.json();
+      const data: { chat_id: string } = await res.json();
 
       // Applies any "Set as default for new chat" pick (compose-box.tsx's
       // own onPinDefaultModel/onPinDefaultEffort) now that the chat this
@@ -219,14 +219,14 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
       const senderName = userName;
       await Promise.all([
         pinnedDefaultModelRef.current
-          ? fetch(`${CHATS_API}/${data.session_id}/default-model`, {
+          ? fetch(`${CHATS_API}/${data.chat_id}/default-model`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ model: pinnedDefaultModelRef.current, sender_name: senderName }),
             })
           : undefined,
         pinnedDefaultEffortRef.current
-          ? fetch(`${CHATS_API}/${data.session_id}/default-effort`, {
+          ? fetch(`${CHATS_API}/${data.chat_id}/default-effort`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ effort: pinnedDefaultEffortRef.current, sender_name: senderName }),
@@ -237,7 +237,7 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
         // model/effort calls for the same reason: real before ChatPage's own
         // WS connects, not a race.
         pendingProjectId
-          ? fetch(`${CHATS_API}/${data.session_id}/project`, {
+          ? fetch(`${CHATS_API}/${data.chat_id}/project`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ project_id: pendingProjectId }),
@@ -266,7 +266,7 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
       sessionStorage.setItem(
         "alongside_pending_message",
         JSON.stringify({
-          sessionId: data.session_id,
+          sessionId: data.chat_id,
           prompt: trimmed,
           senderName: userName,
           images: images.length > 0 ? toImageInputs(images) : undefined,
@@ -288,12 +288,12 @@ export function HomePage({ shellContextOverride, onSessionCreated, onBotCreated 
         handoffTimerRef.current = null;
         setSending(false);
         if (onSessionCreated) {
-          onSessionCreated(data.session_id);
+          onSessionCreated(data.chat_id);
         } else {
           // composeHandoff: the compose box has already slid to where the
           // chat page keeps it, so the shell swaps pages without its
           // fade-out/fade-in (RedesignPage's surface key).
-          navigate(`/chat/${data.session_id}`, { state: { composeHandoff: true } });
+          navigate(`/chat/${data.chat_id}`, { state: { composeHandoff: true } });
         }
       }, 520);
       return;

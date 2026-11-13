@@ -17,7 +17,7 @@ const LOCAL = "local-1";
 function backend(start: { refuse?: string; status?: number; disclosure?: boolean } = {}) {
   let disclosureShown = false;
   return mockFetch(({ method, path, body }) => {
-    if (path === "/chats" && method === "POST") return { body: { session_id: LOCAL } };
+    if (path === "/chats" && method === "POST") return { body: { chat_id: LOCAL } };
     if (path === `/chats/${LOCAL}` && method === "DELETE") return { status: 204 };
     if (path === `/chats/${LOCAL}/relay/start`) {
       const ack = (body as { acknowledged_disclosure?: boolean }).acknowledged_disclosure;
