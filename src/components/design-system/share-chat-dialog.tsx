@@ -16,7 +16,8 @@ import { openSignInDialog } from "@/lib/use-sign-in";
 import { cn } from "@/lib/utils";
 import { CHATS_API } from "@/lib/chats-api";
 
-type Status = { syncing: boolean; chat_id: string | null; shared_before?: boolean };
+// `disclosure`: the relay disclosure, when sharing this chat would still ask for it (#409, #630).
+type Status = { syncing: boolean; chat_id: string | null; shared_before?: boolean; disclosure?: string };
 type JoinCode = { code?: string; status: "active" | "expired" | "used"; expires_at: number; role?: Role } | null;
 type Role = "admin" | "editor" | "participant" | "reader";
 type Member = { id: string; name: string; role: "owner" | Role; online: boolean };
@@ -55,6 +56,11 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
   const [code, setCode] = useState<JoinCode>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [disclosure, setDisclosure] = useState<string | null>(null);
+  // #630: agreed to the disclosure while this dialog is open, so Invite needn't ask again; "don't show this
+  // again" ticked; and whether the disclosure interrupted an Invite that should carry on once agreed.
+  const agreed = useRef(false);
+  const [dontShowAgain, setDontShowAgain] = useState(false);
+  const [resumeInvite, setResumeInvite] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState<"id" | "code" | "invite" | null>(null);
@@ -82,16 +88,20 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
 
   const load = useCallback(async () => {
     if (!sessionId) return null;
+    // #630: a chat that would still ask for the disclosure opens on it, before the role and the code.
+    let notice = false;
     try {
       const current = (await (await fetch(`${CHATS_API}/${sessionId}/relay/status`)).json()) as Status;
       setStatus(current);
       if (current.syncing) await refreshAccess();
+      notice = Boolean(current.disclosure) && !current.syncing && !agreed.current;
+      if (notice) setDisclosure(current.disclosure ?? null);
       return current;
     } catch {
       setError(t("shareChat.errors.start"));
       return null;
     } finally {
-      setPhase((previous) => (previous === "disclosure" ? previous : "ready"));
+      setPhase((previous) => (previous === "disclosure" || notice ? "disclosure" : "ready"));
     }
   }, [sessionId, refreshAccess, t]);
 
@@ -99,6 +109,9 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
     if (!open) return;
     setError(null);
     setDisclosure(null);
+    agreed.current = false;
+    setDontShowAgain(false);
+    setResumeInvite(false);
     setCode(null);
     setMembers([]);
     setTab("invite");
@@ -140,12 +153,13 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...(resume ? { relay_session_id: status!.chat_id } : {}),
-          ...(acknowledged ? { acknowledged_disclosure: true } : {}),
+          ...(acknowledged || agreed.current ? { acknowledged_disclosure: true } : {}),
         }),
       });
       if (response.status === 428) {
         const body = (await response.json().catch(() => ({}))) as { disclosure?: string };
         setDisclosure(body.disclosure ?? null);
+        setResumeInvite(true);
         setPhase("disclosure");
         return null;
       }
@@ -162,6 +176,25 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
     }
     setError(t("shareChat.errors.start"));
     return null;
+  }
+
+  // #630: agreeing to the disclosure. With "don't show this again" ticked it isn't shown for any chat
+  // until Settings > Chat turns it back on. An Invite it interrupted carries on.
+  async function agree() {
+    agreed.current = true;
+    if (dontShowAgain) {
+      await fetch("/settings/sharing-notice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hidden: true }),
+      }).catch(() => null);
+    }
+    setDisclosure(null);
+    setPhase("ready");
+    if (resumeInvite) {
+      setResumeInvite(false);
+      invite(true);
+    }
   }
 
   async function stop() {
@@ -350,7 +383,9 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
             !signedIn
               ? // Signed out: the same invite, with Sign in as its action (the Sign in page).
                 { label: t("shareChat.signInButton"), onClick: () => { onOpenChange(false); openSignInDialog(); } }
-              : phase === "ready"
+              : phase === "disclosure"
+                ? { label: t("shareChat.agree"), disabled: busy, onClick: () => void agree() }
+                : phase === "ready"
                 ? // Invite on New invite; Save (the member changes) on Manage members.
                   { label: t(tab === "invite" ? "shareChat.invite" : "common.save"), disabled: busy || (tab === "manage" && !hasEdits(edits)), onClick: () => (tab === "invite" ? invite() : void save()) }
                 : undefined
@@ -375,14 +410,10 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
         <div className={cn("flex flex-col gap-3 p-4", SHELL_CARD_BOX)}>
           <h3 className="text-ui font-medium text-foreground">{t("share.disclosure.title")}</h3>
           <p className="text-ui-sm text-muted-foreground">{disclosure}</p>
-          <div className="flex items-center gap-2">
-            <Button type="button" variant="tertiary" size="compact" disabled={busy} onClick={() => { setDisclosure(null); setPhase("ready"); }}>
-              {t("common.cancel")}
-            </Button>
-            <Button type="button" variant="accent" size="compact" disabled={busy} onClick={() => invite(true)}>
-              {t("shareChat.agreeInvite")}
-            </Button>
-          </div>
+          <label className="flex items-center gap-2 text-ui-sm text-foreground">
+            <Checkbox checked={dontShowAgain} onCheckedChange={(value) => setDontShowAgain(value === true)} />
+            {t("shareChat.dontShowAgain")}
+          </label>
         </div>
       ) : phase === "ready" ? (
         <div className="flex flex-col gap-3">
