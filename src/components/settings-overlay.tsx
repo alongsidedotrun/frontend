@@ -433,6 +433,7 @@ const SETTINGS_SEARCH_ENTRIES: SettingsSearchEntry[] = [
   { id: "font-smoothing", section: "appearance", titleKey: "settings.appearance.fontSmoothing.title", keywords: "antialiased crisp text rendering mac appearance", target: "setting-font-smoothing" },
   { id: "notify-turn-complete", section: "general", titleKey: "settings.general.notifyTurnComplete.title", keywords: "notification toast turn complete finished notify", target: "setting-notify-turn-complete" },
   { id: "chat-usage", section: "chat", titleKey: "settings.chat.usage.title", keywords: "usage sessions count local", target: "setting-chat-usage" },
+  { id: "sharing-notice", section: "chat", titleKey: "settings.chat.sharingNotice.title", keywords: "share invite relay disclosure notice before you share don't show again", target: "setting-sharing-notice" },
 ];
 
 // Simple substring ranking: a title match ranks above a keyword match,
@@ -2569,6 +2570,41 @@ function CheckpointProviderRow() {
   );
 }
 
+// #630: the Share dialog's "I understand, don't show this again", here to turn back off, so the relay
+// disclosure shows again the first time each chat is shared.
+function SharingNoticeRow() {
+  const { t } = useTranslation();
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/settings/sharing-notice")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { hidden: boolean } | null) => {
+        if (!cancelled && data) setHidden(data.hidden);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function update(value: boolean) {
+    setHidden(value);
+    const res = await fetch("/settings/sharing-notice", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hidden: value }),
+    }).catch(() => null);
+    if (!res?.ok) setHidden(!value);
+  }
+
+  return (
+    <SettingsRow id="setting-sharing-notice" title={t("settings.chat.sharingNotice.title")} description={t("settings.chat.sharingNotice.description")}>
+      <Switch checked={hidden} onToggle={() => void update(!hidden)} aria-label={t("settings.chat.sharingNotice.title")} />
+    </SettingsRow>
+  );
+}
+
 // Import (#539): chats made before signing in, which stop showing once you do, and `.md` files, the only
 // files import takes. Each comes into the workspace in view.
 function ImportChatsRows() {
@@ -2718,6 +2754,7 @@ function ChatSection() {
 
       <SettingsSection title={t("settings.chat.compact.title")}>
         <CheckpointProviderRow />
+        <SharingNoticeRow />
       </SettingsSection>
 
       <SettingsSection title={t("settings.chat.import.title")}>

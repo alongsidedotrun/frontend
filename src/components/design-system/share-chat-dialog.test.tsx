@@ -15,17 +15,21 @@ const inFifteen = () => Math.floor(Date.now() / 1000) + 15 * 60;
 
 // A backend for one chat: not shared until started (asking for the disclosure
 // first), then a chat ID, a code and two members.
-function backend(options: { sharedBefore?: boolean; startError?: string; staysDisconnected?: boolean; removeFails?: boolean; waiting?: boolean; alone?: boolean } = {}) {
+function backend(options: { sharedBefore?: boolean; startError?: string; staysDisconnected?: boolean; removeFails?: boolean; waiting?: boolean; alone?: boolean; notice?: boolean } = {}) {
   let syncing = false;
+  // #630: the status carries the disclosure until this chat's sharing is agreed to.
+  let agreed = false;
   let code: { code: string; status: string; expires_at: number } | null = null;
   let waiting = options.waiting ? [{ request_id: "req-1", actor: "acct-bob", name: "Bob", created_at: 0, expires_at: 0 }] : [];
   let members = [{ id: "acct-gio", name: "Gio", role: "owner", online: true }, ...(options.alone ? [] : [{ id: "acct-alice", name: "Alice", role: "editor", online: false }])];
   return mockFetch(({ method, path, body }) => {
-    if (path === `/chats/${CHAT}/relay/status`) return { body: { syncing, chat_id: "7KQ2M-9XF4T", shared_before: syncing || Boolean(options.sharedBefore) } };
+    if (path === `/chats/${CHAT}/relay/status`) return { body: { syncing, chat_id: "7KQ2M-9XF4T", shared_before: syncing || Boolean(options.sharedBefore), ...(options.notice && !agreed ? { disclosure: DISCLOSURE } : {}) } };
+    if (path === "/settings/sharing-notice") return { body };
     if (path === `/chats/${CHAT}/relay/start`) {
       if (options.startError) return { status: 502, body: { error: options.startError } };
       if (!(body as { acknowledged_disclosure?: boolean }).acknowledged_disclosure) return { status: 428, body: { error: "disclosure_required", disclosure: DISCLOSURE } };
       syncing = !options.staysDisconnected;
+      agreed = true;
       return { body: { relay_session_id: "7KQ2M-9XF4T" } };
     }
     if (path === `/chats/${CHAT}/relay/code` && method === "POST") {
@@ -102,6 +106,35 @@ describe("Share chat dialog (#213, #459)", () => {
     expect(await screen.findByText("7KQ2M-9XF4T")).toBeInTheDocument();
     expect(calls.filter((c) => c.path.endsWith("/relay/start")).map((c) => c.body)).toEqual([{}, { acknowledged_disclosure: true }]);
     await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.path.endsWith("/relay/code"))).toBe(true));
+  });
+
+  it("opens on the relay disclosure when the chat would still ask for it, before the role and the code (#630)", async () => {
+    const calls = backend({ notice: true });
+    renderDialog();
+    expect(await screen.findByText(DISCLOSURE)).toBeInTheDocument();
+    expect(screen.queryByText("Roles")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Invite" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("checkbox", { name: "I understand, don't show this again" }));
+    await userEvent.click(screen.getByRole("button", { name: "I agree" }));
+    // Remembered for every chat, then the invite as usual.
+    expect(calls.find((c) => c.path === "/settings/sharing-notice")?.body).toEqual({ hidden: true });
+    expect(await screen.findByText("Roles")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Invite" }));
+    await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.path.endsWith("/relay/code"))).toBe(true));
+    // Agreed once: the share needs no second disclosure.
+    expect(calls.filter((c) => c.path.endsWith("/relay/start")).map((c) => c.body)).toEqual([{ acknowledged_disclosure: true }]);
+  });
+
+  it("agreeing without ticking the box doesn't remember it, and Cancel closes the dialog (#630)", async () => {
+    const calls = backend({ notice: true });
+    const onOpenChange = vi.fn();
+    render(<ShareChatDialog sessionId={CHAT} open onOpenChange={onOpenChange} />);
+    expect(await screen.findByText(DISCLOSURE)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    await userEvent.click(screen.getByRole("button", { name: "I agree" }));
+    expect(await screen.findByText("Roles")).toBeInTheDocument();
+    expect(calls.some((c) => c.path === "/settings/sharing-notice")).toBe(false);
   });
 
   it("builds the role from the bottom up: unchecking Contributor invites as a Commenter, and Read is always on", async () => {
