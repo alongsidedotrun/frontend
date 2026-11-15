@@ -1467,6 +1467,12 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       }
 
       // #507: the chat's agents changed -- here, or by another member of a shared chat.
+      // #640: someone joined this shared chat (recorded once per person by the backend).
+      if (type === "member_joined") {
+        if (typeof event.name === "string" && event.name) pushMarker(i18n.t("chat.memberJoined", { name: event.name }));
+        return;
+      }
+
       if (type === "chat_agents_updated") {
         void chatAgentsReloadRef.current();
         if (typeof event.by === "string" && event.by) pushMarker(i18n.t("chat.agentsUpdatedBy", { name: event.by }));
@@ -3494,6 +3500,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
           // separate role driving the "Waiting"/"Thinking" shimmer above.
           awaitingReply={turnInProgress}
           onStop={stopTurn}
+          agentToolsOff={sharedChat && (justChat || commenterChat)}
           // No provider: a strip asks for one, and sending waits (submitPrompt). Not in a shared chat,
           // where messages to the people in it still go.
           notice={providerReady === false && !sharedChat ? <ProviderNotice onConnect={() => openSettings("provider")} /> : limitWarning.notice}

@@ -8,6 +8,8 @@ const auth = vi.hoisted(() => ({ signedIn: true }));
 vi.mock("@/lib/auth", () => ({ useIsSignedIn: () => auth.signedIn }));
 const signIn = vi.hoisted(() => ({ open: vi.fn() }));
 vi.mock("@/lib/use-sign-in", () => ({ openSignInDialog: signIn.open }));
+const toast = vi.hoisted(() => ({ error: vi.fn() }));
+vi.mock("@/components/ui/app-toast", () => ({ showErrorToast: toast.error }));
 
 const CHAT = "chat-1";
 const DISCLOSURE = "Sharing sends this chat through Alongside's relay.";
@@ -15,7 +17,7 @@ const inFifteen = () => Math.floor(Date.now() / 1000) + 15 * 60;
 
 // A backend for one chat: not shared until started (asking for the disclosure
 // first), then a chat ID, a code and two members.
-function backend(options: { sharedBefore?: boolean; startError?: string; staysDisconnected?: boolean; removeFails?: boolean; waiting?: boolean; alone?: boolean; notice?: boolean } = {}) {
+function backend(options: { sharedBefore?: boolean; startError?: string; staysDisconnected?: boolean; removeFails?: boolean; waiting?: boolean; alone?: boolean; notice?: boolean; codeError?: string } = {}) {
   let syncing = false;
   // #630: the status carries the disclosure until this chat's sharing is agreed to.
   let agreed = false;
@@ -33,6 +35,7 @@ function backend(options: { sharedBefore?: boolean; startError?: string; staysDi
       return { body: { relay_session_id: "7KQ2M-9XF4T" } };
     }
     if (path === `/chats/${CHAT}/relay/code` && method === "POST") {
+      if (options.codeError) return { status: 403, body: { error: options.codeError } };
       code = { code: "K7QF-2M9X", status: "active", expires_at: inFifteen(), role: (body as { role: string }).role } as typeof code;
       return { body: code };
     }
@@ -76,6 +79,7 @@ async function inviteAndAgree() {
 beforeEach(() => {
   auth.signedIn = true;
   signIn.open.mockReset();
+  toast.error.mockReset();
 });
 
 describe("Share chat dialog (#213, #459)", () => {
@@ -217,11 +221,18 @@ describe("Share chat dialog (#213, #459)", () => {
     await waitFor(() => expect(calls.filter((c) => c.path.endsWith("/relay/start")).map((c) => c.body)).toEqual([{ relay_session_id: "7KQ2M-9XF4T" }, { relay_session_id: "7KQ2M-9XF4T", acknowledged_disclosure: true }, { acknowledged_disclosure: true }]));
   });
 
+  it("says why the relay refused a join code instead of the generic ALS-020 (#635)", async () => {
+    backend({ codeError: "owner_or_admin_only" });
+    renderDialog();
+    await inviteAndAgree();
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("(ALS-049)"), { id: "share-chat" }));
+  });
+
   it("shows ALS-018 when the relay can't be reached", async () => {
     backend({ startError: "relay_unavailable" });
     renderDialog();
     await userEvent.click(await screen.findByRole("button", { name: "Invite" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("(ALS-018)");
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("(ALS-018)"), { id: "share-chat" }));
   });
 
   it("stops sharing", async () => {
@@ -275,7 +286,7 @@ describe("Share chat dialog (#213, #459)", () => {
     await openManage();
     await userEvent.click(await screen.findByRole("button", { name: "Remove Alice" }));
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't remove Alice. Try again. (ALS-026)");
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Couldn't remove Alice. Try again. (ALS-026)", { id: "share-chat" }));
     expect(screen.getByText("Alice")).toBeInTheDocument();
   });
 

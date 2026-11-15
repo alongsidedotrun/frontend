@@ -601,6 +601,7 @@ export function ComposeBox({
   onSteer,
   queue,
   notice,
+  agentToolsOff,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -617,6 +618,8 @@ export function ComposeBox({
   // makes that whole class of timing bug structurally impossible rather than
   // chasing the specific cause.
   onSubmit: (images: ImageAttachment[], effort: EffortLevel, permissionMode: PermissionMode) => void;
+  /** #639: a shared chat's "Just chat": no agent runs, so attachments, permissions, effort and model fade out. */
+  agentToolsOff?: boolean;
   placeholder: string;
   // HomePage-only, per explicit request: additional messages that rotate
   // in after `placeholder` itself (index 0 of the full sequence), using
@@ -1907,7 +1910,11 @@ export function ComposeBox({
       {/* translate-y-px: optical nudge, per request. The groups are measured
           centred, but the filled send circle and the bottom-heavy mic on the
           right make + and Model read as sitting higher. */}
-      <div className="flex translate-y-px items-center gap-1">
+      <div
+        className={cn("flex translate-y-px items-center gap-1 transition-opacity duration-160", agentToolsOff && "pointer-events-none opacity-40")}
+        inert={agentToolsOff || undefined}
+        aria-disabled={agentToolsOff || undefined}
+      >
         <BaseDropdownMenu
           size="compact"
           onOpenChange={(open) => {
@@ -2205,9 +2212,10 @@ export function ComposeBox({
             space, so nothing shifts) and the live wave fades in over them, against ✕ and ✓. */}
         <div className="relative flex items-center">
         <motion.div
-          inert={listening}
+          inert={listening || agentToolsOff}
+          aria-disabled={agentToolsOff || undefined}
           initial={false}
-          animate={{ opacity: listening ? 0 : 1 }}
+          animate={{ opacity: listening ? 0 : agentToolsOff ? 0.4 : 1 }}
           transition={fade}
           className="flex items-center gap-1"
         >
