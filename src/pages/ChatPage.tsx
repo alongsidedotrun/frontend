@@ -4992,6 +4992,8 @@ function sharedSendError(status: number): string | null {
   if (status === 413) return i18n.t("chat.errors.fileTooLarge");
   if (status === 429) return i18n.t("chat.errors.fileAllowance");
   if (status === 422) return i18n.t("chat.errors.sharedNotSent");
+  // #645: the message reached the chat, but the relay wouldn't run this device's agent on its provider.
+  if (status === 424) return i18n.t("chat.errors.providerNotAvailable");
   return null;
 }
 
