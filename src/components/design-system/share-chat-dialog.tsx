@@ -202,6 +202,12 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
     }
   }
 
+  function leaveDisclosure() {
+    setDisclosure(null);
+    setResumeInvite(false);
+    setPhase("ready");
+  }
+
   async function stop() {
     if (!sessionId) return;
     setBusy(true);
@@ -355,8 +361,9 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
       headerAlign="left"
       open={open}
       onOpenChange={onOpenChange}
+      // #630: the disclosure takes the dialog's place until it's agreed to or cancelled, so no tabs.
       top={
-        signedIn && (
+        signedIn && phase !== "disclosure" && (
           // Pill segmented control, like Library / Recents.
           <ShapeProvider defaultShape="pill">
             <Tabs size="compact" value={tab} onValueChange={(value) => setTab(value as "invite" | "manage")} className="self-center">
@@ -369,7 +376,7 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
           </ShapeProvider>
         )
       }
-      title={t("shareChat.title")}
+      title={t(phase === "disclosure" ? "share.disclosure.title" : "shareChat.title")}
       badge={
         // Pending or Shared; nothing until the chat is shared.
         signedIn && phase !== "loading" && state !== "notShared" && (
@@ -379,11 +386,12 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
           </span>
         )
       }
-      description={t(tab === "manage" ? "shareChat.manageDescription" : "shareChat.description")}
+      description={phase === "disclosure" ? null : t(tab === "manage" ? "shareChat.manageDescription" : "shareChat.description")}
       actions={
         <ShellDialogActions
           cancelLabel={t("common.cancel")}
-          onCancel={() => onOpenChange(false)}
+          // On the disclosure, Cancel goes on to Invite members without agreeing (Invite asks again).
+          onCancel={phase === "disclosure" ? leaveDisclosure : () => onOpenChange(false)}
           primary={
             !signedIn
               ? // Signed out: the same invite, with Sign in as its action (the Sign in page).
@@ -413,7 +421,6 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
         </div>
       ) : phase === "disclosure" ? (
         <div className={cn("flex flex-col gap-3 p-4", SHELL_CARD_BOX)}>
-          <h3 className="text-ui font-medium text-foreground">{t("share.disclosure.title")}</h3>
           <p className="text-ui-sm text-muted-foreground">{disclosure}</p>
           <label className="flex items-center gap-2 text-ui-sm text-foreground">
             <Checkbox checked={dontShowAgain} onCheckedChange={(value) => setDontShowAgain(value === true)} />

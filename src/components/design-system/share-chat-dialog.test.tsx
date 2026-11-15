@@ -129,15 +129,24 @@ describe("Share chat dialog (#213, #459)", () => {
     expect(calls.filter((c) => c.path.endsWith("/relay/start")).map((c) => c.body)).toEqual([{ acknowledged_disclosure: true }]);
   });
 
-  it("agreeing without ticking the box doesn't remember it, and Cancel closes the dialog (#630)", async () => {
+  it("the disclosure replaces Invite members; Cancel goes on to Invite members, and agreeing without the box isn't remembered (#630)", async () => {
     const calls = backend({ notice: true });
     const onOpenChange = vi.fn();
     render(<ShareChatDialog sessionId={CHAT} open onOpenChange={onOpenChange} />);
     expect(await screen.findByText(DISCLOSURE)).toBeInTheDocument();
+    expect(screen.getByText("Before you share")).toBeInTheDocument();
+    expect(screen.queryByText("Invite members")).not.toBeInTheDocument();
+    expect(screen.queryByText("When inviting members, provide the identifier and the temporary join code.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Manage members" })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(await screen.findByText("Invite members")).toBeInTheDocument();
+    expect(screen.getByText("Roles")).toBeInTheDocument();
+    // Invite without having agreed asks again, and agreeing then carries on the invite.
+    await userEvent.click(screen.getByRole("button", { name: "Invite" }));
+    expect(await screen.findByText(DISCLOSURE)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "I agree" }));
-    expect(await screen.findByText("Roles")).toBeInTheDocument();
+    await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.path.endsWith("/relay/code"))).toBe(true));
     expect(calls.some((c) => c.path === "/settings/sharing-notice")).toBe(false);
   });
 
