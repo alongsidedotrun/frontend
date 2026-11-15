@@ -3782,7 +3782,9 @@ function ChatRowViewInner({
     // messages, both indistinguishable from "me." Only a message that is
     // genuinely this device's own now gets the right-aligned treatment;
     // anyone else reads left, same side as an agent reply.
-    const isSelf = row.displayName === getUserDisplayName();
+    // By account where the message says (a shared chat's messages carry `mine`, from the sender's account
+    // id): two people with the same name aren't each other. By name only for this device's own local rows.
+    const isSelf = row.mine ?? row.displayName === getUserDisplayName();
     return (
       <div className={`flex flex-col gap-1 ${isSelf ? "items-end" : "items-start"}`}>
         {/* Header row now matches the agent row's own exact structure below
