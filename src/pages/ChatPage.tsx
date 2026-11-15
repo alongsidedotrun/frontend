@@ -121,7 +121,9 @@ type ChatRow =
       // the backend's own human_message broadcast, which a failed send never
       // triggers. images/effort are kept here (not just text) so Retry can
       // resend the exact same attempt, attachments included.
-      failed?: { errorText: string; images: ImageAttachment[]; effort: EffortLevel };
+      // `rerun`: a shared chat's message that did reach the chat, but its agent couldn't run (#648):
+      // Retry asks for a run on it instead of sending it again.
+      failed?: { errorText: string; images: ImageAttachment[]; effort: EffortLevel; rerun?: boolean };
       // #462: a message that came through the relay -- its sequence there, and whether it's this
       // person's own. Someone else's has no Resend or Edit here.
       relaySequence?: number;
@@ -2746,6 +2748,20 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
       awaitingReplyRef.current = false;
       setWaitingPhase(null);
     }
+    // #648: in a shared chat a 424 means the message is in the chat (the relay's echo is already shown) and
+    // only the agent couldn't run: the error goes on that message, with a Retry that reruns it, rather
+    // than a second copy of it.
+    if (!res.ok && sharedChat && res.status === 424) {
+      const errorText = sharedSendError(424) ?? i18n.t("chat.errors.sendFailed", { status: 424 });
+      let marked = false;
+      setRows((prev) => {
+        const index = lastOwnSharedIndex(prev);
+        if (index === -1) return prev;
+        marked = true;
+        return prev.map((row, i) => (i === index && row.kind === "human" ? { ...row, failed: { errorText, images: [], effort, rerun: true } } : row));
+      });
+      if (marked) return false;
+    }
     if (!res.ok) {
       // Real bug, confirmed directly ("my messaged should have gone to the
       // chat and with an error underneath so i can click retry"): this used
@@ -2870,6 +2886,15 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   }
 
   async function retryLastMessage() {
+    // #648: in a shared chat, regenerating runs your agent again on your last message, not a resend.
+    if (sharedChat) {
+      const index = lastOwnSharedIndex(rows);
+      const row = index === -1 ? undefined : rows[index];
+      if (row?.kind === "human") {
+        await rerunShared(row);
+        return;
+      }
+    }
     if (!lastHumanPromptRef.current) return;
     // Real fix, confirmed via a real transcript ("the retry did not do at
     // the first message but it sent a second message"): retry now
@@ -2897,8 +2922,36 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // so a second failure doesn't leave two copies of the same message
   // stacked in the log -- sendMessage pushes a fresh one of its own if this
   // attempt fails again too.
+  // #648: runs this person's agent again on their own message in a shared chat, without sending it again.
+  async function rerunShared(row: Extract<ChatRow, { kind: "human" }>) {
+    if (!sessionId || row.relaySequence === undefined) return;
+    const res = await fetch(`${CHATS_API}/${sessionId}/relay/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message_sequence: row.relaySequence, model: modelRef.current.value }),
+    }).catch(() => null);
+    if (res?.ok) {
+      setRows((prev) => prev.map((r) => (r.id === row.id && r.kind === "human" ? { ...r, failed: undefined } : r)));
+      awaitingReplyRef.current = true;
+      setTurnInProgress(true);
+      setWaitingPhase("waiting");
+      return;
+    }
+    const code = res ? ((await res.json().catch(() => ({}))) as { error?: string }).error : undefined;
+    const errorText = !res
+      ? i18n.t("chat.errors.sendFailed", { status: 0 })
+      : res.status === 424 || code === "no_provider_capability" || code === "provider_not_available"
+        ? i18n.t("chat.errors.providerNotAvailable")
+        : i18n.t("chat.errors.sendFailed", { status: res.status });
+    setRows((prev) => prev.map((r) => (r.id === row.id && r.kind === "human" ? { ...r, failed: { errorText, images: [], effort: sentEffortRef.current, rerun: true } } : r)));
+  }
+
   async function retryFailedMessage(row: Extract<ChatRow, { kind: "human" }>) {
     if (!row.failed) return;
+    if (row.failed.rerun && row.relaySequence !== undefined) {
+      await rerunShared(row);
+      return;
+    }
     setRows((prev) => prev.filter((r) => r.id !== row.id));
     await sendMessage(row.text, row.failed.images, row.failed.effort);
   }
@@ -2915,6 +2968,11 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // own send_message only keeps text/sender/effort in that event, images
   // are write-once to temp files at spawn time).
   async function resendMessage(row: Extract<ChatRow, { kind: "human" }>) {
+    // #648: in a shared chat your message is already in everyone's chat: run your agent on it again.
+    if (sharedChat && row.mine === true && row.relaySequence !== undefined) {
+      await rerunShared(row);
+      return;
+    }
     const editEventId = row.eventId;
     if (editEventId !== undefined) {
       setRows((prev) => {
@@ -4988,6 +5046,15 @@ function AgentModeSwitch({ justChat, onChange }: { justChat: boolean; onChange: 
 }
 
 // What a shared-chat send's failure means (#460, #462), or null for the generic message.
+// #648: the last row that is this person's own message in a shared chat (it has the relay's sequence).
+function lastOwnSharedIndex(rows: ChatRow[]): number {
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const row = rows[i];
+    if (row.kind === "human" && row.mine === true && row.relaySequence !== undefined) return i;
+  }
+  return -1;
+}
+
 function sharedSendError(status: number): string | null {
   if (status === 413) return i18n.t("chat.errors.fileTooLarge");
   if (status === 429) return i18n.t("chat.errors.fileAllowance");
