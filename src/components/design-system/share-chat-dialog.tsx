@@ -9,11 +9,11 @@ import { ShapeProvider } from "@/lib/shape-context";
 import { MoreTrigger } from "@/components/ui/more-trigger";
 import { ShellDialog, ShellDialogActions, ShellField, SHELL_CARD_BOX, SHELL_RADIUS, SHELL_SURFACE, useShellCard } from "@/components/design-system/shell-dialog";
 import { useIsSignedIn } from "@/lib/auth";
-import { ErrorText } from "@/lib/error-code";
 import { SHARE_ERRORS } from "@/lib/use-share";
 import { useJoinRequests, type WaitingJoin } from "@/lib/use-join-requests";
 import { openSignInDialog } from "@/lib/use-sign-in";
 import { cn } from "@/lib/utils";
+import { showErrorToast } from "@/components/ui/app-toast";
 import { CHATS_API } from "@/lib/chats-api";
 
 // `disclosure`: the relay disclosure, when sharing this chat would still ask for it (#409, #630).
@@ -75,6 +75,11 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
   const sharing = Boolean(status?.syncing);
   // #460: people who asked to join this chat and are waiting for someone to let them in.
   const waiting = useJoinRequests(sessionId, open && sharing);
+  // #636: an error shows as a toast, not under the dialog's content, where it made an already tall dialog
+  // taller than the window.
+  useEffect(() => {
+    if (error) showErrorToast(error, { id: "share-chat" });
+  }, [error]);
 
   const refreshAccess = useCallback(async () => {
     if (!sessionId) return;
@@ -460,12 +465,6 @@ export function ShareChatDialog({ sessionId, open, onOpenChange }: { sessionId: 
       )}
       </div>
 
-      {/* Either page's error, outside both so it shows on the tab that caused it. */}
-      {error && (
-        <p role="alert" className="-mt-2 text-ui-sm text-destructive">
-          <ErrorText message={error} />
-        </p>
-      )}
     </ShellDialog>
   );
 }

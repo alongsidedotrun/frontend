@@ -39,6 +39,10 @@ export const SHARE_ERRORS: Record<string, string> = {
   join_code_used: "joinChat.errors.used",
   too_many_attempts: "joinChat.errors.tooMany",
   already_member: "joinChat.errors.alreadyMember",
+  // #635: the relay's own refusals, instead of the generic ALS-019/ALS-020.
+  invalid_token: "shareChat.errors.signInAgain",
+  owner_or_admin_only: "shareChat.errors.ownerOnly",
+  owner_only: "shareChat.errors.ownerOnly",
 };
 
 // What a person typed, in the XXXX-XXXX / XXXXX-XXXXX shape they're shown:
