@@ -4239,6 +4239,15 @@ export const translations = {
     zh: "你已退出 Alongside。请在设置中重新登录，然后重试。",
     ja: "Alongside からサインアウトしています。設定から再度サインインして、もう一度お試しください。",
   },
+  "chat.errors.providerNotAvailable": {
+    en: "Your message is in the chat, but your agent couldn't answer: the shared chat doesn't see that provider as connected on this device. Check Settings > Providers, then try again. (ALS-050)",
+    "pt-BR": "Sua mensagem está na conversa, mas seu agente não pôde responder: a conversa compartilhada não vê esse provedor conectado neste dispositivo. Verifique Configurações > Provedores e tente de novo. (ALS-050)",
+    es: "Tu mensaje está en el chat, pero tu agente no pudo responder: el chat compartido no ve ese proveedor conectado en este dispositivo. Revisa Ajustes > Proveedores y vuelve a intentarlo. (ALS-050)",
+    fr: "Votre message est dans la discussion, mais votre agent n'a pas pu répondre : la discussion partagée ne voit pas ce fournisseur connecté sur cet appareil. Vérifiez Réglages > Fournisseurs, puis réessayez. (ALS-050)",
+    de: "Deine Nachricht ist im Chat, aber dein Agent konnte nicht antworten: Der geteilte Chat sieht diesen Anbieter auf diesem Gerät nicht als verbunden. Prüfe Einstellungen > Anbieter und versuche es erneut. (ALS-050)",
+    zh: "你的消息已在聊天中，但你的智能体无法回复：共享聊天未检测到此设备上已连接该提供方。请检查“设置 > 提供方”，然后重试。(ALS-050)",
+    ja: "メッセージはチャットに届きましたが、エージェントが返信できませんでした。共有チャットでは、このデバイスでそのプロバイダーが接続されていると認識されていません。設定 > プロバイダーを確認して、もう一度お試しください。(ALS-050)",
+  },
   "chat.errors.sendFailed": {
     en: "Failed to send message (status {{status}}). (ALS-009)",
     "pt-BR": "Falha ao enviar a mensagem (status {{status}}). (ALS-009)",
