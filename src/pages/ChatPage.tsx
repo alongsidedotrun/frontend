@@ -217,7 +217,8 @@ type ChatRow =
       input: unknown;
       status: "pending" | "allow" | "deny" | "cancelled" | "timed_out";
     }
-  | { kind: "marker"; id: string; text: string; handoffEventId?: number };
+  // `pulse`: still going (joining a shared chat: "Waiting to be let in", then "Loading chat").
+  | { kind: "marker"; id: string; text: string; handoffEventId?: number; pulse?: boolean };
 
 function normalizeTaskStatus(value: unknown): TaskProgressStatus {
   if (value === "completed" || value === "done") return "completed";
@@ -1190,6 +1191,10 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // same as before -- a real new message arriving on its own isn't a
   // cascade.
   const historicalRowIdsRef = useRef<Set<string>>(new Set());
+  // Joining a shared chat: the one line that shows how it's going, and whether its history is arriving
+  // now (those rows are held back, then fade in together, like a reopened chat's, instead of typing out).
+  const joinMarkerIdRef = useRef<string | null>(null);
+  const loadingHistoryRef = useRef(false);
   // DOM node per row, keyed by id -- replay_complete's own viewport check
   // below (once, after scrolling to bottom) needs each historical row's
   // real position to sort them into "fade together" vs "just there,
@@ -1282,6 +1287,8 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     suppressInitialHandoffHumanEntranceRef.current = false;
     noEntranceRowIdsRef.current = new Set();
     historicalRowIdsRef.current = new Set();
+    joinMarkerIdRef.current = null;
+    loadingHistoryRef.current = false;
     rowElsRef.current = new Map();
     pendingBranchReplayRef.current = null;
     lastHumanPromptRef.current = "";
@@ -1324,8 +1331,29 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
     }
   }
 
+  // Fades in the held-back history rows in view (the rest just appear): after a reopened chat's replay,
+  // and after a joined chat's history arrives. A frame later, so layout has settled.
+  function revealHistoricalRows() {
+    requestAnimationFrame(() => {
+      const container = chatLogRef.current;
+      if (!container) return;
+      const containerRect = container.getBoundingClientRect();
+      const visible = new Set<string>();
+      for (const id of historicalRowIdsRef.current) {
+        const node = rowElsRef.current.get(id);
+        if (!node) continue;
+        const rect = node.getBoundingClientRect();
+        if (rect.bottom > containerRect.top && rect.top < containerRect.bottom) {
+          visible.add(id);
+        }
+      }
+      setViewportVisibleRowIds(visible);
+      setHistoricalRowsRevealed(true);
+    });
+  }
+
   function pushRow(row: ChatRow) {
-    if (!historyReplayedRef.current) historicalRowIdsRef.current.add(row.id);
+    if (!historyReplayedRef.current || loadingHistoryRef.current) historicalRowIdsRef.current.add(row.id);
     if (pendingBranchReplayRef.current) {
       pendingBranchReplayRef.current.push(row);
       return;
@@ -1876,22 +1904,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         // getBoundingClientRect below reads real positions. historicalRowIdsRef
         // (not `rows`, a stale closure this handler was set up before) has
         // every row id replay actually pushed.
-        requestAnimationFrame(() => {
-          const container = chatLogRef.current;
-          if (!container) return;
-          const containerRect = container.getBoundingClientRect();
-          const visible = new Set<string>();
-          for (const id of historicalRowIdsRef.current) {
-            const node = rowElsRef.current.get(id);
-            if (!node) continue;
-            const rect = node.getBoundingClientRect();
-            if (rect.bottom > containerRect.top && rect.top < containerRect.bottom) {
-              visible.add(id);
-            }
-          }
-          setViewportVisibleRowIds(visible);
-          setHistoricalRowsRevealed(true);
-        });
+        revealHistoricalRows();
 
         // Reopening an existing chat defaults the picker to the live session
         // model (serverModelRef from chat_defaults / last model_changed), then
@@ -2339,7 +2352,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
                 text: block.text,
                 modelLabel: rowModel.label,
                 model: rowModel,
-                animate: historyReplayedRef.current,
+                animate: historyReplayedRef.current && !loadingHistoryRef.current,
                 // The server's timestamp, so a replayed reply shows when it arrived.
                 time: typeof event.created_at === "string" ? formatMessageTimestamp(parseServerTimestampMs(event.created_at)) : messageTime(),
                 effort: sentEffortRef.current,
@@ -2359,7 +2372,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
               if (pendingBranchReplayRef.current) {
                 pendingBranchReplayRef.current = merged(pendingBranchReplayRef.current);
               } else {
-                if (!historyReplayedRef.current) historicalRowIdsRef.current.add(agentRowId);
+                if (!historyReplayedRef.current || loadingHistoryRef.current) historicalRowIdsRef.current.add(agentRowId);
                 setRows(merged);
                 scrollToBottomIfNear();
               }
@@ -2466,8 +2479,41 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
         return;
       }
       // #460: how this device's own request to join is going.
+      // Joining a shared chat: one line, changed in place (waiting, then loading, then joined), instead of
+      // a message for each step. A refusal or an expired code is still said as a message.
       if (type === "join_status") {
-        pushRow({ kind: "command", id: nextRowId(), text: i18n.t(`chat.joinStatus.${event.status as string}`), time: messageTime() });
+        const status = event.status as string;
+        const line =
+          status === "waiting"
+            ? { text: i18n.t("chat.joinStatus.waitingLine"), pulse: true }
+            : status === "approved"
+              ? { text: i18n.t("chat.joinStatus.loading"), pulse: true }
+              : status === "loaded"
+                ? { text: i18n.t("chat.joinStatus.joined"), pulse: false }
+                : null;
+        if (!line) {
+          pushRow({ kind: "command", id: nextRowId(), text: i18n.t(`chat.joinStatus.${status}`), time: messageTime() });
+          return;
+        }
+        // Live: the history about to arrive is held back, to fade in together once it's all here.
+        if (status === "approved" && historyReplayedRef.current) {
+          for (const id of historicalRowIdsRef.current) noEntranceRowIdsRef.current.add(id);
+          historicalRowIdsRef.current = new Set();
+          loadingHistoryRef.current = true;
+          setHistoricalRowsRevealed(false);
+        }
+        if (status === "loaded" && loadingHistoryRef.current) {
+          loadingHistoryRef.current = false;
+          revealHistoricalRows();
+        }
+        const markerId = joinMarkerIdRef.current;
+        if (markerId) {
+          setRows((prev) => prev.map((row) => (row.id === markerId && row.kind === "marker" ? { ...row, ...line } : row)));
+        } else {
+          const id = nextRowId();
+          joinMarkerIdRef.current = id;
+          pushRow({ kind: "marker", id, ...line });
+        }
         return;
       }
       // #460: someone asked to join a chat this person can let people into.
@@ -3792,7 +3838,11 @@ function ChatRowViewInner({
         </div>
       );
     }
-    return <div className="text-center text-chat-meta text-muted-foreground/70"><ErrorText message={row.text} /></div>;
+    return (
+      <div className={`text-center text-chat-meta text-muted-foreground/70${row.pulse ? " animate-pulse" : ""}`} role={row.pulse ? "status" : undefined}>
+        <ErrorText message={row.text} />
+      </div>
+    );
   }
 
   if (row.kind === "tool") {
