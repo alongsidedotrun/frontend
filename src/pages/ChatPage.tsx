@@ -830,7 +830,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // correct *which* model once they know this specific chat's own better,
   // without ever toggling hasModel back off in between.
   const [defaultModelValue, setDefaultModelValue] = useState<string | undefined>(
-    () => loadLastModel() ?? (QUICK_CHAT_MODELS.find((m) => m.label === "Claude Sonnet 5") ?? QUICK_CHAT_MODELS[0])?.value
+    () => loadLastModel() ?? fallbackModel()?.value
   );
   // This chat's own per-chat default effort -- arrives over the WS's
   // "chat_defaults" message (handleEvent below), same per-chat override
@@ -935,7 +935,7 @@ export function ChatPage({ sessionIdOverride, shellContextOverride }: ChatPagePr
   // icon/invertInDark to render that provider's real mark (ChatRow's own comment
   // above has the full reasoning), not only its display name.
   const modelRef = useRef<(typeof QUICK_CHAT_MODELS)[number]>(
-    QUICK_CHAT_MODELS.find((m) => m.label === "Claude Sonnet 5") ?? QUICK_CHAT_MODELS[0]
+    fallbackModel() ?? QUICK_CHAT_MODELS[0]
   );
   // The live session's model on the server (chat_defaults.current_model, then
   // each model_changed). sendMessage only POSTs a model when the picker differs
@@ -5047,6 +5047,14 @@ function AgentModeSwitch({ justChat, onChange }: { justChat: boolean; onChange: 
 
 // What a shared-chat send's failure means (#460, #462), or null for the generic message.
 // #648: the last row that is this person's own message in a shared chat (it has the relay's sequence).
+// The model to start on when nothing was picked yet (a new install, say). Not by label or position: once
+// the providers' own lists arrive (lib/model-catalog.ts), their built-in entries are relabelled and moved
+// to the end, so "Claude Sonnet 5" or the first entry could be a provider that isn't set up at all
+// (Devstral, in a fresh Alongside 2). A listed Claude model, else any listed model.
+function fallbackModel(): (typeof QUICK_CHAT_MODELS)[number] | undefined {
+  return QUICK_CHAT_MODELS.find((m) => m.configured && m.provider === "Claude") ?? QUICK_CHAT_MODELS.find((m) => m.configured);
+}
+
 function lastOwnSharedIndex(rows: ChatRow[]): number {
   for (let i = rows.length - 1; i >= 0; i--) {
     const row = rows[i];
